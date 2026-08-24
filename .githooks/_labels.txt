@@ -1,0 +1,8 @@
+feat
+fix
+style
+refactor
+test
+build
+front
+chore
