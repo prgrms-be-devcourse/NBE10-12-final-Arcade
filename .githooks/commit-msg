@@ -1,0 +1,20 @@
+#!/bin/sh
+
+LABELS_FILE="$(dirname "$0")/_labels.txt"
+COMMIT_MSG_FILE="$1"
+FIRST_LINE=$(head -n1 "$COMMIT_MSG_FILE")
+
+LABEL=$(echo "$FIRST_LINE" | sed -nE 's/^([A-Za-z]+):.*/\1/p')
+
+if [ -z "$LABEL" ]; then
+  echo "커밋 메시지는 '라벨: 내용' 형식이어야 합니다."
+  exit 1
+fi
+
+if ! grep -v '^[[:space:]]*$' "$LABELS_FILE" | grep -qxF "$LABEL"; then
+  echo "알 수 없는 라벨입니다: '$LABEL'"
+  echo "유효한 라벨: $(grep -v '^[[:space:]]*$' "$LABELS_FILE" | paste -sd, - | sed 's/,/, /g')"
+  exit 1
+fi
+
+exit 0

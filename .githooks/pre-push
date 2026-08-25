@@ -1,0 +1,13 @@
+#!/bin/sh
+# pre-push
+
+# test
+# echo "=== 단위테스트 ==="
+# ./gradlew test || exit 1
+
+# branch name check
+hook_dir=$(dirname "$0")
+
+sh "$hook_dir/_push-branch-name-check.sh" || exit 1
+
+exit 0
