@@ -1,0 +1,64 @@
+# name: CI
+
+# on:
+#   push:
+#     branches: [main, develop]
+#     paths:
+#       - "back/**"
+#       - "front/**"
+#   pull_request:
+#     branches: [main, develop]
+#     paths-ignore:
+#       - "back/**"
+#       - "front/**"
+
+# concurrency:
+#   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+#   cancel-in-progress: true
+
+# jobs:
+#   changes:
+#     runs-on: ubuntu-latest
+#     outputs:
+#       backend: ${{ steps.filter.outputs.backend }}
+#       frontend: ${{ steps.filter.outputs.frontend }}
+#     steps:
+#       - uses: actions/checkout@v5
+#       - uses: dorny/paths-filter@v3
+#         id: filter
+#         with:
+#           filters: |
+#             backend:
+#               - 'back/**'
+#             frontend:
+#               - 'front/**'
+
+#   backend:
+#     needs: changes
+#     if: |
+#       needs.changes.outputs.backend == 'true' && (
+#         github.event_name == 'pull_request' ||
+#         github.event_name == 'workflow_dispatch'
+#       )
+#     runs-on: ubuntu-latest
+#     # jdk
+#     # yaml 배치
+#     # gradle
+#     # test
+#     # test 실패시 리포트 업로드: retention days 설정할 것
+
+#   frontend:
+#     needs: changes
+#     if: |
+#       needs.changes.outputs.frontend == 'true' && (
+#         github.event_name == 'pull_request' ||
+#         github.event_name == 'workflow_dispatch'
+#       )
+#     runs-on: ubuntu-latest
+#     # node js {version}
+#     # pnpm 설치
+#     # nodejs 설정 pnpm 캐시 연동
+#     # next js 빌드 캐시 설정
+#     # pnpm lock yaml 기반 패키지
+#     # ci 검증 TSC, ESLint
+#     # next.js 빌드
