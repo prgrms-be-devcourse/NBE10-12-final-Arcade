@@ -117,7 +117,7 @@ public class CustomAuthenticationFilter extends OncePerRequestFilter {
 
         UserDetails user = new SecurityUser(
                 member.getId(),
-                member.getUsername(),
+                member.getEmail(),
                 member.getName(),
                 member.getAuthorities()
         );

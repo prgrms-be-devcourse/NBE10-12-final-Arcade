@@ -35,19 +35,19 @@ public class NotProdInitData {
         if (memberService.count() > 0) return;
 
         Member memberSystem = memberService.join("system", "1234", "시스템");
-        memberSystem.modifyApiKey(memberSystem.getUsername());
+        memberSystem.modifyApiKey(memberSystem.getEmail());
 
         Member memberAdmin = memberService.join("admin", "1234", "관리자");
-        memberAdmin.modifyApiKey(memberAdmin.getUsername());
+        memberAdmin.modifyApiKey(memberAdmin.getEmail());
 
         Member memberUser1 = memberService.join("user1", "1234", "유저1");
-        memberUser1.modifyApiKey(memberUser1.getUsername());
+        memberUser1.modifyApiKey(memberUser1.getEmail());
 
         Member memberUser2 = memberService.join("user2", "1234", "유저2");
-        memberUser2.modifyApiKey(memberUser2.getUsername());
+        memberUser2.modifyApiKey(memberUser2.getEmail());
 
         Member memberUser3 = memberService.join("user3", "1234", "유저3");
-        memberUser3.modifyApiKey(memberUser3.getUsername());
+        memberUser3.modifyApiKey(memberUser3.getEmail());
 
         customConfigProperties.getNotProdMembers().forEach(notProdMember -> {
             Member socialMember = memberService.join(notProdMember.username(), null, notProdMember.nickname(), notProdMember.profileImgUrl());
