@@ -35,3 +35,10 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Custom ###
+.claude
+db_dev.mv.db
+db_dev.trace.db
+db_dev.lock.db
+.env
