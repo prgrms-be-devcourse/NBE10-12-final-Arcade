@@ -35,7 +35,7 @@ public class Member extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private Role role = Role.MEMBER;
 
-    public Member(int id, String email, String nickname) {
+    public Member(long id, String email, String nickname) {
         setId(id);
         this.email = email;
         this.name = nickname;
