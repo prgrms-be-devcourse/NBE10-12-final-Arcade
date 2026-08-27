@@ -118,6 +118,6 @@ public class Party extends BaseEntity {
     }
 
     public boolean isOwnedBy(Member member) {
-        return this.owner.getId() == member.getId();
+        return this.owner.getId().equals(member.getId());
     }
 }
