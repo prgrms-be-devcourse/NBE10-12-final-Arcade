@@ -9,7 +9,7 @@ import jakarta.persistence.LockModeType;
 
 import java.util.Optional;
 
-public interface PositionRepository extends JpaRepository<Position, Integer> {
+public interface PositionRepository extends JpaRepository<Position, Long> {
 
     // 승인 처리 시 @Version 값을 최신으로 다시 읽기 위한 명시적 낙관적 락 조회
     @Lock(LockModeType.OPTIMISTIC_FORCE_INCREMENT)
