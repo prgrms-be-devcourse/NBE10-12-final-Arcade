@@ -25,11 +25,11 @@ public class MemberProfile extends BaseEntity {
     private final List<MemberProfileTechStack> techStacks = new ArrayList<>();
 
 
-    public MemberProfile(Member member, String nickname, String webPage, List<Position> positions, List<String> techStacks) {
+    public MemberProfile(Member member, String nickname, String webPage, List<PositionType> positionTypes, List<String> techStacks) {
         this.member = member;
         this.nickname = nickname;
         this.webPage = webPage;
-        positions.forEach(position -> this.positions.add(new MemberProfilePosition(this, position)));
+        positionTypes.forEach(positionType -> this.positions.add(new MemberProfilePosition(this, positionType)));
         techStacks.forEach(techStack -> this.techStacks.add(new MemberProfileTechStack(this, techStack)));
     }
 
