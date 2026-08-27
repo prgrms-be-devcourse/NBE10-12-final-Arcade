@@ -1,5 +1,6 @@
 package com.back.global.initData;
 
+import com.back.domain.member.member.dtos.MemberDto;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.service.MemberService;
 import com.back.global.app.CustomConfigProperties;
@@ -34,33 +35,37 @@ public class NotProdInitData {
     public void work1() {
         if (memberService.count() > 0) return;
 
-        Member memberSystem = memberService.join("system", "1234", "시스템");
-        memberSystem.modifyApiKey(memberSystem.getUsername());
+        createMemberWithApiKey("system", "1234", "시스템", "system");
 
-        Member memberAdmin = memberService.join("admin", "1234", "관리자");
-        memberAdmin.modifyApiKey(memberAdmin.getUsername());
+        createMemberWithApiKey("admin", "1234", "관리자", "admin");
 
-        Member memberUser1 = memberService.join("user1", "1234", "유저1");
-        memberUser1.modifyApiKey(memberUser1.getUsername());
+        createMemberWithApiKey("user1@test.com", "1234", "유저1", "user1");
 
-        Member memberUser2 = memberService.join("user2", "1234", "유저2");
-        memberUser2.modifyApiKey(memberUser2.getUsername());
+        createMemberWithApiKey("user2@test.com", "1234", "유저2", "user2");
 
-        Member memberUser3 = memberService.join("user3", "1234", "유저3");
-        memberUser3.modifyApiKey(memberUser3.getUsername());
+        createMemberWithApiKey("user3@test.com", "1234", "유저3", "user3");
 
         customConfigProperties.getNotProdMembers().forEach(notProdMember -> {
-            Member socialMember = memberService.join(notProdMember.username(), null, notProdMember.nickname(), notProdMember.profileImgUrl());
-            socialMember.modifyApiKey(notProdMember.apiKey());
+            createMemberWithApiKey(
+                    notProdMember.username(),
+                    null,
+                    notProdMember.nickname(),
+                    notProdMember.apiKey()
+            );
         });
+    }
+
+    private void createMemberWithApiKey(String email, String password, String name, String apiKey) {
+        MemberDto member = memberService.join(email, password, name);
+        memberService.modifyApiKey(member.id(), apiKey);
     }
 
     @Transactional
     public void work2() {
 
-        Member memberUser1 = memberService.findByUsername("user1").get();
-        Member memberUser2 = memberService.findByUsername("user2").get();
-        Member memberUser3 = memberService.findByUsername("user3").get();
+        Member memberUser1 = memberService.findByEmail("user1@test.com").get();
+        Member memberUser2 = memberService.findByEmail("user2@test.com").get();
+        Member memberUser3 = memberService.findByEmail("user3@test.com").get();
 
     }
 }

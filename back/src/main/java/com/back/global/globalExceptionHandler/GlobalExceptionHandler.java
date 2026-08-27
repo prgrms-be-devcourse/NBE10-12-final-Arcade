@@ -83,7 +83,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<RsData<Void>> handle(HttpMessageNotReadableException ex) {
         return new ResponseEntity<>(
                 new RsData<>(
-                        "400-1",
+                        "400-2",
                         "요청 본문이 올바르지 않습니다."
                 ),
                 BAD_REQUEST

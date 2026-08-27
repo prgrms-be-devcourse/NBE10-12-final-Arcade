@@ -3,11 +3,14 @@ package com.back.domain.member.member.entity;
 import com.back.global.jpa.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -17,30 +20,33 @@ import java.util.UUID;
 @Getter
 @NoArgsConstructor
 public class Member extends BaseEntity {
+
+    private LocalDateTime lastLoginAt;
     @Column(unique = true)
-    private String username;
+    private String email;
     private String password;
-    private String nickname;
+    private String name;
     @Column(unique = true)
     private String apiKey;
     private String profileImgUrl;
+    private Long hostId = null;
+    private boolean active = true;
 
-    public Member(int id, String username, String nickname) {
+    @Enumerated(EnumType.STRING)
+    private Role role = Role.MEMBER;
+
+    public Member(int id, String email, String nickname) {
         setId(id);
-        this.username = username;
-        this.nickname = nickname;
+        this.email = email;
+        this.name = nickname;
     }
 
-    public Member(String username, String password, String nickname, String profileImgUrl) {
-        this.username = username;
+    public Member(String email, String password, String nickname, String profileImgUrl) {
+        this.email = email;
         this.password = password;
-        this.nickname = nickname;
+        this.name = nickname;
         this.profileImgUrl = profileImgUrl;
         this.apiKey = UUID.randomUUID().toString();
-    }
-
-    public String getName() {
-        return nickname;
     }
 
     public void modifyApiKey(String apiKey) {
@@ -48,7 +54,7 @@ public class Member extends BaseEntity {
     }
 
     public void modify(String nickname, String profileImgUrl) {
-        this.nickname = nickname;
+        this.name = nickname;
         this.profileImgUrl = profileImgUrl;
     }
 
@@ -60,8 +66,8 @@ public class Member extends BaseEntity {
     }
 
     public boolean isAdmin() {
-        if ("system".equals(username)) return true;
-        if ("admin".equals(username)) return true;
+        if ("system".equals(email)) return true;
+        if ("admin".equals(email)) return true;
 
         return false;
     }

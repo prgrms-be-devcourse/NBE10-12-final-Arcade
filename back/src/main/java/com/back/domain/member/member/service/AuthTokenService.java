@@ -17,7 +17,7 @@ public class AuthTokenService {
 
     String genAccessToken(Member member) {
         long id = member.getId();
-        String username = member.getUsername();
+        String username = member.getEmail();
         String name = member.getName();
 
         return Ut.jwt.toString(

@@ -14,14 +14,14 @@ public class CustomUserDetailsService implements UserDetailsService {
     private final MemberService memberService;
 
     @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        Member member = memberService.findByUsername(username)
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        Member member = memberService.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다."));
 
         return new SecurityUser(
                 member.getId(),
-                member.getUsername(),
-                member.getNickname(),
+                member.getEmail(),
+                member.getName(),
                 member.getAuthorities()
         );
     }
