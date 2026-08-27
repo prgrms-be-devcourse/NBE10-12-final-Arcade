@@ -20,10 +20,10 @@ public class MemberProfilePosition extends BaseEntity {
     private MemberProfile memberProfile;
 
     @Enumerated(EnumType.STRING)
-    private Position position;
+    private PositionType positionType;
 
-    public MemberProfilePosition(MemberProfile memberProfile, Position position) {
+    public MemberProfilePosition(MemberProfile memberProfile, PositionType positionType) {
         this.memberProfile = memberProfile;
-        this.position = position;
+        this.positionType = positionType;
     }
 }

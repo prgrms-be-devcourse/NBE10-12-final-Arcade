@@ -1,5 +1,5 @@
 package com.back.domain.member.member.entity;
 
-public enum Position {
+public enum PositionType {
     BACK, FRONT, UIUX, PM
 }

@@ -1,5 +1,6 @@
 package com.back.domain.party.position.entity;
 
+import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.party.party.entity.Party;
 import com.back.global.exception.ServiceException;
 import com.back.global.jpa.entity.BaseEntity;
