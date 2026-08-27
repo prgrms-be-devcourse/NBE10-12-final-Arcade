@@ -11,17 +11,17 @@ import java.util.Map;
 @Getter
 public class SecurityUser extends User implements OAuth2User {
     private final int id;
-    private final String nickname;
+    private final String realName;
 
     public SecurityUser(
             int id,
-            String username,
-            String nickname,
+            String email,
+            String realName,
             Collection<? extends GrantedAuthority> authorities
     ) {
-        super(username, "", authorities); // 우리의 시나리오(REST API)에서는 이 객체의 비밀번호 필드를 활용할 일이 없다.
+        super(email, "", authorities); // 우리의 시나리오(REST API)에서는 이 객체의 비밀번호 필드를 활용할 일이 없다.
         this.id = id;
-        this.nickname = nickname;
+        this.realName = realName;
     }
 
     @Override

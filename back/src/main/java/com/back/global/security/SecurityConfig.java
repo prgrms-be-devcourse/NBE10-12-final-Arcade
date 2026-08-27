@@ -40,12 +40,11 @@ public class SecurityConfig {
                                         "/api/*/posts/{postId:\\d+}/comments/{id:\\d+}"
                                 ).permitAll()
                                 .requestMatchers(
-                                        "/api/*/members/login",
-                                        "/api/*/members/logout"
+                                        "/api/*/members/login"
                                 ).permitAll()
                                 .requestMatchers(
                                         HttpMethod.POST,
-                                        "/api/*/members"
+                                        "/api/*/members/signup"
                                 ).permitAll()
                                 .requestMatchers("/api/*/adm/**").hasRole("ADMIN")
                                 .requestMatchers("/api/*/**").authenticated()
