@@ -3,6 +3,8 @@ package com.back.domain.member.member.entity;
 import com.back.global.jpa.entity.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
@@ -29,6 +31,8 @@ public class Member extends BaseEntity {
     private String profileImgUrl;
     private Long hostId = null;
     private boolean active = true;
+
+    @Enumerated(EnumType.STRING)
     private Role role = Role.MEMBER;
 
     public Member(int id, String email, String nickname) {
