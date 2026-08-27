@@ -22,6 +22,10 @@ spring:
         format_sql: true
         highlight_sql: true
         use_sql_comments: true
+  data:
+    redis:
+      host: localhost
+      port: 6379
   security:
     oauth2:
       client:
@@ -68,7 +72,7 @@ custom:
   jwt:
     secretKey: ${CUSTOM__JWT__SECRET_KEY}
   accessToken:
-    expirationSeconds: "#{60*20}"
+    expirationSeconds: 900
   notProdMembers:
     - username: KAKAO__4707664779
       apiKey: kakao__1
