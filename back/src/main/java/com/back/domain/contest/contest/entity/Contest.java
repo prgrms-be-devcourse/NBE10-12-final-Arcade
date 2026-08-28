@@ -54,7 +54,8 @@ public class Contest extends BaseEntity {
         this.applicationPeriodEnd = applicationPeriodEnd;
 
     }
-    public void modifyPeriod(LocalDate start, LocalDate end) {
+    public void modify(String title, LocalDate start, LocalDate end) {
+        this.title = title;
         this.applicationPeriodStart = start;
         this.applicationPeriodEnd = end;
     }

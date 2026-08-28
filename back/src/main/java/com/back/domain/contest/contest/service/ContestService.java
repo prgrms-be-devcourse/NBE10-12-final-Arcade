@@ -43,11 +43,11 @@ public class ContestService {
     public Optional<ContestPost> findPostByContest(Contest contest) { return contestPostRepository.findByContest(contest); }
 
     @Transactional
-    public ContestResponseDto modify(long contestId, String description, LocalDate start, LocalDate end, String linkUrl) {
+    public ContestResponseDto modify(long contestId, String title, String description, LocalDate start, LocalDate end, String linkUrl, String imageUrl) {
         Contest contest = contestRepository.findById(contestId).orElseThrow();
         ContestPost contestPost = contestPostRepository.findByContest(contest).orElseThrow();
-        contest.modifyPeriod(start, end);
-        contestPost.modify(description, linkUrl);
+        contest.modify(title,start, end);
+        contestPost.modify(description, linkUrl, imageUrl);
         return new ContestResponseDto(contest, contestPost);
     }
     @Transactional

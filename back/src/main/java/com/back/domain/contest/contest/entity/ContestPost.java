@@ -58,8 +58,9 @@ public class ContestPost extends BaseEntity {
     public void decreaseLikeCount() {
         if (this.likeCount > 0) this.likeCount--;
     }
-    public void modify(String description, String linkUrl) {
+    public void modify(String description, String linkUrl, String imageUrl) {
         this.description = description;
         this.linkUrl = linkUrl;
+        this.imageUrl = imageUrl;
     }
 }
