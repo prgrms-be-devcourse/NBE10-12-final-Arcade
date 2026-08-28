@@ -40,16 +40,16 @@ public class Member extends BaseEntity {
     private String githubProviderUserId = null;
     private String githubEmail = null;
 
-    public Member(long id, String email, String nickname) {
+    public Member(long id, String email, String name) {
         setId(id);
         this.email = email;
-        this.name = nickname;
+        this.name = name;
     }
 
-    public Member(String email, String password, String nickname, String profileImgUrl) {
+    public Member(String email, String password, String name, String profileImgUrl) {
         this.email = email;
         this.password = password;
-        this.name = nickname;
+        this.name = name;
         this.profileImgUrl = profileImgUrl;
         this.apiKey = UUID.randomUUID().toString();
     }
@@ -63,8 +63,8 @@ public class Member extends BaseEntity {
         this.apiKey = apiKey;
     }
 
-    public void modify(String nickname, String profileImgUrl) {
-        this.name = nickname;
+    public void modify(String name, String profileImgUrl) {
+        this.name = name;
         this.profileImgUrl = profileImgUrl;
     }
 

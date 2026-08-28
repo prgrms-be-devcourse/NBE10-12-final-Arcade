@@ -44,7 +44,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
         String username = providerTypeCode + "__%s".formatted(oauthUserId);
         String password = "";
-        Member member = authService.modifyOrJoin(email, password, null, profileImgUrl, username).data();
+        Member member = authService.modifyOrJoin(email, password, profileImgUrl, username).data();
 
         return new SecurityUser(
                 member.getId(),

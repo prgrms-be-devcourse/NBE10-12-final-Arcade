@@ -3,10 +3,343 @@
  * Do not make direct changes to the file.
  */
 
-export type paths = Record<string, never>;
+export interface paths {
+    "/api/v1/parties": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list"];
+        put?: never;
+        post: operations["create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/members/signup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["signup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/members/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["refresh"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/members/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/members/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/parties/{party-id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["detail"];
+        put?: never;
+        post?: never;
+        delete: operations["delete"];
+        options?: never;
+        head?: never;
+        patch: operations["update"];
+        trace?: never;
+    };
+    "/api/v1/members/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["modifyProfile"];
+        trace?: never;
+    };
+}
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: never;
+    schemas: {
+        RsDataVoid: {
+            resultCode: string;
+            msg: string;
+            data: unknown;
+        };
+        PartyCreateReqBody: {
+            partyName: string;
+            title: string;
+            description?: string;
+            /** Format: int64 */
+            targetContestId?: number;
+            contestName?: string;
+            contestLinkUrl?: string;
+            /** @enum {string} */
+            topicType: "CONTEST" | "PROJECT" | "STUDY" | "ETC";
+            /** @enum {string} */
+            partyTag: "WEB" | "APP" | "GAME" | "ETC";
+            githubRepoUrl?: string;
+            /** Format: int32 */
+            checklistRequiredApprovals?: number;
+            /** Format: date-time */
+            deadline: string;
+            positions: components["schemas"]["PositionReqBody"][];
+        };
+        PositionReqBody: {
+            /** @enum {string} */
+            name: "BACK" | "FRONT" | "UIUX" | "PM";
+            /** Format: int32 */
+            capacity?: number;
+        };
+        PartyDto: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            ownerId: number;
+            ownerName: string;
+            partyName: string;
+            title: string;
+            description: string;
+            /** Format: int64 */
+            targetContestId: number;
+            contestName: string;
+            contestLinkUrl: string;
+            /** @enum {string} */
+            topicType: "CONTEST" | "PROJECT" | "STUDY" | "ETC";
+            /** @enum {string} */
+            status: "RECRUITING" | "IN_PROGRESS" | "COMPLETED";
+            /** @enum {string} */
+            partyTag: "WEB" | "APP" | "GAME" | "ETC";
+            githubRepoUrl: string;
+            /** Format: int32 */
+            checklistRequiredApprovals: number;
+            /** Format: date-time */
+            deadline: string;
+            /** Format: int64 */
+            dDay: number;
+            /** Format: int32 */
+            likeCount: number;
+            /** Format: int32 */
+            viewCount: number;
+            positions: components["schemas"]["PositionDto"][];
+        };
+        PositionDto: {
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            type: "BACK" | "FRONT" | "UIUX" | "PM";
+            /** Format: int32 */
+            capacity: number;
+            /** Format: int32 */
+            filledCount: number;
+        };
+        RsDataPartyDto: {
+            resultCode: string;
+            msg: string;
+            data: components["schemas"]["PartyDto"];
+        };
+        MemberSignupReqBody: {
+            email: string;
+            password: string;
+            name: string;
+        };
+        MemberDto: {
+            /** Format: int64 */
+            id: number;
+            email: string;
+        };
+        RsDataMemberDto: {
+            resultCode: string;
+            msg: string;
+            data: components["schemas"]["MemberDto"];
+        };
+        RefreshTokenReqBody: {
+            refreshToken: string;
+        };
+        MemberLoginDto: {
+            accessToken: string;
+            refreshToken: string;
+            role: string;
+            grantType: string;
+            /** Format: int32 */
+            accessTokenExpiresIn: number;
+        };
+        RsDataMemberLoginDto: {
+            resultCode: string;
+            msg: string;
+            data: components["schemas"]["MemberLoginDto"];
+        };
+        MemberLoginReqBody: {
+            email: string;
+            password: string;
+        };
+        PartyUpdateReqBody: {
+            partyName: string;
+            title: string;
+            description?: string;
+            /** Format: int64 */
+            targetContestId?: number;
+            contestName?: string;
+            contestLinkUrl?: string;
+            /** @enum {string} */
+            topicType: "CONTEST" | "PROJECT" | "STUDY" | "ETC";
+            /** @enum {string} */
+            partyTag: "WEB" | "APP" | "GAME" | "ETC";
+            githubRepoUrl?: string;
+            /** Format: date-time */
+            deadline: string;
+            positions?: components["schemas"]["PositionCapacityReqBody"][];
+        };
+        PositionCapacityReqBody: {
+            /** Format: int64 */
+            positionId: number;
+            /** Format: int32 */
+            capacity?: number;
+        };
+        ModifyProfileReqBody: {
+            nickname: string;
+            webpage?: string;
+            profileImageUrl?: string;
+            positions: string[];
+            techStacks: string[];
+        };
+        MemberProfileDto: {
+            /** Format: int64 */
+            id: number;
+            email: string;
+            name: string;
+            nickname: string;
+            webpage: string;
+            profileImageUrl: string;
+            positions: string[];
+            techStacks: string[];
+        };
+        RsDataMemberProfileDto: {
+            resultCode: string;
+            msg: string;
+            data: components["schemas"]["MemberProfileDto"];
+        };
+        PagePartyListItemDto: {
+            /** Format: int32 */
+            totalPages: number;
+            /** Format: int64 */
+            totalElements: number;
+            /** Format: int32 */
+            size: number;
+            content: components["schemas"]["PartyListItemDto"][];
+            /** Format: int32 */
+            number: number;
+            sort: components["schemas"]["SortObject"];
+            pageable: components["schemas"]["PageableObject"];
+            /** Format: int32 */
+            numberOfElements: number;
+            first: boolean;
+            last: boolean;
+            empty: boolean;
+        };
+        PageableObject: {
+            paged: boolean;
+            /** Format: int32 */
+            pageNumber: number;
+            /** Format: int32 */
+            pageSize: number;
+            sort: components["schemas"]["SortObject"];
+            unpaged: boolean;
+            /** Format: int64 */
+            offset: number;
+        };
+        PartyListItemDto: {
+            /** Format: int64 */
+            id: number;
+            ownerName: string;
+            partyName: string;
+            title: string;
+            /** @enum {string} */
+            topicType: "CONTEST" | "PROJECT" | "STUDY" | "ETC";
+            /** @enum {string} */
+            status: "RECRUITING" | "IN_PROGRESS" | "COMPLETED";
+            /** @enum {string} */
+            partyTag: "WEB" | "APP" | "GAME" | "ETC";
+            /** Format: date-time */
+            deadline: string;
+            /** Format: int64 */
+            dDay: number;
+            /** Format: int32 */
+            likeCount: number;
+            /** Format: int32 */
+            viewCount: number;
+            positions: components["schemas"]["PositionDto"][];
+        };
+        RsDataPagePartyListItemDto: {
+            resultCode: string;
+            msg: string;
+            data: components["schemas"]["PagePartyListItemDto"];
+        };
+        SortObject: {
+            sorted: boolean;
+            unsorted: boolean;
+            empty: boolean;
+        };
+    };
     responses: never;
     parameters: never;
     requestBodies: never;
@@ -14,4 +347,361 @@ export interface components {
     pathItems: never;
 }
 export type $defs = Record<string, never>;
-export type operations = Record<string, never>;
+export interface operations {
+    list: {
+        parameters: {
+            query?: {
+                keyword?: string;
+                partyTag?: "WEB" | "APP" | "GAME" | "ETC";
+                position?: "BACK" | "FRONT" | "UIUX" | "PM";
+                sort?: "VACANCY" | "DEADLINE" | "POPULAR";
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json;charset=UTF-8": components["schemas"]["RsDataPagePartyListItemDto"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json;charset=UTF-8": components["schemas"]["RsDataVoid"];
+                };
+            };
+        };
+    };
+    create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PartyCreateReqBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json;charset=UTF-8": components["schemas"]["RsDataPartyDto"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json;charset=UTF-8": components["schemas"]["RsDataVoid"];
+                };
+            };
+        };
+    };
+    signup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberSignupReqBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json;charset=UTF-8": components["schemas"]["RsDataMemberDto"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json;charset=UTF-8": components["schemas"]["RsDataVoid"];
+                };
+            };
+        };
+    };
+    refresh: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshTokenReqBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json;charset=UTF-8": components["schemas"]["RsDataMemberLoginDto"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json;charset=UTF-8": components["schemas"]["RsDataVoid"];
+                };
+            };
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json;charset=UTF-8": components["schemas"]["RsDataVoid"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json;charset=UTF-8": components["schemas"]["RsDataVoid"];
+                };
+            };
+        };
+    };
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MemberLoginReqBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json;charset=UTF-8": components["schemas"]["RsDataMemberLoginDto"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json;charset=UTF-8": components["schemas"]["RsDataVoid"];
+                };
+            };
+        };
+    };
+    detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                "party-id": number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json;charset=UTF-8": components["schemas"]["RsDataPartyDto"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json;charset=UTF-8": components["schemas"]["RsDataVoid"];
+                };
+            };
+        };
+    };
+    delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                "party-id": number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json;charset=UTF-8": components["schemas"]["RsDataVoid"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json;charset=UTF-8": components["schemas"]["RsDataVoid"];
+                };
+            };
+        };
+    };
+    update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                "party-id": number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PartyUpdateReqBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json;charset=UTF-8": components["schemas"]["RsDataPartyDto"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json;charset=UTF-8": components["schemas"]["RsDataVoid"];
+                };
+            };
+        };
+    };
+    me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json;charset=UTF-8": components["schemas"]["RsDataMemberProfileDto"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json;charset=UTF-8": components["schemas"]["RsDataVoid"];
+                };
+            };
+        };
+    };
+    modifyProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModifyProfileReqBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json;charset=UTF-8": components["schemas"]["RsDataMemberProfileDto"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json;charset=UTF-8": components["schemas"]["RsDataVoid"];
+                };
+            };
+        };
+    };
+}
