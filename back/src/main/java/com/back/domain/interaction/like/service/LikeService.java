@@ -22,7 +22,7 @@ public class LikeService {
 
     @Transactional
     public LikeDto likeParty(long partyId, Member member) {
-        Party party = findPartyOrThrow(partyId);
+        findPartyOrThrow(partyId);
 
         if (likeActionRepository.existsByMemberAndTargetTypeAndTargetId(member, TargetType.PARTY, partyId)) {
             throw new ServiceException("409-1", "이미 좋아요한 파티입니다.");
@@ -36,8 +36,8 @@ public class LikeService {
     }
 
     @Transactional
-    public LikeDto unlikeParty(long partyId, Member member) {
-        Party party = findPartyOrThrow(partyId);
+    public void unlikeParty(long partyId, Member member) {
+        findPartyOrThrow(partyId);
 
         LikeAction likeAction = likeActionRepository
                 .findByMemberAndTargetTypeAndTargetId(member, TargetType.PARTY, partyId)
@@ -45,9 +45,6 @@ public class LikeService {
 
         likeActionRepository.delete(likeAction);
         partyRepository.decreaseLikeCount(partyId);
-
-        int updatedLikeCount = findPartyOrThrow(partyId).getLikeCount();
-        return new LikeDto(TargetType.PARTY, partyId, false, updatedLikeCount);
     }
 
     private Party findPartyOrThrow(long partyId) {
