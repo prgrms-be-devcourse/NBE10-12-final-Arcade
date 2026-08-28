@@ -1,69 +1,71 @@
-import Image from "next/image";
+import Link from 'next/link';
+import { HeroSlider } from '@/components/home/HeroSlider';
+import { ContestCard } from '@/components/contest/ContestCard';
+import { ProjectCard } from '@/components/exhibition/ProjectCard';
+import { RankCard } from '@/components/party/RankCard';
+import { Footer } from '@/components/layout/Footer';
+import { SectionHead } from '@/components/ui/SectionHead';
+import {
+  fetchHeroSlides,
+  fetchPopularContests,
+  fetchPopularExhibitions,
+  fetchTopParties,
+} from '@/lib/api';
 
-export default function Home() {
+export default async function HomePage() {
+  const [slides, topParties, contests, exhibitions] = await Promise.all([
+    fetchHeroSlides(),
+    fetchTopParties(),
+    fetchPopularContests(),
+    fetchPopularExhibitions(),
+  ]);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <main>
+      <HeroSlider slides={slides} />
+
+      <section className="section top3 container" data-reveal>
+        <SectionHead
+          title="지금 가장 핫한 파티"
+          description="지원자가 몰리는 파티 TOP3를 확인하고, 마감 전에 지원하세요."
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+        <div className="podium">
+          {topParties.slice(0, 3).map((party, index) => (
+            <RankCard key={party.id} party={party} rank={(index + 1) as 1 | 2 | 3} />
+          ))}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      <section className="section contests container" data-reveal>
+        <SectionHead
+          title="인기 공모전 · 대회"
+          description="지금 팀을 모집 중인 공모전을 둘러보세요."
+        />
+        <div className="contest-row">
+          {contests.map((contest) => (
+            <ContestCard key={contest.id} contest={contest} />
+          ))}
         </div>
-      </main>
-    </div>
+      </section>
+
+      <section className="section exhibition-top container" data-reveal>
+        <SectionHead
+          title="인기 전시회"
+          description="이번 주 가장 많이 본 완료 프로젝트 TOP 3이에요."
+        />
+        <div className="exh-top-row">
+          {exhibitions.map((project, index) => (
+            <ProjectCard key={project.id} project={project} rank={index + 1} />
+          ))}
+        </div>
+        <div style={{ marginTop: '1.625rem', textAlign: 'center' }}>
+          <Link className="btn btn-ghost" href="/exhibition">
+            전시관 전체 보기
+          </Link>
+        </div>
+      </section>
+
+      <Footer />
+    </main>
   );
 }
