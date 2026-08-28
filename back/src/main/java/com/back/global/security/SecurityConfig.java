@@ -40,7 +40,8 @@ public class SecurityConfig {
                                         "/api/*/posts/{postId:\\d+}/comments/{id:\\d+}"
                                 ).permitAll()
                                 .requestMatchers(
-                                        "/api/*/members/login"
+                                        "/api/*/members/login",
+                                        "/api/*/members/refresh"
                                 ).permitAll()
                                 .requestMatchers(
                                         HttpMethod.POST,

@@ -183,7 +183,6 @@ public class ApiV1MemberControllerTest {
 
     @Test
     @DisplayName("토큰 재발급: refreshToken body로 201-1과 access token을 반환한다")
-    @WithUserDetails("user1@test.com")
     void refresh() throws Exception {
         ResultActions loginResultActions = mvc.perform(post("/api/v1/members/login")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -210,7 +209,6 @@ public class ApiV1MemberControllerTest {
 
     @Test
     @DisplayName("토큰 재발급: 유효하지 않거나 만료된 refresh token은 401-3이다")
-    @WithUserDetails("user1@test.com")
     void refreshWithInvalidToken() throws Exception {
         ResultActions resultActions = mvc.perform(post("/api/v1/members/refresh")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -225,7 +223,6 @@ public class ApiV1MemberControllerTest {
 
     @Test
     @DisplayName("토큰 재발급: 재사용된 refresh token은 401-4이다")
-    @WithUserDetails("user1@test.com")
     void refreshWithReusedToken() throws Exception {
         ResultActions loginResultActions = mvc.perform(post("/api/v1/members/login")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -252,7 +249,6 @@ public class ApiV1MemberControllerTest {
 
     @Test
     @DisplayName("토큰 재발급: refreshToken 누락은 400-1이다")
-    @WithUserDetails("user1@test.com")
     void refreshWithoutToken() throws Exception {
         ResultActions resultActions = mvc.perform(post("/api/v1/members/refresh")
                 .contentType(MediaType.APPLICATION_JSON)

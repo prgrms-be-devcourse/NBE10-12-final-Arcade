@@ -90,10 +90,7 @@ public class ApiV1MemberController {
     public RsData<MemberLoginDto> refresh(
         @Valid @RequestBody RefreshTokenReqBody request
     ) {
-        MemberLoginDto loginDto = memberService.refreshToken(
-            rq.getActor().getId(),
-            request.refreshToken
-        );
+        MemberLoginDto loginDto = memberService.refreshToken(request.refreshToken);
 
         rq.setCookie("accessToken", loginDto.accessToken());
         rq.setCookie("refreshToken", loginDto.refreshToken());

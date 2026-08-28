@@ -30,15 +30,16 @@ public class MemberService {
     private static final String USED_REFRESH_TOKEN_KEY_PREFIX = "auth:used-refresh-token:";
     private static final DefaultRedisScript<Long> CONSUME_REFRESH_TOKEN_SCRIPT = new DefaultRedisScript<>(
         """
-            if redis.call('GET', KEYS[1]) then
+            local memberId = redis.call('GET', KEYS[1])
+            if memberId then
                 redis.call('DEL', KEYS[1])
                 redis.call('SET', KEYS[2], 'used', 'EX', ARGV[1])
-                return 1
+                return tonumber(memberId)
             end
             if redis.call('EXISTS', KEYS[2]) == 1 then
-                return 2
+                return -2
             end
-            return 0
+            return -1
             """,
         Long.class
     );
@@ -102,18 +103,18 @@ public class MemberService {
 
     }
 
-    public MemberLoginDto refreshToken(long memberId, String refreshToken) {
-        Long consumeResult = redisTemplate.execute(
+    public MemberLoginDto refreshToken(String refreshToken) {
+        Long memberId = redisTemplate.execute(
             CONSUME_REFRESH_TOKEN_SCRIPT,
-            List.of(refreshTokenKey(memberId, refreshToken), usedRefreshTokenKey(memberId, refreshToken)),
+            List.of(refreshTokenKey(refreshToken), usedRefreshTokenKey(refreshToken)),
             String.valueOf(REFRESH_TOKEN_TTL.toSeconds())
         );
 
-        if (Long.valueOf(2).equals(consumeResult)) {
+        if (Long.valueOf(-2).equals(memberId)) {
             throw new ServiceException("401-4", "재사용된 리프레시 토큰입니다.");
         }
 
-        if (!Long.valueOf(1).equals(consumeResult)) {
+        if (memberId == null || memberId < 1) {
             throw new ServiceException("401-3", "유효하지 않거나 만료된 토큰입니다.");
         }
 
@@ -138,8 +139,8 @@ public class MemberService {
     private MemberLoginDto createLoginDto(Member member) {
         String refreshToken = generateRefreshToken();
         redisTemplate.opsForValue().set(
-            refreshTokenKey(member.getId(), refreshToken),
-            "active",
+            refreshTokenKey(refreshToken),
+            String.valueOf(member.getId()),
             REFRESH_TOKEN_TTL
         );
 
@@ -157,12 +158,12 @@ public class MemberService {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(tokenBytes);
     }
 
-    private String refreshTokenKey(long memberId, String refreshToken) {
-        return REFRESH_TOKEN_KEY_PREFIX + memberId + ":" + refreshToken;
+    private String refreshTokenKey(String refreshToken) {
+        return REFRESH_TOKEN_KEY_PREFIX + refreshToken;
     }
 
-    private String usedRefreshTokenKey(long memberId, String refreshToken) {
-        return USED_REFRESH_TOKEN_KEY_PREFIX + memberId + ":" + refreshToken;
+    private String usedRefreshTokenKey(String refreshToken) {
+        return USED_REFRESH_TOKEN_KEY_PREFIX + refreshToken;
     }
 
     public Map<String, Object> payload(String accessToken) {
