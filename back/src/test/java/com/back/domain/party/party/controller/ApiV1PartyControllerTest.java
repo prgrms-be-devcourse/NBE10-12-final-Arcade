@@ -115,4 +115,104 @@ public class ApiV1PartyControllerTest {
         resultActions.andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.resultCode").value("400-1"));
     }
+    private Party savePartyOwnedBy(String ownerEmail, int capacity) {
+        Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
+
+        Party party = new Party(
+                owner,
+                "오락실 팀",
+                "오락실 공모전 팀원 모집",
+                "설명",
+                null,
+                null,
+                null,
+                TopicType.PROJECT,
+                PartyTag.WEB,
+                null,
+                1,
+                LocalDateTime.now().plusDays(7)
+        );
+        party.addPosition(new Position(PositionType.BACK, capacity));
+
+        return partyRepository.save(party);
+    }
+
+    @Test
+    @DisplayName("파티 수정: 파티장이 아니면 403-1이다")
+    @WithUserDetails("user1@test.com")
+    void updatePartyByNonOwner() throws Exception {
+        Party party = savePartyOwnedBy("user2@test.com", 2);
+
+        String updateBody = """
+            {
+                "partyName": "수정된 이름",
+                "title": "수정된 제목",
+                "topicType": "PROJECT",
+                "partyTag": "WEB",
+                "deadline": "%s"
+            }
+            """.formatted(deadline);
+
+        ResultActions resultActions = mvc.perform(patch("/api/v1/parties/" + party.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(updateBody));
+
+        resultActions.andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.resultCode").value("403-1"));
+    }
+
+    @Test
+    @DisplayName("파티 수정: 정원을 승인 인원보다 작게 줄이면 400-4이다")
+    @WithUserDetails("user1@test.com")
+    void updatePartyWithCapacityBelowFilledCount() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 3);
+        Position position = party.getPositions().get(0);
+        position.fillOneSeat();
+        position.fillOneSeat();
+        partyRepository.save(party); // filledCount == 2
+
+        String updateBody = """
+            {
+                "partyName": "수정된 이름",
+                "title": "수정된 제목",
+                "topicType": "PROJECT",
+                "partyTag": "WEB",
+                "deadline": "%s",
+                "positions": [
+                    { "positionId": %d, "capacity": 1 }
+                ]
+            }
+            """.formatted(deadline, position.getId());
+
+        ResultActions resultActions = mvc.perform(patch("/api/v1/parties/" + party.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(updateBody));
+
+        resultActions.andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-4"));
+    }
+
+    @Test
+    @DisplayName("파티 삭제: 모집 중인 파티는 정상 삭제된다")
+    @WithUserDetails("user1@test.com")
+    void deleteRecruitingParty() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 2);
+
+        ResultActions resultActions = mvc.perform(delete("/api/v1/parties/" + party.getId()));
+
+        resultActions.andExpect(status().isNoContent())
+                .andExpect(jsonPath("$.resultCode").value("204-1"));
+    }
+
+    @Test
+    @DisplayName("파티 삭제: 파티장이 아니면 403-1이다")
+    @WithUserDetails("user1@test.com")
+    void deletePartyByNonOwner() throws Exception {
+        Party party = savePartyOwnedBy("user2@test.com", 2);
+
+        ResultActions resultActions = mvc.perform(delete("/api/v1/parties/" + party.getId()));
+
+        resultActions.andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.resultCode").value("403-1"));
+    }
 }

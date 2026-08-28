@@ -80,4 +80,71 @@ public class PartyService {
 
         return new PartyDto(partyRepository.save(party));
     }
+
+    public record PositionCapacityUpdateSpec(
+            long positionId,
+            int capacity
+    ) { }
+
+    @Transactional
+    public PartyDto update(
+            long partyId,
+            Member actor,
+            String partyName,
+            String title,
+            String description,
+            Long targetContestId,
+            String contestName,
+            String contestLinkUrl,
+            TopicType topicType,
+            PartyTag partyTag,
+            String githubRepoUrl,
+            LocalDateTime deadline,
+            List<PositionCapacityUpdateSpec> positionCapacityUpdates
+    ) {
+        Party party = findByIdOrThrow(partyId);
+
+        if (!party.isOwnedBy(actor)) {
+            throw new ServiceException("403-1", "본인이 만든 파티만 수정할 수 있습니다.");
+        }
+        party.checkModifiable();
+
+        party.update(
+                partyName,
+                title,
+                description,
+                targetContestId,
+                contestName,
+                contestLinkUrl,
+                topicType,
+                partyTag,
+                githubRepoUrl,
+                deadline
+        );
+
+        if (positionCapacityUpdates != null) {
+            positionCapacityUpdates.forEach(spec ->
+                    party.findPosition(spec.positionId()).changeCapacity(spec.capacity())
+            );
+        }
+
+        return new PartyDto(party);
+    }
+
+    @Transactional
+    public void delete(long partyId, Member actor) {
+        Party party = findByIdOrThrow(partyId);
+
+        if (!party.isOwnedBy(actor)) {
+            throw new ServiceException("403-1", "본인이 만든 파티만 삭제할 수 있습니다.");
+        }
+        party.checkDeletable();
+
+        partyRepository.delete(party);
+    }
+
+    private Party findByIdOrThrow(long partyId) {
+        return partyRepository.findById(partyId)
+                .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 파티입니다."));
+    }
 }
