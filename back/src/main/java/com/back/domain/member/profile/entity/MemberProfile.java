@@ -90,6 +90,10 @@ public class MemberProfile extends BaseEntity {
     private Set<PositionType> toValidPositionTypes(List<String> positionTypes) {
         return positionTypes.stream()
                 .flatMap(positionType -> {
+                    if (positionType == null) {
+                        return Stream.empty();
+                    }
+
                     try {
                         return Stream.of(PositionType.valueOf(positionType));
                     } catch (IllegalArgumentException e) {

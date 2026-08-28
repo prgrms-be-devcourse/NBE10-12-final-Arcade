@@ -138,7 +138,7 @@ public class ApiV1MemberProfileControllerTest {
     }
 
     @Test
-    @DisplayName("내 정보 수정: 유효하지 않은 직군은 저장하지 않는다")
+    @DisplayName("내 정보 수정: 유효하지 않거나 null인 직군은 저장하지 않는다")
     @WithUserDetails("user1@test.com")
     void modifyProfileIgnoresInvalidPosition() throws Exception {
         mvc.perform(patch("/api/v1/members/me")
@@ -146,7 +146,7 @@ public class ApiV1MemberProfileControllerTest {
                         .content("""
                                 {
                                   "nickname": "유효하지 않은 직군 테스트",
-                                  "positions": ["BACK", "adbc"],
+                                  "positions": ["BACK", "adbc", null],
                                   "techStacks": ["Java"]
                                 }
                                 """))
