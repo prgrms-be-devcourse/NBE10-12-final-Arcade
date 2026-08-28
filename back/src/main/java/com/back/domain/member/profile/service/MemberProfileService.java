@@ -7,10 +7,12 @@ import com.back.domain.member.profile.repository.MemberProfileRepository;
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -42,9 +44,21 @@ public class MemberProfileService {
         try {
             memberProfileRepository.saveAndFlush(profile);
         } catch (DataIntegrityViolationException e) {
-            throw new ServiceException("409-1", "이미 사용 중인 닉네임입니다.");
+            if (isNicknameDuplicate(e)) {
+                throw new ServiceException("409-1", "이미 사용 중인 닉네임입니다.");
+            }
+
+            throw e;
         }
 
         return new MemberProfileDto(profile);
+    }
+
+    private boolean isNicknameDuplicate(DataIntegrityViolationException e) {
+        Throwable mostSpecificCause = NestedExceptionUtils.getMostSpecificCause(e);
+        String message = mostSpecificCause.getMessage();
+
+        return message != null
+                && message.toLowerCase(Locale.ROOT).contains("uk_member_profile_nickname");
     }
 }

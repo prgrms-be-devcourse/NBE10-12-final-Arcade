@@ -10,18 +10,19 @@ import lombok.NoArgsConstructor;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Entity
+@Table(uniqueConstraints = @UniqueConstraint(name = "uk_member_profile_nickname", columnNames = "nickname"))
 @Getter
 @NoArgsConstructor
 public class MemberProfile extends BaseEntity {
 
     @OneToOne
     private Member member;
-    @Column(unique = true)
     private String nickname;
     private String webPage;
 
@@ -44,7 +45,9 @@ public class MemberProfile extends BaseEntity {
         toValidPositionTypes(positionTypes).forEach(positionType ->
                 this.positions.add(new MemberProfilePosition(this, positionType))
         );
-        techStacks.forEach(techStack -> this.techStacks.add(new MemberProfileTechStack(this, techStack)));
+        techStacks.stream()
+                .filter(Objects::nonNull)
+                .forEach(techStack -> this.techStacks.add(new MemberProfileTechStack(this, techStack)));
     }
 
     public void modify(
@@ -71,7 +74,9 @@ public class MemberProfile extends BaseEntity {
                 .filter(position -> !existingPositions.contains(position))
                 .forEach(position -> this.positions.add(new MemberProfilePosition(this, position)));
 
-        Set<String> requestedTechStacks = new LinkedHashSet<>(techStacks);
+        Set<String> requestedTechStacks = techStacks.stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
 
         // orphanRemoval에 의해 요청에서 빠진 항목만 삭제된다.
         this.techStacks.removeIf(techStack ->
@@ -89,11 +94,8 @@ public class MemberProfile extends BaseEntity {
 
     private Set<PositionType> toValidPositionTypes(List<String> positionTypes) {
         return positionTypes.stream()
+                .filter(Objects::nonNull)
                 .flatMap(positionType -> {
-                    if (positionType == null) {
-                        return Stream.empty();
-                    }
-
                     try {
                         return Stream.of(PositionType.valueOf(positionType));
                     } catch (IllegalArgumentException e) {

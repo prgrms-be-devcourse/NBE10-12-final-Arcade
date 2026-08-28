@@ -5,6 +5,7 @@ import com.back.domain.member.profile.service.MemberProfileService;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -36,8 +37,8 @@ public class ApiV1MemberProfileController {
             @NotNull String nickname,
             String webpage,
             String profileImageUrl,
-            @NotNull List<String> positions,
-            @NotNull List<String> techStacks
+            @NotNull List<@NotBlank String> positions,
+            @NotNull List<@NotBlank String> techStacks
     ) {
     }
 
