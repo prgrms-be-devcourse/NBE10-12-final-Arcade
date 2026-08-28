@@ -29,7 +29,7 @@ public class AuthService {
 
         }
 
-        if (!email.isBlank()) {
+        if (email != null && !email.isBlank()) {
             member = memberRepository.findByEmail(email).orElse(null);
         }
 
