@@ -32,13 +32,13 @@ public class MemberProfile extends BaseEntity {
 
     public MemberProfile(Member member) {
         this.member = member;
-        this.nickname = member.getName();
+        this.nickname = null;
         this.webPage = null;
     }
 
     public MemberProfile(Member member, String nickname, String webPage, List<String> positionTypes, List<String> techStacks) {
         this.member = member;
-        this.nickname = null;
+        this.nickname = nickname;
         this.webPage = webPage;
         positionTypes.forEach(positionTypeStr -> {
             this.positions.add(new MemberProfilePosition(

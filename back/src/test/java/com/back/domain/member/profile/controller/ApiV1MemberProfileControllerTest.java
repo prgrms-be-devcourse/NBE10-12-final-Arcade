@@ -1,4 +1,4 @@
-package com.back.domain.member.profiler.controller;
+package com.back.domain.member.profile.controller;
 
 import com.back.RedisTestContainerConfig;
 import com.back.domain.member.member.repository.MemberRepository;

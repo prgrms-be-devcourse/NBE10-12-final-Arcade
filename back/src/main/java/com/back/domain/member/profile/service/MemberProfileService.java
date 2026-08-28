@@ -19,10 +19,6 @@ public class MemberProfileService {
 
     private final MemberProfileRepository memberProfileRepository;
 
-    private void modify(Member member, String name, String profileImgUrl) {
-        member.modify(name, profileImgUrl);
-    }
-
     @Transactional
     public MemberProfileDto me(Member actor) {
 
