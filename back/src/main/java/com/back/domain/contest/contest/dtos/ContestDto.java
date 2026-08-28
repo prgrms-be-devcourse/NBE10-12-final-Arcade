@@ -9,34 +9,26 @@ import java.time.LocalDateTime;
 
 public record ContestDto(
     long id,
-    Long creatorMemberId,
-    String name,
-    String description,
+    long hostId,
+    long creatorMemberId,
+    String title,
     ContestFormat format,
     ContestTag contestTag,
     LocalDate applicationPeriodStart,
     LocalDate applicationPeriodEnd,
-    String linkUrl,
-    int likeCount,
-    int viewCount,
-    String imageUrl,
     LocalDateTime createDate,
     LocalDateTime modifyDate
 ) {
     public ContestDto(Contest contest) {
         this(
             contest.getId(),
+            contest.getHostId(),
             contest.getCreatorMemberId(),
-            contest.getName(),
-            contest.getDescription(),
+            contest.getTitle(),
             contest.getFormat(),
             contest.getContestTag(),
             contest.getApplicationPeriodStart(),
             contest.getApplicationPeriodEnd(),
-            contest.getLinkUrl(),
-            contest.getLikeCount(),
-            contest.getViewCount(),
-            contest.getImageUrl(),
             contest.getCreateDate(),
             contest.getModifyDate()
         );
