@@ -42,7 +42,7 @@ public class Party extends BaseEntity {
     // 대회 허브에 등록된 대회를 가리킴. Contest 도메인이 아직 없어 연관관계 없이 값만 보관.
     // Contest 엔티티가 생기면 @ManyToOne 매핑으로 전환 예정.
     @Column(name = "target_contest_id")
-    private Integer targetContestId;
+    private Long targetContestId;
 
     // targetContestId가 없을 때(미등록 외부 대회) 자유 입력
     private String contestName;
@@ -82,7 +82,7 @@ public class Party extends BaseEntity {
         String partyName,
         String title,
         String description,
-        Integer targetContestId,
+        Long targetContestId,
         String contestName,
         String contestLinkUrl,
         TopicType topicType,
