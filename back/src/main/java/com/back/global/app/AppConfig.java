@@ -1,6 +1,6 @@
 package com.back.global.app;
 
-import com.back.standard.util.Ut;
+import com.back.standard.util.Util;
 import jakarta.annotation.PostConstruct;
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,6 +51,6 @@ public class AppConfig {
 
     @PostConstruct
     public void postConstruct() {
-        Ut.json.objectMapper = objectMapper;
+        Util.json.objectMapper = objectMapper;
     }
 }

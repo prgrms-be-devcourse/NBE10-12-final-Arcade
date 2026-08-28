@@ -1,6 +1,6 @@
 package com.back.global.initData;
 
-import com.back.standard.util.Ut;
+import com.back.standard.util.Util;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
@@ -14,7 +14,7 @@ public class DevInitData {
     @Bean
     ApplicationRunner devInitDataApplicationRunner() {
         return args -> {
-            Ut.cmd.runAsync(
+            Util.cmd.runAsync(
                     "npx{{DOT_CMD}}",
                     "--yes",
                     "--package", "typescript@v5",

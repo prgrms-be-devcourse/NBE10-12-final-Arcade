@@ -16,7 +16,7 @@ import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-public class Ut {
+public class Util {
     public static class jwt {
         public static String toString(String secret, int expireSeconds, Map<String, Object> body) {
             ClaimsBuilder claimsBuilder = Jwts.claims();
