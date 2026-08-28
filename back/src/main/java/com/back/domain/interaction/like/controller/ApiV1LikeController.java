@@ -25,20 +25,20 @@ public class ApiV1LikeController {
 
         return new RsData<>(
                 "201-1",
-                "좋아요 성공",
+                "파티 좋아요 성공",
                 dto
         );
     }
 
     @DeleteMapping("/api/v1/parties/{party-id}/likes")
-    public RsData<LikeDto> unlikeParty(
+    public RsData<Void> unlikeParty(
             @PathVariable("party-id") long partyId
     ) {
-        LikeDto dto = likeService.unlikeParty(partyId, rq.getActorFromDb());
+        likeService.unlikeParty(partyId, rq.getActorFromDb());
 
         return new RsData<>(
                 "204-1",
-                "좋아요 취소 성공",
+                "파티 좋아요 취소 성공",
                 null
         );
     }
