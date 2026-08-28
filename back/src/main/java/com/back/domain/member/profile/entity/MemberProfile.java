@@ -3,7 +3,14 @@ package com.back.domain.member.profile.entity;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.global.jpa.entity.BaseEntity;
-import jakarta.persistence.*;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -22,6 +29,7 @@ import java.util.stream.Stream;
 public class MemberProfile extends BaseEntity {
 
     @OneToOne
+    @JoinColumn(unique = true)
     private Member member;
     private String nickname;
     private String webPage;
