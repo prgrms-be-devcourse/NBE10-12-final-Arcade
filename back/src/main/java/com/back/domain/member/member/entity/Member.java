@@ -7,6 +7,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
@@ -28,6 +29,7 @@ public class Member extends BaseEntity {
     private String name;
     @Column(unique = true)
     private String apiKey;
+    @Setter
     private String profileImgUrl;
     private Long hostId = null;
     private boolean active = true;
