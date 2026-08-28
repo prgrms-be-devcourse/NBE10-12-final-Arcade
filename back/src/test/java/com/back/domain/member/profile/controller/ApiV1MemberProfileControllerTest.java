@@ -138,7 +138,7 @@ public class ApiV1MemberProfileControllerTest {
     }
 
     @Test
-    @DisplayName("내 정보 수정: 유효하지 않거나 null인 직군은 저장하지 않는다")
+    @DisplayName("내 정보 수정: 유효하지 않은 직군은 저장하지 않는다")
     @WithUserDetails("user1@test.com")
     void modifyProfileIgnoresInvalidPosition() throws Exception {
         mvc.perform(patch("/api/v1/members/me")
@@ -146,12 +146,41 @@ public class ApiV1MemberProfileControllerTest {
                         .content("""
                                 {
                                   "nickname": "유효하지 않은 직군 테스트",
-                                  "positions": ["BACK", "adbc", null],
+                                  "positions": ["BACK", "adbc"],
                                   "techStacks": ["Java"]
                                 }
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.positions").value(org.hamcrest.Matchers.contains("BACK")));
+    }
+
+    @Test
+    @DisplayName("내 정보 수정: positions 또는 techStacks의 null 요소는 400-1을 반환한다")
+    @WithUserDetails("user1@test.com")
+    void modifyProfileWithNullCollectionElement() throws Exception {
+        mvc.perform(patch("/api/v1/members/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "직군 null 테스트",
+                                  "positions": ["BACK", null],
+                                  "techStacks": ["Java"]
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-1"));
+
+        mvc.perform(patch("/api/v1/members/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "기술 null 테스트",
+                                  "positions": ["BACK"],
+                                  "techStacks": ["Java", null]
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-1"));
     }
 
     @Test
