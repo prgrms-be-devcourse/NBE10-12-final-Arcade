@@ -178,21 +178,4 @@ public class MemberService {
         return memberRepository.findAll();
     }
 
-    @Transactional
-    public RsData<Member> modifyOrJoin(String email, String password, String name, String profileImgUrl) {
-        Member member = findByEmail(email).orElse(null);
-
-        if (member == null) {
-            member = createMember(email, password, name, profileImgUrl);
-            return new RsData<>("201-1", "회원가입이 완료되었습니다.", member);
-        }
-
-        modify(member, name, profileImgUrl);
-
-        return new RsData<>("200-1", "회원 정보가 수정되었습니다.", member);
-    }
-
-    private void modify(Member member, String name, String profileImgUrl) {
-        member.modify(name, profileImgUrl);
-    }
 }

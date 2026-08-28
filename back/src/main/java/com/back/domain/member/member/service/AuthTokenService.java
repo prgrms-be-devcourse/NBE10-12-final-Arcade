@@ -17,13 +17,12 @@ public class AuthTokenService {
 
     String genAccessToken(Member member) {
         long id = member.getId();
-        String email = member.getEmail();
         String role = member.getRole().name();
 
         return Util.jwt.toString(
                 secret,
                 expireSeconds,
-                Map.of("id", id, "email", email, "role", role)
+                Map.of("id", id, "role", role)
         );
     }
 
