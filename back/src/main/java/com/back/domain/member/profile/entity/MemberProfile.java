@@ -12,6 +12,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Entity
 @Getter
@@ -40,12 +41,9 @@ public class MemberProfile extends BaseEntity {
         this.member = member;
         this.nickname = nickname;
         this.webPage = webPage;
-        positionTypes.forEach(positionTypeStr -> {
-            this.positions.add(new MemberProfilePosition(
-                    this,
-                    PositionType.valueOf(positionTypeStr)
-            ));
-        });
+        toValidPositionTypes(positionTypes).forEach(positionType ->
+                this.positions.add(new MemberProfilePosition(this, positionType))
+        );
         techStacks.forEach(techStack -> this.techStacks.add(new MemberProfileTechStack(this, techStack)));
     }
 
@@ -60,9 +58,7 @@ public class MemberProfile extends BaseEntity {
         this.webPage = webpage;
         member.setProfileImgUrl(profileImageUrl);
 
-        Set<PositionType> requestedPositions = positions.stream()
-                .map(PositionType::valueOf)
-                .collect(Collectors.toSet());
+        Set<PositionType> requestedPositions = toValidPositionTypes(positions);
 
         this.positions.removeIf(position ->
                 !requestedPositions.contains(position.getPositionType()));
@@ -89,5 +85,17 @@ public class MemberProfile extends BaseEntity {
                 .filter(techStack -> !existingTechStacks.contains(techStack))
                 .forEach(techStack -> this.techStacks.add(new MemberProfileTechStack(this, techStack)));
 
+    }
+
+    private Set<PositionType> toValidPositionTypes(List<String> positionTypes) {
+        return positionTypes.stream()
+                .flatMap(positionType -> {
+                    try {
+                        return Stream.of(PositionType.valueOf(positionType));
+                    } catch (IllegalArgumentException e) {
+                        return Stream.empty();
+                    }
+                })
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 }

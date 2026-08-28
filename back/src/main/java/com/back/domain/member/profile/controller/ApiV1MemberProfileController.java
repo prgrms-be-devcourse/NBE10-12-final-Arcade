@@ -28,7 +28,7 @@ public class ApiV1MemberProfileController {
         return new RsData<>(
                 "200-1",
                 "내 정보 조회 성공",
-                memberProfileService.me(rq.getActor())
+                memberProfileService.me(rq.getActorFromDb())
         );
     }
 
@@ -49,7 +49,7 @@ public class ApiV1MemberProfileController {
                 "200-1",
                 "내 정보 수정 성공",
                 memberProfileService.modifyProfile(
-                        rq.getActor(),
+                        rq.getActorFromDb(),
                         request.nickname,
                         request.webpage,
                         request.profileImageUrl,

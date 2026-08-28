@@ -48,7 +48,7 @@ public class ApiV1MemberProfileControllerTest {
                 .andExpect(jsonPath("$.data.id").isNumber())
                 .andExpect(jsonPath("$.data.email").value("user1@test.com"))
                 .andExpect(jsonPath("$.data.name").value("유저1"))
-                .andExpect(jsonPath("$.data.nickname").value("유저1"))
+                .andExpect(jsonPath("$.data.nickname").isEmpty())
                 .andExpect(jsonPath("$.data.webpage").isEmpty())
                 .andExpect(jsonPath("$.data.profileImageUrl").isEmpty())
                 .andExpect(jsonPath("$.data.positions").isEmpty())
@@ -135,6 +135,23 @@ public class ApiV1MemberProfileControllerTest {
                         .content("{}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.resultCode").value("400-1"));
+    }
+
+    @Test
+    @DisplayName("내 정보 수정: 유효하지 않은 직군은 저장하지 않는다")
+    @WithUserDetails("user1@test.com")
+    void modifyProfileIgnoresInvalidPosition() throws Exception {
+        mvc.perform(patch("/api/v1/members/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "유효하지 않은 직군 테스트",
+                                  "positions": ["BACK", "adbc"],
+                                  "techStacks": ["Java"]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.positions").value(org.hamcrest.Matchers.contains("BACK")));
     }
 
     @Test
