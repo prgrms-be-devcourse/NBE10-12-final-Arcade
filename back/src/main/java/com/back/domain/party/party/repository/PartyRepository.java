@@ -56,11 +56,11 @@ public interface PartyRepository extends JpaRepository<Party, Long> {
             Pageable pageable
     );
 
-    @Modifying(clearAutomatically = true)
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("update Party p set p.likeCount = p.likeCount + 1 where p.id = :id")
     void increaseLikeCount(@Param("id") long id);
 
-    @Modifying(clearAutomatically = true)
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("update Party p set p.likeCount = case when p.likeCount > 0 then p.likeCount - 1 else 0 end where p.id = :id")
     void decreaseLikeCount(@Param("id") long id);
 }
