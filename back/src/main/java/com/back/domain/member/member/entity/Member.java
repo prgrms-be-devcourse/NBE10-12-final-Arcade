@@ -36,6 +36,9 @@ public class Member extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     private Role role = Role.MEMBER;
+    @Column(unique = true)
+    private String githubProviderUserId = null;
+    private String githubEmail = null;
 
     public Member(long id, String email, String nickname) {
         setId(id);
@@ -49,6 +52,11 @@ public class Member extends BaseEntity {
         this.name = nickname;
         this.profileImgUrl = profileImgUrl;
         this.apiKey = UUID.randomUUID().toString();
+    }
+
+    public void setGithubSocial(String githubProviderUserId, String githubEmail) {
+        this.githubProviderUserId = githubProviderUserId;
+        this.githubEmail = githubEmail;
     }
 
     public void modifyApiKey(String apiKey) {
