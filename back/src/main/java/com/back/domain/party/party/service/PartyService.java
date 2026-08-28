@@ -3,18 +3,27 @@ package com.back.domain.party.party.service;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.party.party.dtos.PartyDto;
+import com.back.domain.party.party.dtos.PartyListItemDto;
 import com.back.domain.party.party.entity.Party;
+import com.back.domain.party.party.entity.PartySortOption;
 import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.position.entity.Position;
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+
+import static com.back.domain.party.party.entity.PartySortOption.DEADLINE;
+import static com.back.domain.party.party.entity.PartySortOption.VACANCY;
 
 @Service
 @RequiredArgsConstructor
@@ -126,9 +135,12 @@ public class PartyService {
         );
 
         if (positionCapacityUpdates != null) {
-            positionCapacityUpdates.forEach(spec ->
-                    party.findPosition(spec.positionId()).changeCapacity(spec.capacity())
-            );
+            positionCapacityUpdates.forEach(spec -> {
+                if (spec.capacity() <= 0) {
+                throw new ServiceException("400-4", "포지션 정원은 1명 이상이어야 합니다.");
+            }
+            party.findPosition(spec.positionId()).changeCapacity(spec.capacity());
+        });
         }
 
         return new PartyDto(party);
@@ -155,5 +167,39 @@ public class PartyService {
         return topicType == TopicType.CONTEST
                 && targetContestId == null
                 && (contestName == null || contestName.isBlank());
+    }
+
+    public Page<PartyListItemDto> getList(
+            String keyword,
+            PartyTag partyTag,
+            PositionType positionType,
+            PartySortOption sortOption,
+            Pageable pageable
+    ) {
+        Page<Party> parties = switch (sortOption) {
+            case DEADLINE -> partyRepository.search(
+                    keyword, partyTag, positionType,
+                    PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("deadline").ascending())
+            );
+            case POPULAR -> partyRepository.search(
+                    keyword, partyTag, positionType,
+                    PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("likeCount").descending())
+            );
+            // 빈자리 합산은 집계값이라 Sort로 표현이 안 되므로, 정렬이 쿼리 안에 이미 박혀있는
+            // searchOrderByVacancy를 쓰고 Pageable은 반드시 unsorted로 넘긴다
+            case VACANCY -> partyRepository.searchOrderByVacancy(
+                    keyword, partyTag, positionType,
+                    PageRequest.of(pageable.getPageNumber(), pageable.getPageSize())
+            );
+        };
+
+        return parties.map(PartyListItemDto::new);
+    }
+
+    @Transactional
+    public PartyDto getDetail(long partyId) {
+        Party party = findByIdOrThrow(partyId);
+        party.increaseViewCount();
+        return new PartyDto(party);
     }
 }
