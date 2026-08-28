@@ -53,7 +53,7 @@ spring:
             client-id: ${SPRING__SECURITY__OAUTH2__CLIENT__REGISTRATION__GITHUB__CLIENT_ID}
             client-secret: ${SPRING__SECURITY__OAUTH2__CLIENT__REGISTRATION__GITHUB__CLIENT_SECRET}
             client-name: Github
-            scope: profile_nickname, profile_image
+            scope: read:user, user:email
             authorization-grant-type: authorization_code
             redirect-uri: "{baseUrl}/{action}/oauth2/code/{registrationId}"
         provider:

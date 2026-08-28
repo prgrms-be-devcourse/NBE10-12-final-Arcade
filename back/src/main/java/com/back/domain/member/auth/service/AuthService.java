@@ -29,7 +29,9 @@ public class AuthService {
 
         }
 
-        member = memberRepository.findByEmail(email).orElse(null);
+        if (email != null) {
+            member = memberRepository.findByEmail(email).orElse(null);
+        }
 
         if (member == null) {
             member = createMember(email, password, name, profileImgUrl, githubProviderUserId);

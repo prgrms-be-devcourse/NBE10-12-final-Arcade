@@ -35,8 +35,6 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             case "GITHUB" -> {
                 Map<String, Object> attributes = oAuth2User.getAttributes();
 
-                System.out.println(attributes);
-
                 oauthUserId = oAuth2User.getName();
                 email = (String) attributes.get("email");
                 profileImgUrl = (String) attributes.get("avatar_url");
