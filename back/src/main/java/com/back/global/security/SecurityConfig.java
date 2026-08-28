@@ -25,6 +25,7 @@ public class SecurityConfig {
     private final CustomAuthenticationFilter customAuthenticationFilter;
     private final AuthenticationSuccessHandler customOAuth2LoginSuccessHandler;
     private final CustomOAuth2AuthorizationRequestResolver customOAuth2AuthorizationRequestResolver;
+    private final CustomOAuth2UserService customOAuth2UserService;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) {
@@ -64,6 +65,9 @@ public class SecurityConfig {
                 .sessionManagement(sessionManagement -> sessionManagement.sessionCreationPolicy(STATELESS))
                 .oauth2Login(oauth2Login -> oauth2Login
                         .successHandler(customOAuth2LoginSuccessHandler)
+                        .userInfoEndpoint(userInfoEndpoint -> userInfoEndpoint
+                                .userService(customOAuth2UserService)
+                        )
                         .authorizationEndpoint(
                                 authorizationEndpoint -> authorizationEndpoint
                                         .authorizationRequestResolver(customOAuth2AuthorizationRequestResolver)
