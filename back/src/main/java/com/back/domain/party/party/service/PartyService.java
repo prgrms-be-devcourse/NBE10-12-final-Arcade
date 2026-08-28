@@ -54,8 +54,7 @@ public class PartyService {
             }
         });
 
-        if (topicType == TopicType.CONTEST && targetContestId == null
-            && (contestName == null || contestName.isBlank())) {
+        if (isMissingContestInfo(topicType, targetContestId, contestName)) {
             throw new ServiceException("400-1", "등록된 대회가 없으면 대회명을 입력해야 합니다.");
         }
 
@@ -109,6 +108,10 @@ public class PartyService {
         }
         party.checkModifiable();
 
+        if (isMissingContestInfo(topicType, targetContestId, contestName)) {
+            throw new ServiceException("400-1", "등록된 대회가 없으면 대회명을 입력해야 합니다.");
+        }
+
         party.update(
                 partyName,
                 title,
@@ -146,5 +149,11 @@ public class PartyService {
     private Party findByIdOrThrow(long partyId) {
         return partyRepository.findById(partyId)
                 .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 파티입니다."));
+    }
+
+    private boolean isMissingContestInfo(TopicType topicType, Long targetContestId, String contestName) {
+        return topicType == TopicType.CONTEST
+                && targetContestId == null
+                && (contestName == null || contestName.isBlank());
     }
 }

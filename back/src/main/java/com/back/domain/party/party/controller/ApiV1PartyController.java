@@ -47,7 +47,7 @@ public class ApiV1PartyController {
         String githubRepoUrl,
         int checklistRequiredApprovals,
         @NotNull LocalDateTime deadline,
-        @NotEmpty List<PositionReqBody> positions
+        @NotEmpty List<@Valid PositionReqBody> positions
     ) { }
 
     @PostMapping
@@ -96,7 +96,7 @@ public class ApiV1PartyController {
             @NotNull PartyTag partyTag,
             String githubRepoUrl,
             @NotNull LocalDateTime deadline,
-            List<PositionCapacityReqBody> positions
+            List<@Valid PositionCapacityReqBody> positions
     ) { }
 
     @PatchMapping("/{party-id}")
