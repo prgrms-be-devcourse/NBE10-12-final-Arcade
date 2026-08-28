@@ -5,7 +5,7 @@ import com.back.domain.member.member.service.MemberService;
 import com.back.global.exception.ServiceException;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
-import com.back.standard.util.Ut;
+import com.back.standard.util.Util;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -39,7 +39,7 @@ public class CustomAuthenticationFilter extends OncePerRequestFilter {
             response.setContentType("application/json;charset=UTF-8");
             response.setStatus(rsData.statusCode());
             response.getWriter().write(
-                    Ut.json.toString(rsData)
+                    Util.json.toString(rsData)
             );
         }
     }

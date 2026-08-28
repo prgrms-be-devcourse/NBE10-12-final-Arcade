@@ -1,7 +1,7 @@
 package com.back.domain.member.member.service;
 
 import com.back.domain.member.member.entity.Member;
-import com.back.standard.util.Ut;
+import com.back.standard.util.Util;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -17,18 +17,18 @@ public class AuthTokenService {
 
     String genAccessToken(Member member) {
         long id = member.getId();
-        String username = member.getEmail();
-        String name = member.getName();
+        String email = member.getEmail();
+        String role = member.getRole().name();
 
-        return Ut.jwt.toString(
+        return Util.jwt.toString(
                 secret,
                 expireSeconds,
-                Map.of("id", id, "username", username, "name", name)
+                Map.of("id", id, "email", email, "role", role)
         );
     }
 
     Map<String, Object> payload(String accessToken) {
-        Map<String, Object> parsedPayload = Ut.jwt.payload(secret, accessToken);
+        Map<String, Object> parsedPayload = Util.jwt.payload(secret, accessToken);
 
         if (parsedPayload == null) return null;
 
