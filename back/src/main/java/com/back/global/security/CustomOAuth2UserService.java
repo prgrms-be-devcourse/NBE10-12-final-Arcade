@@ -1,7 +1,7 @@
 package com.back.global.security;
 
+import com.back.domain.member.auth.service.AuthService;
 import com.back.domain.member.member.entity.Member;
-import com.back.domain.member.member.service.MemberService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
@@ -17,7 +17,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
-    private final MemberService memberService;
+    private final AuthService authService;
 
     // 카카오톡 로그인이 성공할 때 마다 이 함수가 실행된다.
     @Override
@@ -28,8 +28,10 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         String oauthUserId = "";
         String providerTypeCode = userRequest.getClientRegistration().getRegistrationId().toUpperCase();
 
-        String nickname = "";
+        String email = "";
         String profileImgUrl = "";
+
+        System.out.println("loadUser");
 
         switch (providerTypeCode) {
             case "KAKAO" -> {
@@ -37,7 +39,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                 Map<String, Object> attributesProperties = (Map<String, Object>) attributes.get("properties");
 
                 oauthUserId = oAuth2User.getName();
-                nickname = (String) attributesProperties.get("nickname");
+                email = (String) attributesProperties.get("nickname");
                 profileImgUrl = (String) attributesProperties.get("profile_image");
             }
             case "NAVER" -> {
@@ -45,21 +47,34 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                 Map<String, Object> attributesProperties = (Map<String, Object>) attributes.get("response");
 
                 oauthUserId = (String) attributesProperties.get("id");
-                nickname = (String) attributesProperties.get("nickname");
+                email = (String) attributesProperties.get("nickname");
                 profileImgUrl = (String) attributesProperties.get("profile_image");
             }
             case "GOOGLE" -> {
                 Map<String, Object> attributes = oAuth2User.getAttributes();
 
                 oauthUserId = oAuth2User.getName();
-                nickname = (String) attributes.get("name");
+                email = (String) attributes.get("name");
                 profileImgUrl = (String) attributes.get("picture");
+            }
+            case "GITHUB" -> {
+                Map<String, Object> attributes = oAuth2User.getAttributes();
+
+                System.out.println(attributes);
+
+                oauthUserId = oAuth2User.getName();
+                email = (String) attributes.get("email");
+                profileImgUrl = (String) attributes.get("avatar_url");
+
             }
         }
 
         String username = providerTypeCode + "__%s".formatted(oauthUserId);
         String password = "";
-        Member member = memberService.modifyOrJoin(username, password, nickname, profileImgUrl).data();
+        Member member = authService.modifyOrJoin(email, password, null, profileImgUrl, username).data();
+
+        System.out.println("SecurityUser");
+        System.out.println(member);
 
         return new SecurityUser(
                 member.getId(),
