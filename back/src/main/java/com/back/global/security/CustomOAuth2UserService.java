@@ -42,10 +42,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                 Map<String, Object> attributes = oAuth2User.getAttributes();
 
                 oauthUserId = oAuth2User.getName();
-                email = (String) attributes.get("email");
-                if (email == null || email.isBlank()) {
-                    email = getGithubVerifiedEmail(userRequest);
-                }
+                email = getGithubVerifiedEmail(userRequest);
                 profileImgUrl = (String) attributes.get("avatar_url");
 
             }
@@ -54,8 +51,6 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         String username = providerTypeCode + "__%s".formatted(oauthUserId);
         String password = "";
         Member member = authService.modifyOrJoin(email, password, profileImgUrl, username).data();
-
-        System.out.println("email: %s".formatted(email));
 
         return new SecurityUser(
                 member.getId(),
