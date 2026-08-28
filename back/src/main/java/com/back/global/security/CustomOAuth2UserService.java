@@ -31,32 +31,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         String email = "";
         String profileImgUrl = "";
 
-        System.out.println("loadUser");
-
         switch (providerTypeCode) {
-            case "KAKAO" -> {
-                Map<String, Object> attributes = oAuth2User.getAttributes();
-                Map<String, Object> attributesProperties = (Map<String, Object>) attributes.get("properties");
-
-                oauthUserId = oAuth2User.getName();
-                email = (String) attributesProperties.get("nickname");
-                profileImgUrl = (String) attributesProperties.get("profile_image");
-            }
-            case "NAVER" -> {
-                Map<String, Object> attributes = oAuth2User.getAttributes();
-                Map<String, Object> attributesProperties = (Map<String, Object>) attributes.get("response");
-
-                oauthUserId = (String) attributesProperties.get("id");
-                email = (String) attributesProperties.get("nickname");
-                profileImgUrl = (String) attributesProperties.get("profile_image");
-            }
-            case "GOOGLE" -> {
-                Map<String, Object> attributes = oAuth2User.getAttributes();
-
-                oauthUserId = oAuth2User.getName();
-                email = (String) attributes.get("name");
-                profileImgUrl = (String) attributes.get("picture");
-            }
             case "GITHUB" -> {
                 Map<String, Object> attributes = oAuth2User.getAttributes();
 
@@ -72,9 +47,6 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         String username = providerTypeCode + "__%s".formatted(oauthUserId);
         String password = "";
         Member member = authService.modifyOrJoin(email, password, null, profileImgUrl, username).data();
-
-        System.out.println("SecurityUser");
-        System.out.println(member);
 
         return new SecurityUser(
                 member.getId(),

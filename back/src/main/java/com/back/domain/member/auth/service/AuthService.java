@@ -45,11 +45,15 @@ public class AuthService {
         member.modify(name, profileImgUrl);
     }
 
-    private Member createMember(String email, String password, String name, String profileImgUrl, String githubProviderUserId) {
+    private Member createMember(String email, String password, String name, String profileImgUrl,
+            String githubProviderUserId) {
         String encodedPassword = (password != null && !password.isBlank())
                 ? passwordEncoder.encode(password)
                 : null;
 
-        return memberRepository.save(new Member(email, encodedPassword, name, profileImgUrl));
+        Member newMember = new Member(email, encodedPassword, name, profileImgUrl);
+        newMember.setGithubSocial(githubProviderUserId, email);
+
+        return memberRepository.save(newMember);
     }
 }
