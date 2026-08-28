@@ -3,6 +3,7 @@ package com.back.domain.party.party.entity;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.party.position.entity.PartyStatus;
 import com.back.domain.party.position.entity.Position;
+import com.back.global.exception.ServiceException;
 import com.back.global.jpa.entity.BaseEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -42,7 +43,7 @@ public class Party extends BaseEntity {
     // 대회 허브에 등록된 대회를 가리킴. Contest 도메인이 아직 없어 연관관계 없이 값만 보관.
     // Contest 엔티티가 생기면 @ManyToOne 매핑으로 전환 예정.
     @Column(name = "target_contest_id")
-    private Integer targetContestId;
+    private Long targetContestId;
 
     // targetContestId가 없을 때(미등록 외부 대회) 자유 입력
     private String contestName;
@@ -82,7 +83,7 @@ public class Party extends BaseEntity {
         String partyName,
         String title,
         String description,
-        Integer targetContestId,
+        Long targetContestId,
         String contestName,
         String contestLinkUrl,
         TopicType topicType,
@@ -118,6 +119,43 @@ public class Party extends BaseEntity {
     }
 
     public boolean isOwnedBy(Member member) {
-        return this.owner.getId() == member.getId();
+        return this.owner.getId().equals(member.getId());
+    }
+
+    public void checkModifiable() {
+        if (this.status != PartyStatus.RECRUITING) {
+            throw new ServiceException("409-1", "모집이 종료된 파티는 수정할 수 없습니다.");
+        }
+    }
+
+    public void checkDeletable() {
+        if (this.status != PartyStatus.RECRUITING) {
+            throw new ServiceException("409-1", "모집 완료되지 않은 파티만 삭제할 수 있습니다.");
+        }
+    }
+
+    public void update(
+            String partyName, String title, String description,
+            Long targetContestId, String contestName, String contestLinkUrl,
+            TopicType topicType, PartyTag partyTag, String githubRepoUrl,
+            LocalDateTime deadline
+    ) {
+        this.partyName = partyName;
+        this.title = title;
+        this.description = description;
+        this.targetContestId = targetContestId;
+        this.contestName = contestName;
+        this.contestLinkUrl = contestLinkUrl;
+        this.topicType = topicType;
+        this.partyTag = partyTag;
+        this.githubRepoUrl = githubRepoUrl;
+        this.deadline = deadline;
+    }
+
+    public Position findPosition(long positionId) {
+        return positions.stream()
+                .filter(p -> p.getId() == positionId)
+                .findFirst()
+                .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 포지션입니다."));
     }
 }
