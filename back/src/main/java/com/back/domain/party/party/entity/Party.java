@@ -160,4 +160,14 @@ public class Party extends BaseEntity {
                 .findFirst()
                 .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 포지션입니다."));
     }
+
+    public void increaseLikeCount() {
+        this.likeCount++;
+    }
+
+    public void decreaseLikeCount() {
+        if (this.likeCount > 0) {
+            this.likeCount--;
+        }
+    }
 }
