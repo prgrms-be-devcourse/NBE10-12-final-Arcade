@@ -10,32 +10,78 @@ STRICT="${STRICT}gh[pousr]_[A-Za-z0-9]{36,}|"
 # .pem, .key
 STRICT="${STRICT}(-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----)"
 
-LOOSE="(password|secret|api[_-]?key)[a-z_]*[[:space:]]*[:=][[:space:]]*[\"']?[^\"'[:space:]\${<][^\"'[:space:]]{5,}"
+
+# 일반 비밀 값: 값 부분이 17자 이상일 때 탐지
+LOOSE="(password|secret|api[_-]?key)[a-z_]*[[:space:]]*[:=][[:space:]]*[\"']?[^\"'[:space:]\${<]{17,}"
 
 ALLOW='\$\{|process\.env|System\.getenv|getenv\(|\(\)|your[_-]|[_-]here|changeme|placeholder|example|xxxx'
 
+# 추가된 줄을 파일명:줄번호:내용 형식으로 변환
+ADDED_LINES=$(
+  git diff --cached --unified=0 --no-color --diff-filter=ACMR -- |
+    awk '
+      /^diff --git / {
+        in_hunk = 0
+        next
+      }
+
+      !in_hunk && /^\+\+\+ b\// {
+        file = substr($0, 7)
+        next
+      }
+
+      /^@@ / {
+        new_range = $3
+        sub(/^\+/, "", new_range)
+        split(new_range, range, ",")
+        line = range[1] + 0
+        in_hunk = 1
+        next
+      }
+
+      in_hunk && /^\+/ {
+        print file ":" line ":" substr($0, 2)
+        line++
+      }
+    '
+)
+
 FOUND=$(
-  echo "$STAGED_DIFF" | grep -Ei "$STRICT"
-  echo "$STAGED_DIFF" | grep -Ei "$LOOSE" | grep -vEi "$ALLOW"
+  {
+    printf '%s\n' "$ADDED_LINES" |
+      grep -Ei "$STRICT"
+
+    printf '%s\n' "$ADDED_LINES" |
+      grep -Ei "$LOOSE" |
+      grep -vEi "$ALLOW"
+  } |
+    sed -E 's/^(.+:[0-9]+):.*$/\1/' |
+    sort -u
 )
 
 if [ -n "$FOUND" ]; then
   echo "커밋에 민감정보로 의심되는 값이 포함돼 있습니다:"
-  echo "$FOUND"
+  printf '%s\n' "$FOUND"
   exit 1
 fi
 
-# env file
-STAGED=$(git diff --cached --name-only)
+# 위험한 .env 파일 검사
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR)
 
-CANDIDATES=$(echo "$STAGED" | grep -E '(^|/)\.env(\.[A-Za-z0-9_-]+)*$')
+CANDIDATES=$(
+  printf '%s\n' "$STAGED" |
+    grep -E '(^|/)\.env(\.[A-Za-z0-9_-]+)*$'
+)
 
-# 접미사(example/sample/template)는 제외, 예시).env.example
-DANGEROUS=$(echo "$CANDIDATES" | grep -vE '\.(example|sample|template)$')
+# .env.example, .env.sample, .env.template은 허용
+DANGEROUS=$(
+  printf '%s\n' "$CANDIDATES" |
+    grep -vE '\.(example|sample|template)$'
+)
 
 if [ -n "$DANGEROUS" ]; then
   echo "커밋하면 안 되는 .env 파일이 있습니다:"
-  echo "$DANGEROUS"
+  printf '%s\n' "$DANGEROUS"
   exit 1
 fi
 
