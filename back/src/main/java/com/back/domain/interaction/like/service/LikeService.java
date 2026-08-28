@@ -29,9 +29,10 @@ public class LikeService {
         }
 
         likeActionRepository.save(new LikeAction(member, TargetType.PARTY, partyId));
-        party.increaseLikeCount();
+        partyRepository.increaseLikeCount(partyId);
 
-        return new LikeDto(TargetType.PARTY, partyId, true, party.getLikeCount());
+        int updatedLikeCount = findPartyOrThrow(partyId).getLikeCount();
+        return new LikeDto(TargetType.PARTY, partyId, true, updatedLikeCount);
     }
 
     @Transactional
@@ -43,9 +44,10 @@ public class LikeService {
                 .orElseThrow(() -> new ServiceException("409-1", "좋아요하지 않은 파티입니다."));
 
         likeActionRepository.delete(likeAction);
-        party.decreaseLikeCount();
+        partyRepository.decreaseLikeCount(partyId);
 
-        return new LikeDto(TargetType.PARTY, partyId, false, party.getLikeCount());
+        int updatedLikeCount = findPartyOrThrow(partyId).getLikeCount();
+        return new LikeDto(TargetType.PARTY, partyId, false, updatedLikeCount);
     }
 
     private Party findPartyOrThrow(long partyId) {

@@ -6,6 +6,7 @@ import com.back.domain.party.party.entity.PartyTag;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -54,4 +55,12 @@ public interface PartyRepository extends JpaRepository<Party, Long> {
             @Param("positionType") PositionType positionType,
             Pageable pageable
     );
+
+    @Modifying(clearAutomatically = true)
+    @Query("update Party p set p.likeCount = p.likeCount + 1 where p.id = :id")
+    void increaseLikeCount(@Param("id") long id);
+
+    @Modifying(clearAutomatically = true)
+    @Query("update Party p set p.likeCount = case when p.likeCount > 0 then p.likeCount - 1 else 0 end where p.id = :id")
+    void decreaseLikeCount(@Param("id") long id);
 }

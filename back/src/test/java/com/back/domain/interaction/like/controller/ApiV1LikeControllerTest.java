@@ -105,7 +105,7 @@ public class ApiV1LikeControllerTest {
     }
 
     @Test
-    @DisplayName("파티 좋아요 취소: 204-1과 data=null을 반환한다")
+    @DisplayName("파티 좋아요 취소: 204-1")
     @WithUserDetails("user1@test.com")
     void unlikeParty() throws Exception {
         Party party = saveParty("user2@test.com");
