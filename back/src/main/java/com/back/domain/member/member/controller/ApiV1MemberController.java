@@ -2,7 +2,6 @@ package com.back.domain.member.member.controller;
 
 import com.back.domain.member.member.dtos.MemberDto;
 import com.back.domain.member.member.dtos.MemberLoginDto;
-import com.back.domain.member.member.dtos.MemberLoginWithRefreshTokenDto;
 import com.back.domain.member.member.service.MemberService;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
@@ -57,10 +56,10 @@ public class ApiV1MemberController {
     ) { }
 
     @PostMapping("/login")
-    public RsData<MemberLoginWithRefreshTokenDto> login(
+    public RsData<MemberLoginDto> login(
         @Valid @RequestBody MemberLoginReqBody request
     ) {
-        MemberLoginWithRefreshTokenDto loginDto = memberService.login(request.email, request.password);
+        MemberLoginDto loginDto = memberService.login(request.email, request.password);
 
         rq.setCookie("accessToken", loginDto.accessToken());
         rq.setCookie("refreshToken", loginDto.refreshToken());
@@ -91,10 +90,15 @@ public class ApiV1MemberController {
     public RsData<MemberLoginDto> refresh(
         @Valid @RequestBody RefreshTokenReqBody request
     ) {
+        MemberLoginDto loginDto = memberService.refreshToken(request.refreshToken);
+
+        rq.setCookie("accessToken", loginDto.accessToken());
+        rq.setCookie("refreshToken", loginDto.refreshToken());
+
         return new RsData<>(
             "201-1",
             "AccessToken 재발급 성공",
-            memberService.refreshToken(rq.getActor().getId(), request.refreshToken)
+            loginDto
         );
     }
 

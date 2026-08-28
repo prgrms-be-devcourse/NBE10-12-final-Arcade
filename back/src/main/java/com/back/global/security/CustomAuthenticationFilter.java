@@ -52,7 +52,7 @@ public class CustomAuthenticationFilter extends OncePerRequestFilter {
         }
 
         // 인증, 인가가 필요없는 API 요청이라면 패스
-        if (List.of("/api/v1/members/login", "/api/v1/members/logout", "/api/v1/members/join").contains(request.getRequestURI())) {
+        if (List.of("/api/v1/members/login", "/api/v1/members/logout", "/api/v1/members/join", "/api/v1/members/refresh").contains(request.getRequestURI())) {
             filterChain.doFilter(request, response);
             return;
         }

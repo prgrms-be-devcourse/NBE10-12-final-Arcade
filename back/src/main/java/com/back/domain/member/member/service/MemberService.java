@@ -2,16 +2,21 @@ package com.back.domain.member.member.service;
 
 import com.back.domain.member.member.dtos.MemberDto;
 import com.back.domain.member.member.dtos.MemberLoginDto;
-import com.back.domain.member.member.dtos.MemberLoginWithRefreshTokenDto;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
 import com.back.global.exception.ServiceException;
 import com.back.global.rsData.RsData;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
+import java.time.Duration;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -20,10 +25,34 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class MemberService {
+    private static final Duration REFRESH_TOKEN_TTL = Duration.ofDays(14);
+    private static final String REFRESH_TOKEN_KEY_PREFIX = "auth:refresh-token:";
+    private static final String USED_REFRESH_TOKEN_KEY_PREFIX = "auth:used-refresh-token:";
+    private static final DefaultRedisScript<Long> CONSUME_REFRESH_TOKEN_SCRIPT = new DefaultRedisScript<>(
+        """
+            local memberId = redis.call('GET', KEYS[1])
+            if memberId then
+                redis.call('DEL', KEYS[1])
+                redis.call('SET', KEYS[2], 'used', 'EX', ARGV[1])
+                return tonumber(memberId)
+            end
+            if redis.call('EXISTS', KEYS[2]) == 1 then
+                return -2
+            end
+            return -1
+            """,
+        Long.class
+    );
+
     private final AuthTokenService authTokenService;
     private final PasswordEncoder passwordEncoder;
-
     private final MemberRepository memberRepository;
+    private final StringRedisTemplate redisTemplate;
+
+    @Value("${custom.accessToken.expirationSeconds}")
+    private int accessTokenExpirationSeconds;
+
+    private final SecureRandom secureRandom = new SecureRandom();
 
     public long count() {
         return memberRepository.count();
@@ -63,23 +92,36 @@ public class MemberService {
         member.modifyApiKey(apiKey);
     }
 
-    public MemberLoginWithRefreshTokenDto login(String email, String password) {
+    public MemberLoginDto login(String email, String password) {
         Member member = memberRepository.findByEmail(email).orElseThrow(
             () -> new ServiceException("401-2", "이메일 또는 비밀번호가 올바르지 않습니다.")
         );
         if (!passwordEncoder.matches(password, member.getPassword()))
             throw new ServiceException("401-2", "이메일 또는 비밀번호가 올바르지 않습니다.");
 
-        return new MemberLoginWithRefreshTokenDto(member, genAccessToken(member));
+        return createLoginDto(member);
 
     }
 
-    public MemberLoginDto refreshToken(long memberId, String refreshToken) {
-        Member member = memberRepository.findById(memberId).get();
-        if (!member.getApiKey().equals(refreshToken))
-            throw new ServiceException("401-3", "유효하지 않거나 만료된 토큰입니다.");
+    public MemberLoginDto refreshToken(String refreshToken) {
+        Long memberId = redisTemplate.execute(
+            CONSUME_REFRESH_TOKEN_SCRIPT,
+            List.of(refreshTokenKey(refreshToken), usedRefreshTokenKey(refreshToken)),
+            String.valueOf(REFRESH_TOKEN_TTL.toSeconds())
+        );
 
-        return new MemberLoginDto(member, genAccessToken(member));
+        if (Long.valueOf(-2).equals(memberId)) {
+            throw new ServiceException("401-4", "재사용된 리프레시 토큰입니다.");
+        }
+
+        if (memberId == null || memberId < 1) {
+            throw new ServiceException("401-3", "유효하지 않거나 만료된 토큰입니다.");
+        }
+
+        Member member = memberRepository.findById(memberId)
+            .orElseThrow(() -> new ServiceException("404-1", "회원을 찾을 수 없습니다."));
+
+        return createLoginDto(member);
     }
 
     public Optional<Member> findByEmail(String email) {
@@ -92,6 +134,36 @@ public class MemberService {
 
     public String genAccessToken(Member member) {
         return authTokenService.genAccessToken(member);
+    }
+
+    private MemberLoginDto createLoginDto(Member member) {
+        String refreshToken = generateRefreshToken();
+        redisTemplate.opsForValue().set(
+            refreshTokenKey(refreshToken),
+            String.valueOf(member.getId()),
+            REFRESH_TOKEN_TTL
+        );
+
+        return new MemberLoginDto(
+            member,
+            genAccessToken(member),
+            refreshToken,
+            accessTokenExpirationSeconds
+        );
+    }
+
+    private String generateRefreshToken() {
+        byte[] tokenBytes = new byte[32];
+        secureRandom.nextBytes(tokenBytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(tokenBytes);
+    }
+
+    private String refreshTokenKey(String refreshToken) {
+        return REFRESH_TOKEN_KEY_PREFIX + refreshToken;
+    }
+
+    private String usedRefreshTokenKey(String refreshToken) {
+        return USED_REFRESH_TOKEN_KEY_PREFIX + refreshToken;
     }
 
     public Map<String, Object> payload(String accessToken) {

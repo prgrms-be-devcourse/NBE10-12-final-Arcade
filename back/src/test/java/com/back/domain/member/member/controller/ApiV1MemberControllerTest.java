@@ -1,10 +1,12 @@
 package com.back.domain.member.member.controller;
 
+import com.back.RedisTestContainerConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -13,6 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.test.context.support.WithUserDetails;
 
 import jakarta.servlet.http.Cookie;
+
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -25,6 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@Import(RedisTestContainerConfig.class)
 public class ApiV1MemberControllerTest {
 
     @Autowired
@@ -122,7 +128,7 @@ public class ApiV1MemberControllerTest {
             .andExpect(jsonPath("$.data.grantType").value("Bearer"))
             .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
             .andExpect(jsonPath("$.data.refreshToken").isNotEmpty())
-            .andExpect(jsonPath("$.data.accessTokenExpiresIn").value(3600))
+            .andExpect(jsonPath("$.data.accessTokenExpiresIn").value(900))
             .andExpect(jsonPath("$.data.role").value("MEMBER"));
     }
 
@@ -177,25 +183,32 @@ public class ApiV1MemberControllerTest {
 
     @Test
     @DisplayName("토큰 재발급: refreshToken body로 201-1과 access token을 반환한다")
-    @WithUserDetails("user1@test.com")
     void refresh() throws Exception {
-        ResultActions resultActions = mvc.perform(post("/api/v1/members/refresh")
+        ResultActions loginResultActions = mvc.perform(post("/api/v1/members/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
-                        "refreshToken":"user1"
-                    }"""));
+                        "email":"user1@test.com",
+                        "password":"1234"
+                    }"""))
+            .andExpect(status().isCreated());
+
+        String refreshToken = extractRefreshToken(loginResultActions);
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/members/refresh")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"refreshToken\":\"%s\"}".formatted(refreshToken)));
 
         resultActions.andExpect(status().isCreated())
             .andExpect(jsonPath("$.resultCode").value("201-1"))
             .andExpect(jsonPath("$.data.grantType").value("Bearer"))
             .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
-            .andExpect(jsonPath("$.data.accessTokenExpiresIn").value(3600));
+            .andExpect(jsonPath("$.data.accessTokenExpiresIn").value(900))
+            .andExpect(jsonPath("$.data.refreshToken").isNotEmpty());
     }
 
     @Test
     @DisplayName("토큰 재발급: 유효하지 않거나 만료된 refresh token은 401-3이다")
-    @WithUserDetails("user1@test.com")
     void refreshWithInvalidToken() throws Exception {
         ResultActions resultActions = mvc.perform(post("/api/v1/members/refresh")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -208,29 +221,34 @@ public class ApiV1MemberControllerTest {
             .andExpect(jsonPath("$.resultCode").value("401-3"));
     }
 
-
-    /*
     @Test
-    @DisplayName("토큰 재발급: 재사용된 refresh token은 401-4이고 전 기기 토큰을 폐기한다")
-    @WithUserDetails("user1@test.com")
+    @DisplayName("토큰 재발급: 재사용된 refresh token은 401-4이다")
     void refreshWithReusedToken() throws Exception {
-        ResultActions resultActions = mvc.perform(post("/api/v1/members/refresh")
+        ResultActions loginResultActions = mvc.perform(post("/api/v1/members/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
-                        "refreshToken":"reused-token"
+                        "email":"user1@test.com",
+                        "password":"1234"
                     }"""));
 
-        resultActions.andExpect(status().isUnauthorized())
-            .andExpect(jsonPath("$.resultCode").value("401-4"))
-            .andExpect(jsonPath("$.msg").value("토큰 재사용이 감지되어 모든 기기에서 로그아웃 처리되었습니다."));
-    }
+        String refreshToken = extractRefreshToken(loginResultActions);
 
-     */
+        mvc.perform(post("/api/v1/members/refresh")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"refreshToken\":\"%s\"}".formatted(refreshToken)))
+            .andExpect(status().isCreated());
+
+        mvc.perform(post("/api/v1/members/refresh")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"refreshToken\":\"%s\"}".formatted(refreshToken)))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.resultCode").value("401-4"))
+            .andExpect(jsonPath("$.msg").value("재사용된 리프레시 토큰입니다."));
+    }
 
     @Test
     @DisplayName("토큰 재발급: refreshToken 누락은 400-1이다")
-    @WithUserDetails("user1@test.com")
     void refreshWithoutToken() throws Exception {
         ResultActions resultActions = mvc.perform(post("/api/v1/members/refresh")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -238,5 +256,14 @@ public class ApiV1MemberControllerTest {
 
         resultActions.andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.resultCode").value("400-1"));
+    }
+
+    private String extractRefreshToken(ResultActions resultActions) throws Exception {
+        String responseBody = resultActions.andReturn().getResponse().getContentAsString();
+        Matcher matcher = Pattern.compile("\\\"refreshToken\\\":\\\"([^\\\"]+)\\\"")
+            .matcher(responseBody);
+
+        assertThat(matcher.find()).isTrue();
+        return matcher.group(1);
     }
 }
