@@ -17,7 +17,6 @@ import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-// 지원(신청)과 매칭 확정(가입)을 한 테이블에 state로 통합 (기획서 3.5)
 @Entity
 @Getter
 @NoArgsConstructor
