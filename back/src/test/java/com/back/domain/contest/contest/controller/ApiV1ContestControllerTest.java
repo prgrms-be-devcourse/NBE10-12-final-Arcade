@@ -283,6 +283,26 @@ public class ApiV1ContestControllerTest {
     }
 
     @Test
+    @DisplayName("대회 목록 조회: 마감임박순(DEADLINE) 정렬은 applicationPeriodEnd 오름차순이다")
+    void listSortedByDeadline() throws Exception {
+        Member admin = memberRepository.findByEmail("admin").orElseThrow();
+
+        contestService.write(admin, "늦게 마감", ContestFormat.HACKATHON, ContestTag.AI,
+                LocalDate.of(2026, 9, 1), LocalDate.of(2026, 12, 31),
+                "설명", "https://example.com/late", null);
+        contestService.write(admin, "빨리 마감", ContestFormat.HACKATHON, ContestTag.AI,
+                LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 10),
+                "설명", "https://example.com/soon", null);
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/contests")
+                .param("sort", "DEADLINE"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].title").value("빨리 마감"))
+                .andExpect(jsonPath("$.data.content[1].title").value("늦게 마감"));
+    }
+
+    @Test
     @DisplayName("대회 상세 조회: 로그인 없이 조회하면 200-1과 대회 정보를 반환하고 viewCount가 증가한다")
     void getDetailIncreasesViewCount() throws Exception {
         long contestId = writeContestAsAdmin("조회될 대회");
@@ -294,7 +314,6 @@ public class ApiV1ContestControllerTest {
                 .andExpect(jsonPath("$.data.archived").value(false))
                 .andExpect(jsonPath("$.data.viewCount").value(1));
 
-        // 쿠키를 안 보내는 별개 요청 = 다른 방문자로 취급되어 계속 증가한다
         mvc.perform(get("/api/v1/contests/" + contestId))
                 .andExpect(jsonPath("$.data.viewCount").value(2));
     }
@@ -339,5 +358,43 @@ public class ApiV1ContestControllerTest {
 
         resultActions.andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.resultCode").value("404-1"));
+    }
+
+    @Test
+    @DisplayName("만료 게시글 자동 삭제: applicationPeriodEnd가 지난 대회의 게시글이 스케줄러 실행 시 삭제된다")
+    void deleteExpiredPostsRemovesExpiredContestPost() throws Exception {
+        Member admin = memberRepository.findByEmail("admin").orElseThrow();
+
+        ContestResponseDto expired = contestService.write(
+                admin,
+                "기한 지난 대회",
+                ContestFormat.HACKATHON,
+                ContestTag.AI,
+                LocalDate.now().minusDays(10),
+                LocalDate.now().minusDays(1),
+                "설명",
+                "https://example.com/expired",
+                null
+        );
+
+        ContestResponseDto notExpired = contestService.write(
+                admin,
+                "기한 안 지난 대회",
+                ContestFormat.HACKATHON,
+                ContestTag.AI,
+                LocalDate.now().minusDays(1),
+                LocalDate.now().plusDays(10),
+                "설명",
+                "https://example.com/not-expired",
+                null
+        );
+
+        contestService.deleteExpiredPosts();
+
+        mvc.perform(get("/api/v1/contests/" + expired.id()))
+                .andExpect(jsonPath("$.data.archived").value(true));
+
+        mvc.perform(get("/api/v1/contests/" + notExpired.id()))
+                .andExpect(jsonPath("$.data.archived").value(false));
     }
 }

@@ -52,6 +52,7 @@ public class ContestService {
         Page<ContestPost> posts = switch (sortOption) {
             case LATEST -> contestPostRepository.searchOrderByLatest(format, contestTag, unsorted);
             case POPULAR -> contestPostRepository.searchOrderByPopular(format, contestTag, unsorted);
+            case DEADLINE -> contestPostRepository.searchOrderByDeadline(format, contestTag, unsorted);
         };
 
         return posts.map(contestPost -> new ContestResponseDto(contestPost.getContest(), contestPost));
