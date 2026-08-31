@@ -2,6 +2,9 @@ package com.back.domain.interaction.bookmark.controller;
 
 import com.back.domain.interaction.bookmark.dtos.BookmarkDto;
 import com.back.domain.interaction.bookmark.service.BookmarkService;
+import com.back.domain.interaction.like.entity.TargetType;
+import com.back.domain.member.member.entity.Member;
+import com.back.global.exception.ServiceException;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +24,16 @@ public class ApiV1BookmarkController {
     public RsData<BookmarkDto> bookmarkContest(
             @PathVariable("contest-id") long contestId
     ) {
-        BookmarkDto dto = bookmarkService.bookmarkContest(contestId, rq.getActorFromDb());
+        Member actor = rq.getActorFromDb();
+
+        if (!bookmarkService.contestPostExists(contestId)) {
+            throw new ServiceException("404-1", "존재하지 않는 대회입니다.");
+        }
+        if (bookmarkService.isBookmarked(actor, TargetType.CONTEST, contestId)) {
+            throw new ServiceException("409-1", "이미 북마크한 대회입니다.");
+        }
+
+        BookmarkDto dto = bookmarkService.bookmarkContest(contestId, actor);
 
         return new RsData<>(
                 "201-1",
@@ -34,7 +46,16 @@ public class ApiV1BookmarkController {
     public RsData<Void> unbookmarkContest(
             @PathVariable("contest-id") long contestId
     ) {
-        bookmarkService.unbookmarkContest(contestId, rq.getActorFromDb());
+        Member actor = rq.getActorFromDb();
+
+        if (!bookmarkService.contestPostExists(contestId)) {
+            throw new ServiceException("404-1", "존재하지 않는 대회입니다.");
+        }
+        if (!bookmarkService.isBookmarked(actor, TargetType.CONTEST, contestId)) {
+            throw new ServiceException("409-1", "북마크하지 않은 대회입니다.");
+        }
+
+        bookmarkService.unbookmarkContest(contestId, actor);
 
         return new RsData<>(
                 "204-1",

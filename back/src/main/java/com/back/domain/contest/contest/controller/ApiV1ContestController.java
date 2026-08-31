@@ -5,9 +5,9 @@ import com.back.domain.contest.contest.entity.ContestFormat;
 import com.back.domain.contest.contest.entity.ContestSortOption;
 import com.back.domain.contest.contest.entity.ContestTag;
 import com.back.domain.contest.contest.service.ContestService;
-import com.back.domain.interaction.bookmark.service.BookmarkService;
+import com.back.domain.interaction.bookmark.service.BookmarkInteractionPort;
 import com.back.domain.interaction.like.entity.TargetType;
-import com.back.domain.interaction.like.service.LikeService;
+import com.back.domain.interaction.like.service.LikeInteractionPort;
 import com.back.domain.member.member.entity.Member;
 import com.back.global.exception.ServiceException;
 import com.back.global.rq.Rq;
@@ -40,8 +40,8 @@ import java.util.Set;
 @Tag(name = "ApiV1ContestController", description = "대회 글 컨트롤러")
 public class ApiV1ContestController {
     private final ContestService contestService;
-    private final LikeService likeService;
-    private final BookmarkService bookmarkService;
+    private final LikeInteractionPort likeInteractionPort;
+    private final BookmarkInteractionPort bookmarkInteractionPort;
     private final Rq rq;
 
     public record ContestWriteReqBody(
@@ -147,8 +147,8 @@ public class ApiV1ContestController {
         );
 
         Member actor = rq.getActorFromDb();
-        Set<Long> bookmarkedContestIds = bookmarkService.findBookmarkedTargetIds(actor, TargetType.CONTEST);
-        Set<Long> likedContestIds = likeService.findLikedTargetIds(actor, TargetType.CONTEST);
+        Set<Long> bookmarkedContestIds = bookmarkInteractionPort.findBookmarkedTargetIds(actor, TargetType.CONTEST);
+        Set<Long> likedContestIds = likeInteractionPort.findLikedTargetIds(actor, TargetType.CONTEST);
         contests = contests.map(contest -> contest.withMyInteractions(
                 bookmarkedContestIds.contains(contest.id()),
                 likedContestIds.contains(contest.id())
@@ -185,9 +185,7 @@ public class ApiV1ContestController {
     @DeleteMapping("/{contest-id}")
     @Operation(summary = "대회글 삭제")
     public RsData<Void> delete(@PathVariable("contest-id") long contestId) {
-        contestService.deletePost(contestId);
-        likeService.deleteAllLikesForContest(contestId);
-        bookmarkService.deleteAllBookmarksForContest(contestId);
+        contestService.deleteContestAndInteractions(contestId);
 
         return new RsData<>(
                 "204-1",

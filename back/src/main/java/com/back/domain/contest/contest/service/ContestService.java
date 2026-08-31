@@ -8,6 +8,9 @@ import com.back.domain.contest.contest.entity.ContestSortOption;
 import com.back.domain.contest.contest.entity.ContestTag;
 import com.back.domain.contest.contest.repository.ContestPostRepository;
 import com.back.domain.contest.contest.repository.ContestRepository;
+import com.back.domain.interaction.bookmark.service.BookmarkInteractionPort;
+import com.back.domain.interaction.like.entity.TargetType;
+import com.back.domain.interaction.like.service.LikeInteractionPort;
 import com.back.domain.member.member.entity.Member;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -27,6 +30,8 @@ public class ContestService {
 
     private final ContestRepository contestRepository;
     private final ContestPostRepository contestPostRepository;
+    private final LikeInteractionPort likeInteractionPort;
+    private final BookmarkInteractionPort bookmarkInteractionPort;
 
     public long count() {
         return contestRepository.count();
@@ -82,6 +87,13 @@ public class ContestService {
     public void deletePost(long contestId) {
         Contest contest = contestRepository.findById(contestId).orElseThrow();
         contestPostRepository.findByContest(contest).ifPresent(contestPostRepository::delete);
+    }
+
+    @Transactional
+    public void deleteContestAndInteractions(long contestId) {
+        deletePost(contestId);
+        likeInteractionPort.deleteAllLikesForTarget(TargetType.CONTEST, contestId);
+        bookmarkInteractionPort.deleteAllBookmarksForTarget(TargetType.CONTEST, contestId);
     }
 
     //00시 기준으로 모집 기한이 지난 대회글(ContestPost) 스케줄러 조회 후 삭제
