@@ -55,10 +55,16 @@ public class GithubAppClient {
     }
 
     public List<GithubPullRequestResponse> getAllPullRequests(String installationToken, String repository) {
+        String[] repositoryPath = repository.split("/", -1);
+        if (repositoryPath.length != 2 || repositoryPath[0].isBlank() || repositoryPath[1].isBlank()) {
+            throw new IllegalArgumentException("GitHub repository must be in owner/repository format.");
+        }
+        String owner = repositoryPath[0];
+        String name = repositoryPath[1];
         List<GithubPullRequestResponse> all = new ArrayList<>();
         for (int page = 1; ; page++) {
             GithubPullRequestResponse[] response = tokenHeaders(client.get()
-                    .uri("/repos/{repo}/pulls?state=all&per_page=100&page={page}", repository, page), installationToken)
+                    .uri("/repos/{owner}/{repo}/pulls?state=all&per_page=100&page={page}", owner, name, page), installationToken)
                 .retrieve().body(GithubPullRequestResponse[].class);
             if (response == null || response.length == 0) break;
             all.addAll(Arrays.asList(response));

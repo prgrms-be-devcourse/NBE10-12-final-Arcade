@@ -35,6 +35,7 @@ public class PartyGithubConnectionService {
     private final GithubAppInstallStateRepository installStateRepository;
     private final GithubAppClient githubAppClient;
     private final PartyPrService partyPrService;
+    private final PartyGithubConnectionFailureService connectionFailureService;
 
     @Value("${custom.github.app.slug:}")
     private String appSlug;
@@ -145,13 +146,13 @@ public class PartyGithubConnectionService {
 
         } catch (RestClientResponseException e) {
             if (e.getStatusCode().value() == 401 || e.getStatusCode().value() == 404) {
-                connection.markInstallationRequired("GITHUB_APP_INSTALLATION_UNAVAILABLE", "GitHub App 설치를 다시 확인해주세요.");
+                connectionFailureService.markInstallationRequired(party.getId(), "GITHUB_APP_INSTALLATION_UNAVAILABLE", "GitHub App 설치를 다시 확인해주세요.");
             } else {
-                connection.markError("GITHUB_APP_ERROR", e.getMessage());
+                connectionFailureService.markError(party.getId(), "GITHUB_APP_ERROR", e.getMessage());
             }
             throw e;
         } catch (RuntimeException e) {
-            connection.markError("GITHUB_APP_ERROR", e.getMessage());
+            connectionFailureService.markError(party.getId(), "GITHUB_APP_ERROR", e.getMessage());
             throw e;
         }
     }
