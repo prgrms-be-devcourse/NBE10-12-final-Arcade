@@ -362,6 +362,21 @@ public class ApiV1ContestControllerTest {
     }
 
     @Test
+    @DisplayName("대회 목록 조회: sortOption이 null이면 LATEST로 대체되어 정상 조회된다")
+    void listWithNullSortOptionFallsBackToLatest() {
+        contestService.write(
+                memberRepository.findByEmail("admin").orElseThrow(),
+                "정렬 null 테스트 대회", ContestFormat.HACKATHON, ContestTag.AI,
+                LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30),
+                "설명", "https://example.com/null-sort", null
+        );
+
+        var result = contestService.list(null, null, null, org.springframework.data.domain.PageRequest.of(0, 20));
+
+        Assertions.assertFalse(result.isEmpty());
+    }
+
+    @Test
     @DisplayName("대회 상세 조회: 로그인 없이 조회하면 200-1과 대회 정보를 반환하고 viewCount가 증가한다")
     void getDetailIncreasesViewCount() throws Exception {
         long contestId = writeContestAsAdmin("조회될 대회");

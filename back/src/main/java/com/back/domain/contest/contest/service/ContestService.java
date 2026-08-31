@@ -48,8 +48,9 @@ public class ContestService {
 
     public Page<ContestResponseDto> list(ContestFormat format, ContestTag contestTag, ContestSortOption sortOption, Pageable pageable) {
         Pageable unsorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+        ContestSortOption effectiveSortOption = sortOption != null ? sortOption : ContestSortOption.LATEST;
 
-        Page<ContestPost> posts = switch (sortOption) {
+        Page<ContestPost> posts = switch (effectiveSortOption) {
             case LATEST -> contestPostRepository.searchOrderByLatest(format, contestTag, unsorted);
             case POPULAR -> contestPostRepository.searchOrderByPopular(format, contestTag, unsorted);
             case DEADLINE -> contestPostRepository.searchOrderByDeadline(format, contestTag, unsorted);
