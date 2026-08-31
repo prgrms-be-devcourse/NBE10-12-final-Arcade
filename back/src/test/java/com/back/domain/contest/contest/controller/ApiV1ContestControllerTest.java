@@ -137,6 +137,30 @@ public class ApiV1ContestControllerTest {
     }
 
     @Test
+    @DisplayName("대회 등록: 모집 시작일이 종료일보다 늦으면 400-3이다")
+    @WithUserDetails("admin")
+    void writeWithStartAfterEnd() throws Exception {
+        String body = """
+            {
+                "title": "기간 역전 대회",
+                "format": "HACKATHON",
+                "contestTag": "AI",
+                "applicationPeriodStart": "2026-10-01",
+                "applicationPeriodEnd": "2026-09-01",
+                "description": "이것은 테스트용 대회 설명입니다",
+                "linkUrl": "https://example.com/contest"
+            }
+            """;
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/contests")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body));
+
+        resultActions.andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-3"));
+    }
+
+    @Test
     @DisplayName("대회 수정: 관리자가 수정하면 200-1과 수정된 대회를 반환한다")
     @WithUserDetails("admin")
     void modifyByAdmin() throws Exception {
@@ -182,6 +206,30 @@ public class ApiV1ContestControllerTest {
 
         resultActions.andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.resultCode").value("400-1"));
+    }
+
+    @Test
+    @DisplayName("대회 수정: 모집 시작일이 종료일보다 늦으면 400-3이다")
+    @WithUserDetails("admin")
+    void modifyWithStartAfterEnd() throws Exception {
+        long contestId = writeContestAsAdmin("수정 전 제목");
+
+        String body = """
+            {
+                "title": "수정된 제목",
+                "description": "수정된 설명",
+                "applicationPeriodStart": "2026-10-05",
+                "applicationPeriodEnd": "2026-09-05",
+                "linkUrl": "https://example.com/modified"
+            }
+            """;
+
+        ResultActions resultActions = mvc.perform(patch("/api/v1/contests/" + contestId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body));
+
+        resultActions.andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-3"));
     }
 
     @Test

@@ -21,7 +21,7 @@ public interface ContestPostRepository extends JpaRepository<ContestPost, Long> 
     // 정렬기준
     @Query(value = """
         select cp from ContestPost cp
-        join cp.contest c
+        join fetch cp.contest c
         where (:format is null or c.format = :format)
           and (:contestTag is null or c.contestTag = :contestTag)
         order by c.createDate desc
@@ -40,7 +40,7 @@ public interface ContestPostRepository extends JpaRepository<ContestPost, Long> 
 
     @Query(value = """
         select cp from ContestPost cp
-        join cp.contest c
+        join fetch cp.contest c
         where (:format is null or c.format = :format)
           and (:contestTag is null or c.contestTag = :contestTag)
         order by cp.likeCount desc
@@ -59,7 +59,7 @@ public interface ContestPostRepository extends JpaRepository<ContestPost, Long> 
 
     @Query(value = """
         select cp from ContestPost cp
-        join cp.contest c
+        join fetch cp.contest c
         where (:format is null or c.format = :format)
           and (:contestTag is null or c.contestTag = :contestTag)
         order by c.applicationPeriodEnd asc

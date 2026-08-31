@@ -7,6 +7,7 @@ import com.back.domain.contest.contest.entity.ContestSortOption;
 import com.back.domain.contest.contest.entity.ContestTag;
 import com.back.domain.contest.contest.service.ContestService;
 import com.back.domain.member.member.entity.Member;
+import com.back.global.exception.ServiceException;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
 import io.swagger.v3.oas.annotations.Operation;
@@ -63,6 +64,7 @@ public class ApiV1ContestController {
             @RequestBody @Valid ContestWriteReqBody reqBody
     ){
         Member actor = rq.checkAdmin();
+        checkPeriod(reqBody.applicationPeriodStart(), reqBody.applicationPeriodEnd());
 
         ContestResponseDto contestResponseDto = contestService.write(
                 actor,
@@ -85,7 +87,9 @@ public class ApiV1ContestController {
 
     public record ContestModifyReqBody(
             @NotBlank
+            @Size(min = 5, max = 25)
             String title,
+            @Size(min = 10, max = 20000)
             String description,
             @NotNull
             LocalDate applicationPeriodStart,
@@ -103,8 +107,7 @@ public class ApiV1ContestController {
             @RequestBody @Valid ContestModifyReqBody reqBody
     ) {
         rq.checkAdmin();
-
-        contestService.findById(id).orElseThrow();
+        checkPeriod(reqBody.applicationPeriodStart(), reqBody.applicationPeriodEnd());
 
         ContestResponseDto contestResponseDto = contestService.modify(
                 id,
@@ -179,6 +182,12 @@ public class ApiV1ContestController {
                 "204-1",
                 "대회 게시글 삭제 성공"
         );
+    }
+
+    private void checkPeriod(LocalDate start, LocalDate end) {
+        if (start.isAfter(end)) {
+            throw new ServiceException("400-3", "모집 시작일은 종료일보다 이후일 수 없습니다.");
+        }
     }
 
 }
