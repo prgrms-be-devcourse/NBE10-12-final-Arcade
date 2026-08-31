@@ -1,7 +1,7 @@
 name: PR Agent
 on:
   pull_request:
-    types: [opened, ready_for_review]
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main, develop]
     paths-ignore:
       - "**/*.md"
@@ -14,14 +14,84 @@ on:
       - "docs/**"
       - ".github/**"
       - ".githooks/**"
+  # PR에 아래 명령을 달면 다시 검사한다. paths-ignore는 적용되지 않는다.
+  #   /review          PR 상태에 따라 (draft면 인라인, 열려 있으면 보고서)
+  #   /review report   보고서로 강제
+  #   /review inline   인라인 코멘트로 강제
+  issue_comment:
+    types: [created]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number }}
   cancel-in-progress: true
 
 jobs:
+  context:
+    if: >-
+      (github.event_name == 'pull_request'
+        && github.event.sender.type != 'Bot'
+        && github.event.pull_request.head.repo.full_name == github.repository
+        && (github.event.pull_request.draft == true || github.event.action != 'synchronize'))
+        || (github.event_name == 'issue_comment'
+        && github.event.issue.pull_request
+        && github.event.comment.user.type != 'Bot'
+        && startsWith(github.event.comment.body, '/review')
+        && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      run: ${{ steps.pr.outputs.run }}
+      number: ${{ steps.pr.outputs.number }}
+      base_sha: ${{ steps.pr.outputs.base_sha }}
+      head_sha: ${{ steps.pr.outputs.head_sha }}
+      mode: ${{ steps.pr.outputs.mode }}
+      same_repo: ${{ steps.pr.outputs.same_repo }}
+    steps:
+      - name: Resolve PR
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+          EVENT_NAME: ${{ github.event_name }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          FORCED_MODE=""
+          if [ "$EVENT_NAME" = "issue_comment" ]; then
+            case "$(printf '%s' "$COMMENT_BODY" | tr -d '\r' | sed -e 's/[[:space:]]*$//')" in
+              "/review") ;;
+              "/review report") FORCED_MODE="report" ;;
+              "/review inline") FORCED_MODE="inline" ;;
+              *)
+                echo "run=false" >> "$GITHUB_OUTPUT"
+                echo "인식하지 못한 명령입니다. /review, /review report, /review inline 중 하나여야 합니다."
+                exit 0
+                ;;
+            esac
+          fi
+
+          gh pr view "$NUMBER" --repo "$REPO" \
+            --json number,baseRefOid,headRefOid,isDraft,headRepository > pr.json
+
+          MODE="$FORCED_MODE"
+          if [ -z "$MODE" ]; then
+            MODE=$(jq -r 'if .isDraft then "inline" else "report" end' pr.json)
+          fi
+
+          {
+            echo "run=true"
+            echo "number=$(jq -r .number pr.json)"
+            echo "base_sha=$(jq -r .baseRefOid pr.json)"
+            echo "head_sha=$(jq -r .headRefOid pr.json)"
+            echo "mode=$MODE"
+            echo "same_repo=$(jq -r --arg r "$REPO" '.headRepository.nameWithOwner == $r' pr.json)"
+          } >> "$GITHUB_OUTPUT"
+
   review:
-    if: ${{ github.event.sender.type != 'Bot' && github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository }}
+    needs: context
+    if: needs.context.outputs.run == 'true' && needs.context.outputs.same_repo == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -31,13 +101,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
         with:
+          ref: ${{ needs.context.outputs.head_sha }}
           fetch-depth: 0
 
       - name: Get Filtered Diff
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ needs.context.outputs.base_sha }}
+          HEAD_SHA: ${{ needs.context.outputs.head_sha }}
         run: |
+          git fetch --no-tags origin "$BASE_SHA"
           git diff "$BASE_SHA...$HEAD_SHA" -- . \
             ':(exclude)*.lock' \
             ':(exclude)package-lock.json' \
@@ -78,9 +150,13 @@ jobs:
       - name: Run Gemini Review
         env:
           MODEL_API_KEY: ${{ secrets.MODEL_API_KEY }}
+          MODEL: ${{ vars.MODEL_NAME }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ needs.context.outputs.number }}
           REPO: ${{ github.repository }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_BODY: ${{ github.event.pull_request.body }}
-        run: python .github/scripts/ai_review.py
+          REVIEW_MODE: ${{ needs.context.outputs.mode }}
+        run: |
+          PR_TITLE=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json title --jq .title)
+          PR_BODY=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json body --jq .body)
+          export PR_TITLE PR_BODY
+          python .github/scripts/ai_review.py
