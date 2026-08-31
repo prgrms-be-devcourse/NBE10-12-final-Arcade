@@ -1,7 +1,6 @@
 package com.back.domain.interaction.bookmark.service;
 
 import com.back.domain.contest.contest.repository.ContestPostRepository;
-import com.back.domain.contest.contest.repository.ContestRepository;
 import com.back.domain.interaction.bookmark.dtos.BookmarkDto;
 import com.back.domain.interaction.bookmark.entity.Bookmark;
 import com.back.domain.interaction.bookmark.repository.BookmarkRepository;
@@ -11,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -20,13 +20,10 @@ import java.util.Set;
 public class BookmarkService implements BookmarkInteractionPort {
 
     private final BookmarkRepository bookmarkRepository;
-    private final ContestRepository contestRepository;
     private final ContestPostRepository contestPostRepository;
 
     public boolean contestPostExists(long contestId) {
-        return contestRepository.findById(contestId)
-                .flatMap(contestPostRepository::findByContest)
-                .isPresent();
+        return contestPostRepository.existsByContestId(contestId);
     }
 
     public boolean isBookmarked(Member member, TargetType targetType, long targetId) {
@@ -42,11 +39,7 @@ public class BookmarkService implements BookmarkInteractionPort {
 
     @Transactional
     public void unbookmarkContest(long contestId, Member member) {
-        Bookmark bookmark = bookmarkRepository
-                .findByMemberAndTargetTypeAndTargetId(member, TargetType.CONTEST, contestId)
-                .orElseThrow();
-
-        bookmarkRepository.delete(bookmark);
+        bookmarkRepository.deleteByMemberAndTargetTypeAndTargetId(member, TargetType.CONTEST, contestId);
     }
 
     @Override
@@ -56,11 +49,11 @@ public class BookmarkService implements BookmarkInteractionPort {
     }
 
     @Override
-    public Set<Long> findBookmarkedTargetIds(Member member, TargetType targetType) {
-        if (member == null) {
+    public Set<Long> findBookmarkedTargetIds(Member member, TargetType targetType, Collection<Long> targetIds) {
+        if (member == null || targetIds.isEmpty()) {
             return Set.of();
         }
 
-        return new HashSet<>(bookmarkRepository.findTargetIdsByMemberAndTargetType(member, targetType));
+        return new HashSet<>(bookmarkRepository.findTargetIdsByMemberAndTargetTypeAndTargetIdIn(member, targetType, targetIds));
     }
 }

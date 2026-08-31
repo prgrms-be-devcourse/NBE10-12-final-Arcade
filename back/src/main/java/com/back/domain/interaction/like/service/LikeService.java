@@ -2,7 +2,6 @@ package com.back.domain.interaction.like.service;
 
 import com.back.domain.contest.contest.entity.ContestPost;
 import com.back.domain.contest.contest.repository.ContestPostRepository;
-import com.back.domain.contest.contest.repository.ContestRepository;
 import com.back.domain.interaction.like.dtos.LikeDto;
 import com.back.domain.interaction.like.entity.LikeAction;
 import com.back.domain.interaction.like.entity.TargetType;
@@ -13,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -23,7 +23,6 @@ public class LikeService implements LikeInteractionPort {
 
     private final LikeActionRepository likeActionRepository;
     private final PartyRepository partyRepository;
-    private final ContestRepository contestRepository;
     private final ContestPostRepository contestPostRepository;
 
     public boolean partyExists(long partyId) {
@@ -31,9 +30,7 @@ public class LikeService implements LikeInteractionPort {
     }
 
     public boolean contestPostExists(long contestId) {
-        return contestRepository.findById(contestId)
-                .flatMap(contestPostRepository::findByContest)
-                .isPresent();
+        return contestPostRepository.existsByContestId(contestId);
     }
 
     public boolean isLiked(Member member, TargetType targetType, long targetId) {
@@ -51,11 +48,7 @@ public class LikeService implements LikeInteractionPort {
 
     @Transactional
     public void unlikeParty(long partyId, Member member) {
-        LikeAction likeAction = likeActionRepository
-                .findByMemberAndTargetTypeAndTargetId(member, TargetType.PARTY, partyId)
-                .orElseThrow();
-
-        likeActionRepository.delete(likeAction);
+        likeActionRepository.deleteByMemberAndTargetTypeAndTargetId(member, TargetType.PARTY, partyId);
         partyRepository.decreaseLikeCount(partyId);
     }
 
@@ -70,11 +63,7 @@ public class LikeService implements LikeInteractionPort {
 
     @Transactional
     public void unlikeContest(long contestId, Member member) {
-        LikeAction likeAction = likeActionRepository
-                .findByMemberAndTargetTypeAndTargetId(member, TargetType.CONTEST, contestId)
-                .orElseThrow();
-
-        likeActionRepository.delete(likeAction);
+        likeActionRepository.deleteByMemberAndTargetTypeAndTargetId(member, TargetType.CONTEST, contestId);
         contestPostRepository.decreaseLikeCount(contestId);
     }
 
@@ -85,17 +74,15 @@ public class LikeService implements LikeInteractionPort {
     }
 
     @Override
-    public Set<Long> findLikedTargetIds(Member member, TargetType targetType) {
-        if (member == null) {
+    public Set<Long> findLikedTargetIds(Member member, TargetType targetType, Collection<Long> targetIds) {
+        if (member == null || targetIds.isEmpty()) {
             return Set.of();
         }
 
-        return new HashSet<>(likeActionRepository.findTargetIdsByMemberAndTargetType(member, targetType));
+        return new HashSet<>(likeActionRepository.findTargetIdsByMemberAndTargetTypeAndTargetIdIn(member, targetType, targetIds));
     }
 
     private ContestPost findContestPostOrThrow(long contestId) {
-        return contestRepository.findById(contestId)
-                .flatMap(contestPostRepository::findByContest)
-                .orElseThrow();
+        return contestPostRepository.findByContestId(contestId).orElseThrow();
     }
 }

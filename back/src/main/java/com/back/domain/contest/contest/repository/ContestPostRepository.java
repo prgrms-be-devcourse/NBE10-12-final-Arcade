@@ -17,6 +17,10 @@ import java.util.Optional;
 public interface ContestPostRepository extends JpaRepository<ContestPost, Long> {
     Optional<ContestPost> findByContest(Contest contest);
 
+    Optional<ContestPost> findByContestId(long contestId);
+
+    boolean existsByContestId(long contestId);
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("delete from ContestPost cp where cp.contest.applicationPeriodEnd < :date")
     void deleteAllByContest_ApplicationPeriodEndBefore(@Param("date") LocalDate date);

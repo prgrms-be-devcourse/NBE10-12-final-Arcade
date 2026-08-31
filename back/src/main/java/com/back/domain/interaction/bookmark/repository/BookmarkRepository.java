@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,8 +17,16 @@ public interface BookmarkRepository extends JpaRepository<Bookmark, Long> {
 
     boolean existsByMemberAndTargetTypeAndTargetId(Member member, TargetType targetType, long targetId);
 
-    @Query("select b.targetId from Bookmark b where b.member = :member and b.targetType = :targetType")
-    List<Long> findTargetIdsByMemberAndTargetType(@Param("member") Member member, @Param("targetType") TargetType targetType);
+    @Query("select b.targetId from Bookmark b where b.member = :member and b.targetType = :targetType and b.targetId in :targetIds")
+    List<Long> findTargetIdsByMemberAndTargetTypeAndTargetIdIn(
+            @Param("member") Member member,
+            @Param("targetType") TargetType targetType,
+            @Param("targetIds") Collection<Long> targetIds
+    );
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("delete from Bookmark b where b.member = :member and b.targetType = :targetType and b.targetId = :targetId")
+    void deleteByMemberAndTargetTypeAndTargetId(@Param("member") Member member, @Param("targetType") TargetType targetType, @Param("targetId") long targetId);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("delete from Bookmark b where b.targetType = :targetType and b.targetId = :targetId")

@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,8 +17,16 @@ public interface LikeActionRepository extends JpaRepository<LikeAction, Long> {
 
     boolean existsByMemberAndTargetTypeAndTargetId(Member member, TargetType targetType, long targetId);
 
-    @Query("select la.targetId from LikeAction la where la.member = :member and la.targetType = :targetType")
-    List<Long> findTargetIdsByMemberAndTargetType(@Param("member") Member member, @Param("targetType") TargetType targetType);
+    @Query("select la.targetId from LikeAction la where la.member = :member and la.targetType = :targetType and la.targetId in :targetIds")
+    List<Long> findTargetIdsByMemberAndTargetTypeAndTargetIdIn(
+            @Param("member") Member member,
+            @Param("targetType") TargetType targetType,
+            @Param("targetIds") Collection<Long> targetIds
+    );
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("delete from LikeAction la where la.member = :member and la.targetType = :targetType and la.targetId = :targetId")
+    void deleteByMemberAndTargetTypeAndTargetId(@Param("member") Member member, @Param("targetType") TargetType targetType, @Param("targetId") long targetId);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("delete from LikeAction la where la.targetType = :targetType and la.targetId = :targetId")

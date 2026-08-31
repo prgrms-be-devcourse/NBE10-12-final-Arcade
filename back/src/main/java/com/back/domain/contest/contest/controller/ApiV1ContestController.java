@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Set;
 
 @RestController
@@ -147,8 +148,9 @@ public class ApiV1ContestController {
         );
 
         Member actor = rq.getActorFromDb();
-        Set<Long> bookmarkedContestIds = bookmarkInteractionPort.findBookmarkedTargetIds(actor, TargetType.CONTEST);
-        Set<Long> likedContestIds = likeInteractionPort.findLikedTargetIds(actor, TargetType.CONTEST);
+        List<Long> contestIds = contests.getContent().stream().map(ContestResponseDto::id).toList();
+        Set<Long> bookmarkedContestIds = bookmarkInteractionPort.findBookmarkedTargetIds(actor, TargetType.CONTEST, contestIds);
+        Set<Long> likedContestIds = likeInteractionPort.findLikedTargetIds(actor, TargetType.CONTEST, contestIds);
         contests = contests.map(contest -> contest.withMyInteractions(
                 bookmarkedContestIds.contains(contest.id()),
                 likedContestIds.contains(contest.id())
