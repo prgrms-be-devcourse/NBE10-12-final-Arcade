@@ -15,7 +15,7 @@ public record PartyApplicationDto(
         PositionType positionType,
         PartyMemberStatus status,
         String message,
-        LocalDateTime createAt
+        LocalDateTime createDate
 ) {
     public PartyApplicationDto(PartyMember partyMember) {
         this(
