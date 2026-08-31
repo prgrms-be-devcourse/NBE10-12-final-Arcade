@@ -9,6 +9,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -61,6 +62,34 @@ public class ApiV1PartyApplicationController {
                 "200-1",
                 "지원자 목록 조회 성공",
                 applications
+        );
+    }
+
+    public record DecisionReqBody(
+            @NotNull PartyApplicationService.Decision pending
+    ) { }
+
+    @PatchMapping("/{application-id}")
+    public RsData<PartyApplicationDto> decide(
+            @PathVariable("party-id") long partyId,
+            @PathVariable("application-id") long applicationId,
+            @Valid @RequestBody DecisionReqBody request
+    ) {
+        PartyApplicationDto dto = partyApplicationService.decide(
+                partyId,
+                applicationId,
+                rq.getActorFromDb(),
+                request.pending()
+        );
+
+        String msg = request.pending() == PartyApplicationService.Decision.APPROVED
+                ? "지원자 승인 성공"
+                : "지원자 거절 성공";
+
+        return new RsData<>(
+                "200-1",
+                msg,
+                dto
         );
     }
 }
