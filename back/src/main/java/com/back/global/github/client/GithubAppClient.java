@@ -2,7 +2,7 @@ package com.back.global.github.client;
 
 import com.back.global.github.client.dto.GithubPullRequestResponse;
 import com.back.global.exception.ServiceException;
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import io.jsonwebtoken.Jwts;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
