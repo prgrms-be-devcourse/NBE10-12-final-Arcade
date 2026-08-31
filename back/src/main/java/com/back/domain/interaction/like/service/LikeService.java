@@ -15,6 +15,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
+import java.util.Set;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -87,6 +90,14 @@ public class LikeService {
     @Transactional
     public void deleteAllLikesForContest(long contestId) {
         likeActionRepository.deleteAllByTargetTypeAndTargetId(TargetType.CONTEST, contestId);
+    }
+
+    public Set<Long> findLikedTargetIds(Member member, TargetType targetType) {
+        if (member == null) {
+            return Set.of();
+        }
+
+        return new HashSet<>(likeActionRepository.findTargetIdsByMemberAndTargetType(member, targetType));
     }
 
     private ContestPost findContestPostOrThrow(long contestId) {

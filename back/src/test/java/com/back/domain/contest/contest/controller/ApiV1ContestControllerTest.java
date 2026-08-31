@@ -383,6 +383,23 @@ public class ApiV1ContestControllerTest {
     }
 
     @Test
+    @DisplayName("대회 목록 조회: 내가 좋아요한 대회는 likedByMe=true, 안 한 대회는 false다")
+    @WithUserDetails("admin")
+    void listReflectsLikedByMe() throws Exception {
+        long likedId = writeContestAsAdmin("내가 좋아요한 대회");
+        long notLikedId = writeContestAsAdmin("좋아요 안 한 대회");
+
+        mvc.perform(post("/api/v1/contests/" + likedId + "/likes"))
+                .andExpect(status().isCreated());
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/contests"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[?(@.id == " + likedId + ")].likedByMe").value(true))
+                .andExpect(jsonPath("$.data.content[?(@.id == " + notLikedId + ")].likedByMe").value(false));
+    }
+
+    @Test
     @DisplayName("대회 목록 조회: format으로 필터링한다")
     void listFilteredByFormat() throws Exception {
         writeContestAsAdmin("해커톤 대회");

@@ -6,6 +6,7 @@ import com.back.domain.contest.contest.entity.ContestSortOption;
 import com.back.domain.contest.contest.entity.ContestTag;
 import com.back.domain.contest.contest.service.ContestService;
 import com.back.domain.interaction.bookmark.service.BookmarkService;
+import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.interaction.like.service.LikeService;
 import com.back.domain.member.member.entity.Member;
 import com.back.global.exception.ServiceException;
@@ -145,8 +146,13 @@ public class ApiV1ContestController {
                 PageRequest.of(page, size)
         );
 
-        Set<Long> bookmarkedContestIds = bookmarkService.findBookmarkedContestIds(rq.getActorFromDb());
-        contests = contests.map(contest -> contest.withBookmarkedByMe(bookmarkedContestIds.contains(contest.id())));
+        Member actor = rq.getActorFromDb();
+        Set<Long> bookmarkedContestIds = bookmarkService.findBookmarkedTargetIds(actor, TargetType.CONTEST);
+        Set<Long> likedContestIds = likeService.findLikedTargetIds(actor, TargetType.CONTEST);
+        contests = contests.map(contest -> contest.withMyInteractions(
+                bookmarkedContestIds.contains(contest.id()),
+                likedContestIds.contains(contest.id())
+        ));
 
         return new RsData<>(
                 "200-1",

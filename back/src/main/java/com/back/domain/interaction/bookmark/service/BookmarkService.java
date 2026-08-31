@@ -54,12 +54,12 @@ public class BookmarkService {
         bookmarkRepository.deleteAllByTargetTypeAndTargetId(TargetType.CONTEST, contestId);
     }
 
-    public Set<Long> findBookmarkedContestIds(Member member) {
+    public Set<Long> findBookmarkedTargetIds(Member member, TargetType targetType) {
         if (member == null) {
             return Set.of();
         }
 
-        return new HashSet<>(bookmarkRepository.findTargetIdsByMemberAndTargetType(member, TargetType.CONTEST));
+        return new HashSet<>(bookmarkRepository.findTargetIdsByMemberAndTargetType(member, targetType));
     }
 
     private ContestPost findContestPostOrThrow(long contestId) {
