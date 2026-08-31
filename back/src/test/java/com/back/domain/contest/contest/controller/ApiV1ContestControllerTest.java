@@ -66,7 +66,7 @@ public class ApiV1ContestControllerTest {
         return """
             {
                 "title": "%s",
-                "description": "수정된 설명",
+                "description": "수정된 대회 설명입니다",
                 "applicationPeriodStart": "2026-09-05",
                 "applicationPeriodEnd": "2026-10-05",
                 "linkUrl": "%s"
@@ -174,7 +174,7 @@ public class ApiV1ContestControllerTest {
                 .andExpect(jsonPath("$.resultCode").value("200-1"))
                 .andExpect(jsonPath("$.data.id").value(contestId))
                 .andExpect(jsonPath("$.data.title").value("수정된 제목"))
-                .andExpect(jsonPath("$.data.description").value("수정된 설명"))
+                .andExpect(jsonPath("$.data.description").value("수정된 대회 설명입니다"))
                 .andExpect(jsonPath("$.data.linkUrl").value("https://example.com/modified"))
                 .andExpect(jsonPath("$.data.applicationPeriodStart").value("2026-09-05"))
                 .andExpect(jsonPath("$.data.applicationPeriodEnd").value("2026-10-05"));
@@ -217,7 +217,7 @@ public class ApiV1ContestControllerTest {
         String body = """
             {
                 "title": "수정된 제목",
-                "description": "수정된 설명",
+                "description": "수정된 대회 설명입니다",
                 "applicationPeriodStart": "2026-10-05",
                 "applicationPeriodEnd": "2026-09-05",
                 "linkUrl": "https://example.com/modified"
