@@ -15,15 +15,14 @@ import java.time.LocalDate;
 @Getter
 @NoArgsConstructor
 public class Contest extends BaseEntity {
+    @Column(name = "host_id")
+    private Long hostId;
 
     @Column(name = "creator_member_id")
     private Long creatorMemberId;
 
     @Column(nullable = false)
-    private String name;
-
-    @Lob
-    private String description;
+    private String title;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -33,54 +32,33 @@ public class Contest extends BaseEntity {
     @Column(nullable = false)
     private ContestTag contestTag;
 
+    @Column(nullable = false)
     private LocalDate applicationPeriodStart;
 
+    @Column(nullable = false)
     private LocalDate applicationPeriodEnd;
-
-    @Column(nullable = false)
-    private String linkUrl;
-
-    @Column(nullable = false)
-    private int likeCount;
-
-    @Column(nullable = false)
-    private int viewCount;
-
-    private String imageUrl;
 
     public Contest(
         Long creatorMemberId,
-        String name,
-        String description,
+        String title,
         ContestFormat format,
         ContestTag contestTag,
         LocalDate applicationPeriodStart,
-        LocalDate applicationPeriodEnd,
-        String linkUrl,
-        String imageUrl
+        LocalDate applicationPeriodEnd
     ) {
         this.creatorMemberId = creatorMemberId;
-        this.name = name;
-        this.description = description;
+        this.title = title;
         this.format = format;
         this.contestTag = contestTag;
         this.applicationPeriodStart = applicationPeriodStart;
         this.applicationPeriodEnd = applicationPeriodEnd;
-        this.linkUrl = linkUrl;
-        this.imageUrl = imageUrl;
-        this.likeCount = 0;
-        this.viewCount = 0;
+
+    }
+    public void modify(String title, LocalDate start, LocalDate end) {
+        this.title = title;
+        this.applicationPeriodStart = start;
+        this.applicationPeriodEnd = end;
     }
 
-    public void increaseViewCount() {
-        this.viewCount++;
-    }
 
-    public void increaseLikeCount() {
-        this.likeCount++;
-    }
-
-    public void decreaseLikeCount() {
-        if (this.likeCount > 0) this.likeCount--;
-    }
 }

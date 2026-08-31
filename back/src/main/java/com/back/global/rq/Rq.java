@@ -72,6 +72,10 @@ public class Rq {
     }
 
     public void setCookie(String name, String value) {
+        setCookie(name, value, 60 * 60 * 24 * 365);
+    }
+
+    public void setCookie(String name, String value, int maxAgeSeconds) {
         if (value == null) value = "";
 
         Cookie cookie = new Cookie(name, value);
@@ -81,8 +85,7 @@ public class Rq {
         cookie.setSecure(true);
         cookie.setAttribute("SameSite", "Strict");
 
-        if (value.isBlank()) cookie.setMaxAge(0);
-        else cookie.setMaxAge(60 * 60 * 24 * 365);
+        cookie.setMaxAge(value.isBlank() ? 0 : maxAgeSeconds);
 
         resp.addCookie(cookie);
     }

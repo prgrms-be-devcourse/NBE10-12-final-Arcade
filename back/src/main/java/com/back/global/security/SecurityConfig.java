@@ -38,7 +38,9 @@ public class SecurityConfig {
                                         "/api/*/posts",
                                         "/api/*/posts/{id:\\d+}",
                                         "/api/*/posts/{postId:\\d+}/comments",
-                                        "/api/*/posts/{postId:\\d+}/comments/{id:\\d+}"
+                                        "/api/*/posts/{postId:\\d+}/comments/{id:\\d+}",
+                                        "/api/*/contests",
+                                        "/api/*/contests/{id:\\d+}"
                                 ).permitAll()
                                 .requestMatchers(
                                         "/api/*/members/login",
@@ -48,6 +50,9 @@ public class SecurityConfig {
                                         HttpMethod.POST,
                                         "/api/*/members/signup"
                                 ).permitAll()
+                                .requestMatchers(HttpMethod.POST, "/api/*/contests").hasRole("ADMIN")
+                                .requestMatchers(HttpMethod.PATCH, "/api/*/contests/{id:\\d+}").hasRole("ADMIN")
+                                .requestMatchers(HttpMethod.DELETE, "/api/*/contests/{id:\\d+}").hasRole("ADMIN")
                                 .requestMatchers("/api/*/adm/**").hasRole("ADMIN")
                                 .requestMatchers("/api/*/**").authenticated()
                                 .anyRequest().permitAll()
