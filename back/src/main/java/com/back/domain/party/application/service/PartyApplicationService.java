@@ -9,6 +9,7 @@ import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.position.entity.PartyStatus;
 import com.back.domain.party.position.entity.Position;
 import com.back.global.exception.ServiceException;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,7 @@ public class PartyApplicationService {
 
     private final PartyRepository partyRepository;
     private final PartyMemberRepository partyMemberRepository;
+    private final EntityManager entityManager;
 
     @Transactional
     public PartyApplicationDto apply(long partyId, long positionId, Member applicant, String message) {
@@ -85,6 +87,10 @@ public class PartyApplicationService {
             } else {
                 partyMember.reject();
             }
+            // @Version 충돌은 커밋 시점(더티체킹)에야 감지되는데, 그건 이 메서드가 끝나고
+            // 트랜잭션 프록시가 반환된 뒤라 여기 catch로 못 잡는다. flush()로 지금 이 시점에
+            // 강제로 UPDATE를 내보내서, 충돌이면 바로 여기서 예외가 터지게 만든다.
+            entityManager.flush();
         } catch (ObjectOptimisticLockingFailureException e) {
             // 승인 시점에 다른 요청과 @Version 충돌 - Position.fillOneSeat()의 자체 정원
             // 체크와는 별개로, DB 레벨 낙관적 락 자체가 깨진 경우도 동일하게 409-2로 응답
