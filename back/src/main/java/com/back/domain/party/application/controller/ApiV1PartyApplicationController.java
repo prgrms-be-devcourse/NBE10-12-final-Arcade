@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/parties/{partyId}/applications")
+@RequestMapping("/api/v1/parties/{party-id}/applications")
 @RequiredArgsConstructor
 public class ApiV1PartyApplicationController {
 
@@ -32,7 +32,7 @@ public class ApiV1PartyApplicationController {
 
     @PostMapping
     public RsData<PartyApplicationDto> apply(
-            @PathVariable long partyId,
+            @PathVariable("party-id") long partyId,
             @Valid @RequestBody ApplyReqBody request
     ) {
         PartyApplicationDto dto = partyApplicationService.apply(
@@ -51,7 +51,7 @@ public class ApiV1PartyApplicationController {
 
     @GetMapping
     public RsData<List<PartyApplicationDto>> list(
-            @PathVariable long partyId
+            @PathVariable("party-id") long partyId
     ) {
         List<PartyApplicationDto> applications = partyApplicationService.getApplications(
                 partyId,
