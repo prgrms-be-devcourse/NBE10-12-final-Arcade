@@ -15,15 +15,11 @@ on:
       - ".github/**"
       - ".githooks/**"
   # PR에 아래 명령을 달면 다시 검사한다. paths-ignore는 적용되지 않는다.
-  #   /review          PR 상태에 따라 (draft면 인라인, 열려 있으면 보고서)
-  #   /review report   보고서로 강제
-  #   /review inline   인라인 코멘트로 강제
+  #   /review          인라인 코멘트
+  #   /review inline   인라인 코멘트
+  #   /review report   보고서 갱신 (모델 호출 없음)
   issue_comment:
     types: [created]
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number }}
-  cancel-in-progress: true
 
 jobs:
   context:
@@ -56,29 +52,26 @@ jobs:
           REPO: ${{ github.repository }}
           NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
           EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
           COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
-          FORCED_MODE=""
+          MODE="inline"
           if [ "$EVENT_NAME" = "issue_comment" ]; then
             case "$(printf '%s' "$COMMENT_BODY" | tr -d '\r' | sed -e 's/[[:space:]]*$//')" in
-              "/review") ;;
-              "/review report") FORCED_MODE="report" ;;
-              "/review inline") FORCED_MODE="inline" ;;
+              "/review" | "/review inline") ;;
+              "/review report") MODE="report" ;;
               *)
                 echo "run=false" >> "$GITHUB_OUTPUT"
                 echo "인식하지 못한 명령입니다. /review, /review report, /review inline 중 하나여야 합니다."
                 exit 0
                 ;;
             esac
+          elif [ "$EVENT_ACTION" = "ready_for_review" ]; then
+            MODE="report"
           fi
 
           gh pr view "$NUMBER" --repo "$REPO" \
             --json number,baseRefOid,headRefOid,isDraft,headRepository > pr.json
-
-          MODE="$FORCED_MODE"
-          if [ -z "$MODE" ]; then
-            MODE=$(jq -r 'if .isDraft then "inline" else "report" end' pr.json)
-          fi
 
           {
             echo "run=true"
@@ -92,19 +85,44 @@ jobs:
   review:
     needs: context
     if: needs.context.outputs.run == 'true' && needs.context.outputs.same_repo == 'true'
+    concurrency:
+      group: ${{ github.workflow }}-${{ needs.context.outputs.number }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     permissions:
       contents: read
       issues: write
       pull-requests: write
     steps:
+      - name: Mark running
+        id: status
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ needs.context.outputs.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TAG='<!-- ai-code-review-status -->'
+          BODY=$(printf '%s\n🔄 리뷰 중입니다 · [실행 보기](%s)' "$TAG" "$RUN_URL")
+          ID=$(gh api "repos/$REPO/issues/$NUMBER/comments" --paginate \
+                 --jq ".[] | select(.user.type == \"Bot\") | select(.body | contains(\"$TAG\")) | .id" | head -1)
+          if [ -n "$ID" ]; then
+            gh api --method PATCH "repos/$REPO/issues/comments/$ID" -f body="$BODY" > /dev/null
+          else
+            ID=$(gh api --method POST "repos/$REPO/issues/$NUMBER/comments" -f body="$BODY" --jq .id)
+          fi
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
+
       - name: Checkout
+        if: needs.context.outputs.mode == 'inline'
         uses: actions/checkout@v5
         with:
           ref: ${{ needs.context.outputs.head_sha }}
           fetch-depth: 0
 
       - name: Get Filtered Diff
+        if: needs.context.outputs.mode == 'inline'
         env:
           BASE_SHA: ${{ needs.context.outputs.base_sha }}
           HEAD_SHA: ${{ needs.context.outputs.head_sha }}
@@ -136,27 +154,92 @@ jobs:
             ':(exclude)front/build/*' \
             ':(exclude)front/.next/*' \
             ':(exclude)front/.turbo/*' \
+            ':(exclude)front/public/*' \
             ':(exclude)node_modules/*' \
             ':(exclude).pnpm-store/*' \
             ':(exclude)docs/**' \
             > diff.txt
+          git diff --name-only "$BASE_SHA...$HEAD_SHA" -- . \
+            ':(exclude)*.lock' \
+            ':(exclude)package-lock.json' \
+            ':(exclude)yarn.lock' \
+            ':(exclude)pnpm-lock.yaml' \
+            ':(exclude)*.png' \
+            ':(exclude)*.jpg' \
+            ':(exclude)*.jpeg' \
+            ':(exclude)*.svg' \
+            ':(exclude)*.ico' \
+            ':(exclude)*.pdf' \
+            ':(exclude)back/build/*' \
+            ':(exclude)back/target/*' \
+            ':(exclude)back/.gradle/*' \
+            ':(exclude)back/out/*' \
+            ':(exclude)back/.idea/*' \
+            ':(exclude)back/gradle/*' \
+            ':(exclude)back/gradlew' \
+            ':(exclude)back/gradlew.bat' \
+            ':(exclude)back/node_modules/*' \
+            ':(exclude)front/node_modules/*' \
+            ':(exclude)front/.pnpm-store/*' \
+            ':(exclude)front/dist/*' \
+            ':(exclude)front/build/*' \
+            ':(exclude)front/.next/*' \
+            ':(exclude)front/.turbo/*' \
+            ':(exclude)front/public/*' \
+            ':(exclude)node_modules/*' \
+            ':(exclude).pnpm-store/*' \
+            ':(exclude)docs/**' \
+            > files.txt
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
           python-version: "3.13"
 
       - name: Install dependencies
+        if: needs.context.outputs.mode == 'inline'
         run: python -m pip install google-genai
       - name: Run Gemini Review
+        if: needs.context.outputs.mode == 'inline'
         env:
           MODEL_API_KEY: ${{ secrets.MODEL_API_KEY }}
-          MODEL: ${{ vars.MODEL_NAME }}
+          MODELS: ${{ vars.MODEL_NAMES || 'gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ needs.context.outputs.number }}
           REPO: ${{ github.repository }}
           REVIEW_MODE: ${{ needs.context.outputs.mode }}
+          INCLUDE_FILE_CONTENTS: "false"
         run: |
           PR_TITLE=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json title --jq .title)
           PR_BODY=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json body --jq .body)
           export PR_TITLE PR_BODY
           python .github/scripts/ai_review.py
+
+      - name: Checkout scripts
+        if: needs.context.outputs.mode == 'report'
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Render Report
+        if: needs.context.outputs.mode == 'report'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ needs.context.outputs.number }}
+          REPO: ${{ github.repository }}
+        run: python .github/scripts/pr_report.py
+
+      - name: Clear status
+        if: always() && steps.status.outputs.id != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ID: ${{ steps.status.outputs.id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            gh api --method DELETE "repos/$REPO/issues/comments/$ID"
+          else
+            TAG='<!-- ai-code-review-status -->'
+            BODY=$(printf '%s\n⚠️ 리뷰 실패 (${{ job.status }}) · [로그 보기](%s)' "$TAG" "$RUN_URL")
+            gh api --method PATCH "repos/$REPO/issues/comments/$ID" -f body="$BODY" > /dev/null
+          fi
