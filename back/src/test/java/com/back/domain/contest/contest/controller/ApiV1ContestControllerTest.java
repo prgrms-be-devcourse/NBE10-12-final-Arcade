@@ -3,7 +3,13 @@ package com.back.domain.contest.contest.controller;
 import com.back.domain.contest.contest.dtos.ContestResponseDto;
 import com.back.domain.contest.contest.entity.ContestFormat;
 import com.back.domain.contest.contest.entity.ContestTag;
+import com.back.domain.contest.contest.entity.Contest;
+import com.back.domain.contest.contest.repository.ContestPostRepository;
+import com.back.domain.contest.contest.repository.ContestRepository;
 import com.back.domain.contest.contest.service.ContestService;
+import com.back.domain.interaction.bookmark.repository.BookmarkRepository;
+import com.back.domain.interaction.like.entity.TargetType;
+import com.back.domain.interaction.like.repository.LikeActionRepository;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
 import jakarta.servlet.http.Cookie;
@@ -43,6 +49,18 @@ public class ApiV1ContestControllerTest {
 
     @Autowired
     private ContestService contestService;
+
+    @Autowired
+    private LikeActionRepository likeActionRepository;
+
+    @Autowired
+    private BookmarkRepository bookmarkRepository;
+
+    @Autowired
+    private ContestRepository contestRepository;
+
+    @Autowired
+    private ContestPostRepository contestPostRepository;
 
     private long writeContestAsAdmin(String title) {
         Member admin = memberRepository.findByEmail("admin").orElseThrow();
@@ -305,6 +323,37 @@ public class ApiV1ContestControllerTest {
     }
 
     @Test
+    @DisplayName("대회 삭제: 좋아요/북마크도 함께 삭제된다")
+    @WithUserDetails("admin")
+    void deletingContestCascadesLikesAndBookmarks() throws Exception {
+        long contestId = writeContestAsAdmin("좋아요북마크 함께삭제될 대회");
+
+        mvc.perform(post("/api/v1/contests/" + contestId + "/likes")).andExpect(status().isCreated());
+        mvc.perform(post("/api/v1/contests/" + contestId + "/bookmarks")).andExpect(status().isCreated());
+
+        mvc.perform(delete("/api/v1/contests/" + contestId)).andExpect(status().isNoContent());
+
+        Member admin = memberRepository.findByEmail("admin").orElseThrow();
+        Assertions.assertFalse(likeActionRepository.existsByMemberAndTargetTypeAndTargetId(admin, TargetType.CONTEST, contestId));
+        Assertions.assertFalse(bookmarkRepository.existsByMemberAndTargetTypeAndTargetId(admin, TargetType.CONTEST, contestId));
+    }
+
+    @Test
+    @DisplayName("대회 삭제: viewCount/likeCount가 쌓인 상태여도 게시글 행 자체가 삭제되어 카운트가 남지 않는다")
+    @WithUserDetails("admin")
+    void deletingContestRemovesAccumulatedCounts() throws Exception {
+        long contestId = writeContestAsAdmin("카운트 쌓인 뒤 삭제될 대회");
+
+        mvc.perform(get("/api/v1/contests/" + contestId)).andExpect(status().isOk());
+        mvc.perform(post("/api/v1/contests/" + contestId + "/likes")).andExpect(status().isCreated());
+
+        mvc.perform(delete("/api/v1/contests/" + contestId)).andExpect(status().isNoContent());
+
+        Contest contest = contestRepository.findById(contestId).orElseThrow();
+        Assertions.assertTrue(contestPostRepository.findByContest(contest).isEmpty());
+    }
+
+    @Test
     @DisplayName("대회 목록 조회: 등록된 대회가 목록에 포함된다")
     void listReturnsRegisteredContests() throws Exception {
         writeContestAsAdmin("목록 조회용 대회");
@@ -314,6 +363,23 @@ public class ApiV1ContestControllerTest {
         resultActions.andExpect(status().isOk())
                 .andExpect(jsonPath("$.resultCode").value("200-1"))
                 .andExpect(jsonPath("$.data.content[?(@.title == '목록 조회용 대회')]").exists());
+    }
+
+    @Test
+    @DisplayName("대회 목록 조회: 내가 북마크한 대회는 bookmarkedByMe=true, 안 한 대회는 false다")
+    @WithUserDetails("admin")
+    void listReflectsBookmarkedByMe() throws Exception {
+        long bookmarkedId = writeContestAsAdmin("내가 북마크한 대회");
+        long notBookmarkedId = writeContestAsAdmin("북마크 안 한 대회");
+
+        mvc.perform(post("/api/v1/contests/" + bookmarkedId + "/bookmarks"))
+                .andExpect(status().isCreated());
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/contests"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[?(@.id == " + bookmarkedId + ")].bookmarkedByMe").value(true))
+                .andExpect(jsonPath("$.data.content[?(@.id == " + notBookmarkedId + ")].bookmarkedByMe").value(false));
     }
 
     @Test

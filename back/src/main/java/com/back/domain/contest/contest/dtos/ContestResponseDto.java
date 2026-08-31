@@ -23,6 +23,7 @@ public record ContestResponseDto(
         String linkUrl,
         Integer likeCount,
         Integer viewCount,
+        boolean bookmarkedByMe,
         LocalDateTime createDate
 ) {
     public ContestResponseDto(Contest contest, ContestPost contestPost){
@@ -41,7 +42,17 @@ public record ContestResponseDto(
                 contestPost == null ? null : contestPost.getLinkUrl(),
                 contestPost == null ? null : contestPost.getLikeCount(),
                 contestPost == null ? null : contestPost.getViewCount(),
+                false,
                 contest.getCreateDate()
+        );
+    }
+
+    public ContestResponseDto withBookmarkedByMe(boolean bookmarkedByMe) {
+        return new ContestResponseDto(
+                id, hostId, creatorMemberId, title, format, contestTag,
+                applicationPeriodStart, applicationPeriodEnd, archived,
+                description, imageUrl, linkUrl, likeCount, viewCount,
+                bookmarkedByMe, createDate
         );
     }
 }

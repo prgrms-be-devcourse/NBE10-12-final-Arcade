@@ -5,6 +5,8 @@ import com.back.domain.contest.contest.entity.ContestFormat;
 import com.back.domain.contest.contest.entity.ContestSortOption;
 import com.back.domain.contest.contest.entity.ContestTag;
 import com.back.domain.contest.contest.service.ContestService;
+import com.back.domain.interaction.bookmark.service.BookmarkService;
+import com.back.domain.interaction.like.service.LikeService;
 import com.back.domain.member.member.entity.Member;
 import com.back.global.exception.ServiceException;
 import com.back.global.rq.Rq;
@@ -29,6 +31,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/v1/contests")
@@ -36,6 +39,8 @@ import java.time.LocalDate;
 @Tag(name = "ApiV1ContestController", description = "대회 글 컨트롤러")
 public class ApiV1ContestController {
     private final ContestService contestService;
+    private final LikeService likeService;
+    private final BookmarkService bookmarkService;
     private final Rq rq;
 
     public record ContestWriteReqBody(
@@ -140,6 +145,9 @@ public class ApiV1ContestController {
                 PageRequest.of(page, size)
         );
 
+        Set<Long> bookmarkedContestIds = bookmarkService.findBookmarkedContestIds(rq.getActorFromDb());
+        contests = contests.map(contest -> contest.withBookmarkedByMe(bookmarkedContestIds.contains(contest.id())));
+
         return new RsData<>(
                 "200-1",
                 "대회 목록 조회 성공",
@@ -172,6 +180,8 @@ public class ApiV1ContestController {
     @Operation(summary = "대회글 삭제")
     public RsData<Void> delete(@PathVariable("contest-id") long contestId) {
         contestService.deletePost(contestId);
+        likeService.deleteAllLikesForContest(contestId);
+        bookmarkService.deleteAllBookmarksForContest(contestId);
 
         return new RsData<>(
                 "204-1",

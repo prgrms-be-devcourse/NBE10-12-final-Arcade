@@ -42,4 +42,30 @@ public class ApiV1LikeController {
                 null
         );
     }
+
+    @PostMapping("/api/v1/contests/{contest-id}/likes")
+    public RsData<LikeDto> likeContest(
+            @PathVariable("contest-id") long contestId
+    ) {
+        LikeDto dto = likeService.likeContest(contestId, rq.getActorFromDb());
+
+        return new RsData<>(
+                "201-1",
+                "대회 좋아요 성공",
+                dto
+        );
+    }
+
+    @DeleteMapping("/api/v1/contests/{contest-id}/likes")
+    public RsData<Void> unlikeContest(
+            @PathVariable("contest-id") long contestId
+    ) {
+        likeService.unlikeContest(contestId, rq.getActorFromDb());
+
+        return new RsData<>(
+                "204-1",
+                "대회 좋아요 취소 성공",
+                null
+        );
+    }
 }
