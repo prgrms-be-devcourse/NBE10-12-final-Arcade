@@ -31,11 +31,11 @@ public class ApiV1PartyApplicationController {
     ) { }
 
     @PostMapping
-    public RsData<PartyApplicationDto> apply(
+    public RsData<Void> apply(
             @PathVariable("party-id") long partyId,
             @Valid @RequestBody ApplyReqBody request
     ) {
-        PartyApplicationDto dto = partyApplicationService.apply(
+        partyApplicationService.apply(
                 partyId,
                 request.positionId(),
                 rq.getActorFromDb(),
@@ -45,7 +45,7 @@ public class ApiV1PartyApplicationController {
         return new RsData<>(
                 "201-1",
                 "지원 성공",
-                dto
+                null
         );
     }
 

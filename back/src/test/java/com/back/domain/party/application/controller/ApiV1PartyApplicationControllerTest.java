@@ -92,10 +92,7 @@ public class ApiV1PartyApplicationControllerTest {
                 .content(applyRequestJson(positionId, "열심히 하겠습니다")));
 
         resultActions.andExpect(status().isCreated())
-                .andExpect(jsonPath("$.resultCode").value("201-1"))
-                .andExpect(jsonPath("$.data.partyId").value(party.getId()))
-                .andExpect(jsonPath("$.data.status").value("PENDING"))
-                .andExpect(jsonPath("$.data.message").value("열심히 하겠습니다"));
+                .andExpect(jsonPath("$.resultCode").value("201-1"));
     }
 
     @Test
