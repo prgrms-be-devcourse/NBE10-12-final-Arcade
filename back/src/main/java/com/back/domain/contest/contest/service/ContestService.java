@@ -18,7 +18,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -43,9 +42,6 @@ public class ContestService {
         return new ContestResponseDto(contest, contestPost);
     }
 
-    public Optional<Contest> findById(long id) { return contestRepository.findById(id); }
-    public Optional<ContestPost> findPostByContest(Contest contest) { return contestPostRepository.findByContest(contest); }
-
     public Page<ContestResponseDto> list(ContestFormat format, ContestTag contestTag, ContestSortOption sortOption, Pageable pageable) {
         Pageable unsorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
         ContestSortOption effectiveSortOption = sortOption != null ? sortOption : ContestSortOption.LATEST;
@@ -60,13 +56,13 @@ public class ContestService {
     }
 
     @Transactional
-    public Optional<ContestResponseDto> getDetail(long id, boolean countView) {
-        return contestRepository.findById(id)
+    public Optional<ContestResponseDto> getDetail(long contestId, boolean countView) {
+        return contestRepository.findById(contestId)
                 .map(contest -> {
                     ContestPost contestPost = contestPostRepository.findByContest(contest).orElse(null);
 
                     if (contestPost != null && countView) {
-                        contestPostRepository.increaseViewCount(id);
+                        contestPostRepository.increaseViewCount(contestId);
                         contestPost = contestPostRepository.findByContest(contest).orElseThrow();
                     }
 
@@ -83,7 +79,8 @@ public class ContestService {
         return new ContestResponseDto(contest, contestPost);
     }
     @Transactional
-    public void deletePost(Contest contest) {
+    public void deletePost(long contestId) {
+        Contest contest = contestRepository.findById(contestId).orElseThrow();
         contestPostRepository.findByContest(contest).ifPresent(contestPostRepository::delete);
     }
 
@@ -91,7 +88,6 @@ public class ContestService {
     @Scheduled(cron = "0 0 0 * * *")
     @Transactional
     public void deleteExpiredPosts() {
-        List<ContestPost> expired = contestPostRepository.findAllByContest_ApplicationPeriodEndBefore(LocalDate.now());
-        contestPostRepository.deleteAll(expired);
+        contestPostRepository.deleteAllByContest_ApplicationPeriodEndBefore(LocalDate.now());
     }
 }

@@ -1,7 +1,6 @@
 package com.back.domain.contest.contest.controller;
 
 import com.back.domain.contest.contest.dtos.ContestResponseDto;
-import com.back.domain.contest.contest.entity.Contest;
 import com.back.domain.contest.contest.entity.ContestFormat;
 import com.back.domain.contest.contest.entity.ContestSortOption;
 import com.back.domain.contest.contest.entity.ContestTag;
@@ -100,16 +99,16 @@ public class ApiV1ContestController {
             String imageUrl
     ) { }
 
-    @PatchMapping("/{id}")
+    @PatchMapping("/{contest-id}")
     @Operation(summary = "대회글 수정")
     public RsData<ContestResponseDto> modify(
-            @PathVariable long id,
+            @PathVariable("contest-id") long contestId,
             @RequestBody @Valid ContestModifyReqBody reqBody
     ) {
         checkPeriod(reqBody.applicationPeriodStart(), reqBody.applicationPeriodEnd());
 
         ContestResponseDto contestResponseDto = contestService.modify(
-                id,
+                contestId,
                 reqBody.title(),
                 reqBody.description(),
                 reqBody.applicationPeriodStart(),
@@ -150,13 +149,13 @@ public class ApiV1ContestController {
 
     private static final int VIEW_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24;
 
-    @GetMapping("/{id}")
+    @GetMapping("/{contest-id}")
     @Operation(summary = "대회 상세 조회")
-    public RsData<ContestResponseDto> getDetail(@PathVariable long id) {
-        String viewCookieName = "contest_viewed_" + id;
+    public RsData<ContestResponseDto> getDetail(@PathVariable("contest-id") long contestId) {
+        String viewCookieName = "contest_viewed_" + contestId;
         boolean alreadyViewed = rq.getCookieValue(viewCookieName, null) != null;
 
-        ContestResponseDto contestResponseDto = contestService.getDetail(id, !alreadyViewed).orElseThrow();
+        ContestResponseDto contestResponseDto = contestService.getDetail(contestId, !alreadyViewed).orElseThrow();
 
         if (!alreadyViewed) {
             rq.setCookie(viewCookieName, "true", VIEW_COOKIE_MAX_AGE_SECONDS);
@@ -169,11 +168,10 @@ public class ApiV1ContestController {
         );
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{contest-id}")
     @Operation(summary = "대회글 삭제")
-    public RsData<Void> delete(@PathVariable long id) {
-        Contest contest = contestService.findById(id).orElseThrow();
-        contestService.deletePost(contest);
+    public RsData<Void> delete(@PathVariable("contest-id") long contestId) {
+        contestService.deletePost(contestId);
 
         return new RsData<>(
                 "204-1",

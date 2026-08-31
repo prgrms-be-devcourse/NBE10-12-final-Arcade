@@ -12,12 +12,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
-import java.util.List;
 import java.util.Optional;
 
 public interface ContestPostRepository extends JpaRepository<ContestPost, Long> {
     Optional<ContestPost> findByContest(Contest contest);
-    List<ContestPost> findAllByContest_ApplicationPeriodEndBefore(LocalDate date);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("delete from ContestPost cp where cp.contest.applicationPeriodEnd < :date")
+    void deleteAllByContest_ApplicationPeriodEndBefore(@Param("date") LocalDate date);
 
     // 정렬기준
     @Query(value = """
