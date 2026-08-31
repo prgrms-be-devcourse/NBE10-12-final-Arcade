@@ -56,9 +56,10 @@ public class PartyLifecycleService {
 
         // 파티 확정 원본 사건(PartyAssemble)과 그 시점 승인된 참여자별 파생 레코드를 분리 기록
         PartyAssemble partyAssemble = partyAssembleRepository.save(new PartyAssemble(party));
-        approvedMembers.forEach(member ->
-                partyAssembleToMemberRepository.save(new PartyAssembleToMember(partyAssemble, member))
-        );
+        List<PartyAssembleToMember> assembleToMembers = approvedMembers.stream()
+                .map(member -> new PartyAssembleToMember(partyAssemble, member))
+                .toList();
+        partyAssembleToMemberRepository.saveAll(assembleToMembers);
 
         // 성취(Goal) 자동생성, 체크리스트 오픈은 해당 도메인이 리스너를 붙이면 되므로
         // 여기서는 이벤트 발행까지만 - 동기 호출로 강결합시키지 않는다(기획서 3.6)
