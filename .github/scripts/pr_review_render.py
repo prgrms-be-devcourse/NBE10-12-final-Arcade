@@ -74,33 +74,41 @@ def render_counts(comments: list[dict]) -> str:
     return " · ".join(parts)
 
 
-def render_summary(review: dict) -> str:
-    """리뷰 결과 → 개수 한 줄 + 요약 본문."""
-    head = render_counts(review.get("comments", []))
-    return f"**{head}**\n\n{review.get('summary_report', '').strip()}"
-
-
 def _escape_cell(text: str) -> str:
     """문자열 → 표 칸에 넣을 수 있게 이스케이프한 문자열."""
     return text.replace("|", "\\|").replace("\n", " ").strip()
 
 
+def render_status(comment: dict) -> str:
+    """comment → 표에 쓸 상태 문구."""
+    if comment.get("resolved"):
+        return "✅ 해결됨"
+    if comment.get("outdated"):
+        return "🔄 코드 변경됨"
+    return "⏳ 미해결"
+
+
+def _table_order(comment: dict):
+    """comment → 표 정렬 키. 미해결을 먼저, 그 안에서 심각도 순."""
+    return (1 if comment.get("resolved") else 0, _rank(comment))
+
+
 def render_issues_table(review: dict) -> str:
     """리뷰 결과 → 이슈 표 마크다운. 지적이 없으면 빈 문자열."""
-    comments = sorted(review.get("comments", []), key=_rank)
+    comments = sorted(review.get("comments", []), key=_table_order)
     if not comments:
         return ""
 
     rows = ["\n### 🔍 발견된 이슈\n",
-            "| 파일 | 라인 | 심각도 | 내용 |\n",
-            "|------|------|--------|------|\n"]
+            "| 파일 | 라인 | 심각도 | 상태 | 내용 |\n",
+            "|------|------|--------|------|------|\n"]
 
     for c in comments:
-        path = c.get("file") or "-"
+        name = str(c.get("file") or "-").rsplit("/", 1)[-1]
         line = c.get("line") if isinstance(c.get("line"), int) else "-"
         marker = _marker(c.get("severity", ""), c.get("confidence", ""))
         rows.append(
-            f"| `{_escape_cell(str(path))}` | {line} | {marker} "
+            f"| `{_escape_cell(name)}` | {line} | {marker} | {render_status(c)} "
             f"| {_escape_cell(c.get('text', ''))} |\n"
         )
     return "".join(rows)
@@ -118,7 +126,7 @@ def filter_by_valid_lines(review: dict, valid_lines: dict[str, set[int]]) -> dic
     return {**review, "comments": kept, "dropped_comments": dropped}
 
 
-# 주의: 아래 두 함수는 render_comment()가 만든 형식에 의존한다.
+# 주의: 아래 함수는 render_comment()가 만든 형식에 의존한다.
 #       render_comment()의 출력 형식을 바꾸면 파싱이 조용히 실패한다.
 def parse_rendered_comment(raw: dict) -> dict | None:
     """PR에 달린 인라인 코멘트 → comment 딕셔너리. 형식이 다르면 None."""
@@ -136,18 +144,3 @@ def parse_rendered_comment(raw: dict) -> dict | None:
         "confidence": "probable" if probable else "confirmed",
         "text": text,
     }
-
-
-# 주의: 중복 판정 기준은 (파일, 라인), 같은 결함이라도 라인이 다르면
-#       걸러지지 않는다.
-def merge_comments(primary: list[dict], extra: list[dict]) -> list[dict]:
-    """두 코멘트 목록 → 합친 목록. 겹치는 위치는 primary 쪽을 남긴다."""
-    seen = {(c.get("file"), c.get("line")) for c in primary}
-    merged = list(primary)
-    for c in extra:
-        key = (c.get("file"), c.get("line"))
-        if key in seen:
-            continue
-        seen.add(key)
-        merged.append(c)
-    return merged
