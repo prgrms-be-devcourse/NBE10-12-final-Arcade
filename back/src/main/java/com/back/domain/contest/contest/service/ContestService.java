@@ -4,11 +4,15 @@ import com.back.domain.contest.contest.dtos.ContestResponseDto;
 import com.back.domain.contest.contest.entity.Contest;
 import com.back.domain.contest.contest.entity.ContestFormat;
 import com.back.domain.contest.contest.entity.ContestPost;
+import com.back.domain.contest.contest.entity.ContestSortOption;
 import com.back.domain.contest.contest.entity.ContestTag;
 import com.back.domain.contest.contest.repository.ContestPostRepository;
 import com.back.domain.contest.contest.repository.ContestRepository;
 import com.back.domain.member.member.entity.Member;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +45,31 @@ public class ContestService {
 
     public Optional<Contest> findById(long id) { return contestRepository.findById(id); }
     public Optional<ContestPost> findPostByContest(Contest contest) { return contestPostRepository.findByContest(contest); }
+
+    public Page<ContestResponseDto> list(ContestFormat format, ContestTag contestTag, ContestSortOption sortOption, Pageable pageable) {
+        Pageable unsorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+
+        Page<ContestPost> posts = switch (sortOption) {
+            case LATEST -> contestPostRepository.searchOrderByLatest(format, contestTag, unsorted);
+            case POPULAR -> contestPostRepository.searchOrderByPopular(format, contestTag, unsorted);
+        };
+
+        return posts.map(contestPost -> new ContestResponseDto(contestPost.getContest(), contestPost));
+    }
+
+    @Transactional
+    public Optional<ContestResponseDto> getDetail(long id, boolean countView) {
+        return contestRepository.findById(id)
+                .map(contest -> {
+                    ContestPost contestPost = contestPostRepository.findByContest(contest).orElse(null);
+
+                    if (contestPost != null && countView) {
+                        contestPost.increaseViewCount();
+                    }
+
+                    return new ContestResponseDto(contest, contestPost);
+                });
+    }
 
     @Transactional
     public ContestResponseDto modify(long contestId, String title, String description, LocalDate start, LocalDate end, String linkUrl, String imageUrl) {

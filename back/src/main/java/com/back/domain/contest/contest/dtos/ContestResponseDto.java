@@ -21,8 +21,8 @@ public record ContestResponseDto(
         String description,
         String imageUrl,
         String linkUrl,
-        int likeCount,
-        int viewCount,
+        Integer likeCount,
+        Integer viewCount,
         LocalDateTime createDate
 ) {
     public ContestResponseDto(Contest contest, ContestPost contestPost){
@@ -35,12 +35,12 @@ public record ContestResponseDto(
                 contest.getContestTag(),
                 contest.getApplicationPeriodStart(),
                 contest.getApplicationPeriodEnd(),
-                false, // 방금 생성했으니 archived는 항상 false
-                contestPost.getDescription(),
-                contestPost.getImageUrl(),
-                contestPost.getLinkUrl(),
-                contestPost.getLikeCount(),
-                contestPost.getViewCount(),
+                contestPost == null,
+                contestPost == null ? null : contestPost.getDescription(),
+                contestPost == null ? null : contestPost.getImageUrl(),
+                contestPost == null ? null : contestPost.getLinkUrl(),
+                contestPost == null ? null : contestPost.getLikeCount(),
+                contestPost == null ? null : contestPost.getViewCount(),
                 contest.getCreateDate()
         );
     }

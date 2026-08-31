@@ -63,6 +63,10 @@ public class Member extends BaseEntity {
         this.apiKey = apiKey;
     }
 
+    public void grantAdmin() {
+        this.role = Role.ADMIN;
+    }
+
     public void modify(String name, String profileImgUrl) {
         this.name = name;
         this.profileImgUrl = profileImgUrl;
@@ -76,10 +80,7 @@ public class Member extends BaseEntity {
     }
 
     public boolean isAdmin() {
-        if ("system".equals(email)) return true;
-        if ("admin".equals(email)) return true;
-
-        return false;
+        return role == Role.ADMIN;
     }
 
     public Collection<? extends GrantedAuthority> getAuthorities() {

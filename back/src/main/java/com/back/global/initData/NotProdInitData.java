@@ -67,5 +67,7 @@ public class NotProdInitData {
         Member memberUser2 = memberService.findByEmail("user2@test.com").get();
         Member memberUser3 = memberService.findByEmail("user3@test.com").get();
 
+        memberService.findByEmail("system").ifPresent(Member::grantAdmin);
+        memberService.findByEmail("admin").ifPresent(Member::grantAdmin);
     }
 }

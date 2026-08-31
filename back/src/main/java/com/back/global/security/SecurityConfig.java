@@ -38,7 +38,9 @@ public class SecurityConfig {
                                         "/api/*/posts",
                                         "/api/*/posts/{id:\\d+}",
                                         "/api/*/posts/{postId:\\d+}/comments",
-                                        "/api/*/posts/{postId:\\d+}/comments/{id:\\d+}"
+                                        "/api/*/posts/{postId:\\d+}/comments/{id:\\d+}",
+                                        "/api/*/contests",
+                                        "/api/*/contests/{id:\\d+}"
                                 ).permitAll()
                                 .requestMatchers(
                                         "/api/*/members/login",
