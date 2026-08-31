@@ -73,6 +73,28 @@ public class ApiV1BookmarkControllerTest {
     }
 
     @Test
+    @DisplayName("대회 북마크: 로그인하지 않았으면 401-1이다")
+    void bookmarkContestWithoutLogin() throws Exception {
+        long contestId = saveContest();
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/contests/" + contestId + "/bookmarks"));
+
+        resultActions.andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.resultCode").value("401-1"));
+    }
+
+    @Test
+    @DisplayName("대회 북마크 취소: 로그인하지 않았으면 401-1이다")
+    void unbookmarkContestWithoutLogin() throws Exception {
+        long contestId = saveContest();
+
+        ResultActions resultActions = mvc.perform(delete("/api/v1/contests/" + contestId + "/bookmarks"));
+
+        resultActions.andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.resultCode").value("401-1"));
+    }
+
+    @Test
     @DisplayName("대회 북마크: 이미 북마크한 대회에 재요청하면 409-1이다")
     @WithUserDetails("user1@test.com")
     void bookmarkContestTwice() throws Exception {

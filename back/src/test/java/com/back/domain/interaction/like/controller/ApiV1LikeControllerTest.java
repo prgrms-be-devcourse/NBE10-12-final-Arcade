@@ -190,6 +190,28 @@ public class ApiV1LikeControllerTest {
     }
 
     @Test
+    @DisplayName("대회 좋아요: 로그인하지 않았으면 401-1이다")
+    void likeContestWithoutLogin() throws Exception {
+        long contestId = saveContest();
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/contests/" + contestId + "/likes"));
+
+        resultActions.andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.resultCode").value("401-1"));
+    }
+
+    @Test
+    @DisplayName("대회 좋아요 취소: 로그인하지 않았으면 401-1이다")
+    void unlikeContestWithoutLogin() throws Exception {
+        long contestId = saveContest();
+
+        ResultActions resultActions = mvc.perform(delete("/api/v1/contests/" + contestId + "/likes"));
+
+        resultActions.andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.resultCode").value("401-1"));
+    }
+
+    @Test
     @DisplayName("대회 좋아요: 존재하지 않는 대회면 404-1이다")
     @WithUserDetails("user1@test.com")
     void likeContestNotFound() throws Exception {
