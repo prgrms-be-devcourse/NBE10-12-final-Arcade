@@ -25,7 +25,7 @@ public interface ContestPostRepository extends JpaRepository<ContestPost, Long> 
         join fetch cp.contest c
         where (:format is null or c.format = :format)
           and (:contestTag is null or c.contestTag = :contestTag)
-        order by c.createDate desc
+        order by c.createDate desc, cp.id desc
         """,
         countQuery = """
         select count(cp) from ContestPost cp
@@ -44,7 +44,7 @@ public interface ContestPostRepository extends JpaRepository<ContestPost, Long> 
         join fetch cp.contest c
         where (:format is null or c.format = :format)
           and (:contestTag is null or c.contestTag = :contestTag)
-        order by cp.likeCount desc
+        order by cp.likeCount desc, cp.id desc
         """,
         countQuery = """
         select count(cp) from ContestPost cp
@@ -63,7 +63,7 @@ public interface ContestPostRepository extends JpaRepository<ContestPost, Long> 
         join fetch cp.contest c
         where (:format is null or c.format = :format)
           and (:contestTag is null or c.contestTag = :contestTag)
-        order by c.applicationPeriodEnd asc
+        order by c.applicationPeriodEnd asc, cp.id desc
         """,
         countQuery = """
         select count(cp) from ContestPost cp
