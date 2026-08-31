@@ -11,6 +11,7 @@ import com.back.domain.party.party.entity.TopicType;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.position.entity.PartyStatus;
 import com.back.domain.party.position.entity.Position;
+import com.back.domain.party.position.repository.PositionRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,7 +27,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -48,6 +51,9 @@ public class ApiV1PartyApplicationControllerTest {
 
     @Autowired
     private PartyMemberRepository partyMemberRepository;
+
+    @Autowired
+    private PositionRepository positionRepository;
 
     private Party saveParty(String ownerEmail) {
         Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
@@ -206,5 +212,152 @@ public class ApiV1PartyApplicationControllerTest {
 
         resultActions.andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.resultCode").value("403-1"));
+    }
+
+    private String decisionRequestJson(String pending) {
+        return """
+            { "pending": "%s" }
+            """.formatted(pending);
+    }
+
+    @Test
+    @DisplayName("지원 승인: 200-1과 APPROVED 상태를 반환하고 정원이 채워진다")
+    @WithUserDetails("user1@test.com")
+    void approveApplication() throws Exception {
+        Party party = saveParty("user1@test.com");
+        Position position = party.getPositions().get(0);
+        Member applicant = memberRepository.findByEmail("user2@test.com").orElseThrow();
+        PartyMember partyMember = partyMemberRepository.save(new PartyMember(party, applicant, position, null));
+
+        ResultActions resultActions = mvc.perform(patch(
+                "/api/v1/parties/" + party.getId() + "/applications/" + partyMember.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(decisionRequestJson("APPROVED")));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.resultCode").value("200-1"))
+                .andExpect(jsonPath("$.data.status").value("APPROVED"));
+
+        Position updatedPosition = positionRepository.findById(position.getId()).orElseThrow();
+        assertThat(updatedPosition.getFilledCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("지원 거절: 200-1과 REJECTED 상태를 반환한다")
+    @WithUserDetails("user1@test.com")
+    void rejectApplication() throws Exception {
+        Party party = saveParty("user1@test.com");
+        Position position = party.getPositions().get(0);
+        Member applicant = memberRepository.findByEmail("user2@test.com").orElseThrow();
+        PartyMember partyMember = partyMemberRepository.save(new PartyMember(party, applicant, position, null));
+
+        ResultActions resultActions = mvc.perform(patch(
+                "/api/v1/parties/" + party.getId() + "/applications/" + partyMember.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(decisionRequestJson("REJECTED")));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("REJECTED"));
+    }
+
+    @Test
+    @DisplayName("지원 승인/거절: 이미 처리된 지원건을 재처리하면 409-1이다")
+    @WithUserDetails("user1@test.com")
+    void decideAlreadyProcessedApplication() throws Exception {
+        Party party = saveParty("user1@test.com");
+        Position position = party.getPositions().get(0);
+        Member applicant = memberRepository.findByEmail("user2@test.com").orElseThrow();
+        PartyMember partyMember = partyMemberRepository.save(new PartyMember(party, applicant, position, null));
+
+        mvc.perform(patch("/api/v1/parties/" + party.getId() + "/applications/" + partyMember.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(decisionRequestJson("APPROVED")))
+                .andExpect(status().isOk());
+
+        ResultActions resultActions = mvc.perform(patch(
+                "/api/v1/parties/" + party.getId() + "/applications/" + partyMember.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(decisionRequestJson("REJECTED")));
+
+        resultActions.andExpect(status().isConflict())
+                .andExpect(jsonPath("$.resultCode").value("409-1"));
+    }
+
+    @Test
+    @DisplayName("지원 승인: 정원이 이미 마감됐으면 409-2이다")
+    @WithUserDetails("user1@test.com")
+    void approveWhenPositionFull() throws Exception {
+        Member owner = memberRepository.findByEmail("user1@test.com").orElseThrow();
+        Party party = new Party(
+                owner,
+                "오락실 팀",
+                "오락실 공모전 팀원 모집",
+                "설명",
+                null,
+                null,
+                null,
+                TopicType.PROJECT,
+                PartyTag.WEB,
+                null,
+                1,
+                LocalDateTime.now().plusDays(7)
+        );
+        party.addPosition(new Position(PositionType.BACK, 1)); // 정원 1명
+        party = partyRepository.save(party);
+        Position position = party.getPositions().get(0);
+
+        // user2가 이미 승인되어 정원(1명)을 다 채운 상태
+        Member firstApplicant = memberRepository.findByEmail("user2@test.com").orElseThrow();
+        PartyMember approvedMember = new PartyMember(party, firstApplicant, position, null);
+        approvedMember.approve();
+        position.fillOneSeat();
+        partyMemberRepository.save(approvedMember);
+        positionRepository.save(position);
+
+        // user3이 뒤늦게 지원 -> PENDING
+        Member secondApplicant = memberRepository.findByEmail("user3@test.com").orElseThrow();
+        PartyMember pendingMember = partyMemberRepository.save(
+                new PartyMember(party, secondApplicant, position, null));
+
+        ResultActions resultActions = mvc.perform(patch(
+                "/api/v1/parties/" + party.getId() + "/applications/" + pendingMember.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(decisionRequestJson("APPROVED")));
+
+        resultActions.andExpect(status().isConflict())
+                .andExpect(jsonPath("$.resultCode").value("409-2"));
+    }
+
+    @Test
+    @DisplayName("지원 승인/거절: 파티장이 아니면 403-1이다")
+    @WithUserDetails("user2@test.com")
+    void decideAsNonOwner() throws Exception {
+        Party party = saveParty("user1@test.com");
+        Position position = party.getPositions().get(0);
+        Member applicant = memberRepository.findByEmail("user3@test.com").orElseThrow();
+        PartyMember partyMember = partyMemberRepository.save(new PartyMember(party, applicant, position, null));
+
+        ResultActions resultActions = mvc.perform(patch(
+                "/api/v1/parties/" + party.getId() + "/applications/" + partyMember.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(decisionRequestJson("APPROVED")));
+
+        resultActions.andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.resultCode").value("403-1"));
+    }
+
+    @Test
+    @DisplayName("지원 승인/거절: 존재하지 않는 지원 건이면 404-1이다")
+    @WithUserDetails("user1@test.com")
+    void decideNonExistentApplication() throws Exception {
+        Party party = saveParty("user1@test.com");
+
+        ResultActions resultActions = mvc.perform(patch(
+                "/api/v1/parties/" + party.getId() + "/applications/999999")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(decisionRequestJson("APPROVED")));
+
+        resultActions.andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.resultCode").value("404-1"));
     }
 }
