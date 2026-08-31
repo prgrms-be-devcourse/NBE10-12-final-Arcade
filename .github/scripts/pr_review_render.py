@@ -82,10 +82,10 @@ def _escape_cell(text: str) -> str:
 def render_status(comment: dict) -> str:
     """comment → 표에 쓸 상태 문구."""
     if comment.get("resolved"):
-        return "해결됨"
+        return "✅ 해결됨"
     if comment.get("outdated"):
-        return "코드 변경됨"
-    return "미해결"
+        return "🔄 코드 변경됨"
+    return "⏳ 미해결"
 
 
 def _table_order(comment: dict):
