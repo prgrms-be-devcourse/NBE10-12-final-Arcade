@@ -20,9 +20,8 @@ public class PartyAssemble extends BaseEntity {
     @JoinColumn(name = "party_id", nullable = false, unique = true)
     private Party party;
 
-    // 이 확정 이벤트가 이벤트 버스에 실제로 발행된 시각(아웃박스 패턴 확인용).
-    // 지금은 ApplicationEventPublisher로 동기 발행만 하고 있어 별도 아웃박스 처리는
-    // 안 하므로 당장은 값을 채우지 않고 필드만 남겨둔다.
+    // 이 확정 이벤트가 이벤트 버스에 실제로 발행된 시각
+    // 지금은 ApplicationEventPublisher로 동기 발행만 하고 있어 별도 아웃박스 처리는 안 함 당장은 값을 채우지 않고 필드만
     private LocalDateTime publishedAt;
 
     public PartyAssemble(Party party) {
