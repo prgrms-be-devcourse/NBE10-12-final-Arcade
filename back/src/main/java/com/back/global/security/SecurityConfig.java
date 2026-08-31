@@ -50,6 +50,9 @@ public class SecurityConfig {
                                         HttpMethod.POST,
                                         "/api/*/members/signup"
                                 ).permitAll()
+                                .requestMatchers(HttpMethod.POST, "/api/*/contests").hasRole("ADMIN")
+                                .requestMatchers(HttpMethod.PATCH, "/api/*/contests/{id:\\d+}").hasRole("ADMIN")
+                                .requestMatchers(HttpMethod.DELETE, "/api/*/contests/{id:\\d+}").hasRole("ADMIN")
                                 .requestMatchers("/api/*/adm/**").hasRole("ADMIN")
                                 .requestMatchers("/api/*/**").authenticated()
                                 .anyRequest().permitAll()

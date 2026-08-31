@@ -63,7 +63,7 @@ public class ApiV1ContestController {
     public RsData<ContestResponseDto> write(
             @RequestBody @Valid ContestWriteReqBody reqBody
     ){
-        Member actor = rq.checkAdmin();
+        Member actor = rq.getActorFromDb();
         checkPeriod(reqBody.applicationPeriodStart(), reqBody.applicationPeriodEnd());
 
         ContestResponseDto contestResponseDto = contestService.write(
@@ -106,7 +106,6 @@ public class ApiV1ContestController {
             @PathVariable long id,
             @RequestBody @Valid ContestModifyReqBody reqBody
     ) {
-        rq.checkAdmin();
         checkPeriod(reqBody.applicationPeriodStart(), reqBody.applicationPeriodEnd());
 
         ContestResponseDto contestResponseDto = contestService.modify(
@@ -173,8 +172,6 @@ public class ApiV1ContestController {
     @DeleteMapping("/{id}")
     @Operation(summary = "대회글 삭제")
     public RsData<Void> delete(@PathVariable long id) {
-        rq.checkAdmin();
-
         Contest contest = contestService.findById(id).orElseThrow();
         contestService.deletePost(contest);
 

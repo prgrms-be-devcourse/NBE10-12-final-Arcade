@@ -2,7 +2,6 @@ package com.back.global.rq;
 
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.service.MemberService;
-import com.back.global.globalExceptionHandler.ContestForbiddenException;
 import com.back.global.security.SecurityUser;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -44,16 +43,6 @@ public class Rq {
         }
 
         return memberService.findById(actor.getId()).get();
-    }
-
-    public Member checkAdmin() {
-        Member actor = getActorFromDb();
-
-        if (!actor.isAdmin()) {
-            throw new ContestForbiddenException();
-        }
-
-        return actor;
     }
 
     public String getHeader(String name, String defaultValue) {
