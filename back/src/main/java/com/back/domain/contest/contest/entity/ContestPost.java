@@ -47,10 +47,6 @@ public class ContestPost extends BaseEntity {
         this.viewCount = 0;
     }
 
-    public void increaseViewCount() {
-        this.viewCount++;
-    }
-
     public void increaseLikeCount() {
         this.likeCount++;
     }

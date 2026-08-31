@@ -66,7 +66,8 @@ public class ContestService {
                     ContestPost contestPost = contestPostRepository.findByContest(contest).orElse(null);
 
                     if (contestPost != null && countView) {
-                        contestPost.increaseViewCount();
+                        contestPostRepository.increaseViewCount(id);
+                        contestPost = contestPostRepository.findByContest(contest).orElseThrow();
                     }
 
                     return new ContestResponseDto(contest, contestPost);

@@ -7,6 +7,7 @@ import com.back.domain.contest.contest.entity.ContestTag;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -75,4 +76,8 @@ public interface ContestPostRepository extends JpaRepository<ContestPost, Long> 
             @Param("contestTag") ContestTag contestTag,
             Pageable pageable
     );
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update ContestPost cp set cp.viewCount = cp.viewCount + 1 where cp.contest.id = :contestId")
+    void increaseViewCount(@Param("contestId") long contestId);
 }
