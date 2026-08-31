@@ -125,6 +125,17 @@ public class ApiV1ContestControllerTest {
     }
 
     @Test
+    @DisplayName("대회 등록: 로그인하지 않았으면 401-1이다")
+    void writeWithoutLogin() throws Exception {
+        ResultActions resultActions = mvc.perform(post("/api/v1/contests")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(writeRequestJson("AI 해커톤", "https://example.com/contest")));
+
+        resultActions.andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.resultCode").value("401-1"));
+    }
+
+    @Test
     @DisplayName("대회 등록: 제목이 없으면 400-1이다")
     @WithUserDetails("admin")
     void writeWithoutTitle() throws Exception {
