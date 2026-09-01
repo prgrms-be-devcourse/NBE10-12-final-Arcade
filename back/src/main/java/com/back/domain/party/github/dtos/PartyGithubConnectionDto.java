@@ -1,4 +1,4 @@
-package com.back.domain.party.github.dto;
+package com.back.domain.party.github.dtos;
 
 import com.back.domain.party.github.entity.PartyGithubConnection;
 

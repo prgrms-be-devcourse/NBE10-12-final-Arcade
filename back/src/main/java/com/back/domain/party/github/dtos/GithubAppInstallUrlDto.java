@@ -1,4 +1,4 @@
-package com.back.domain.party.github.dto;
+package com.back.domain.party.github.dtos;
 
 public record GithubAppInstallUrlDto(
         String installationUrl,

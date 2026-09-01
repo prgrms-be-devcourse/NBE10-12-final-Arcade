@@ -1,6 +1,6 @@
 package com.back.global.github.service;
 
-import com.back.global.github.client.dto.GithubPullRequestWebhookPayload;
+import com.back.global.github.client.dtos.GithubPullRequestWebhookPayload;
 import com.back.global.github.entity.GithubWebhookDelivery;
 import com.back.global.github.event.GithubInstallationRepositoryRemovedEvent;
 import com.back.global.github.event.GithubInstallationUnavailableEvent;

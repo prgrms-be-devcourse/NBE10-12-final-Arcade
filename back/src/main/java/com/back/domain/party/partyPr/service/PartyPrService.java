@@ -2,10 +2,10 @@ package com.back.domain.party.partyPr.service;
 
 import com.back.domain.party.github.entity.PartyGithubConnectionStatus;
 import com.back.domain.party.github.repository.PartyGithubConnectionRepository;
-import com.back.global.github.client.dto.GithubPullRequestResponse;
+import com.back.global.github.client.dtos.GithubPullRequestResponse;
 import com.back.global.github.event.GithubPullRequestReceivedEvent;
 import com.back.domain.party.party.entity.Party;
-import com.back.domain.party.partyPr.dto.PartyPrDto;
+import com.back.domain.party.partyPr.dtos.PartyPrDto;
 import com.back.domain.party.partyPr.entity.PartyPr;
 import com.back.domain.party.partyPr.model.GithubPullRequestSnapshot;
 import com.back.domain.party.partyPr.repository.PartyPrRepository;

@@ -1,4 +1,4 @@
-package com.back.global.github.client.dto;
+package com.back.global.github.client.dtos;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 

@@ -1,6 +1,6 @@
 package com.back.global.github.client;
 
-import com.back.global.github.client.dto.GithubPullRequestResponse;
+import com.back.global.github.client.dtos.GithubPullRequestResponse;
 import com.back.global.exception.ServiceException;
 import io.jsonwebtoken.Jwts;
 import org.springframework.beans.factory.annotation.Value;

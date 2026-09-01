@@ -1,4 +1,4 @@
-package com.back.domain.party.partyPr.dto;
+package com.back.domain.party.partyPr.dtos;
 
 import com.back.domain.party.partyPr.entity.PartyPr;
 

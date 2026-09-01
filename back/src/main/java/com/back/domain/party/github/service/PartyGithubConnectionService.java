@@ -2,8 +2,8 @@ package com.back.domain.party.github.service;
 
 import com.back.domain.member.member.entity.Member;
 import com.back.global.github.client.GithubAppClient;
-import com.back.domain.party.github.dto.GithubAppInstallUrlDto;
-import com.back.domain.party.github.dto.PartyGithubConnectionDto;
+import com.back.domain.party.github.dtos.GithubAppInstallUrlDto;
+import com.back.domain.party.github.dtos.PartyGithubConnectionDto;
 import com.back.domain.party.github.entity.GithubAppInstallState;
 import com.back.domain.party.github.entity.PartyGithubConnection;
 import com.back.global.github.event.GithubInstallationRepositoryRemovedEvent;

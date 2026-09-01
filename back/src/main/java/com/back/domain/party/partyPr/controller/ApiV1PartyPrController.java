@@ -1,11 +1,11 @@
 package com.back.domain.party.partyPr.controller;
 
-import com.back.domain.party.partyPr.dto.PartyPrDto;
+import com.back.domain.party.partyPr.dtos.PartyPrDto;
 import com.back.domain.party.partyPr.service.PartyPrService;
 import com.back.domain.party.github.service.PartyGithubConnectionService;
 import com.back.global.github.service.GithubWebhookService;
-import com.back.domain.party.github.dto.PartyGithubConnectionDto;
-import com.back.domain.party.github.dto.GithubAppInstallUrlDto;
+import com.back.domain.party.github.dtos.PartyGithubConnectionDto;
+import com.back.domain.party.github.dtos.GithubAppInstallUrlDto;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
 import lombok.RequiredArgsConstructor;
