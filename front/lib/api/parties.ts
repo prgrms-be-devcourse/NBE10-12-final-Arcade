@@ -21,7 +21,7 @@ import {
   MOCK_PARTY_DETAILS,
   MOCK_RECOMMENDED_PARTIES,
 } from '@/lib/mock';
-import { USE_MOCK, http, mockResponse } from './client';
+import { ApiError, USE_MOCK, http, mockResponse } from './client';
 
 /* ---------- 백엔드 응답 타입 ---------- */
 
@@ -237,16 +237,25 @@ export async function fetchParties(query: PartyQuery = {}): Promise<Party[]> {
     return mockResponse([...filtered].sort(comparePartiesBy(sort)));
   }
 
-  const page = await http.get<{ content: PartyListItemResponse[] }>('/parties', {
-    query: {
-      keyword: query.keyword,
-      partyTag: toPartyTag(query.subCategory),
-      position: query.position === '전체' ? undefined : query.position,
-      sort: SORT_TO_SERVER[query.sort ?? 'empty'],
-      page: query.page ?? 0,
-      size: query.size ?? 20,
-    },
-  });
+  // 기획서 9.2 는 파티 목록을 비인증 조회로 정의하지만 서버가 아직 인증을 요구한다.
+  // 비로그인 방문자에게 페이지 전체가 500 으로 죽는 것보다는 빈 목록이 낫다.
+  // 서버 permitAll 이 반영되면 이 방어는 걷어낸다 (docs/프론트-API연동_백엔드_수정요청.md ②)
+  let page: { content: PartyListItemResponse[] };
+  try {
+    page = await http.get<{ content: PartyListItemResponse[] }>('/parties', {
+      query: {
+        keyword: query.keyword,
+        partyTag: toPartyTag(query.subCategory),
+        position: query.position === '전체' ? undefined : query.position,
+        sort: SORT_TO_SERVER[query.sort ?? 'empty'],
+        page: query.page ?? 0,
+        size: query.size ?? 20,
+      },
+    });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) return [];
+    throw error;
+  }
 
   const parties = page.content.map(toParty);
   // 서버 목록 API 에 주제 유형 필터가 없어 여기서 거른다
@@ -337,6 +346,9 @@ function toPartyRequestBody(payload: PartyFormPayload) {
     topicType: payload.topicType,
     partyTag: toPartyTag(payload.subCategory) ?? 'ETC',
     githubRepoUrl: payload.repositoryUrl ?? null,
+    // 서버 요청 record 의 int 필드라 값을 빼면 본문 파싱 자체가 실패한다(400-2).
+    // 진행 기록 방식이 커밋 기반으로 바뀌는 중이라 폼에 입력칸이 없어, 최소값 1 로 보낸다.
+    checklistRequiredApprovals: 1,
     deadline,
     positions: payload.positions.map((position) => ({
       name: position.type,

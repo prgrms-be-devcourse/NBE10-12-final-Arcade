@@ -26,7 +26,13 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ko" data-theme="dark" className={`${gothicA1.variable} ${pressStart.variable}`}>
+    <html
+      lang="ko"
+      data-theme="dark"
+      className={`${gothicA1.variable} ${pressStart.variable}`}
+      // ThemeScript 가 하이드레이션 전에 data-theme 을 바꾸므로, DOM 값을 그대로 인정한다
+      suppressHydrationWarning
+    >
       <head>
         <ThemeScript />
       </head>

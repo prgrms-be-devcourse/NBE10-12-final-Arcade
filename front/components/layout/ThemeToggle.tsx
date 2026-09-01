@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useSyncExternalStore } from 'react';
+import { useCallback, useLayoutEffect, useSyncExternalStore } from 'react';
 import { Icon } from '@/components/icons/Icon';
 
 type Theme = 'dark' | 'light';
@@ -24,6 +24,20 @@ function getSnapshot(): Theme {
 /** 다크/라이트 전환 */
 export function ThemeToggle() {
   const theme = useSyncExternalStore(subscribe, getSnapshot, () => 'dark' as Theme);
+
+  // 개발 모드에서 StrictMode 가 컴포넌트를 한 번 리마운트하면서 html 속성을 JSX 기준으로 되돌린다.
+  // 그때 ThemeScript 가 심어둔 값이 지워지므로 다시 적용한다. 프로덕션에서는 아무 일도 하지 않는다.
+  useLayoutEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+      if (stored === 'light' || stored === 'dark') {
+        document.documentElement.dataset.theme = stored;
+        window.dispatchEvent(new Event(THEME_EVENT));
+      }
+    } catch {
+      /* 저장소 접근 실패는 무시 — 기본 테마로 둔다 */
+    }
+  }, []);
 
   const toggle = useCallback(() => {
     const next: Theme = getSnapshot() === 'dark' ? 'light' : 'dark';

@@ -1,12 +1,13 @@
 import { ContestBoard } from '@/components/contest/ContestBoard';
 import { LinkButton } from '@/components/ui/Button';
 import { SectionHead } from '@/components/ui/SectionHead';
-import { fetchMyProfile } from '@/lib/api';
+import { fetchMyProfileOrNull } from '@/lib/api';
 
 export default async function ContestBoardPage() {
-  const profile = await fetchMyProfile();
+  // 공개 페이지라 비로그인도 볼 수 있어야 한다
+  const profile = await fetchMyProfileOrNull();
   // 대회 등록은 주최측(HOST)·관리자(ADMIN)만 할 수 있다 (기획서 2.4)
-  const canRegister = profile.memberRole !== 'MEMBER';
+  const canRegister = profile != null && profile.memberRole !== 'MEMBER';
 
   return (
     <main>

@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/icons/Icon';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { logout } from '@/lib/api';
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser';
 
 /**
  * 헤더 우측 프로필 메뉴 — 아바타 하나만 두고, 누르면 마이페이지·로그아웃이 펼쳐진다.
@@ -16,8 +18,11 @@ import { logout } from '@/lib/api';
  *
  * 로그아웃은 확인을 한 번 거치고, 요청이 실패해도 로그인 화면으로는 보낸다.
  * 로그인된 화면에 그대로 남아 있는 편이 더 위험하기 때문이다.
+ *
+ * 로그인하지 않았으면 아바타 대신 로그인 버튼이 나온다.
  */
-export function UserMenu({ initial = '정', name = '정하늘' }: { initial?: string; name?: string }) {
+export function UserMenu() {
+  const me = useCurrentUser();
   const router = useRouter();
   const wrapRef = useRef<HTMLDivElement>(null);
   const { confirm, dialog } = useConfirm();
@@ -61,6 +66,20 @@ export function UserMenu({ initial = '정', name = '정하늘' }: { initial?: st
       router.push('/login');
     }
   };
+
+  // 확인 중에는 아무것도 그리지 않는다 (로그인한 사람에게 로그인 버튼이 스치지 않게)
+  if (me === undefined) return null;
+
+  if (me === null) {
+    return (
+      <Link className="nav-login" href="/login">
+        로그인
+      </Link>
+    );
+  }
+
+  const name = me.profile.name;
+  const initial = me.profile.initial;
 
   return (
     <div className="user-wrap" ref={wrapRef}>

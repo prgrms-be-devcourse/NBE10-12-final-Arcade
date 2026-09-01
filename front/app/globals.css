@@ -3258,6 +3258,14 @@ body{
 .user-chip .mono{
   font-family:var(--font-display);font-size:.78rem;color:var(--accent);line-height:1;
 }
+/* 비로그인 상태의 헤더 버튼 — 아바타 자리를 대신한다 */
+.nav-login{
+  height:2.5rem;flex-shrink:0;padding:0 0.875rem;border-radius:var(--radius-chip);
+  display:inline-flex;align-items:center;justify-content:center;
+  background:var(--surface);border:0.125rem solid var(--border);
+  font-size:.8rem;font-weight:800;color:var(--text);text-decoration:none;transition:.2s ease;
+}
+.nav-login:hover{border-color:var(--accent);color:var(--accent);background:var(--surface-2);}
 .user-chip:hover{border-color:var(--border-strong);background:var(--surface-2);}
 .user-chip.is-open{border-color:var(--accent);}
 .user-chip:active{transform:scale(.94);}

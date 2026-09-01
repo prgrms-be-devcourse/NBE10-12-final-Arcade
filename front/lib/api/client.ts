@@ -80,14 +80,37 @@ function buildUrl(path: string, query?: RequestOptions['query']): string {
   return qs ? `${url}?${qs}` : url;
 }
 
+/**
+ * 서버 컴포넌트에서 호출할 때 브라우저 쿠키를 대신 실어 준다.
+ *
+ * 인증 토큰이 쿠키에 들어 있는데, 서버 컴포넌트의 fetch 는 Node 에서 실행돼
+ * credentials:'include' 가 아무 일도 하지 않는다. 그래서 요청에 담겨 온 쿠키를 직접 옮긴다.
+ * 브라우저에서는 이 함수가 곧바로 undefined 를 돌려주고 평소대로 credentials 로 처리된다.
+ */
+async function serverCookieHeader(): Promise<string | undefined> {
+  if (typeof window !== 'undefined') return undefined;
+  try {
+    const { cookies } = await import('next/headers');
+    const store = await cookies();
+    const value = store.toString();
+    return value || undefined;
+  } catch {
+    // 요청 컨텍스트 밖(빌드 시 정적 생성 등)에서는 쿠키를 읽을 수 없다
+    return undefined;
+  }
+}
+
 /** 실제 서버 호출용 공통 fetch 래퍼 */
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { query, body, headers, ...rest } = options;
+
+  const cookie = await serverCookieHeader();
 
   const response = await fetch(buildUrl(path, query), {
     ...rest,
     headers: {
       'Content-Type': 'application/json',
+      ...(cookie ? { Cookie: cookie } : {}),
       ...headers,
     },
     body: body === undefined ? undefined : JSON.stringify(body),
