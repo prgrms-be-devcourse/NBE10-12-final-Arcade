@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/parties/{party-id}/applications")
+@RequestMapping("/api/v1/parties/{partyId}/applications")
 @RequiredArgsConstructor
 public class ApiV1PartyApplicationController {
 
@@ -33,7 +33,7 @@ public class ApiV1PartyApplicationController {
 
     @PostMapping
     public RsData<Void> apply(
-            @PathVariable("party-id") long partyId,
+            @PathVariable long partyId,
             @Valid @RequestBody ApplyReqBody request
     ) {
         partyApplicationService.apply(
@@ -52,7 +52,7 @@ public class ApiV1PartyApplicationController {
 
     @GetMapping
     public RsData<List<PartyApplicationDto>> list(
-            @PathVariable("party-id") long partyId
+            @PathVariable long partyId
     ) {
         List<PartyApplicationDto> applications = partyApplicationService.getApplications(
                 partyId,
@@ -71,7 +71,7 @@ public class ApiV1PartyApplicationController {
 
     @PatchMapping("/{application-id}")
     public RsData<PartyApplicationDto> decide(
-            @PathVariable("party-id") long partyId,
+            @PathVariable long partyId,
             @PathVariable("application-id") long applicationId,
             @Valid @RequestBody DecisionReqBody request
     ) {

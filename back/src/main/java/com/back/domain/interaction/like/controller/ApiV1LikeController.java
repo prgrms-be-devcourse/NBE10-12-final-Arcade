@@ -20,9 +20,9 @@ public class ApiV1LikeController {
     private final LikeService likeService;
     private final Rq rq;
 
-    @PostMapping("/api/v1/parties/{party-id}/likes")
+    @PostMapping("/api/v1/parties/{partyId}/likes")
     public RsData<LikeDto> likeParty(
-            @PathVariable("party-id") long partyId
+            @PathVariable long partyId
     ) {
         Member actor = rq.getActorFromDb();
 
@@ -42,9 +42,9 @@ public class ApiV1LikeController {
         );
     }
 
-    @DeleteMapping("/api/v1/parties/{party-id}/likes")
+    @DeleteMapping("/api/v1/parties/{partyId}/likes")
     public RsData<Void> unlikeParty(
-            @PathVariable("party-id") long partyId
+            @PathVariable long partyId
     ) {
         Member actor = rq.getActorFromDb();
 
