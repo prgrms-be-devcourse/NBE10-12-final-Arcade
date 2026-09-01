@@ -121,17 +121,8 @@ export function ContestDetailView({ id }: { id: string }) {
                     </span>
                   </div>
                   <div className="stat-row">
-                    <span className="label">상금</span>
-                    {/* prize 값에 '상금'이 이미 붙어 있어 라벨과 겹치지 않게 떼어낸다 */}
-                    <span className="value">{contest.prize.replace(/^상금\s*/, '')}</span>
-                  </div>
-                  <div className="stat-row">
                     <span className="label">참가팀</span>
                     <span className="value">{contest.teams}</span>
-                  </div>
-                  <div className="stat-row">
-                    <span className="label">참가 대상</span>
-                    <span className="value">{contest.target}</span>
                   </div>
                 </div>
               </SideCard>

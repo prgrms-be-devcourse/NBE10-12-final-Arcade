@@ -23,7 +23,6 @@ export function ContestCard({ contest }: { contest: Contest }) {
           {contest.host} · {contest.dday}
         </p>
         <div className="contest-stats">
-          <span className="prize">{contest.prize}</span>
           <span className="view-count">
             <Icon name="i-eye" />
             {contest.viewCount.toLocaleString()}

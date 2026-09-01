@@ -32,8 +32,6 @@ export function ContestCreateForm({ editId }: { editId?: string }) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [coverFileName, setCoverFileName] = useState<string | null>(null);
-  const [prize, setPrize] = useState('');
-  const [target, setTarget] = useState('');
   const [description, setDescription] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -63,8 +61,6 @@ export function ContestCreateForm({ editId }: { editId?: string }) {
       startDate,
       endDate,
       coverFileName: coverFileName ?? undefined,
-      prize,
-      target,
       description,
     };
     try {
@@ -168,23 +164,6 @@ export function ContestCreateForm({ editId }: { editId?: string }) {
           }
         />
       </FormGroup>
-
-      <FormRow>
-        <FormGroup label="상금" hint="상세 사이드의 '공모전 정보'에 표시돼요.">
-          <TextField
-            placeholder="예: 500만원"
-            value={prize}
-            onChange={(event) => setPrize(event.target.value)}
-          />
-        </FormGroup>
-        <FormGroup label="참가 대상">
-          <TextField
-            placeholder="예: 대학생 · 일반인 누구나 (2~5인 팀)"
-            value={target}
-            onChange={(event) => setTarget(event.target.value)}
-          />
-        </FormGroup>
-      </FormRow>
 
       <FormGroup
         label="공모전 소개"
