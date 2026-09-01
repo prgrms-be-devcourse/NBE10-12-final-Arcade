@@ -5,7 +5,11 @@ import com.back.domain.member.profile.entity.MemberProfile;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
+import java.util.Collection;
+import java.util.List;
 
 public interface MemberProfileRepository extends JpaRepository<MemberProfile, Integer> {
     Optional<MemberProfile> findByMember(Member member);
+
+    List<MemberProfile> findByMemberIn(Collection<Member> members);
 }
