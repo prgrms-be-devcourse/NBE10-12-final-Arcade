@@ -2,6 +2,7 @@ plugins {
     java
     id("org.springframework.boot") version "4.1.0"
     id("io.spring.dependency-management") version "1.1.7"
+    id("jacoco")
 }
 
 group = "com"
@@ -14,40 +15,70 @@ java {
     }
 }
 
+configurations {
+    compileOnly {
+        extendsFrom(configurations.annotationProcessor.get())
+    }
+}
+
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    implementation("org.springframework.boot:spring-boot-h2console")
-    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    implementation("org.springframework.boot:spring-boot-starter-validation")
+    // Spring, jpa, redis
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0")
+    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    implementation("org.springframework.boot:spring-boot-starter-data-redis")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
+
+    // JWT, Security
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-security-oauth2-client")
-    implementation("org.springframework.boot:spring-boot-starter-data-redis")
-    testImplementation("org.springframework.boot:spring-boot-starter-security-test")
-    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
-    testImplementation("org.springframework.boot:spring-boot-testcontainers")
-    compileOnly("org.projectlombok:lombok")
-    developmentOnly("org.springframework.boot:spring-boot-devtools")
-    runtimeOnly("com.h2database:h2")
-    runtimeOnly("org.postgresql:postgresql")
-    annotationProcessor("org.projectlombok:lombok")
-    testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
-    testImplementation("org.springframework.boot:spring-boot-starter-validation-test")
-    testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
-    testCompileOnly("org.projectlombok:lombok")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-    testAnnotationProcessor("org.projectlombok:lombok")
-
-    // JJWT
     implementation("io.jsonwebtoken:jjwt-api:0.13.0")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.13.0")
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.13.0")
+
+    // API 문서
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0")
+
+    // H2 DB
+    implementation("org.springframework.boot:spring-boot-h2console")
+    runtimeOnly("com.h2database:h2")
+    runtimeOnly("org.postgresql:postgresql")
+
+    developmentOnly("org.springframework.boot:spring-boot-devtools")
+
+    // Lombok
+    annotationProcessor("org.projectlombok:lombok")
+    testCompileOnly("org.projectlombok:lombok")
+    testAnnotationProcessor("org.projectlombok:lombok")
+
+    // Test
+    testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+    testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
+    testImplementation("org.springframework.boot:spring-boot-starter-validation-test")
+    testImplementation("org.springframework.boot:spring-boot-starter-security-test")
+    testImplementation("org.springframework.boot:spring-boot-testcontainers")
+    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+jacoco {
+    toolVersion = "0.8.15"
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+
+    reports {
+        xml.required = true
+        csv.required = false
+        html.required = true
+    }
 }
