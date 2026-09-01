@@ -6,6 +6,7 @@ import com.back.domain.party.party.dtos.PartyListItemDto;
 import com.back.domain.party.party.entity.PartySortOption;
 import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
+import com.back.domain.party.party.service.PartyLifecycleService;
 import com.back.domain.party.party.service.PartyService;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
@@ -34,6 +35,7 @@ import java.util.List;
 public class ApiV1PartyController {
 
     private final PartyService partyService;
+    private final PartyLifecycleService partyLifecycleService;
     private final Rq rq;
 
     public record PositionReqBody(
@@ -185,6 +187,19 @@ public class ApiV1PartyController {
         return new RsData<>(
                 "200-1",
                 "파티 상세 조회 성공",
+                partyDto
+        );
+    }
+
+    @PostMapping("/{party-id}/close-recruiting")
+    public RsData<PartyDto> closeRecruiting(
+            @PathVariable("party-id") long partyId
+    ) {
+        PartyDto partyDto = partyLifecycleService.closeRecruiting(partyId, rq.getActorFromDb());
+
+        return new RsData<>(
+                "201-1",
+                "파티 모집 종료",
                 partyDto
         );
     }

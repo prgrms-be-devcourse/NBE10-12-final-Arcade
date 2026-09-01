@@ -160,4 +160,11 @@ public class Party extends BaseEntity {
                 .findFirst()
                 .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 포지션입니다."));
     }
+
+    public void closeRecruiting() {
+        if (this.status != PartyStatus.RECRUITING) {
+            throw new ServiceException("409-1", "이미 모집이 종료된 파티입니다.");
+        }
+        this.status = PartyStatus.IN_PROGRESS;
+    }
 }
