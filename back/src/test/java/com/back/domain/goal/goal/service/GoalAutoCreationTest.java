@@ -66,8 +66,13 @@ public class GoalAutoCreationTest {
             assertThat(goal.getStatus()).isEqualTo(GoalStatus.IN_PROGRESS);
             assertThat(goal.getSource()).isEqualTo(GoalSource.PLATFORM_VERIFIED);
             assertThat(goal.getSourcePartyId()).isEqualTo(partyId);
-            assertThat(((Project) goal).getStartDate()).isEqualTo(assembledAt);
-            assertThat(((Project) goal).getEndDate()).isNull();
+
+            Project project = (Project) goal;
+            assertThat(project.getStartDate()).isEqualTo(assembledAt);
+            assertThat(project.getEndDate()).isNull();
+            // title·result는 전시 게시(작업표 34번) 시점에 PARTY_SHOWCASE에서 채워진다
+            assertThat(project.getTitle()).isNull();
+            assertThat(project.getResult()).isNull();
         });
         assertThat(goals).extracting(goal -> goal.getOwner().getId())
                 .containsExactlyInAnyOrder(user1.getId(), user2.getId());

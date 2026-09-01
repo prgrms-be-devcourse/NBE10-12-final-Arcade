@@ -101,6 +101,8 @@ public class GoalService {
                         // 파티 도메인 수정(docs/성취-자동생성_파티도메인_수정요청.md ②)이 반영되면 그대로 채워진다.
                         null,
                         partyId,
+                        // title은 전시 게시(작업표 34번) 시점에 PARTY_SHOWCASE에서 채운다.
+                        null,
                         null,
                         assembledAt
                 ))
