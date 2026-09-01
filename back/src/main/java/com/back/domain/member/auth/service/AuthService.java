@@ -9,6 +9,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Objects;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -47,20 +49,24 @@ public class AuthService {
     @Transactional
     public Member linkGithubSocial(Member actor, String githubProviderUserId, String githubEmail,
             String profileImgUrl) {
+        // OAuth 요청에서 전달받은 actor는 이 트랜잭션에서는 detached 상태일 수 있으므로,
+        // 변경 감지가 가능한 managed 엔티티를 다시 조회한다.
+        Member managedActor = memberRepository.findById(actor.getId())
+                .orElseThrow(() -> new ServiceException("404-1", "회원을 찾을 수 없습니다."));
         Member linkedMember = memberRepository.findByGithubProviderUserId(githubProviderUserId).orElse(null);
 
-        if (linkedMember != null && linkedMember.getId() != actor.getId()) {
+        if (linkedMember != null && !Objects.equals(linkedMember.getId(), managedActor.getId())) {
             throw new ServiceException("409-1", "이미 다른 계정에 연결된 GitHub 계정입니다.");
         }
 
-        if (actor.getGithubProviderUserId() != null && !actor.getGithubProviderUserId().isBlank()) {
+        if (managedActor.getGithubProviderUserId() != null && !managedActor.getGithubProviderUserId().isBlank()) {
             throw new ServiceException("400-1", "현재 계정에는 이미 GitHub 계정이 연결되어 있습니다.");
         }
 
-        actor.setGithubSocial(githubProviderUserId, githubEmail);
-        actor.setProfileImgUrl(profileImgUrl);
+        managedActor.setGithubSocial(githubProviderUserId, githubEmail);
+        managedActor.setProfileImgUrl(profileImgUrl);
 
-        return actor;
+        return managedActor;
     }
 
     private void modify(Member member, String profileImgUrl) {

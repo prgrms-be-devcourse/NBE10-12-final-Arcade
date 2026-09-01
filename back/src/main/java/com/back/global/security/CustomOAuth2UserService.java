@@ -52,7 +52,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         }
 
         String username = providerTypeCode + "__%s".formatted(oauthUserId);
-        Member actor = rq.getActorFromDb();
+        Member actor = rq.getActor();
         Member member;
 
         if (actor == null) {
