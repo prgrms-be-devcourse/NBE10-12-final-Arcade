@@ -72,13 +72,14 @@ public class ApiV1ContestControllerTest {
 
     private long savePartyForContest(long contestId, String partyName) {
         Member owner = memberRepository.findByEmail("admin").orElseThrow();
+        Contest targetContest = contestRepository.findById(contestId).orElseThrow();
 
         Party party = new Party(
                 owner,
                 partyName,
                 "파티 제목",
                 "설명",
-                contestId,
+                targetContest,
                 null,
                 null,
                 TopicType.CONTEST,

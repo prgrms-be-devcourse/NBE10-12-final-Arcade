@@ -9,7 +9,10 @@ import java.util.Collection;
 import java.util.List;
 
 public interface PartyContestLookupPort {
-    List<Party> findByTargetContestId(long contestId);
+
+    @Query("select p from Party p where p.targetContest.id = :contestId")
+    List<Party> findByTargetContestId(@Param("contestId") long contestId);
+
     interface TeamCount {
         Long getContestId();
         Long getCount();

@@ -1,5 +1,6 @@
 package com.back.domain.party.party.dtos;
 
+import com.back.domain.contest.contest.dtos.ContestSummaryDto;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
@@ -17,7 +18,7 @@ public record PartyDto(
     String partyName,
     String title,
     String description,
-    Long targetContestId,
+    ContestSummaryDto targetContest,
     String contestName,
     String contestLinkUrl,
     TopicType topicType,
@@ -39,7 +40,7 @@ public record PartyDto(
             party.getPartyName(),
             party.getTitle(),
             party.getDescription(),
-            party.getTargetContestId(),
+            party.getTargetContest() == null ? null : new ContestSummaryDto(party.getTargetContest()),
             party.getContestName(),
             party.getContestLinkUrl(),
             party.getTopicType(),
