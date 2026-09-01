@@ -107,9 +107,9 @@ public class ApiV1PartyController {
             List<@Valid PositionCapacityReqBody> positions
     ) { }
 
-    @PatchMapping("/{party-id}")
+    @PatchMapping("/{partyId}")
     public RsData<PartyDto> update(
-            @PathVariable("party-id") long partyId,
+            @PathVariable long partyId,
             @Valid @RequestBody PartyUpdateReqBody request
     ) {
         List<PartyService.PositionCapacityUpdateSpec> positionSpecs = request.positions() == null
@@ -141,9 +141,9 @@ public class ApiV1PartyController {
         );
     }
 
-    @DeleteMapping("/{party-id}")
+    @DeleteMapping("/{partyId}")
     public RsData<Void> delete(
-            @PathVariable("party-id") long partyId
+            @PathVariable long partyId
     ) {
         partyService.delete(partyId, rq.getActorFromDb());
 
@@ -178,9 +178,9 @@ public class ApiV1PartyController {
         );
     }
 
-    @GetMapping("/{party-id}")
+    @GetMapping("/{partyId}")
     public RsData<PartyDto> detail(
-            @PathVariable("party-id") long partyId
+            @PathVariable long partyId
     ) {
         PartyDto partyDto = partyService.getDetail(partyId);
 
@@ -191,15 +191,28 @@ public class ApiV1PartyController {
         );
     }
 
-    @PostMapping("/{party-id}/close-recruiting")
+    @PostMapping("/{partyId}/close-recruiting")
     public RsData<PartyDto> closeRecruiting(
-            @PathVariable("party-id") long partyId
+            @PathVariable long partyId
     ) {
         PartyDto partyDto = partyLifecycleService.closeRecruiting(partyId, rq.getActorFromDb());
 
         return new RsData<>(
                 "201-1",
                 "파티 모집 종료",
+                partyDto
+        );
+    }
+
+    @PostMapping("/{partyId}/complete")
+    public RsData<PartyDto> complete(
+            @PathVariable long partyId
+    ) {
+        PartyDto partyDto = partyLifecycleService.complete(partyId, rq.getActorFromDb());
+
+        return new RsData<>(
+                "200-1",
+                "파티 완료 처리 성공",
                 partyDto
         );
     }

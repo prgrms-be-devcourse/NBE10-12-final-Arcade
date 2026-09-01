@@ -11,6 +11,7 @@ import com.back.domain.party.assemble.repository.PartyAssembleToMemberRepository
 import com.back.domain.party.party.dtos.PartyDto;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.event.PartyAssembledEvent;
+import com.back.domain.party.party.event.PartyCompletedEvent;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
@@ -72,5 +73,21 @@ public class PartyLifecycleService {
     private Party findPartyOrThrow(long partyId) {
         return partyRepository.findById(partyId)
                 .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 파티입니다."));
+    }
+
+    @Transactional
+    public PartyDto complete(long partyId, Member actor) {
+        Party party = findPartyOrThrow(partyId);
+
+        if (!party.isOwnedBy(actor)) {
+            throw new ServiceException("403-1", "파티장만 처리할 수 있습니다.");
+        }
+
+        party.complete(); // IN_PROGRESS 아니면 409-1
+
+        // 성취 ACHIEVED 전이, PARTY_PR 동기화 중단은 해당 도메인이 리스너를 붙이면 되므로 여기서는 이벤트 발행까지만
+        eventPublisher.publishEvent(new PartyCompletedEvent(party.getId()));
+
+        return new PartyDto(party);
     }
 }

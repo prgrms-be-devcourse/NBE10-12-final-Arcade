@@ -5,6 +5,7 @@ import io.jsonwebtoken.ClaimsBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.SneakyThrows;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import javax.crypto.SecretKey;
@@ -76,6 +77,22 @@ public class Util {
 
     public static class json {
         public static ObjectMapper objectMapper;
+
+        public static JsonNode readTree(byte[] json) {
+            try {
+                return objectMapper.readTree(json);
+            } catch (Exception e) {
+                return null;
+            }
+        }
+
+        public static <T> T fromBytes(byte[] json, Class<T> valueType) {
+            try {
+                return objectMapper.readValue(json, valueType);
+            } catch (Exception e) {
+                return null;
+            }
+        }
 
         public static String toString(Object object) {
             return toString(object, null);
