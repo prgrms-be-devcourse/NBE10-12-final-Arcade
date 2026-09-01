@@ -34,7 +34,9 @@ export default async function MyPage({
   ]);
 
   // 로그인해야 볼 수 있는 화면이다
-  if (!profile) redirect('/login');
+  // 로그인해야 볼 수 있는 화면이지만 로그인 화면으로 밀어내지 않고 메인으로 돌려보낸다.
+  // 로그인 없이도 둘러볼 수 있는 서비스라 로그인을 강요하는 인상을 주지 않게 한다.
+  if (!profile) redirect('/');
 
   return (
     <MypageView
