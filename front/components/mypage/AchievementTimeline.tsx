@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { FilterBlock, FilterChips } from '@/components/ui/FilterChips';
 import { SelectField } from '@/components/ui/Field';
 import { ChipRow, SkillChip, SourceBadge } from '@/components/ui/Tag';
@@ -123,7 +124,12 @@ export function AchievementTimeline({ achievements }: { achievements: Achievemen
                     <span className="status-badge">{GOAL_TYPE_LABELS[achievement.type]}</span>
                   </div>
 
-                  <h5>{achievement.title}</h5>
+                  {/* 제목을 누르면 성취 상세로 간다 — 타입별 내용(참여 파티·수상 증빙·메모)은 거기서 본다 */}
+                  <h5>
+                    <Link className="achv-item-link" href={`/goals/${achievement.id}`}>
+                      {achievement.title}
+                    </Link>
+                  </h5>
                   {achievement.description ? (
                     <p className="achv-sub">{achievement.description}</p>
                   ) : null}

@@ -1,11 +1,10 @@
 /**
  * API 클라이언트.
  *
- * 기본값은 데모(mock) 모드다.
- * `.env.local` 에 아래 두 값을 넣으면 그대로 실제 서버를 호출한다.
+ * `.env.local` 의 두 값으로 동작이 갈린다.
  *
  *   NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api/v1
- *   NEXT_PUBLIC_USE_MOCK=false
+ *   NEXT_PUBLIC_USE_MOCK=false   # true 면 주소가 있어도 데모 데이터를 쓴다
  *
  * 백엔드는 모든 응답을 { resultCode, msg, data } 봉투로 감싼다(기획서 8장).
  * request() 가 그 껍데기를 벗겨 data 만 돌려주므로, 각 api 모듈은 data 타입만 신경 쓰면 된다.
@@ -13,9 +12,18 @@
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
 
-/** 데모 데이터 사용 여부. API가 붙으면 false 로 바꾸면 된다. */
-export const USE_MOCK =
-  process.env.NEXT_PUBLIC_USE_MOCK !== 'false' && !API_BASE_URL;
+/**
+ * 데모 데이터 사용 여부.
+ *
+ * 플래그를 적었으면 그 값이 우선이다. 서버 주소를 지우지 않고도 데모 모드로 돌아올 수 있어야 한다.
+ * 플래그가 없을 때만 서버 주소 유무로 판단한다.
+ */
+export const USE_MOCK = (() => {
+  const flag = process.env.NEXT_PUBLIC_USE_MOCK;
+  if (flag === 'true') return true;
+  if (flag === 'false') return false;
+  return !API_BASE_URL;
+})();
 
 /** 목 응답에 약간의 지연을 줘서 로딩 상태를 실제처럼 확인할 수 있게 한다. */
 const MOCK_LATENCY_MS = 180;

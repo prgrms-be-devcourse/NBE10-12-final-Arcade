@@ -210,7 +210,7 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
             />
             <button
               type="button"
-              className="remove-row"
+              className="editor-del"
               aria-label="성취 삭제"
               disabled={achievement.source === 'PLATFORM_VERIFIED'}
               onClick={async () => {
@@ -266,7 +266,7 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
             />
             <button
               type="button"
-              className="remove-row"
+              className="editor-del"
               aria-label="경력 삭제"
               onClick={async () => {
                 const ok = await confirm({ title: '경력을 삭제할까요?' });
@@ -313,7 +313,7 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
             />
             <button
               type="button"
-              className="remove-row"
+              className="editor-del"
               aria-label="링크 삭제"
               onClick={async () => {
                 const ok = await confirm({ title: '링크를 삭제할까요?' });
