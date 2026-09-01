@@ -53,7 +53,7 @@ custom:
   frontend:
     base-url: ${CUSTOM__FRONTEND__BASE_URL:/}
   jwt:
-    secretKey: ${CUSTOM__JWT__SECRET_KEY}
+    secretKey: ${CUSTOM__JWT__SECRET_KEY:abcdefghijklmnopqrstuvwxyz1234567890abcdefghijklmnopqrstuvwxyz1234567890abcdefghijklmnopqrstuvwxyz1234567890}
   accessToken:
     expirationSeconds: 900
   github:
