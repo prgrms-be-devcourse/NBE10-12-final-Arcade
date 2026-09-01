@@ -12,6 +12,10 @@ import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.interaction.like.repository.LikeActionRepository;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
+import com.back.domain.party.party.entity.Party;
+import com.back.domain.party.party.entity.PartyTag;
+import com.back.domain.party.party.entity.TopicType;
+import com.back.domain.party.party.repository.PartyRepository;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
@@ -27,6 +31,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -61,6 +66,30 @@ public class ApiV1ContestControllerTest {
 
     @Autowired
     private ContestPostRepository contestPostRepository;
+
+    @Autowired
+    private PartyRepository partyRepository;
+
+    private long savePartyForContest(long contestId, String partyName) {
+        Member owner = memberRepository.findByEmail("admin").orElseThrow();
+
+        Party party = new Party(
+                owner,
+                partyName,
+                "파티 제목",
+                "설명",
+                contestId,
+                null,
+                null,
+                TopicType.CONTEST,
+                PartyTag.WEB,
+                null,
+                1,
+                LocalDateTime.now().plusDays(7)
+        );
+
+        return partyRepository.save(party).getId();
+    }
 
     private long writeContestAsAdmin(String title) {
         Member admin = memberRepository.findByEmail("admin").orElseThrow();
@@ -553,5 +582,49 @@ public class ApiV1ContestControllerTest {
 
         mvc.perform(get("/api/v1/contests/" + notExpired.id()))
                 .andExpect(jsonPath("$.data.archived").value(false));
+    }
+
+    @Test
+    @DisplayName("대회 목록 조회: 대회를 타겟으로 하는 파티 수가 teams에 반영된다")
+    @WithUserDetails("admin")
+    void listReflectsPartyTeamsCount() throws Exception {
+        long contestId = writeContestAsAdmin("파티 두 개 달린 대회");
+        long noPartyContestId = writeContestAsAdmin("파티 없는 대회");
+
+        savePartyForContest(contestId, "파티 A");
+        savePartyForContest(contestId, "파티 B");
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/contests"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[?(@.id == " + contestId + ")].teams").value(2))
+                .andExpect(jsonPath("$.data.content[?(@.id == " + noPartyContestId + ")].teams").value(0));
+    }
+
+    @Test
+    @DisplayName("대회 상세 조회: 대회를 타겟으로 하는 파티 목록이 relatedParties에 반환된다")
+    @WithUserDetails("admin")
+    void getDetailReflectsRelatedParties() throws Exception {
+        long contestId = writeContestAsAdmin("상세에서 파티 보여줄 대회");
+        savePartyForContest(contestId, "연결된 파티");
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/contests/" + contestId));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teams").value(1))
+                .andExpect(jsonPath("$.data.relatedParties[0].partyName").value("연결된 파티"));
+    }
+
+    @Test
+    @DisplayName("대회 상세 조회: 연결된 파티가 없으면 teams=0, relatedParties가 빈 배열이다")
+    void getDetailWithoutPartiesHasZeroTeamsAndEmptyRelatedParties() throws Exception {
+        long contestId = writeContestAsAdmin("파티 없는 대회");
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/contests/" + contestId));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.teams").value(0))
+                .andExpect(jsonPath("$.data.relatedParties").isArray())
+                .andExpect(jsonPath("$.data.relatedParties").isEmpty());
     }
 }
