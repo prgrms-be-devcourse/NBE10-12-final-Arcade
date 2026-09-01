@@ -70,7 +70,7 @@ public class ApiV1ContestControllerTest {
     @Autowired
     private PartyRepository partyRepository;
 
-    private long savePartyForContest(long contestId, String partyName) {
+    private Party savePartyForContest(long contestId, String partyName) {
         Member owner = memberRepository.findByEmail("admin").orElseThrow();
         Contest targetContest = contestRepository.findById(contestId).orElseThrow();
 
@@ -89,7 +89,7 @@ public class ApiV1ContestControllerTest {
                 LocalDateTime.now().plusDays(7)
         );
 
-        return partyRepository.save(party).getId();
+        return partyRepository.save(party);
     }
 
     private long writeContestAsAdmin(String title) {
@@ -614,6 +614,27 @@ public class ApiV1ContestControllerTest {
         resultActions.andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.teams").value(1))
                 .andExpect(jsonPath("$.data.relatedParties[0].partyName").value("연결된 파티"));
+    }
+
+    @Test
+    @DisplayName("대회 상세 조회: relatedParties는 모집중인 파티가 먼저 오도록 정렬된다")
+    @WithUserDetails("admin")
+    void getDetailSortsRelatedPartiesByRecruitingFirst() throws Exception {
+        long contestId = writeContestAsAdmin("파티 정렬 확인용 대회");
+
+        Party inProgressParty = savePartyForContest(contestId, "모집 마감되어 진행중인 파티");
+        inProgressParty.closeRecruiting();
+        partyRepository.save(inProgressParty);
+
+        savePartyForContest(contestId, "모집중인 파티");
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/contests/" + contestId));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.relatedParties[0].partyName").value("모집중인 파티"))
+                .andExpect(jsonPath("$.data.relatedParties[0].status").value("RECRUITING"))
+                .andExpect(jsonPath("$.data.relatedParties[1].partyName").value("모집 마감되어 진행중인 파티"))
+                .andExpect(jsonPath("$.data.relatedParties[1].status").value("IN_PROGRESS"));
     }
 
     @Test
