@@ -139,10 +139,11 @@ jobs:
       - name: Set up pnpm
         uses: pnpm/setup@v2
         with:
-          working-directory: front
           version: "11"
           runtime: node@22
           cache: true
+          cache-dependency-path: front/pnpm-lock.yaml
+          package-json-file: front/package.json
           install: false
 
       - name: Install dependencies
