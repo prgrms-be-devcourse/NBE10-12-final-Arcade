@@ -17,6 +17,10 @@ import java.util.Optional;
 public interface ContestPostRepository extends JpaRepository<ContestPost, Long> {
     Optional<ContestPost> findByContest(Contest contest);
 
+    Optional<ContestPost> findByContestId(long contestId);
+
+    boolean existsByContestId(long contestId);
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("delete from ContestPost cp where cp.contest.applicationPeriodEnd < :date")
     void deleteAllByContest_ApplicationPeriodEndBefore(@Param("date") LocalDate date);
@@ -82,4 +86,12 @@ public interface ContestPostRepository extends JpaRepository<ContestPost, Long> 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("update ContestPost cp set cp.viewCount = cp.viewCount + 1 where cp.contest.id = :contestId")
     void increaseViewCount(@Param("contestId") long contestId);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update ContestPost cp set cp.likeCount = cp.likeCount + 1 where cp.contest.id = :contestId")
+    void increaseLikeCount(@Param("contestId") long contestId);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update ContestPost cp set cp.likeCount = case when cp.likeCount > 0 then cp.likeCount - 1 else 0 end where cp.contest.id = :contestId")
+    void decreaseLikeCount(@Param("contestId") long contestId);
 }

@@ -1,7 +1,10 @@
 package com.back.domain.interaction.like.controller;
 
 import com.back.domain.interaction.like.dtos.LikeDto;
+import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.interaction.like.service.LikeService;
+import com.back.domain.member.member.entity.Member;
+import com.back.global.exception.ServiceException;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +24,16 @@ public class ApiV1LikeController {
     public RsData<LikeDto> likeParty(
             @PathVariable("party-id") long partyId
     ) {
-        LikeDto dto = likeService.likeParty(partyId, rq.getActorFromDb());
+        Member actor = rq.getActorFromDb();
+
+        if (!likeService.partyExists(partyId)) {
+            throw new ServiceException("404-1", "존재하지 않는 파티입니다.");
+        }
+        if (likeService.isLiked(actor, TargetType.PARTY, partyId)) {
+            throw new ServiceException("409-1", "이미 좋아요한 파티입니다.");
+        }
+
+        LikeDto dto = likeService.likeParty(partyId, actor);
 
         return new RsData<>(
                 "201-1",
@@ -34,11 +46,64 @@ public class ApiV1LikeController {
     public RsData<Void> unlikeParty(
             @PathVariable("party-id") long partyId
     ) {
-        likeService.unlikeParty(partyId, rq.getActorFromDb());
+        Member actor = rq.getActorFromDb();
+
+        if (!likeService.partyExists(partyId)) {
+            throw new ServiceException("404-1", "존재하지 않는 파티입니다.");
+        }
+        if (!likeService.isLiked(actor, TargetType.PARTY, partyId)) {
+            throw new ServiceException("409-1", "좋아요하지 않은 파티입니다.");
+        }
+
+        likeService.unlikeParty(partyId, actor);
 
         return new RsData<>(
                 "204-1",
                 "파티 좋아요 취소 성공",
+                null
+        );
+    }
+
+    @PostMapping("/api/v1/contests/{contest-id}/likes")
+    public RsData<LikeDto> likeContest(
+            @PathVariable("contest-id") long contestId
+    ) {
+        Member actor = rq.getActorFromDb();
+
+        if (!likeService.contestPostExists(contestId)) {
+            throw new ServiceException("404-1", "존재하지 않는 대회입니다.");
+        }
+        if (likeService.isLiked(actor, TargetType.CONTEST, contestId)) {
+            throw new ServiceException("409-1", "이미 좋아요한 대회입니다.");
+        }
+
+        LikeDto dto = likeService.likeContest(contestId, actor);
+
+        return new RsData<>(
+                "201-1",
+                "대회 좋아요 성공",
+                dto
+        );
+    }
+
+    @DeleteMapping("/api/v1/contests/{contest-id}/likes")
+    public RsData<Void> unlikeContest(
+            @PathVariable("contest-id") long contestId
+    ) {
+        Member actor = rq.getActorFromDb();
+
+        if (!likeService.contestPostExists(contestId)) {
+            throw new ServiceException("404-1", "존재하지 않는 대회입니다.");
+        }
+        if (!likeService.isLiked(actor, TargetType.CONTEST, contestId)) {
+            throw new ServiceException("409-1", "좋아요하지 않은 대회입니다.");
+        }
+
+        likeService.unlikeContest(contestId, actor);
+
+        return new RsData<>(
+                "204-1",
+                "대회 좋아요 취소 성공",
                 null
         );
     }

@@ -4,6 +4,7 @@ import com.back.global.exception.ServiceException;
 import com.back.global.rsData.RsData;
 import jakarta.validation.ConstraintViolationException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
@@ -18,6 +19,7 @@ import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
+import static org.springframework.http.HttpStatus.CONFLICT;
 import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 @RestControllerAdvice
@@ -102,6 +104,17 @@ public class GlobalExceptionHandler {
                         )
                 ),
                 BAD_REQUEST
+        );
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<RsData<Void>> handle(DataIntegrityViolationException ex) {
+        return new ResponseEntity<>(
+                new RsData<>(
+                        "409-1",
+                        "이미 존재하는 데이터입니다."
+                ),
+                CONFLICT
         );
     }
 

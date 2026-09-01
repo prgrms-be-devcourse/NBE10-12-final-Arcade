@@ -1,6 +1,6 @@
-package com.back.domain.interaction.like.repository;
+package com.back.domain.interaction.bookmark.repository;
 
-import com.back.domain.interaction.like.entity.LikeAction;
+import com.back.domain.interaction.bookmark.entity.Bookmark;
 import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.member.member.entity.Member;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,12 +12,12 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-public interface LikeActionRepository extends JpaRepository<LikeAction, Long> {
-    Optional<LikeAction> findByMemberAndTargetTypeAndTargetId(Member member, TargetType targetType, long targetId);
+public interface BookmarkRepository extends JpaRepository<Bookmark, Long> {
+    Optional<Bookmark> findByMemberAndTargetTypeAndTargetId(Member member, TargetType targetType, long targetId);
 
     boolean existsByMemberAndTargetTypeAndTargetId(Member member, TargetType targetType, long targetId);
 
-    @Query("select la.targetId from LikeAction la where la.member = :member and la.targetType = :targetType and la.targetId in :targetIds")
+    @Query("select b.targetId from Bookmark b where b.member = :member and b.targetType = :targetType and b.targetId in :targetIds")
     List<Long> findTargetIdsByMemberAndTargetTypeAndTargetIdIn(
             @Param("member") Member member,
             @Param("targetType") TargetType targetType,
@@ -25,10 +25,10 @@ public interface LikeActionRepository extends JpaRepository<LikeAction, Long> {
     );
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query("delete from LikeAction la where la.member = :member and la.targetType = :targetType and la.targetId = :targetId")
+    @Query("delete from Bookmark b where b.member = :member and b.targetType = :targetType and b.targetId = :targetId")
     void deleteByMemberAndTargetTypeAndTargetId(@Param("member") Member member, @Param("targetType") TargetType targetType, @Param("targetId") long targetId);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query("delete from LikeAction la where la.targetType = :targetType and la.targetId = :targetId")
+    @Query("delete from Bookmark b where b.targetType = :targetType and b.targetId = :targetId")
     void deleteAllByTargetTypeAndTargetId(@Param("targetType") TargetType targetType, @Param("targetId") long targetId);
 }

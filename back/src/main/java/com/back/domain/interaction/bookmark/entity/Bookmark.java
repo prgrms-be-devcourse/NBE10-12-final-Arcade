@@ -1,5 +1,6 @@
-package com.back.domain.interaction.like.entity;
+package com.back.domain.interaction.bookmark.entity;
 
+import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.member.member.entity.Member;
 import com.back.global.jpa.entity.BaseEntity;
 import jakarta.persistence.Column;
@@ -20,9 +21,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Table(
         uniqueConstraints = @UniqueConstraint(columnNames = {"member_id", "target_type", "target_id"}),
-        indexes = @Index(name = "idx_like_action_target", columnList = "target_type, target_id")
+        indexes = @Index(name = "idx_bookmark_target", columnList = "target_type, target_id")
 )
-public class LikeAction extends BaseEntity {
+public class Bookmark extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id", nullable = false)
@@ -35,7 +36,7 @@ public class LikeAction extends BaseEntity {
     @Column(name = "target_id", nullable = false)
     private long targetId;
 
-    public LikeAction(Member member, TargetType targetType, long targetId) {
+    public Bookmark(Member member, TargetType targetType, long targetId) {
         this.member = member;
         this.targetType = targetType;
         this.targetId = targetId;
