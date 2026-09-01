@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -94,7 +95,7 @@ public class MessageService {
 
         Map<Long, Message> messagesById = new HashMap<>();
         for (Message message : messages) {
-            if (!message.getRecipient().equals(actor)) {
+            if (!message.getRecipient().getId().equals(actor.getId())) {
                 throw new ServiceException("403-1", "본인과 관련된 쪽지만 조회/처리할 수 있습니다.");
             }
             messagesById.put(message.getId(), message);
@@ -111,10 +112,12 @@ public class MessageService {
     public MessageDetailDto getMessage(Member actor, long messageId) {
         Message message = messageRepository.findById(messageId)
                 .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 쪽지입니다."));
-        if (!message.getSender().equals(actor) && !message.getRecipient().equals(actor)) {
+        boolean isSender = message.getSender().getId().equals(actor.getId());
+        boolean isRecipient = message.getRecipient().getId().equals(actor.getId());
+        if (!isSender && !isRecipient) {
             throw new ServiceException("403-1", "본인과 관련된 쪽지만 조회/처리할 수 있습니다.");
         }
-        if (message.getRecipient().equals(actor)) {
+        if (isRecipient) {
             message.read();
         }
         return toDetailDto(message);
@@ -137,17 +140,25 @@ public class MessageService {
     }
 
     private Map<Long, MessageMemberDto> memberDtos(Collection<Member> members) {
+        Map<Long, Member> membersById = members.stream().collect(Collectors.toMap(
+                Member::getId,
+                member -> member,
+                (first, ignored) -> first,
+                LinkedHashMap::new
+        ));
+
         Map<Long, String> nicknameByMemberId =
-                memberProfileRepository.findByMemberIn(members).stream()
+                memberProfileRepository.findByMember_IdIn(membersById.keySet()).stream()
                         .collect(Collectors.toMap(
                                 profile -> profile.getMember().getId(),
                                 MemberProfile::getNickname
                         ));
 
-        return members.stream().collect(Collectors.toMap(
+        return membersById.values().stream().collect(Collectors.toMap(
                 Member::getId,
                 member -> new MessageMemberDto(member.getId(), member.getName(), nicknameByMemberId.get(member.getId())),
-                (first, ignored) -> first
+                (first, ignored) -> first,
+                LinkedHashMap::new
         ));
     }
 }

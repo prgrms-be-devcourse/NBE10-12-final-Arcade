@@ -11,5 +11,5 @@ import java.util.List;
 public interface MemberProfileRepository extends JpaRepository<MemberProfile, Integer> {
     Optional<MemberProfile> findByMember(Member member);
 
-    List<MemberProfile> findByMemberIn(Collection<Member> members);
+    List<MemberProfile> findByMember_IdIn(Collection<Long> memberIds);
 }
