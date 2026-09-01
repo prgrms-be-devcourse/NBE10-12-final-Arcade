@@ -50,10 +50,19 @@ logging:
     org.hibernate.orm.jdbc.extract: TRACE
     org.springframework.transaction.interceptor: TRACE
 custom:
+  frontend:
+    base-url: ${CUSTOM__FRONTEND__BASE_URL:/}
   jwt:
-    secretKey: ${CUSTOM__JWT__SECRET_KEY}
+    secretKey: ${CUSTOM__JWT__SECRET_KEY:abcdefghijklmnopqrstuvwxyz1234567890abcdefghijklmnopqrstuvwxyz1234567890abcdefghijklmnopqrstuvwxyz1234567890}
   accessToken:
     expirationSeconds: 900
+  github:
+    app:
+      id: ${CUSTOM__GITHUB__APP__ID:}
+      slug: ${CUSTOM__GITHUB__APP__SLUG:}
+      privateKey: ${CUSTOM__GITHUB__APP__PRIVATE_KEY:}
+    webhook:
+      secret: ${CUSTOM__GITHUB__WEBHOOK__SECRET:}
   notProdMembers:
     - username: KAKAO__4707664779
       apiKey: kakao__1
