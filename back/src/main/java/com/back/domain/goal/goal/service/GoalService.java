@@ -1,0 +1,115 @@
+package com.back.domain.goal.goal.service;
+
+import com.back.domain.goal.goal.dtos.GoalDto;
+import com.back.domain.goal.goal.entity.Goal;
+import com.back.domain.goal.goal.entity.GoalStatus;
+import com.back.domain.goal.goal.entity.GoalType;
+import com.back.domain.goal.goal.entity.PersonalChecklist;
+import com.back.domain.goal.goal.entity.PersonalContest;
+import com.back.domain.goal.goal.entity.Project;
+import com.back.domain.goal.goal.repository.GoalRepository;
+import com.back.domain.member.member.entity.Member;
+import com.back.domain.member.member.repository.MemberRepository;
+import com.back.global.exception.ServiceException;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class GoalService {
+
+    private final GoalRepository goalRepository;
+    private final MemberRepository memberRepository;
+
+    // 자기신고 등록 요청. 타입별로 쓰이는 필드가 달라 한 record로 받고 서비스에서 타입별 검증을 한다.
+    public record SelfReportedSpec(
+            GoalType type,
+            GoalStatus status,
+            String contestName,
+            Boolean isTeam,
+            String result,
+            LocalDate awardDate,
+            String title,
+            String memo,
+            LocalDate targetDate
+    ) { }
+
+    @Transactional
+    public GoalDto createSelfReported(Member owner, SelfReportedSpec spec) {
+        Goal goal = switch (spec.type()) {
+            // PROJECT는 파티 확정 시 시스템이 만드는 전용 타입이라 자기신고 경로를 열지 않는다(3.6).
+            // 개인 사이드 프로젝트를 남기고 싶으면 CHECKLIST를 쓴다.
+            case PROJECT -> throw new ServiceException(
+                    "400-4",
+                    "프로젝트 성취는 파티 확정 시 자동으로 생성되므로 직접 등록할 수 없습니다."
+            );
+            case CONTEST -> createPersonalContest(owner, spec);
+            case CHECKLIST -> createPersonalChecklist(owner, spec);
+        };
+
+        return new GoalDto(goalRepository.save(goal));
+    }
+
+    private PersonalContest createPersonalContest(Member owner, SelfReportedSpec spec) {
+        if (isBlank(spec.contestName())) {
+            throw new ServiceException("400-4", "대회명을 입력해주세요.");
+        }
+
+        return new PersonalContest(
+                owner,
+                spec.status(),
+                spec.contestName(),
+                Boolean.TRUE.equals(spec.isTeam()),
+                spec.result(),
+                spec.awardDate()
+        );
+    }
+
+    private PersonalChecklist createPersonalChecklist(Member owner, SelfReportedSpec spec) {
+        if (isBlank(spec.title())) {
+            throw new ServiceException("400-4", "목표 제목을 입력해주세요.");
+        }
+
+        return new PersonalChecklist(
+                owner,
+                spec.status(),
+                spec.title(),
+                spec.memo(),
+                spec.targetDate()
+        );
+    }
+
+    /**
+     * 파티 확정(모집 마감) 이벤트를 받아 참여자별 PROJECT 성취를 IN_PROGRESS로 자동 생성한다(3.6).
+     * 파티 트랜잭션이 커밋된 뒤 별도 트랜잭션에서 실행되므로, 여기서 실패해도 파티 마감 자체는 되돌아가지 않는다.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void createProjectsForAssembledParty(long partyId, List<Long> memberIds, LocalDate assembledAt) {
+        List<Member> members = memberRepository.findAllById(memberIds);
+
+        List<Project> projects = members.stream()
+                .filter(member -> !goalRepository.existsByOwnerAndSourcePartyIdAndType(member, partyId, GoalType.PROJECT))
+                .map(member -> new Project(
+                        member,
+                        // partyAssembleToMemberId와 positionType은 현재 이벤트에 실려오지 않아 비워 둔다.
+                        // 파티 도메인 수정(docs/성취-자동생성_파티도메인_수정요청.md ②)이 반영되면 그대로 채워진다.
+                        null,
+                        partyId,
+                        null,
+                        assembledAt
+                ))
+                .toList();
+
+        goalRepository.saveAll(projects);
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+}
