@@ -1,8 +1,8 @@
 feat
 fix
+docs
 style
 refactor
-test
 build
 front
 chore
