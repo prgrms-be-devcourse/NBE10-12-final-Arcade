@@ -24,16 +24,7 @@ public class ApiV1BookmarkController {
     public RsData<BookmarkDto> bookmarkContest(
             @PathVariable("contest-id") long contestId
     ) {
-        Member actor = rq.getActorFromDb();
-
-        if (!bookmarkService.contestPostExists(contestId)) {
-            throw new ServiceException("404-1", "존재하지 않는 대회입니다.");
-        }
-        if (bookmarkService.isBookmarked(actor, TargetType.CONTEST, contestId)) {
-            throw new ServiceException("409-1", "이미 북마크한 대회입니다.");
-        }
-
-        BookmarkDto dto = bookmarkService.bookmarkContest(contestId, actor);
+        BookmarkDto dto = bookmarkService.bookmarkContest(contestId, rq.getActorFromDb());
 
         return new RsData<>(
                 "201-1",
@@ -46,16 +37,7 @@ public class ApiV1BookmarkController {
     public RsData<Void> unbookmarkContest(
             @PathVariable("contest-id") long contestId
     ) {
-        Member actor = rq.getActorFromDb();
-
-        if (!bookmarkService.contestPostExists(contestId)) {
-            throw new ServiceException("404-1", "존재하지 않는 대회입니다.");
-        }
-        if (!bookmarkService.isBookmarked(actor, TargetType.CONTEST, contestId)) {
-            throw new ServiceException("409-1", "북마크하지 않은 대회입니다.");
-        }
-
-        bookmarkService.unbookmarkContest(contestId, actor);
+        bookmarkService.unbookmarkContest(contestId, rq.getActorFromDb());
 
         return new RsData<>(
                 "204-1",
@@ -68,16 +50,7 @@ public class ApiV1BookmarkController {
     public RsData<BookmarkDto> bookmarkParty(
             @PathVariable long partyId
     ) {
-        Member actor = rq.getActorFromDb();
-
-        if (!bookmarkService.partyExists(partyId)) {
-            throw new ServiceException("404-1", "존재하지 않는 파티입니다.");
-        }
-        if (bookmarkService.isBookmarked(actor, TargetType.PARTY, partyId)) {
-            throw new ServiceException("409-1", "이미 북마크한 파티입니다.");
-        }
-
-        BookmarkDto dto = bookmarkService.bookmarkParty(partyId, actor);
+        BookmarkDto dto = bookmarkService.bookmarkParty(partyId, rq.getActorFromDb());
 
         return new RsData<>("201-1", "파티 북마크 성공", dto);
     }
@@ -86,18 +59,8 @@ public class ApiV1BookmarkController {
     public RsData<Void> unbookmarkParty(
             @PathVariable long partyId
     ) {
-        Member actor = rq.getActorFromDb();
-
-        if (!bookmarkService.partyExists(partyId)) {
-            throw new ServiceException("404-1", "존재하지 않는 파티입니다.");
-        }
-        if (!bookmarkService.isBookmarked(actor, TargetType.PARTY, partyId)) {
-            throw new ServiceException("409-1", "북마크하지 않은 파티입니다.");
-        }
-
-        bookmarkService.unbookmarkParty(partyId, actor);
+        bookmarkService.unbookmarkParty(partyId, rq.getActorFromDb());
 
         return new RsData<>("204-1", "파티 북마크 취소 성공", null);
     }
-
 }
