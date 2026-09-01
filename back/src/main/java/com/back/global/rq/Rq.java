@@ -2,6 +2,7 @@ package com.back.global.rq;
 
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.service.MemberService;
+import com.back.global.exception.ServiceException;
 import com.back.global.security.SecurityUser;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,7 +32,7 @@ public class Rq {
                 .map(Authentication::getPrincipal)
                 .filter(principal -> principal instanceof SecurityUser)
                 .map(principal -> (SecurityUser) principal)
-                .map(securityUser -> new Member(securityUser.getId(), securityUser.getUsername(), securityUser.getRealName()))
+                .map(securityUser -> new Member(securityUser.getId(), securityUser.getRole()))
                 .orElse(null);
     }
 
@@ -42,7 +43,8 @@ public class Rq {
             return null;
         }
 
-        return memberService.findById(actor.getId()).get();
+        return memberService.findById(actor.getId())
+                .orElseThrow(() -> new ServiceException("401-3", "유효하지 않은 회원입니다."));
     }
 
     public String getHeader(String name, String defaultValue) {

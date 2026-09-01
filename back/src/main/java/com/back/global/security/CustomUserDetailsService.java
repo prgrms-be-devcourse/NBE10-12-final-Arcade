@@ -18,11 +18,6 @@ public class CustomUserDetailsService implements UserDetailsService {
         Member member = memberService.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다."));
 
-        return new SecurityUser(
-                member.getId(),
-                member.getEmail(),
-                member.getName(),
-                member.getAuthorities()
-        );
+        return new SecurityUser(member.getId(), member.getRole());
     }
 }

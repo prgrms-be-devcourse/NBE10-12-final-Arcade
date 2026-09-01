@@ -52,12 +52,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         String password = "";
         Member member = authService.modifyOrJoin(email, password, profileImgUrl, username).data();
 
-        return new SecurityUser(
-                member.getId(),
-                member.getEmail(),
-                member.getName(),
-                member.getAuthorities()
-        );
+        return new SecurityUser(member.getId(), member.getRole());
     }
 
     private String getGithubVerifiedEmail(OAuth2UserRequest userRequest) {

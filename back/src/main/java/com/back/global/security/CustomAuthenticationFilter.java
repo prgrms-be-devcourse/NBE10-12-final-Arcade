@@ -20,7 +20,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -90,13 +89,10 @@ public class CustomAuthenticationFilter extends OncePerRequestFilter {
         boolean isAccessTokenValid = false;
 
         if (isAccessTokenExists) {
-            Map<String, Object> payload = memberService.payload(accessToken);
+            var payload = memberService.payload(accessToken);
 
             if (payload != null) {
-                int id = (int) payload.get("id");
-                String username = (String) payload.get("username");
-                String name = (String) payload.get("name");
-                member = new Member(id, username, name);
+                member = new Member(payload.memberId(), payload.role());
 
                 isAccessTokenValid = true;
             }
@@ -116,11 +112,7 @@ public class CustomAuthenticationFilter extends OncePerRequestFilter {
         }
 
         UserDetails user = new SecurityUser(
-                member.getId(),
-                member.getEmail(),
-                member.getName(),
-                member.getAuthorities()
-        );
+                member.getId(), member.getRole());
 
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 user,

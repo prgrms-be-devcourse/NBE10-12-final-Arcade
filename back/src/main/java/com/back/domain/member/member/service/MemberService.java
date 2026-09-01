@@ -18,7 +18,6 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -166,7 +165,7 @@ public class MemberService {
         return USED_REFRESH_TOKEN_KEY_PREFIX + refreshToken;
     }
 
-    public Map<String, Object> payload(String accessToken) {
+    public AuthTokenService.AccessTokenPayload payload(String accessToken) {
         return authTokenService.payload(accessToken);
     }
 
