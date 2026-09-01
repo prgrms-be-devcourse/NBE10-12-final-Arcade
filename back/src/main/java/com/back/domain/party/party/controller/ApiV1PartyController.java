@@ -145,7 +145,7 @@ public class ApiV1PartyController {
     public RsData<Void> delete(
             @PathVariable long partyId
     ) {
-        partyService.delete(partyId, rq.getActorFromDb());
+        partyService.deletePartyAndInteractions(partyId, rq.getActorFromDb());
 
         return new RsData<>(
                 "204-1",

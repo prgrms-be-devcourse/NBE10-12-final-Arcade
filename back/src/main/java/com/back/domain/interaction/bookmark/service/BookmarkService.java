@@ -6,6 +6,7 @@ import com.back.domain.interaction.bookmark.entity.Bookmark;
 import com.back.domain.interaction.bookmark.repository.BookmarkRepository;
 import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.member.member.entity.Member;
+import com.back.domain.party.party.repository.PartyRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +22,7 @@ public class BookmarkService implements BookmarkInteractionPort {
 
     private final BookmarkRepository bookmarkRepository;
     private final ContestPostRepository contestPostRepository;
+    private final PartyRepository partyRepository;
 
     public boolean contestPostExists(long contestId) {
         return contestPostRepository.existsByContestId(contestId);
@@ -55,5 +57,20 @@ public class BookmarkService implements BookmarkInteractionPort {
         }
 
         return new HashSet<>(bookmarkRepository.findTargetIdsByMemberAndTargetTypeAndTargetIdIn(member, targetType, targetIds));
+    }
+
+    public boolean partyExists(long partyId) {
+        return partyRepository.existsById(partyId);
+    }
+
+    @Transactional
+    public BookmarkDto bookmarkParty(long partyId, Member member) {
+        bookmarkRepository.save(new Bookmark(member, TargetType.PARTY, partyId));
+        return new BookmarkDto(TargetType.PARTY, partyId, true);
+    }
+
+    @Transactional
+    public void unbookmarkParty(long partyId, Member member) {
+        bookmarkRepository.deleteByMemberAndTargetTypeAndTargetId(member, TargetType.PARTY, partyId);
     }
 }

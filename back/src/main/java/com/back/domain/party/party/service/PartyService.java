@@ -1,5 +1,8 @@
 package com.back.domain.party.party.service;
 
+import com.back.domain.interaction.bookmark.service.BookmarkInteractionPort;
+import com.back.domain.interaction.like.entity.TargetType;
+import com.back.domain.interaction.like.service.LikeInteractionPort;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.party.party.dtos.PartyDto;
@@ -31,6 +34,8 @@ import static com.back.domain.party.party.entity.PartySortOption.VACANCY;
 public class PartyService {
 
     private final PartyRepository partyRepository;
+    private final LikeInteractionPort likeInteractionPort;
+    private final BookmarkInteractionPort bookmarkInteractionPort;
 
     public record PositionCreateSpec(
         PositionType type,
@@ -201,5 +206,13 @@ public class PartyService {
         Party party = findByIdOrThrow(partyId);
         party.increaseViewCount();
         return new PartyDto(party);
+    }
+
+    // delete()만 부르면 좋아요/북마크 삭제가 별도 트랜잭션으로 빠져 원자성이 깨질 수 있어서
+    @Transactional
+    public void deletePartyAndInteractions(long partyId, Member actor) {
+        delete(partyId, actor);
+        likeInteractionPort.deleteAllLikesForTarget(TargetType.PARTY, partyId);
+        bookmarkInteractionPort.deleteAllBookmarksForTarget(TargetType.PARTY, partyId);
     }
 }
