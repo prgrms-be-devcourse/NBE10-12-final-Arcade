@@ -63,4 +63,41 @@ public class ApiV1BookmarkController {
                 null
         );
     }
+
+    @PostMapping("/api/v1/parties/{partyId}/bookmarks")
+    public RsData<BookmarkDto> bookmarkParty(
+            @PathVariable long partyId
+    ) {
+        Member actor = rq.getActorFromDb();
+
+        if (!bookmarkService.partyExists(partyId)) {
+            throw new ServiceException("404-1", "존재하지 않는 파티입니다.");
+        }
+        if (bookmarkService.isBookmarked(actor, TargetType.PARTY, partyId)) {
+            throw new ServiceException("409-1", "이미 북마크한 파티입니다.");
+        }
+
+        BookmarkDto dto = bookmarkService.bookmarkParty(partyId, actor);
+
+        return new RsData<>("201-1", "파티 북마크 성공", dto);
+    }
+
+    @DeleteMapping("/api/v1/parties/{partyId}/bookmarks")
+    public RsData<Void> unbookmarkParty(
+            @PathVariable long partyId
+    ) {
+        Member actor = rq.getActorFromDb();
+
+        if (!bookmarkService.partyExists(partyId)) {
+            throw new ServiceException("404-1", "존재하지 않는 파티입니다.");
+        }
+        if (!bookmarkService.isBookmarked(actor, TargetType.PARTY, partyId)) {
+            throw new ServiceException("409-1", "북마크하지 않은 파티입니다.");
+        }
+
+        bookmarkService.unbookmarkParty(partyId, actor);
+
+        return new RsData<>("204-1", "파티 북마크 취소 성공", null);
+    }
+
 }
