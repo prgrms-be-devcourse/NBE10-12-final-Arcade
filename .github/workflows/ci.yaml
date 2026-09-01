@@ -44,7 +44,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-24.04
-    permissions: { pull-requests: write, contents: read }
+    permissions: { pull-requests: write, contents: read, issues: write }
     timeout-minutes: 10
     defaults:
       run:
