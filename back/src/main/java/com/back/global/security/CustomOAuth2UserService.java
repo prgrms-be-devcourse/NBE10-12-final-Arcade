@@ -2,6 +2,8 @@ package com.back.global.security;
 
 import com.back.domain.member.auth.service.AuthService;
 import com.back.domain.member.member.entity.Member;
+import com.back.global.exception.ServiceException;
+import com.back.global.rq.Rq;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
@@ -23,6 +25,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     private static final String GITHUB_EMAILS_API_URL = "https://api.github.com/user/emails";
 
     private final AuthService authService;
+    private final Rq rq;
     private final RestClient restClient = RestClient.create();
 
     // 카카오톡 로그인이 성공할 때 마다 이 함수가 실행된다.
@@ -49,8 +52,23 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         }
 
         String username = providerTypeCode + "__%s".formatted(oauthUserId);
-        String password = "";
-        Member member = authService.modifyOrJoin(email, password, profileImgUrl, username).data();
+        Member actor = rq.getActorFromDb();
+        Member member;
+
+        if (actor == null) {
+            // 비로그인 상태에서는 기존과 같이 소셜 로그인/가입을 수행한다.
+            member = authService.modifyOrJoin(email, "", profileImgUrl, username).data();
+        } else {
+            try {
+                // 일반 로그인 상태에서는 소셜 로그인으로 전환하지 않고 현재 계정에 연결한다.
+                member = authService.linkGithubSocial(actor, username, email, profileImgUrl);
+            } catch (ServiceException e) {
+                throw new OAuth2AuthenticationException(
+                        new OAuth2Error(e.getRsData().resultCode()),
+                        e.getRsData().msg()
+                );
+            }
+        }
 
         return new SecurityUser(member.getId(), member.getRole());
     }

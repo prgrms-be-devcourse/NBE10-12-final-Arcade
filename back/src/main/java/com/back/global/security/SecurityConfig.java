@@ -11,7 +11,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
@@ -26,6 +26,7 @@ public class SecurityConfig {
     private final AuthenticationSuccessHandler customOAuth2LoginSuccessHandler;
     private final CustomOAuth2AuthorizationRequestResolver customOAuth2AuthorizationRequestResolver;
     private final CustomOAuth2UserService customOAuth2UserService;
+    private final OAuth2SocialLoginGuardFilter oAuth2SocialLoginGuardFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) {
@@ -78,7 +79,9 @@ public class SecurityConfig {
                                         .authorizationRequestResolver(customOAuth2AuthorizationRequestResolver)
                         )
                 )
-                .addFilterBefore(customAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                // OAuth2 요청에도 기존 쿠키/토큰 인증을 먼저 적용해야 현재 로그인 계정을 알 수 있다.
+                .addFilterBefore(customAuthenticationFilter, OAuth2AuthorizationRequestRedirectFilter.class)
+                .addFilterAfter(oAuth2SocialLoginGuardFilter, CustomAuthenticationFilter.class)
                 .exceptionHandling(
                         exceptionHandling -> exceptionHandling
                                 .authenticationEntryPoint(

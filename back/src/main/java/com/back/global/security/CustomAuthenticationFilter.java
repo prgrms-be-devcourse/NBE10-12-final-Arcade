@@ -44,8 +44,11 @@ public class CustomAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private void work(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        // API 요청이 아니라면 패스
-        if (!request.getRequestURI().startsWith("/api/")) {
+        // OAuth2 시작/콜백 요청에서도 기존 로그인 계정을 복원해야 계정 연동 여부를 판단할 수 있다.
+        String requestUri = request.getRequestURI();
+        if (!requestUri.startsWith("/api/")
+                && !requestUri.startsWith("/oauth2/authorization/")
+                && !requestUri.startsWith("/login/oauth2/code/")) {
             filterChain.doFilter(request, response);
             return;
         }
