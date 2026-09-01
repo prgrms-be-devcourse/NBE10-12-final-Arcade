@@ -10,7 +10,7 @@ import java.util.List;
 
 public interface PartyContestLookupPort {
 
-    //모집중(RECRUITING)인 파티가 먼저, 그다음 진행중(IN_PROGRESS),완료(COMPLETED)가 뒤로
+    //RECRUITING인 파티가 가장 상단에 노출됩니다.
     @Query("""
         select p from Party p
         where p.targetContest.id = :contestId
