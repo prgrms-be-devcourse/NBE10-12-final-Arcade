@@ -7,12 +7,12 @@ import com.back.global.github.event.GithubInstallationUnavailableEvent;
 import com.back.global.github.event.GithubPullRequestReceivedEvent;
 import com.back.global.github.repository.GithubWebhookDeliveryRepository;
 import com.back.global.exception.ServiceException;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
+import com.back.standard.util.Util;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.context.ApplicationEventPublisher;
+import tools.jackson.databind.JsonNode;
 
 /** GitHub App webhook의 공통 검증·중복 방지와 이벤트별 도메인 라우팅을 담당한다. */
 @Service
@@ -21,7 +21,6 @@ import org.springframework.context.ApplicationEventPublisher;
 public class GithubWebhookService {
     private final GithubWebhookVerifier webhookVerifier;
     private final GithubWebhookDeliveryRepository deliveryRepository;
-    private final ObjectMapper objectMapper;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
@@ -66,19 +65,15 @@ public class GithubWebhookService {
     }
 
     private JsonNode readPayload(byte[] body) {
-        try {
-            return objectMapper.readTree(body);
-        } catch (Exception e) {
-            throw new ServiceException("400-2", "GitHub 웹훅 본문이 올바르지 않습니다.");
-        }
+        JsonNode payload = Util.json.readTree(body);
+        if (payload == null) throw new ServiceException("400-2", "GitHub 웹훅 본문이 올바르지 않습니다.");
+        return payload;
     }
 
     private GithubPullRequestWebhookPayload readPullRequestPayload(byte[] body) {
-        try {
-            return objectMapper.readValue(body, GithubPullRequestWebhookPayload.class);
-        } catch (Exception e) {
-            throw new ServiceException("400-2", "GitHub 웹훅 본문이 올바르지 않습니다.");
-        }
+        GithubPullRequestWebhookPayload payload = Util.json.fromBytes(body, GithubPullRequestWebhookPayload.class);
+        if (payload == null) throw new ServiceException("400-2", "GitHub 웹훅 본문이 올바르지 않습니다.");
+        return payload;
     }
 
     private void publishPullRequest(GithubPullRequestWebhookPayload payload) {
