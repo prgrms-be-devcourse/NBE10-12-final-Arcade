@@ -1,6 +1,7 @@
 package com.back.global.security;
 
 import com.back.domain.member.member.entity.Member;
+import com.back.global.exception.ServiceException;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
 import com.back.standard.util.Util;
@@ -29,7 +30,17 @@ public class OAuth2SocialLoginGuardFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
-        Member actor = rq.getActorFromDb();
+        Member actor;
+
+        try {
+            actor = rq.getActorFromDb();
+        } catch (ServiceException e) {
+            RsData<Void> rsData = e.getRsData();
+            response.setStatus(rsData.statusCode());
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write(Util.json.toString(rsData));
+            return;
+        }
 
         // 현재는 GitHub만 지원한다. 다른 provider를 추가해도 GitHub 중복 연결만 차단한다.
         if (GITHUB_AUTHORIZATION_URI.equals(request.getRequestURI())
