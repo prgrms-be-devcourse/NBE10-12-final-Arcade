@@ -1,5 +1,17 @@
 package com.back.domain.goal.goal.controller;
 
+import com.back.domain.goal.goal.entity.GoalStatus;
+import com.back.domain.goal.goal.entity.PersonalChecklist;
+import com.back.domain.goal.goal.repository.GoalRepository;
+import com.back.domain.member.member.entity.Member;
+import com.back.domain.goal.goal.entity.Project;
+import com.back.domain.member.member.entity.PositionType;
+import com.back.domain.member.member.repository.MemberRepository;
+import com.back.domain.party.party.entity.Party;
+import com.back.domain.party.party.entity.PartyTag;
+import com.back.domain.party.party.entity.TopicType;
+import com.back.domain.party.party.repository.PartyRepository;
+import com.back.domain.party.position.entity.Position;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,6 +23,9 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -28,6 +43,42 @@ public class ApiV1GoalControllerTest {
 
     @Autowired
     private MockMvc mvc;
+
+    @Autowired
+    private GoalRepository goalRepository;
+
+    @Autowired
+    private MemberRepository memberRepository;
+
+    @Autowired
+    private PartyRepository partyRepository;
+
+    /** PROJECT 성취 상세 검증용 - 파티를 만들고 그 파티를 가리키는 자동기록 성취를 심는다 */
+    private Project savePartyAndProjectGoal(String ownerEmail) {
+        Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
+
+        Party party = new Party(
+                owner, "오락실 팀", "오락실 공모전 팀원 모집", "설명",
+                null, null, null,
+                TopicType.PROJECT, PartyTag.WEB,
+                "https://github.com/crewon/oakroom", 1,
+                LocalDateTime.now().plusDays(7)
+        );
+        party.addPosition(new Position(PositionType.BACK, 3));
+        Party saved = partyRepository.save(party);
+
+        return goalRepository.save(new Project(
+                owner, null, saved.getId(), null, null, LocalDate.of(2026, 9, 1)
+        ));
+    }
+
+    /** 소유자 검증용 - 지정한 회원 이름으로 성취를 하나 심는다 */
+    private long saveChecklistGoalOf(String email, String title) {
+        Member owner = memberRepository.findByEmail(email).orElseThrow();
+        return goalRepository
+                .save(new PersonalChecklist(owner, GoalStatus.WANT, title, null, null))
+                .getId();
+    }
 
     private ResultActions createGoal(String body) throws Exception {
         return mvc.perform(
@@ -247,5 +298,103 @@ public class ApiV1GoalControllerTest {
         mvc.perform(get("/api/v1/goals/me"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.resultCode").value("401-1"));
+    }
+
+    /* ---------- 성취 상세 조회 ---------- */
+
+    @Test
+    @DisplayName("성취 상세: 본인 성취를 조회하면 detail 까지 채워져 온다")
+    @WithUserDetails("user1@test.com")
+    void getGoal() throws Exception {
+        long goalId = saveChecklistGoalOf("user1@test.com", "정보처리기사 실기");
+
+        mvc.perform(get("/api/v1/goals/" + goalId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resultCode").value("200-1"))
+                .andExpect(jsonPath("$.msg").value("성취 상세 조회 성공"))
+                .andExpect(jsonPath("$.data.id").value(goalId))
+                .andExpect(jsonPath("$.data.type").value("CHECKLIST"))
+                .andExpect(jsonPath("$.data.source").value("SELF_REPORTED"))
+                .andExpect(jsonPath("$.data.detail.title").value("정보처리기사 실기"));
+    }
+
+    /** 성취는 전체 공개라 남의 것도 볼 수 있다(기획서 2.5, 3.7) */
+    @Test
+    @DisplayName("성취 상세: 남의 성취도 조회할 수 있다")
+    @WithUserDetails("user2@test.com")
+    void getGoalOfOthers() throws Exception {
+        long goalId = saveChecklistGoalOf("user1@test.com", "남의 목표");
+
+        mvc.perform(get("/api/v1/goals/" + goalId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resultCode").value("200-1"))
+                .andExpect(jsonPath("$.data.detail.title").value("남의 목표"));
+    }
+
+    @Test
+    @DisplayName("성취 상세: 없는 id 는 404-1 이다")
+    @WithUserDetails("user1@test.com")
+    void getGoalNotFound() throws Exception {
+        mvc.perform(get("/api/v1/goals/999999"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.resultCode").value("404-1"));
+    }
+
+    @Test
+    @DisplayName("성취 상세: 비로그인이면 401-1 이다")
+    void getGoalWithoutLogin() throws Exception {
+        mvc.perform(get("/api/v1/goals/1"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.resultCode").value("401-1"));
+    }
+
+    @Test
+    @DisplayName("성취 상세: /goals/me 가 상세 경로에 먹히지 않는다")
+    @WithUserDetails("user1@test.com")
+    void meIsNotTreatedAsGoalId() throws Exception {
+        mvc.perform(get("/api/v1/goals/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.msg").value("내 성취 목록 조회 성공"));
+    }
+
+    @Test
+    @DisplayName("성취 상세: PROJECT 는 가리키는 파티 정보가 함께 온다")
+    @WithUserDetails("user1@test.com")
+    void getProjectGoalWithPartyContext() throws Exception {
+        Project project = savePartyAndProjectGoal("user1@test.com");
+
+        mvc.perform(get("/api/v1/goals/" + project.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.type").value("PROJECT"))
+                .andExpect(jsonPath("$.data.source").value("PLATFORM_VERIFIED"))
+                .andExpect(jsonPath("$.data.project.partyId").value(project.getSourcePartyId()))
+                .andExpect(jsonPath("$.data.project.partyName").value("오락실 팀"))
+                .andExpect(jsonPath("$.data.project.githubRepoUrl").value("https://github.com/crewon/oakroom"))
+                // 파티를 만든 사람이 곧 이 성취의 주인이라 파티장으로 표시된다
+                .andExpect(jsonPath("$.data.project.partyOwner").value(true))
+                .andExpect(jsonPath("$.data.project.pullRequests").isArray());
+    }
+
+    @Test
+    @DisplayName("성취 상세: 남의 PROJECT 성취를 보면 PR 목록은 비어 온다")
+    @WithUserDetails("user2@test.com")
+    void getOthersProjectGoalHidesPullRequests() throws Exception {
+        Project project = savePartyAndProjectGoal("user1@test.com");
+
+        mvc.perform(get("/api/v1/goals/" + project.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.project.partyName").value("오락실 팀"))
+                .andExpect(jsonPath("$.data.project.pullRequests", hasSize(0)));
+    }
+
+    @Test
+    @DisplayName("성취 상세: PROJECT 가 아니면 project 필드가 없다")
+    @WithUserDetails("user1@test.com")
+    void nonProjectGoalHasNoPartyContext() throws Exception {
+        long goalId = saveChecklistGoalOf("user1@test.com", "정보처리기사 실기");
+
+        mvc.perform(get("/api/v1/goals/" + goalId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.project").doesNotExist());
     }
 }
