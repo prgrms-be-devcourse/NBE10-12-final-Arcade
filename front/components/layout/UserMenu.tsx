@@ -63,7 +63,7 @@ export function UserMenu() {
     try {
       await logout();
     } finally {
-      router.push('/login');
+      window.location.href = '/';
     }
   };
 
