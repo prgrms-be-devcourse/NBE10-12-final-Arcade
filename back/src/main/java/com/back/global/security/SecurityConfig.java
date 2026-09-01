@@ -79,9 +79,9 @@ public class SecurityConfig {
                                         .authorizationRequestResolver(customOAuth2AuthorizationRequestResolver)
                         )
                 )
-                // OAuth2 요청에도 기존 쿠키/토큰 인증을 먼저 적용해야 현재 로그인 계정을 알 수 있다.
-                .addFilterBefore(customAuthenticationFilter, OAuth2AuthorizationRequestRedirectFilter.class)
-                .addFilterAfter(oAuth2SocialLoginGuardFilter, CustomAuthenticationFilter.class)
+                // OAuth2 요청에서는 기존 인증 → 소셜 연동 가드 → OAuth2 리다이렉트 순서를 보장한다.
+                .addFilterBefore(oAuth2SocialLoginGuardFilter, OAuth2AuthorizationRequestRedirectFilter.class)
+                .addFilterBefore(customAuthenticationFilter, OAuth2SocialLoginGuardFilter.class)
                 .exceptionHandling(
                         exceptionHandling -> exceptionHandling
                                 .authenticationEntryPoint(
