@@ -11,6 +11,7 @@ import com.back.domain.interaction.like.service.LikeInteractionPort;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.party.party.dtos.PartyListItemDto;
 import com.back.domain.party.party.repository.PartyContestLookupPort;
+import com.back.domain.party.position.entity.PartyStatus;
 import com.back.global.exception.ServiceException;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
@@ -164,14 +165,12 @@ public class ApiV1ContestController {
                         .stream()
                         .collect(Collectors.toMap(TeamCount::getContestId, TeamCount::getCount));
 
-        contests = contests.map(contest -> contest.withRelatedParties(
-                teamCounts.getOrDefault(contest.id(),0L).intValue(),
-                List.of()
-        ));
-        contests = contests.map(contest -> contest.withMyInteractions(
-                bookmarkedContestIds.contains(contest.id()),
-                likedContestIds.contains(contest.id())
-        ));
+        contests = contests.map(contest -> contest
+                .withRelatedParties(teamCounts.getOrDefault(contest.id(), 0L).intValue(), List.of())
+                .withMyInteractions(
+                        bookmarkedContestIds.contains(contest.id()),
+                        likedContestIds.contains(contest.id())
+                ));
 
         return new RsData<>(
                 "200-1",
@@ -188,7 +187,7 @@ public class ApiV1ContestController {
         String viewCookieName = "contest_viewed_" + contestId;
         boolean alreadyViewed = rq.getCookieValue(viewCookieName, null) != null;
         List<PartyListItemDto> relatedParties = partyContestLookupPort
-                .findByTargetContestId(contestId)
+                .findByTargetContestId(contestId, PartyStatus.RECRUITING, PartyStatus.IN_PROGRESS)
                 .stream()
                 .map(PartyListItemDto::new)
                 .toList();

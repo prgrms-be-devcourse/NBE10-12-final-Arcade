@@ -1,7 +1,7 @@
 package com.back.domain.party.party.controller;
 
 import com.back.domain.contest.contest.entity.Contest;
-import com.back.domain.contest.contest.repository.ContestRepository;
+import com.back.domain.contest.contest.repository.ContestLookupPort;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.party.party.dtos.PartyDto;
 import com.back.domain.party.party.dtos.PartyListItemDto;
@@ -40,7 +40,7 @@ public class ApiV1PartyController {
     private final PartyService partyService;
     private final PartyLifecycleService partyLifecycleService;
     private final Rq rq;
-    private final ContestRepository contestRepository;
+    private final ContestLookupPort contestLookupPort;
 
     public record PositionReqBody(
         @NotNull PositionType name,
@@ -72,7 +72,7 @@ public class ApiV1PartyController {
 
         Contest targetContest = request.targetContestId() == null
                 ? null
-                : contestRepository.findById(request.targetContestId())
+                : contestLookupPort.findContestById(request.targetContestId())
                         .orElseThrow(() -> new ServiceException("404-2", "존재하지 않는 대회입니다."));
 
         PartyDto partyDto = partyService.create(
@@ -129,7 +129,7 @@ public class ApiV1PartyController {
 
         Contest targetContest = request.targetContestId() == null
                 ? null
-                : contestRepository.findById(request.targetContestId())
+                : contestLookupPort.findContestById(request.targetContestId())
                         .orElseThrow(() -> new ServiceException("404-2", "존재하지 않는 대회입니다."));
 
         PartyDto partyDto = partyService.update(

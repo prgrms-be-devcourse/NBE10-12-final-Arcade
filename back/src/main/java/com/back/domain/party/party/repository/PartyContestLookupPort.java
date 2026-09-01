@@ -1,6 +1,7 @@
 package com.back.domain.party.party.repository;
 
 import com.back.domain.party.party.entity.Party;
+import com.back.domain.party.position.entity.PartyStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -10,19 +11,21 @@ import java.util.List;
 
 public interface PartyContestLookupPort {
 
-    //RECRUITING인 파티가 가장 상단에 노출됩니다.
-    // owner는 join fetch로 함께 읽어와 N+1을 막는다 (PartyListItemDto가 owner.getName()에 접근함)
     @Query("""
         select p from Party p
         join fetch p.owner
         where p.targetContest.id = :contestId
-        order by case p.status
-            when com.back.domain.party.position.entity.PartyStatus.RECRUITING then 0
-            when com.back.domain.party.position.entity.PartyStatus.IN_PROGRESS then 1
+        order by case
+            when p.status = :recruiting then 0
+            when p.status = :inProgress then 1
             else 2
         end, p.id desc
         """)
-    List<Party> findByTargetContestId(@Param("contestId") long contestId);
+    List<Party> findByTargetContestId(
+            @Param("contestId") long contestId,
+            @Param("recruiting") PartyStatus recruiting,
+            @Param("inProgress") PartyStatus inProgress
+    );
 
     interface TeamCount {
         Long getContestId();
