@@ -1,7 +1,7 @@
 package com.back.domain.party.party.service;
 
 import com.back.domain.contest.contest.entity.Contest;
-import com.back.domain.contest.contest.repository.ContestRepository;
+import com.back.domain.contest.contest.repository.ContestLookupPort;
 import com.back.domain.interaction.bookmark.service.BookmarkInteractionPort;
 import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.interaction.like.service.LikeInteractionPort;
@@ -38,6 +38,7 @@ public class PartyService {
     private final PartyRepository partyRepository;
     private final LikeInteractionPort likeInteractionPort;
     private final BookmarkInteractionPort bookmarkInteractionPort;
+    private final ContestLookupPort contestLookupPort;
 
     public record PositionCreateSpec(
         PositionType type,
@@ -50,7 +51,7 @@ public class PartyService {
         String partyName,
         String title,
         String description,
-        Contest targetContest,
+        Long targetContestId,
         String contestName,
         String contestLinkUrl,
         TopicType topicType,
@@ -69,6 +70,10 @@ public class PartyService {
                 throw new ServiceException("400-4", "포지션 정원은 1명 이상이어야 합니다.");
             }
         });
+
+        Contest targetContest = targetContestId == null
+                ? null
+                : contestLookupPort.findContestById(targetContestId).orElseThrow();
 
         if (isMissingContestInfo(topicType, targetContest, contestName)) {
             throw new ServiceException("400-1", "등록된 대회가 없으면 대회명을 입력해야 합니다.");
@@ -108,7 +113,7 @@ public class PartyService {
             String partyName,
             String title,
             String description,
-            Contest targetContest,
+            Long targetContestId,
             String contestName,
             String contestLinkUrl,
             TopicType topicType,
@@ -123,6 +128,10 @@ public class PartyService {
             throw new ServiceException("403-1", "본인이 만든 파티만 수정할 수 있습니다.");
         }
         party.checkModifiable();
+
+        Contest targetContest = targetContestId == null
+                ? null
+                : contestLookupPort.findContestById(targetContestId).orElseThrow();
 
         if (isMissingContestInfo(topicType, targetContest, contestName)) {
             throw new ServiceException("400-1", "등록된 대회가 없으면 대회명을 입력해야 합니다.");

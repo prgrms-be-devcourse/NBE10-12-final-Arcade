@@ -1,7 +1,5 @@
 package com.back.domain.party.party.controller;
 
-import com.back.domain.contest.contest.entity.Contest;
-import com.back.domain.contest.contest.repository.ContestLookupPort;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.party.party.dtos.PartyDto;
 import com.back.domain.party.party.dtos.PartyListItemDto;
@@ -10,7 +8,6 @@ import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
 import com.back.domain.party.party.service.PartyLifecycleService;
 import com.back.domain.party.party.service.PartyService;
-import com.back.global.exception.ServiceException;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
 import jakarta.validation.Valid;
@@ -40,7 +37,6 @@ public class ApiV1PartyController {
     private final PartyService partyService;
     private final PartyLifecycleService partyLifecycleService;
     private final Rq rq;
-    private final ContestLookupPort contestLookupPort;
 
     public record PositionReqBody(
         @NotNull PositionType name,
@@ -70,17 +66,12 @@ public class ApiV1PartyController {
             .map(p -> new PartyService.PositionCreateSpec(p.name(), p.capacity()))
             .toList();
 
-        Contest targetContest = request.targetContestId() == null
-                ? null
-                : contestLookupPort.findContestById(request.targetContestId())
-                        .orElseThrow(() -> new ServiceException("404-2", "존재하지 않는 대회입니다."));
-
         PartyDto partyDto = partyService.create(
             rq.getActorFromDb(),
             request.partyName(),
             request.title(),
             request.description(),
-            targetContest,
+            request.targetContestId(),
             request.contestName(),
             request.contestLinkUrl(),
             request.topicType(),
@@ -127,18 +118,13 @@ public class ApiV1PartyController {
                 .map(p -> new PartyService.PositionCapacityUpdateSpec(p.positionId(), p.capacity()))
                 .toList();
 
-        Contest targetContest = request.targetContestId() == null
-                ? null
-                : contestLookupPort.findContestById(request.targetContestId())
-                        .orElseThrow(() -> new ServiceException("404-2", "존재하지 않는 대회입니다."));
-
         PartyDto partyDto = partyService.update(
                 partyId,
                 rq.getActorFromDb(),
                 request.partyName(),
                 request.title(),
                 request.description(),
-                targetContest,
+                request.targetContestId(),
                 request.contestName(),
                 request.contestLinkUrl(),
                 request.topicType(),

@@ -153,7 +153,7 @@ public class ApiV1PartyControllerTest {
     }
 
     @Test
-    @DisplayName("파티 생성: 존재하지 않는 targetContestId면 404-2이다")
+    @DisplayName("파티 생성: 존재하지 않는 targetContestId면 404-1이다")
     @WithUserDetails("user1@test.com")
     void createPartyWithNonExistentContest() throws Exception {
         ResultActions resultActions = mvc.perform(post("/api/v1/parties")
@@ -161,7 +161,7 @@ public class ApiV1PartyControllerTest {
             .content(createPartyWithContestRequestJson(999999)));
 
         resultActions.andExpect(status().isNotFound())
-            .andExpect(jsonPath("$.resultCode").value("404-2"));
+            .andExpect(jsonPath("$.resultCode").value("404-1"));
     }
 
     @Test
@@ -234,7 +234,7 @@ public class ApiV1PartyControllerTest {
     }
 
     @Test
-    @DisplayName("파티 수정: 존재하지 않는 targetContestId로 수정하면 404-2이다")
+    @DisplayName("파티 수정: 존재하지 않는 targetContestId로 수정하면 404-1이다")
     @WithUserDetails("user1@test.com")
     void updatePartyWithNonExistentContest() throws Exception {
         Party party = savePartyOwnedBy("user1@test.com", 2);
@@ -255,7 +255,7 @@ public class ApiV1PartyControllerTest {
                 .content(updateBody));
 
         resultActions.andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.resultCode").value("404-2"));
+                .andExpect(jsonPath("$.resultCode").value("404-1"));
     }
 
     @Test
