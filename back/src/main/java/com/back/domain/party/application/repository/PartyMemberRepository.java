@@ -14,6 +14,10 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
 
     Optional<PartyMember> findByIdAndParty(long id, Party party);
 
+    // 특정 회원이 그 파티에서 맡은 포지션을 찾을 때 쓴다. 파티 전체를 읽어 메모리에서 거르지 않기 위함.
+    @EntityGraph(attributePaths = {"position"})
+    Optional<PartyMember> findByPartyAndMember(Party party, Member member);
+
     @EntityGraph(attributePaths = {"member", "position"})
     List<PartyMember> findAllByParty(Party party);
 }

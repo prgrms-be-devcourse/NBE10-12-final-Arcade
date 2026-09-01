@@ -14,7 +14,6 @@ import com.back.domain.goal.goal.repository.GoalRepository;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.member.repository.MemberRepository;
-import com.back.domain.party.application.entity.PartyMember;
 import com.back.domain.party.application.repository.PartyMemberRepository;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.repository.PartyRepository;
@@ -151,10 +150,9 @@ public class GoalService {
         if (party == null) return null;
 
         boolean partyOwner = party.isOwnedBy(goal.getOwner());
-        PositionType myPositionType = partyMemberRepository.findAllByParty(party).stream()
-                .filter(pm -> pm.getMember().getId().equals(goal.getOwner().getId()))
+        PositionType myPositionType = partyMemberRepository
+                .findByPartyAndMember(party, goal.getOwner())
                 .map(pm -> pm.getPosition().getType())
-                .findFirst()
                 .orElse(null);
 
         List<PartyPrDto> pullRequests = actor != null && goal.isOwnedBy(actor)
