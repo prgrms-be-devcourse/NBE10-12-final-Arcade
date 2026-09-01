@@ -11,8 +11,10 @@ import java.util.List;
 public interface PartyContestLookupPort {
 
     //RECRUITING인 파티가 가장 상단에 노출됩니다.
+    // owner는 join fetch로 함께 읽어와 N+1을 막는다 (PartyListItemDto가 owner.getName()에 접근함)
     @Query("""
         select p from Party p
+        join fetch p.owner
         where p.targetContest.id = :contestId
         order by case p.status
             when com.back.domain.party.position.entity.PartyStatus.RECRUITING then 0

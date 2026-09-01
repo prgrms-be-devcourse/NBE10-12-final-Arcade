@@ -157,10 +157,12 @@ public class ApiV1ContestController {
         List<Long> contestIds = contests.getContent().stream().map(ContestResponseDto::id).toList();
         Set<Long> bookmarkedContestIds = bookmarkInteractionPort.findBookmarkedTargetIds(actor, TargetType.CONTEST, contestIds);
         Set<Long> likedContestIds = likeInteractionPort.findLikedTargetIds(actor, TargetType.CONTEST, contestIds);
-        Map<Long,Long> teamCounts = partyContestLookupPort
-                .countGroupedByTargetContestIdIn(contestIds)
-                .stream()
-                .collect(Collectors.toMap(TeamCount::getContestId, TeamCount::getCount));
+        Map<Long,Long> teamCounts = contestIds.isEmpty()
+                ? Map.of()
+                : partyContestLookupPort
+                        .countGroupedByTargetContestIdIn(contestIds)
+                        .stream()
+                        .collect(Collectors.toMap(TeamCount::getContestId, TeamCount::getCount));
 
         contests = contests.map(contest -> contest.withRelatedParties(
                 teamCounts.getOrDefault(contest.id(),0L).intValue(),
