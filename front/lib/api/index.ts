@@ -12,6 +12,7 @@ export * from './auth';
 export * from './chat';
 export * from './contests';
 export * from './exhibitions';
+export * from './goals';
 export * from './home';
 export * from './host';
 export * from './messages';
