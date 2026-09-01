@@ -13,6 +13,9 @@ import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 
 import java.util.Comparator;
 import java.util.NoSuchElementException;
@@ -24,6 +27,7 @@ import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 @RestControllerAdvice
 @RequiredArgsConstructor
+@Order(Ordered.HIGHEST_PRECEDENCE)
 public class GlobalExceptionHandler {
     @ExceptionHandler(NoSuchElementException.class)
     public ResponseEntity<RsData<Void>> handle(NoSuchElementException ex) {
@@ -87,6 +91,17 @@ public class GlobalExceptionHandler {
                 new RsData<>(
                         "400-2",
                         "요청 본문이 올바르지 않습니다."
+                ),
+                BAD_REQUEST
+        );
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<RsData<Void>> handle(MethodArgumentTypeMismatchException ex) {
+        return new ResponseEntity<>(
+                new RsData<>(
+                        "400-1",
+                        "%s 값이 올바르지 않습니다.".formatted(ex.getName())
                 ),
                 BAD_REQUEST
         );
