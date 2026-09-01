@@ -20,7 +20,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -45,8 +44,11 @@ public class CustomAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private void work(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        // API 요청이 아니라면 패스
-        if (!request.getRequestURI().startsWith("/api/")) {
+        // OAuth2 시작/콜백 요청에서도 기존 로그인 계정을 복원해야 계정 연동 여부를 판단할 수 있다.
+        String requestUri = request.getRequestURI();
+        if (!requestUri.startsWith("/api/")
+                && !requestUri.startsWith("/oauth2/authorization/")
+                && !requestUri.startsWith("/login/oauth2/code/")) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -90,13 +92,10 @@ public class CustomAuthenticationFilter extends OncePerRequestFilter {
         boolean isAccessTokenValid = false;
 
         if (isAccessTokenExists) {
-            Map<String, Object> payload = memberService.payload(accessToken);
+            var payload = memberService.payload(accessToken);
 
             if (payload != null) {
-                int id = (int) payload.get("id");
-                String username = (String) payload.get("username");
-                String name = (String) payload.get("name");
-                member = new Member(id, username, name);
+                member = new Member(payload.memberId(), payload.role());
 
                 isAccessTokenValid = true;
             }
@@ -116,11 +115,7 @@ public class CustomAuthenticationFilter extends OncePerRequestFilter {
         }
 
         UserDetails user = new SecurityUser(
-                member.getId(),
-                member.getEmail(),
-                member.getName(),
-                member.getAuthorities()
-        );
+                member.getId(), member.getRole());
 
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 user,

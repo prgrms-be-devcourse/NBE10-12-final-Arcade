@@ -11,7 +11,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestRedirectFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
@@ -26,6 +26,7 @@ public class SecurityConfig {
     private final AuthenticationSuccessHandler customOAuth2LoginSuccessHandler;
     private final CustomOAuth2AuthorizationRequestResolver customOAuth2AuthorizationRequestResolver;
     private final CustomOAuth2UserService customOAuth2UserService;
+    private final OAuth2SocialLoginGuardFilter oAuth2SocialLoginGuardFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) {
@@ -78,7 +79,9 @@ public class SecurityConfig {
                                         .authorizationRequestResolver(customOAuth2AuthorizationRequestResolver)
                         )
                 )
-                .addFilterBefore(customAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                // OAuth2 요청에서는 기존 인증 → 소셜 연동 가드 → OAuth2 리다이렉트 순서를 보장한다.
+                .addFilterBefore(oAuth2SocialLoginGuardFilter, OAuth2AuthorizationRequestRedirectFilter.class)
+                .addFilterBefore(customAuthenticationFilter, OAuth2SocialLoginGuardFilter.class)
                 .exceptionHandling(
                         exceptionHandling -> exceptionHandling
                                 .authenticationEntryPoint(

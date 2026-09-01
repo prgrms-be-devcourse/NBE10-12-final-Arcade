@@ -40,10 +40,10 @@ public class Member extends BaseEntity {
     private String githubProviderUserId = null;
     private String githubEmail = null;
 
-    public Member(long id, String email, String name) {
+    /** JWT 인증 정보를 담는 비영속 임시 회원 객체용 생성자다. */
+    public Member(long id, Role role) {
         setId(id);
-        this.email = email;
-        this.name = name;
+        this.role = role;
     }
 
     public Member(String email, String password, String name, String profileImgUrl) {

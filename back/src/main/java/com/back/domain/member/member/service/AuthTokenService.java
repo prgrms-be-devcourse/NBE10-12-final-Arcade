@@ -1,6 +1,7 @@
 package com.back.domain.member.member.service;
 
 import com.back.domain.member.member.entity.Member;
+import com.back.domain.member.member.entity.Role;
 import com.back.standard.util.Util;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -9,6 +10,9 @@ import java.util.Map;
 
 @Service
 public class AuthTokenService {
+    public record AccessTokenPayload(long memberId, Role role) {
+    }
+
     @Value("${custom.accessToken.expirationSeconds}")
     private int expireSeconds;
 
@@ -26,15 +30,22 @@ public class AuthTokenService {
         );
     }
 
-    Map<String, Object> payload(String accessToken) {
+    AccessTokenPayload payload(String accessToken) {
         Map<String, Object> parsedPayload = Util.jwt.payload(secret, accessToken);
 
         if (parsedPayload == null) return null;
 
-        int id = (int) parsedPayload.get("id");
-        String username = (String) parsedPayload.get("username");
-        String name = (String) parsedPayload.get("name");
+        Object id = parsedPayload.get("id");
+        Object role = parsedPayload.get("role");
 
-        return Map.of("id", id, "username", username, "name", name);
+        if (!(id instanceof Number number) || !(role instanceof String roleName)) {
+            return null;
+        }
+
+        try {
+            return new AccessTokenPayload(number.longValue(), Role.valueOf(roleName));
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 }
