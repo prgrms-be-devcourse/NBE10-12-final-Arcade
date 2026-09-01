@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -93,8 +94,13 @@ public class GoalService {
     public void createProjectsForAssembledParty(long partyId, List<Long> memberIds, LocalDate assembledAt) {
         List<Member> members = memberRepository.findAllById(memberIds);
 
+        // 이미 이 파티의 성취가 만들어진 사람을 한 번에 뽑아두고 메모리에서 거른다 (참여자마다 쿼리를 날리지 않기 위해)
+        Set<Long> alreadyCreatedOwnerIds = Set.copyOf(
+                goalRepository.findOwnerIdsBySourcePartyIdAndType(partyId, GoalType.PROJECT)
+        );
+
         List<Project> projects = members.stream()
-                .filter(member -> !goalRepository.existsByOwnerAndSourcePartyIdAndType(member, partyId, GoalType.PROJECT))
+                .filter(member -> !alreadyCreatedOwnerIds.contains(member.getId()))
                 .map(member -> new Project(
                         member,
                         // partyAssembleToMemberId와 positionType은 현재 이벤트에 실려오지 않아 비워 둔다.
