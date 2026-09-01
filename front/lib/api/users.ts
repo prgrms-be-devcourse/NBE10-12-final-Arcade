@@ -2,12 +2,13 @@ import type {
   Achievement,
   BookmarkItem,
   CareerItem,
+  MemberRole,
   PositionType,
   ProfileLink,
   UserProfile,
 } from '@/lib/types';
 import { MOCK_CURRENT_USER_ID, MOCK_PROFILES, MOCK_USER_SUMMARIES } from '@/lib/mock';
-import { USE_MOCK, http, mockResponse } from './client';
+import { ApiError, USE_MOCK, http, mockResponse } from './client';
 
 function fallbackProfile(id: string): UserProfile {
   const base = MOCK_PROFILES.haneul;
@@ -16,16 +17,97 @@ function fallbackProfile(id: string): UserProfile {
   return { ...base, ...summary };
 }
 
-/** GET /me */
-export async function fetchMyProfile(): Promise<UserProfile> {
-  if (USE_MOCK) return mockResponse(MOCK_PROFILES[MOCK_CURRENT_USER_ID]);
-  return http.get<UserProfile>('/me');
+/** 백엔드 MemberProfileDto — GET/PATCH /api/v1/members/me 응답 */
+export interface MemberProfileResponse {
+  id: number;
+  email: string;
+  name: string;
+  nickname: string | null;
+  webpage: string | null;
+  profileImageUrl: string | null;
+  /** 서버는 BACK/FRONT/UIUX/PM 4종을 모두 내려줄 수 있다 */
+  positions: string[];
+  techStacks: string[];
 }
 
-/** GET /users/{id} */
+/**
+ * 서버가 주는 포지션 문자열을 화면 타입으로 좁힌다.
+ * 화면 PositionType 은 이번 스코프에서 BACK/FRONT 만 쓰기로 해(lib/types.ts) UIUX·PM 이 빠져 있다.
+ */
+function toPositionType(value: string | undefined): PositionType {
+  return value === 'FRONT' ? 'FRONT' : 'BACK';
+}
+
+/**
+ * 백엔드 MemberProfileDto 를 화면 UserProfile 로 옮긴다.
+ *
+ * 백엔드에 아직 없어서 비워 두는 값:
+ * - bio, careers, links      : 프로필 확장 필드 미구현
+ * - stats, streakDays, badges: 마이페이지 요약 API(기획서 9.11) 미구현
+ * - achievements             : GET /goals/me 미구현 (성취 등록만 붙어 있음)
+ * - memberRole               : GET /members/me 응답에 role 이 없다. 로그인 응답에서 받아 덮어쓴다.
+ */
+export function toUserProfile(
+  dto: MemberProfileResponse,
+  memberRole: MemberRole = 'MEMBER',
+): UserProfile {
+  const displayName = dto.nickname ?? dto.name;
+
+  return {
+    id: String(dto.id),
+    name: displayName,
+    initial: displayName.charAt(0) || 'C',
+    avatarUrl: dto.profileImageUrl ?? undefined,
+    // UserSummary.role 은 계정 권한이 아니라 화면에 보여주는 대표 포지션 문구다
+    role: dto.positions[0] ?? '',
+    memberRole,
+    githubUsername: undefined,
+    bio: '',
+    position: toPositionType(dto.positions[0]),
+    skills: dto.techStacks,
+    stats: { completedParties: 0, awards: 0, exhibitions: 0, approvalRate: 0 },
+    streakDays: 0,
+    badges: [],
+    achievements: [],
+    careers: [],
+    links: [],
+  };
+}
+
+/** GET /api/v1/members/me */
+export async function fetchMyProfile(): Promise<UserProfile> {
+  if (USE_MOCK) return mockResponse(MOCK_PROFILES[MOCK_CURRENT_USER_ID]);
+  return toUserProfile(await http.get<MemberProfileResponse>('/members/me'));
+}
+
+/**
+ * 로그인하지 않았으면 null 을 돌려주는 버전.
+ *
+ * 서버 컴포넌트에서 프로필을 읽을 때 쓴다. 비로그인 401 을 그대로 던지면
+ * 페이지 전체가 500 으로 죽어 로그인 화면조차 볼 수 없게 된다.
+ *
+ * 지금은 서버 5xx 도 함께 삼킨다. AccessToken claim 불일치로 토큰을 가진 요청이 전부
+ * NullPointerException 500 을 내고 있어서(docs/프론트-API연동_백엔드_수정요청.md ①),
+ * 그대로 두면 로그인한 사람이 어느 화면도 열 수 없기 때문이다.
+ *
+ * 서버 500 을 '로그인 안 됨'으로 취급하는 건 정상적인 처리가 아니다.
+ * 토큰 버그가 고쳐지면 401 만 잡도록 되돌릴 것.
+ */
+export async function fetchMyProfileOrNull(): Promise<UserProfile | null> {
+  try {
+    return await fetchMyProfile();
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 401 || error.status >= 500)) return null;
+    throw error;
+  }
+}
+
+/**
+ * 특정 회원의 공개 프로필.
+ * 백엔드에 GET /members/{id} 가 아직 없어 데모 데이터를 그대로 쓴다.
+ */
 export async function fetchUserProfile(id: string): Promise<UserProfile> {
-  if (USE_MOCK) return mockResponse(MOCK_PROFILES[id] ?? fallbackProfile(id));
-  return http.get<UserProfile>(`/users/${id}`);
+  return mockResponse(MOCK_PROFILES[id] ?? fallbackProfile(id));
 }
 
 export interface ProfileUpdatePayload {
@@ -41,7 +123,13 @@ export interface ProfileUpdatePayload {
   links: ProfileLink[];
 }
 
-/** PUT /me */
+/**
+ * PATCH /api/v1/members/me
+ *
+ * 서버가 받는 값은 nickname·webpage·profileImageUrl·positions·techStacks 뿐이다.
+ * bio·githubUsername·achievements·careers·links 는 저장되지 않는다 (백엔드 필드 미구현).
+ * 특히 성취는 이 화면에서 편집해도 반영되지 않으니, POST /goals 로 등록하는 흐름을 따로 붙여야 한다.
+ */
 export async function updateMyProfile(payload: ProfileUpdatePayload): Promise<UserProfile> {
   if (USE_MOCK) {
     const current = MOCK_PROFILES[MOCK_CURRENT_USER_ID];
@@ -58,14 +146,22 @@ export async function updateMyProfile(payload: ProfileUpdatePayload): Promise<Us
       links: payload.links,
     });
   }
-  return http.put<UserProfile>('/me', payload);
+
+  const updated = await http.patch<MemberProfileResponse>('/members/me', {
+    nickname: payload.nickname,
+    webpage: null,
+    profileImageUrl: null,
+    positions: [payload.position],
+    techStacks: payload.skills,
+  });
+  return toUserProfile(updated);
 }
 
-/** GET /me/bookmarks — 파티·대회·성취를 대상 구분 없이 한 목록으로 (기획서 2.11) */
+/**
+ * 내 북마크 목록.
+ * 백엔드에 통합 조회 API(기획서 9.11)가 아직 없어 데모 데이터를 그대로 쓴다.
+ */
 export async function fetchMyBookmarks(): Promise<BookmarkItem[]> {
-  if (USE_MOCK) {
-    const { MOCK_BOOKMARKS } = await import('@/lib/mock');
-    return mockResponse(MOCK_BOOKMARKS);
-  }
-  return http.get<BookmarkItem[]>('/me/bookmarks');
+  const { MOCK_BOOKMARKS } = await import('@/lib/mock');
+  return mockResponse(MOCK_BOOKMARKS);
 }

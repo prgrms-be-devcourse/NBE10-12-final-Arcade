@@ -225,7 +225,6 @@ export interface Contest {
   /** 분야 — 7종 필수 enum (기획서 3.5) */
   tag: ContestTag;
   status: '접수중' | '마감임박' | '마감';
-  prize: string;
   dday: string;
   period: string;
   /** 원본 페이지 링크 — 필수 (기획서 3.5) */
@@ -241,7 +240,6 @@ export interface Contest {
 
 export interface ContestDetail extends Contest {
   description: string;
-  target: string;
   relatedParties: Party[];
 }
 

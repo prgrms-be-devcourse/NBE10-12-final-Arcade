@@ -1,11 +1,14 @@
 /**
  * API 클라이언트.
  *
- * 아직 백엔드 API가 확정되지 않아 기본값은 데모(mock) 모드다.
+ * 기본값은 데모(mock) 모드다.
  * `.env.local` 에 아래 두 값을 넣으면 그대로 실제 서버를 호출한다.
  *
- *   NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api
+ *   NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api/v1
  *   NEXT_PUBLIC_USE_MOCK=false
+ *
+ * 백엔드는 모든 응답을 { resultCode, msg, data } 봉투로 감싼다(기획서 8장).
+ * request() 가 그 껍데기를 벗겨 data 만 돌려주므로, 각 api 모듈은 data 타입만 신경 쓰면 된다.
  */
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
@@ -17,15 +20,35 @@ export const USE_MOCK =
 /** 목 응답에 약간의 지연을 줘서 로딩 상태를 실제처럼 확인할 수 있게 한다. */
 const MOCK_LATENCY_MS = 180;
 
+/** 백엔드 공통 응답 봉투 (기획서 8장) */
+export interface ApiEnvelope<T> {
+  /** "200-1", "400-4", "409-2" 처럼 HTTP 상태 + 도메인 번호 */
+  resultCode: string;
+  msg: string;
+  data: T;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
     readonly body?: unknown,
+    /** 백엔드 resultCode. 화면에서 409-2 같은 구체 상황을 구분할 때 쓴다 */
+    readonly resultCode?: string,
   ) {
     super(message);
     this.name = 'ApiError';
   }
+}
+
+/** 봉투인지 판별한다. 봉투가 아니면(예: 프록시 오류) 그대로 쓴다. */
+function isEnvelope<T>(value: unknown): value is ApiEnvelope<T> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'resultCode' in value &&
+    'data' in value
+  );
 }
 
 export function delay(ms = MOCK_LATENCY_MS): Promise<void> {
@@ -57,14 +80,37 @@ function buildUrl(path: string, query?: RequestOptions['query']): string {
   return qs ? `${url}?${qs}` : url;
 }
 
+/**
+ * 서버 컴포넌트에서 호출할 때 브라우저 쿠키를 대신 실어 준다.
+ *
+ * 인증 토큰이 쿠키에 들어 있는데, 서버 컴포넌트의 fetch 는 Node 에서 실행돼
+ * credentials:'include' 가 아무 일도 하지 않는다. 그래서 요청에 담겨 온 쿠키를 직접 옮긴다.
+ * 브라우저에서는 이 함수가 곧바로 undefined 를 돌려주고 평소대로 credentials 로 처리된다.
+ */
+async function serverCookieHeader(): Promise<string | undefined> {
+  if (typeof window !== 'undefined') return undefined;
+  try {
+    const { cookies } = await import('next/headers');
+    const store = await cookies();
+    const value = store.toString();
+    return value || undefined;
+  } catch {
+    // 요청 컨텍스트 밖(빌드 시 정적 생성 등)에서는 쿠키를 읽을 수 없다
+    return undefined;
+  }
+}
+
 /** 실제 서버 호출용 공통 fetch 래퍼 */
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { query, body, headers, ...rest } = options;
+
+  const cookie = await serverCookieHeader();
 
   const response = await fetch(buildUrl(path, query), {
     ...rest,
     headers: {
       'Content-Type': 'application/json',
+      ...(cookie ? { Cookie: cookie } : {}),
       ...headers,
     },
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -78,11 +124,21 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     } catch {
       errorBody = await response.text();
     }
-    throw new ApiError(`API 요청 실패: ${response.status}`, response.status, errorBody);
+
+    // 예외도 같은 봉투로 내려온다. msg 를 그대로 화면 문구로 쓸 수 있다.
+    const message = isEnvelope<unknown>(errorBody)
+      ? errorBody.msg
+      : `API 요청 실패: ${response.status}`;
+    const resultCode = isEnvelope<unknown>(errorBody) ? errorBody.resultCode : undefined;
+
+    throw new ApiError(message, response.status, errorBody, resultCode);
   }
 
+  // 삭제 응답은 본문이 없을 수 있다
   if (response.status === 204) return undefined as T;
-  return (await response.json()) as T;
+
+  const payload: unknown = await response.json();
+  return (isEnvelope<T>(payload) ? payload.data : payload) as T;
 }
 
 export const http = {

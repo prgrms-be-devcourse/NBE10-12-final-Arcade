@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { Icon } from '@/components/icons/Icon';
 import { ApplyPanel } from '@/components/party/ApplyPanel';
 import { DetailActions } from '@/components/ui/DetailActions';
@@ -8,13 +7,22 @@ import { BackLink } from '@/components/ui/BackLink';
 import { Block, DetailGrid, SideCard } from '@/components/ui/Block';
 import { LeaderRow } from '@/components/ui/Avatar';
 import { Tag, TagRow } from '@/components/ui/Tag';
-import { fetchParty } from '@/lib/api';
+import { fetchContest, fetchParty } from '@/lib/api';
 import { MOCK_CURRENT_USER_ID } from '@/lib/mock';
 import { CONTEST_FORMAT_LABELS, POSITION_LABELS, TOPIC_TYPE_LABELS } from '@/lib/constants';
 
 export default async function PartyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const party = await fetchParty(id);
+
+  // 연동 대회의 원본 페이지 주소.
+  // 크루온에 등록된 대회는 링크가 CONTEST 쪽에 있어 한 번 더 읽고,
+  // 미등록 외부 대회는 파티에 자유 입력된 링크를 그대로 쓴다 (기획서 3.5).
+  const contestLinkUrl = party.contestId
+    ? await fetchContest(party.contestId)
+        .then((contest) => contest.linkUrl)
+        .catch(() => undefined)
+    : party.contestLinkUrl;
 
   // 매칭 전 문의는 팀원 목록의 쪽지 아이콘으로, 매칭 후 협업 대화는 팀 스페이스의 채팅이 담당한다
 
@@ -51,16 +59,24 @@ export default async function PartyDetailPage({ params }: { params: Promise<{ id
                 지원자 {party.applicants}명 · 조회 {party.viewCount.toLocaleString()}
               </div>
 
-              {party.contestId ? (
+              {party.contestName ? (
                 <div className="contest-link-card">
                   <div>
                     <p className="clc-label">연동 대회</p>
                     <h4>{party.contestName}</h4>
                     <p className="clc-sub">접수 마감 {party.deadline}</p>
                   </div>
-                  <Link className="card-link" href={`/contests/${party.contestId}`}>
-                    대회 보기 →
-                  </Link>
+                  {contestLinkUrl ? (
+                    // 크루온 상세가 아니라 주최측이 운영하는 원본 공고로 보낸다
+                    <a
+                      className="card-link"
+                      href={contestLinkUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      대회 공고 보기 ↗
+                    </a>
+                  ) : null}
                 </div>
               ) : null}
 

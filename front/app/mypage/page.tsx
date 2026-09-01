@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { MypageView } from '@/components/mypage/MypageView';
 import { isMypageTabKey, type MypageTabKey } from '@/lib/mypageTabs';
 import {
@@ -5,7 +6,7 @@ import {
   fetchMyApplications,
   fetchMyBookmarks,
   fetchMyPartyApplicants,
-  fetchMyProfile,
+  fetchMyProfileOrNull,
   fetchTodos,
 } from '@/lib/api';
 
@@ -24,13 +25,18 @@ export default async function MyPage({
   const activeTab: MypageTabKey = isMypageTabKey(tab) ? tab : 'identity';
 
   const [profile, todos, applicants, myApplications, messages, bookmarks] = await Promise.all([
-    fetchMyProfile(),
+    fetchMyProfileOrNull(),
     fetchTodos(),
     fetchMyPartyApplicants(),
     fetchMyApplications(),
     fetchMessages(),
     fetchMyBookmarks(),
   ]);
+
+  // 로그인해야 볼 수 있는 화면이다
+  // 로그인해야 볼 수 있는 화면이지만 로그인 화면으로 밀어내지 않고 메인으로 돌려보낸다.
+  // 로그인 없이도 둘러볼 수 있는 서비스라 로그인을 강요하는 인상을 주지 않게 한다.
+  if (!profile) redirect('/');
 
   return (
     <MypageView
