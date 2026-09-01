@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Icon } from '@/components/icons/Icon';
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser';
 import { useHideOnScroll } from '@/lib/hooks/useHideOnScroll';
 import { MessagePanel } from './MessagePanel';
 import { NotificationPanel } from './NotificationPanel';
@@ -19,6 +20,7 @@ const NAV_ITEMS = [
 export function Header() {
   const pathname = usePathname();
   const hidden = useHideOnScroll();
+  const me = useCurrentUser();
 
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href);
@@ -47,8 +49,9 @@ export function Header() {
 
       <div className="nav-right">
         <ThemeToggle />
-        <MessagePanel />
-        <NotificationPanel />
+        {/* 쪽지·알림은 개인 기능이라 로그인한 경우에만 보여준다 */}
+        {me ? <MessagePanel /> : null}
+        {me ? <NotificationPanel /> : null}
         <UserMenu />
       </div>
     </nav>

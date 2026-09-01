@@ -43,10 +43,12 @@ export function ApplicantManager({ applicants: initial, parties }: ApplicantMana
   }, [visible]);
 
   const decide = async (id: string, status: ApplicantStatus) => {
+    // 서버 승인/거절 경로가 파티에 종속돼 있어 partyId 를 함께 넘긴다
+    const target = applicants.find((applicant) => applicant.id === id);
     setApplicants((prev) =>
       prev.map((applicant) => (applicant.id === id ? { ...applicant, status } : applicant)),
     );
-    await decideApplicant(id, status);
+    await decideApplicant(id, status, target?.partyId);
   };
 
   return (

@@ -372,7 +372,6 @@ img,svg{display:block;}
 .contest-body h3{font-family:var(--font-body);font-size:1rem;font-weight:800;line-height:1.4;color:var(--text);}
 .contest-host{font-size:.82rem;color:var(--text-dim);}
 .contest-stats{display:flex;justify-content:space-between;align-items:center;margin-top:0.125rem;}
-.contest-stats .prize{font-size:.86rem;font-weight:700;color:var(--text);}
 .contest-stats .teams{font-size:.78rem;color:var(--text-muted);}
 
 /* ---------- FOOTER ---------- */
@@ -1269,7 +1268,6 @@ button.party-mini:hover{border-color:var(--accent);}
 .view-count{display:inline-flex;align-items:center;gap:0.3125rem;font-size:.78rem;color:var(--text-muted);}
 .view-count svg{width:0.75rem;height:0.75rem;}
 .contest-stats{flex-wrap:wrap;gap:0.5rem;}
-.contest-stats .prize{margin-right:auto;}
 .detail-views{
   display:inline-flex;align-items:center;gap:0.375rem;padding:0.375rem 0.6875rem;
   border:0.125rem solid var(--border-strong);background:var(--surface);
@@ -2931,7 +2929,6 @@ body{
   background:rgba(10,10,19,.82);backdrop-filter:blur(0.25rem);
 }
 .contest-stats{padding-top:0.625rem;border-top:0.125rem solid var(--border);}
-.contest-stats .prize{font-size:.92rem;color:var(--accent);}
 
 /* =============================================================
  * 2차 정리 (팀 피드백)
@@ -3261,6 +3258,14 @@ body{
 .user-chip .mono{
   font-family:var(--font-display);font-size:.78rem;color:var(--accent);line-height:1;
 }
+/* 비로그인 상태의 헤더 버튼 — 아바타 자리를 대신한다 */
+.nav-login{
+  height:2.5rem;flex-shrink:0;padding:0 0.875rem;border-radius:var(--radius-chip);
+  display:inline-flex;align-items:center;justify-content:center;
+  background:var(--surface);border:0.125rem solid var(--border);
+  font-size:.8rem;font-weight:800;color:var(--text);text-decoration:none;transition:.2s ease;
+}
+.nav-login:hover{border-color:var(--accent);color:var(--accent);background:var(--surface-2);}
 .user-chip:hover{border-color:var(--border-strong);background:var(--surface-2);}
 .user-chip.is-open{border-color:var(--accent);}
 .user-chip:active{transform:scale(.94);}
