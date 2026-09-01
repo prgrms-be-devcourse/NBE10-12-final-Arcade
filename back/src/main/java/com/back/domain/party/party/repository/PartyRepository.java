@@ -10,7 +10,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface PartyRepository extends JpaRepository<Party, Long> {
+public interface PartyRepository extends JpaRepository<Party, Long>,PartyContestLookupPort{
     @Query("""
         select p from Party p
         where (:keyword is null or p.partyName like concat('%', :keyword, '%') or p.title like concat('%', :keyword, '%'))

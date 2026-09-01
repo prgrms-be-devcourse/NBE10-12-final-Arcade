@@ -1,5 +1,6 @@
 package com.back.domain.party.party.entity;
 
+import com.back.domain.contest.contest.entity.Contest;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.party.position.entity.PartyStatus;
 import com.back.domain.party.position.entity.Position;
@@ -41,10 +42,9 @@ public class Party extends BaseEntity {
     @Lob
     private String description;
 
-    // 대회 허브에 등록된 대회를 가리킴. Contest 도메인이 아직 없어 연관관계 없이 값만 보관.
-    // Contest 엔티티가 생기면 @ManyToOne 매핑으로 전환 예정.
-    @Column(name = "target_contest_id")
-    private Long targetContestId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "target_contest_id")
+    private Contest targetContest;
 
     // targetContestId가 없을 때(미등록 외부 대회) 자유 입력
     private String contestName;
@@ -85,7 +85,7 @@ public class Party extends BaseEntity {
         String partyName,
         String title,
         String description,
-        Long targetContestId,
+        Contest targetContest,
         String contestName,
         String contestLinkUrl,
         TopicType topicType,
@@ -98,7 +98,7 @@ public class Party extends BaseEntity {
         this.partyName = partyName;
         this.title = title;
         this.description = description;
-        this.targetContestId = targetContestId;
+        this.targetContest = targetContest;
         this.contestName = contestName;
         this.contestLinkUrl = contestLinkUrl;
         this.topicType = topicType;
@@ -138,14 +138,14 @@ public class Party extends BaseEntity {
 
     public void update(
             String partyName, String title, String description,
-            Long targetContestId, String contestName, String contestLinkUrl,
+            Contest targetContest, String contestName, String contestLinkUrl,
             TopicType topicType, PartyTag partyTag, String githubRepoUrl,
             LocalDateTime deadline
     ) {
         this.partyName = partyName;
         this.title = title;
         this.description = description;
-        this.targetContestId = targetContestId;
+        this.targetContest = targetContest;
         this.contestName = contestName;
         this.contestLinkUrl = contestLinkUrl;
         this.topicType = topicType;

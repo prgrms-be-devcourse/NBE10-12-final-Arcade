@@ -1,5 +1,7 @@
 package com.back.domain.party.party.service;
 
+import com.back.domain.contest.contest.entity.Contest;
+import com.back.domain.contest.contest.repository.ContestLookupPort;
 import com.back.domain.interaction.bookmark.service.BookmarkInteractionPort;
 import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.interaction.like.service.LikeInteractionPort;
@@ -36,6 +38,7 @@ public class PartyService {
     private final PartyRepository partyRepository;
     private final LikeInteractionPort likeInteractionPort;
     private final BookmarkInteractionPort bookmarkInteractionPort;
+    private final ContestLookupPort contestLookupPort;
 
     public record PositionCreateSpec(
         PositionType type,
@@ -68,7 +71,11 @@ public class PartyService {
             }
         });
 
-        if (isMissingContestInfo(topicType, targetContestId, contestName)) {
+        Contest targetContest = targetContestId == null
+                ? null
+                : contestLookupPort.findContestById(targetContestId).orElseThrow();
+
+        if (isMissingContestInfo(topicType, targetContest, contestName)) {
             throw new ServiceException("400-1", "등록된 대회가 없으면 대회명을 입력해야 합니다.");
         }
 
@@ -77,7 +84,7 @@ public class PartyService {
             partyName,
             title,
             description,
-            targetContestId,
+            targetContest,
             contestName,
             contestLinkUrl,
             topicType,
@@ -122,7 +129,11 @@ public class PartyService {
         }
         party.checkModifiable();
 
-        if (isMissingContestInfo(topicType, targetContestId, contestName)) {
+        Contest targetContest = targetContestId == null
+                ? null
+                : contestLookupPort.findContestById(targetContestId).orElseThrow();
+
+        if (isMissingContestInfo(topicType, targetContest, contestName)) {
             throw new ServiceException("400-1", "등록된 대회가 없으면 대회명을 입력해야 합니다.");
         }
 
@@ -130,7 +141,7 @@ public class PartyService {
                 partyName,
                 title,
                 description,
-                targetContestId,
+                targetContest,
                 contestName,
                 contestLinkUrl,
                 topicType,
@@ -168,9 +179,9 @@ public class PartyService {
                 .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 파티입니다."));
     }
 
-    private boolean isMissingContestInfo(TopicType topicType, Long targetContestId, String contestName) {
+    private boolean isMissingContestInfo(TopicType topicType, Contest targetContest, String contestName) {
         return topicType == TopicType.CONTEST
-                && targetContestId == null
+                && targetContest == null
                 && (contestName == null || contestName.isBlank());
     }
 

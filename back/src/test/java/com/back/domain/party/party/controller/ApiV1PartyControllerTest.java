@@ -1,5 +1,9 @@
 package com.back.domain.party.party.controller;
 
+import com.back.domain.contest.contest.dtos.ContestResponseDto;
+import com.back.domain.contest.contest.entity.ContestFormat;
+import com.back.domain.contest.contest.entity.ContestTag;
+import com.back.domain.contest.contest.service.ContestService;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.member.repository.MemberRepository;
@@ -20,6 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -44,7 +49,46 @@ public class ApiV1PartyControllerTest {
     @Autowired
     private PartyRepository partyRepository;
 
+    @Autowired
+    private ContestService contestService;
+
     private final String deadline = LocalDateTime.now().plusDays(7).toString();
+
+    private long writeContest(String title) {
+        Member admin = memberRepository.findByEmail("admin").orElseThrow();
+
+        ContestResponseDto contest = contestService.write(
+                admin,
+                title,
+                ContestFormat.HACKATHON,
+                ContestTag.AI,
+                LocalDate.of(2026, 9, 1),
+                LocalDate.of(2026, 9, 30),
+                "설명",
+                "https://example.com/contest",
+                null
+        );
+
+        return contest.id();
+    }
+
+    private String createPartyWithContestRequestJson(long targetContestId) {
+        return """
+            {
+                "partyName": "오락실 팀",
+                "title": "오락실 공모전 팀원 모집",
+                "description": "설명",
+                "targetContestId": %d,
+                "topicType": "CONTEST",
+                "partyTag": "WEB",
+                "checklistRequiredApprovals": 1,
+                "deadline": "%s",
+                "positions": [
+                    { "name": "BACK", "capacity": 2 }
+                ]
+            }
+            """.formatted(targetContestId, deadline);
+    }
 
     private String createPartyRequestJson(int backCapacity) {
         return """
@@ -91,6 +135,33 @@ public class ApiV1PartyControllerTest {
 
         resultActions.andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.resultCode").value("400-4"));
+    }
+
+    @Test
+    @DisplayName("파티 생성: 유효한 targetContestId로 대회와 연결되고 응답에 targetContest가 포함된다")
+    @WithUserDetails("user1@test.com")
+    void createPartyLinkedToContest() throws Exception {
+        long contestId = writeContest("오락실 해커톤");
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/parties")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(createPartyWithContestRequestJson(contestId)));
+
+        resultActions.andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.targetContest.id").value(contestId))
+            .andExpect(jsonPath("$.data.targetContest.title").value("오락실 해커톤"));
+    }
+
+    @Test
+    @DisplayName("파티 생성: 존재하지 않는 targetContestId면 404-1이다")
+    @WithUserDetails("user1@test.com")
+    void createPartyWithNonExistentContest() throws Exception {
+        ResultActions resultActions = mvc.perform(post("/api/v1/parties")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(createPartyWithContestRequestJson(999999)));
+
+        resultActions.andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.resultCode").value("404-1"));
     }
 
     @Test
@@ -160,6 +231,31 @@ public class ApiV1PartyControllerTest {
 
         resultActions.andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.resultCode").value("403-1"));
+    }
+
+    @Test
+    @DisplayName("파티 수정: 존재하지 않는 targetContestId로 수정하면 404-1이다")
+    @WithUserDetails("user1@test.com")
+    void updatePartyWithNonExistentContest() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 2);
+
+        String updateBody = """
+            {
+                "partyName": "수정된 이름",
+                "title": "수정된 제목",
+                "targetContestId": 999999,
+                "topicType": "CONTEST",
+                "partyTag": "WEB",
+                "deadline": "%s"
+            }
+            """.formatted(deadline);
+
+        ResultActions resultActions = mvc.perform(patch("/api/v1/parties/" + party.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(updateBody));
+
+        resultActions.andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.resultCode").value("404-1"));
     }
 
     @Test

@@ -9,6 +9,9 @@ import com.back.domain.interaction.bookmark.service.BookmarkInteractionPort;
 import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.interaction.like.service.LikeInteractionPort;
 import com.back.domain.member.member.entity.Member;
+import com.back.domain.party.party.dtos.PartyListItemDto;
+import com.back.domain.party.party.repository.PartyContestLookupPort;
+import com.back.domain.party.position.entity.PartyStatus;
 import com.back.global.exception.ServiceException;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
@@ -30,10 +33,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import com.back.domain.party.party.repository.PartyContestLookupPort.TeamCount;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/contests")
@@ -44,6 +50,7 @@ public class ApiV1ContestController {
     private final LikeInteractionPort likeInteractionPort;
     private final BookmarkInteractionPort bookmarkInteractionPort;
     private final Rq rq;
+    private final PartyContestLookupPort partyContestLookupPort;
 
     public record ContestWriteReqBody(
             @NotBlank
@@ -151,10 +158,19 @@ public class ApiV1ContestController {
         List<Long> contestIds = contests.getContent().stream().map(ContestResponseDto::id).toList();
         Set<Long> bookmarkedContestIds = bookmarkInteractionPort.findBookmarkedTargetIds(actor, TargetType.CONTEST, contestIds);
         Set<Long> likedContestIds = likeInteractionPort.findLikedTargetIds(actor, TargetType.CONTEST, contestIds);
-        contests = contests.map(contest -> contest.withMyInteractions(
-                bookmarkedContestIds.contains(contest.id()),
-                likedContestIds.contains(contest.id())
-        ));
+        Map<Long,Long> teamCounts = contestIds.isEmpty()
+                ? Map.of()
+                : partyContestLookupPort
+                        .countGroupedByTargetContestIdIn(contestIds)
+                        .stream()
+                        .collect(Collectors.toMap(TeamCount::getContestId, TeamCount::getCount));
+
+        contests = contests.map(contest -> contest
+                .withRelatedParties(teamCounts.getOrDefault(contest.id(), 0L).intValue(), List.of())
+                .withMyInteractions(
+                        bookmarkedContestIds.contains(contest.id()),
+                        likedContestIds.contains(contest.id())
+                ));
 
         return new RsData<>(
                 "200-1",
@@ -170,8 +186,14 @@ public class ApiV1ContestController {
     public RsData<ContestResponseDto> getDetail(@PathVariable("contest-id") long contestId) {
         String viewCookieName = "contest_viewed_" + contestId;
         boolean alreadyViewed = rq.getCookieValue(viewCookieName, null) != null;
+        List<PartyListItemDto> relatedParties = partyContestLookupPort
+                .findByTargetContestId(contestId, PartyStatus.RECRUITING, PartyStatus.IN_PROGRESS)
+                .stream()
+                .map(PartyListItemDto::new)
+                .toList();
 
         ContestResponseDto contestResponseDto = contestService.getDetail(contestId, !alreadyViewed).orElseThrow();
+        contestResponseDto = contestResponseDto.withRelatedParties(relatedParties.size(), relatedParties);
 
         if (!alreadyViewed) {
             rq.setCookie(viewCookieName, "true", VIEW_COOKIE_MAX_AGE_SECONDS);

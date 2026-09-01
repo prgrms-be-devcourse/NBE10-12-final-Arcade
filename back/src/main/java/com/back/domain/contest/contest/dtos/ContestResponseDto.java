@@ -4,9 +4,11 @@ import com.back.domain.contest.contest.entity.Contest;
 import com.back.domain.contest.contest.entity.ContestFormat;
 import com.back.domain.contest.contest.entity.ContestPost;
 import com.back.domain.contest.contest.entity.ContestTag;
+import com.back.domain.party.party.dtos.PartyListItemDto;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record ContestResponseDto(
         long id,
@@ -25,7 +27,9 @@ public record ContestResponseDto(
         Integer viewCount,
         boolean bookmarkedByMe,
         boolean likedByMe,
-        LocalDateTime createDate
+        LocalDateTime createDate,
+        int teams,
+        List<PartyListItemDto> relatedParties
 ) {
     public ContestResponseDto(Contest contest, ContestPost contestPost){
         this(
@@ -43,9 +47,11 @@ public record ContestResponseDto(
                 contestPost == null ? null : contestPost.getLinkUrl(),
                 contestPost == null ? null : contestPost.getLikeCount(),
                 contestPost == null ? null : contestPost.getViewCount(),
-                false,
-                false,
-                contest.getCreateDate()
+                false, // bookmarkedByMe
+                false, // likedByMe
+                contest.getCreateDate(),
+                0, // teams
+                List.of() // relatedParties
         );
     }
 
@@ -54,7 +60,15 @@ public record ContestResponseDto(
                 id, hostId, creatorMemberId, title, format, contestTag,
                 applicationPeriodStart, applicationPeriodEnd, archived,
                 description, imageUrl, linkUrl, likeCount, viewCount,
-                bookmarkedByMe, likedByMe, createDate
+                bookmarkedByMe, likedByMe, createDate,teams, relatedParties
+        );
+    }
+
+    public ContestResponseDto withRelatedParties(int teams, List<PartyListItemDto> relatedParties) {
+        return new ContestResponseDto(id, hostId, creatorMemberId, title, format, contestTag,
+                applicationPeriodStart, applicationPeriodEnd, archived,
+                description, imageUrl, linkUrl, likeCount, viewCount,
+                bookmarkedByMe, likedByMe, createDate, teams, relatedParties
         );
     }
 }
