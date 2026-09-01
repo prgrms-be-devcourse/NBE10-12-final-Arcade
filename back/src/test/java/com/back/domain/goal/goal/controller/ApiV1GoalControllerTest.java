@@ -12,7 +12,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -145,6 +149,103 @@ public class ApiV1GoalControllerTest {
                 """);
 
         resultActions.andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.resultCode").value("401-1"));
+    }
+
+    /* ---------- 내 성취 목록 조회 ---------- */
+
+    /** 필터 검증용으로 성격이 다른 성취 세 건을 만들어 둔다 */
+    private void seedGoals() throws Exception {
+        createGoal("""
+                {
+                  "type": "CONTEST",
+                  "status": "ACHIEVED",
+                  "detail": { "contestName": "사내 해커톤", "result": "장려상", "awardDate": "2023-11-15" }
+                }
+                """).andExpect(status().isCreated());
+        createGoal("""
+                {
+                  "type": "CHECKLIST",
+                  "status": "WANT",
+                  "detail": { "title": "정보처리기사 실기", "targetDate": "2026-10-01" }
+                }
+                """).andExpect(status().isCreated());
+        createGoal("""
+                {
+                  "type": "CHECKLIST",
+                  "status": "ACHIEVED",
+                  "detail": { "title": "토익 900점" }
+                }
+                """).andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("내 성취 목록: 필터 없이 조회하면 내 성취가 전부 나온다")
+    @WithUserDetails("user1@test.com")
+    void getMyGoals() throws Exception {
+        seedGoals();
+
+        mvc.perform(get("/api/v1/goals/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resultCode").value("200-1"))
+                .andExpect(jsonPath("$.msg").value("내 성취 목록 조회 성공"))
+                .andExpect(jsonPath("$.data.content", hasSize(3)))
+                .andExpect(jsonPath("$.data.content[*].source", everyItem(equalTo("SELF_REPORTED"))));
+    }
+
+    @Test
+    @DisplayName("내 성취 목록: type 으로 거를 수 있다")
+    @WithUserDetails("user1@test.com")
+    void getMyGoalsFilteredByType() throws Exception {
+        seedGoals();
+
+        mvc.perform(get("/api/v1/goals/me").param("type", "CHECKLIST"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content", hasSize(2)))
+                .andExpect(jsonPath("$.data.content[*].type", everyItem(equalTo("CHECKLIST"))));
+    }
+
+    @Test
+    @DisplayName("내 성취 목록: status 와 type 을 함께 걸면 둘 다 만족하는 것만 나온다")
+    @WithUserDetails("user1@test.com")
+    void getMyGoalsFilteredByStatusAndType() throws Exception {
+        seedGoals();
+
+        mvc.perform(get("/api/v1/goals/me").param("status", "ACHIEVED").param("type", "CHECKLIST"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content", hasSize(1)))
+                .andExpect(jsonPath("$.data.content[0].detail.title").value("토익 900점"));
+    }
+
+    @Test
+    @DisplayName("내 성취 목록: 남의 성취는 나오지 않는다")
+    @WithUserDetails("user2@test.com")
+    void getMyGoalsExcludesOthers() throws Exception {
+        mvc.perform(get("/api/v1/goals/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content", hasSize(0)));
+    }
+
+    /**
+     * 정의되지 않은 enum 값이 오면 400 이 나가지만 응답 본문은 비어 있다.
+     *
+     * MethodArgumentTypeMismatchException 을 GlobalExceptionHandler 가 처리하지 않아
+     * {resultCode, msg, data} 봉투가 붙지 않는다. API 명세서는 400-1 을 기대하므로 전역 핸들러 보완이 필요하나,
+     * 전 도메인 공용 코드라 여기서는 실제 동작만 고정해 둔다.
+     */
+    @Test
+    @DisplayName("내 성취 목록: 정의되지 않은 필터 값은 400 이다")
+    @WithUserDetails("user1@test.com")
+    void getMyGoalsWithInvalidFilter() throws Exception {
+        mvc.perform(get("/api/v1/goals/me").param("status", "NOT_A_STATUS"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("내 성취 목록: 비로그인이면 401-1 이다")
+    void getMyGoalsWithoutLogin() throws Exception {
+        mvc.perform(get("/api/v1/goals/me"))
+                .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.resultCode").value("401-1"));
     }
 }

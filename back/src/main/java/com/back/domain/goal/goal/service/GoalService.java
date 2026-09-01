@@ -2,6 +2,7 @@ package com.back.domain.goal.goal.service;
 
 import com.back.domain.goal.goal.dtos.GoalDto;
 import com.back.domain.goal.goal.entity.Goal;
+import com.back.domain.goal.goal.entity.GoalSource;
 import com.back.domain.goal.goal.entity.GoalStatus;
 import com.back.domain.goal.goal.entity.GoalType;
 import com.back.domain.goal.goal.entity.PersonalChecklist;
@@ -12,6 +13,8 @@ import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -84,6 +87,22 @@ public class GoalService {
                 spec.memo(),
                 spec.targetDate()
         );
+    }
+
+    /**
+     * 내 성취 목록. 상태·타입·출처 필터는 셋 다 선택이며, 값을 넘기지 않으면 조건에서 빠진다(기획서 9.4).
+     * 본인 것만 돌려주므로 소유자 검증이 따로 필요 없다 - 조회 자체를 owner 로 건다.
+     */
+    public Page<GoalDto> getMyGoals(
+            Member owner,
+            GoalStatus status,
+            GoalType type,
+            GoalSource source,
+            Pageable pageable
+    ) {
+        return goalRepository
+                .findAllByOwnerWithFilters(owner, status, type, source, pageable)
+                .map(GoalDto::new);
     }
 
     /**
