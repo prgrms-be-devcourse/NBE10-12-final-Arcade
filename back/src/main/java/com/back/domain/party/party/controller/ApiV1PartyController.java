@@ -203,4 +203,17 @@ public class ApiV1PartyController {
                 partyDto
         );
     }
+
+    @PostMapping("/{party-id}/complete")
+    public RsData<PartyDto> complete(
+            @PathVariable("party-id") long partyId
+    ) {
+        PartyDto partyDto = partyLifecycleService.complete(partyId, rq.getActorFromDb());
+
+        return new RsData<>(
+                "200-1",
+                "파티 완료 처리 성공",
+                partyDto
+        );
+    }
 }

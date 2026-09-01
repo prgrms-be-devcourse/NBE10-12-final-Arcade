@@ -167,4 +167,11 @@ public class Party extends BaseEntity {
         }
         this.status = PartyStatus.IN_PROGRESS;
     }
+
+    public void complete() {
+        if (this.status != PartyStatus.IN_PROGRESS) {
+            throw new ServiceException("409-1", "IN_PROGRESS 상태의 파티만 완료 처리할 수 있습니다.");
+        }
+        this.status = PartyStatus.COMPLETED;
+    }
 }
