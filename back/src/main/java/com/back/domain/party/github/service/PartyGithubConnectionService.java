@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.security.SecureRandom;
+import java.net.URI;
 import java.util.Base64;
 import java.util.Locale;
 
@@ -41,7 +42,7 @@ public class PartyGithubConnectionService {
     private String appSlug;
 
     @Transactional
-    public GithubAppInstallUrlDto beginInstall(long partyId, Member actor) {
+    public GithubAppInstallUrlDto beginInstall(long partyId, Member actor, String redirectUrl) {
         Party party = partyRepository
                 .findById(partyId)
                 .orElseThrow(() ->
@@ -64,14 +65,15 @@ public class PartyGithubConnectionService {
         }
 
         String state = randomState();
+        String redirectPath = normalizeRedirectPath(redirectUrl);
 
         installStateRepository
                 .findByPartyId(partyId)
                 .ifPresentOrElse(
-            existing -> existing.renew(state),
+            existing -> existing.renew(state, redirectPath),
                         () -> installStateRepository
                                 .save(new GithubAppInstallState(
-                                        party, actor, state))
+                                        party, actor, state, redirectPath))
         );
 
         PartyGithubConnection connection =
@@ -92,7 +94,7 @@ public class PartyGithubConnectionService {
     }
 
     @Transactional
-    public void completeInstall(String state, long installationId) {
+    public InstallCompletion completeInstall(String state, long installationId) {
         GithubAppInstallState installState =
                 installStateRepository
                         .findByState(state)
@@ -143,6 +145,7 @@ public class PartyGithubConnectionService {
 
             connection.activate();
             installState.consume();
+            return new InstallCompletion(party.getId(), installState.getRedirectPath());
 
         } catch (RestClientResponseException e) {
             if (e.getStatusCode().value() == 401 || e.getStatusCode().value() == 404) {
@@ -204,4 +207,20 @@ public class PartyGithubConnectionService {
                 .withoutPadding()
                 .encodeToString(bytes);
     }
+
+    private String normalizeRedirectPath(String redirectUrl) {
+        if (redirectUrl == null || redirectUrl.isBlank()) return null;
+
+        try {
+            URI uri = URI.create(redirectUrl);
+            if (uri.isAbsolute() || uri.getRawAuthority() != null || !redirectUrl.startsWith("/") || redirectUrl.startsWith("//")) {
+                throw new IllegalArgumentException();
+            }
+            return redirectUrl;
+        } catch (IllegalArgumentException e) {
+            throw new ServiceException("400-22", "GITHUB_APP_REDIRECT_URL_INVALID");
+        }
+    }
+
+    public record InstallCompletion(long partyId, String redirectPath) {}
 }

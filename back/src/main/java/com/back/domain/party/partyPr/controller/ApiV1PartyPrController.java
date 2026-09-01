@@ -9,6 +9,7 @@ import com.back.domain.party.github.dto.GithubAppInstallUrlDto;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.net.URI;
 import java.util.List;
 
 @RestController
@@ -31,14 +33,20 @@ public class ApiV1PartyPrController {
     private final GithubWebhookService githubWebhookService;
     private final Rq rq;
 
+    @Value("${custom.frontend.base-url:/}")
+    private String frontendBaseUrl;
+
     @GetMapping("/parties/{partyId}/github-connection")
     public RsData<PartyGithubConnectionDto> getGithubConnection(@PathVariable long partyId) {
         return new RsData<>("200-1", "GitHub 연결 상태 조회 성공", githubConnectionService.getStatus(partyId));
     }
 
     @PostMapping("/parties/{partyId}/github-app/install")
-    public RsData<GithubAppInstallUrlDto> installGithubApp(@PathVariable long partyId) {
-        return new RsData<>("200-1", "GitHub App 설치 URL 생성 성공", githubConnectionService.beginInstall(partyId, rq.getActorFromDb()));
+    public RsData<GithubAppInstallUrlDto> installGithubApp(
+            @PathVariable long partyId,
+            @RequestParam(required = false) String redirectUrl
+    ) {
+        return new RsData<>("200-1", "GitHub App 설치 URL 생성 성공", githubConnectionService.beginInstall(partyId, rq.getActorFromDb(), redirectUrl));
     }
 
     @GetMapping("/github-app/setup")
@@ -46,8 +54,19 @@ public class ApiV1PartyPrController {
         @RequestParam String state,
         @RequestParam(name = "installation_id") long installationId
     ) {
-        githubConnectionService.completeInstall(state, installationId);
-        return ResponseEntity.noContent().build();
+        PartyGithubConnectionService.InstallCompletion completion = githubConnectionService.completeInstall(state, installationId);
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(redirectUri(completion))
+                .build();
+    }
+
+    private URI redirectUri(PartyGithubConnectionService.InstallCompletion completion) {
+        String redirectPath = completion.redirectPath() == null
+                ? "/parties/" + completion.partyId()
+                : completion.redirectPath();
+        String baseUrl = frontendBaseUrl.endsWith("/") ? frontendBaseUrl : frontendBaseUrl + "/";
+
+        return URI.create(baseUrl).resolve(redirectPath.substring(1));
     }
 
     @GetMapping("/parties/{partyId}/pull-requests")

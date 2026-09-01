@@ -50,6 +50,8 @@ logging:
     org.hibernate.orm.jdbc.extract: TRACE
     org.springframework.transaction.interceptor: TRACE
 custom:
+  frontend:
+    base-url: ${CUSTOM__FRONTEND__BASE_URL:/}
   jwt:
     secretKey: ${CUSTOM__JWT__SECRET_KEY}
   accessToken:

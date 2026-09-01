@@ -29,13 +29,18 @@ public class GithubAppInstallState extends BaseEntity {
 
     @Column(nullable = false, unique = true, length = 128)
     private String state;
+
+    @Column(length = 2048)
+    private String redirectPath;
+
     private LocalDateTime expiresAt;
     private LocalDateTime consumedAt;
 
-    public GithubAppInstallState(Party party, Member requestedBy, String state) {
+    public GithubAppInstallState(Party party, Member requestedBy, String state, String redirectPath) {
         this.party = party;
         this.requestedBy = requestedBy;
         this.state = state;
+        this.redirectPath = redirectPath;
         this.expiresAt = LocalDateTime.now().plusMinutes(15);
     }
 
@@ -43,8 +48,9 @@ public class GithubAppInstallState extends BaseEntity {
         return consumedAt == null && expiresAt.isAfter(LocalDateTime.now());
     }
 
-    public void renew(String state) {
+    public void renew(String state, String redirectPath) {
         this.state = state;
+        this.redirectPath = redirectPath;
         this.expiresAt = LocalDateTime.now().plusMinutes(15);
         this.consumedAt = null;
     }

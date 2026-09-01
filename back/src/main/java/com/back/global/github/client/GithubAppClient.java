@@ -115,13 +115,17 @@ public class GithubAppClient {
 
     private PrivateKey privateKey() {
         try {
+            boolean pkcs1 = privateKeyPem.contains("-----BEGIN RSA ")
+                    && privateKeyPem.contains("PRIVATE KEY-----");
             String value = privateKeyPem
                     .replace("\\n", "\n")
                     .replaceAll("-----BEGIN (?:RSA )?PRIVATE KEY-----|-----END (?:RSA )?PRIVATE KEY-----|\\s", "");
+            byte[] keyBytes = Base64.getDecoder().decode(value);
+
             return KeyFactory.getInstance("RSA")
                     .generatePrivate(
                             new PKCS8EncodedKeySpec(
-                                    Base64.getDecoder().decode(value)
+                                    pkcs1 ? pkcs1ToPkcs8(keyBytes) : keyBytes
                             )
                     );
 
@@ -129,6 +133,51 @@ public class GithubAppClient {
             throw new IllegalStateException(
                     "GitHub App private key를 읽을 수 없습니다.", e);
         }
+    }
+
+    /** PKCS#1 RSA 개인키를 PKCS#8 PrivateKeyInfo DER 구조로 감싼다. */
+    private byte[] pkcs1ToPkcs8(byte[] pkcs1) {
+        byte[] version = {0x02, 0x01, 0x00};
+        byte[] rsaAlgorithmIdentifier = {
+                0x30, 0x0D,
+                0x06, 0x09, 0x2A, (byte) 0x86, 0x48, (byte) 0x86, (byte) 0xF7, 0x0D, 0x01, 0x01, 0x01,
+                0x05, 0x00
+        };
+        byte[] privateKey = derValue((byte) 0x04, pkcs1);
+        byte[] body = new byte[version.length + rsaAlgorithmIdentifier.length + privateKey.length];
+
+        System.arraycopy(version, 0, body, 0, version.length);
+        System.arraycopy(rsaAlgorithmIdentifier, 0, body, version.length, rsaAlgorithmIdentifier.length);
+        System.arraycopy(privateKey, 0, body, version.length + rsaAlgorithmIdentifier.length, privateKey.length);
+
+        return derValue((byte) 0x30, body);
+    }
+
+    private byte[] derValue(byte tag, byte[] value) {
+        byte[] length = derLength(value.length);
+        byte[] result = new byte[1 + length.length + value.length];
+
+        result[0] = tag;
+        System.arraycopy(length, 0, result, 1, length.length);
+        System.arraycopy(value, 0, result, 1 + length.length, value.length);
+
+        return result;
+    }
+
+    private byte[] derLength(int length) {
+        if (length < 128) return new byte[]{(byte) length};
+
+        int bytes = 0;
+        for (int remaining = length; remaining > 0; remaining >>>= 8) bytes++;
+
+        byte[] result = new byte[bytes + 1];
+        result[0] = (byte) (0x80 | bytes);
+        for (int index = bytes; index > 0; index--) {
+            result[index] = (byte) (length & 0xFF);
+            length >>>= 8;
+        }
+
+        return result;
     }
 
     public record Repository(long id, String fullName) {}
