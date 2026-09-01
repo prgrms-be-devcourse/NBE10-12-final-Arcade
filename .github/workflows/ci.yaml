@@ -124,15 +124,6 @@ jobs:
           path: back/build/reports/tests/test/
           retention-days: 1
 
-      # 커버리지가 낮은 지점 확인용
-      - name: Upload coverage report
-        if: always()
-        uses: actions/upload-artifact@v5
-        with:
-          name: backend-coverage-report
-          path: back/build/reports/jacoco/test/html/
-          retention-days: 1
-
   frontend:
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
