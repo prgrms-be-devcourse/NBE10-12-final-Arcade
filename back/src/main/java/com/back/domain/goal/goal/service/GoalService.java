@@ -1,5 +1,9 @@
 package com.back.domain.goal.goal.service;
 
+import com.back.domain.goal.goal.dtos.AssembledMemberDto;
+import com.back.domain.goal.goal.dtos.GoalCreateReqBody;
+import com.back.domain.goal.goal.dtos.GoalDetailReqBody;
+import com.back.domain.goal.goal.dtos.GoalUpdateReqBody;
 import com.back.domain.goal.goal.dtos.GoalDetailResponseDto;
 import com.back.domain.goal.goal.dtos.GoalDto;
 import com.back.domain.goal.goal.dtos.ProjectContextDto;
@@ -27,7 +31,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -42,89 +48,54 @@ public class GoalService {
     private final PartyMemberRepository partyMemberRepository;
     private final PartyPrRepository partyPrRepository;
 
-    // 자기신고 등록 요청. 타입별로 쓰이는 필드가 달라 한 record로 받고 서비스에서 타입별 검증을 한다.
-    public record SelfReportedSpec(
-            GoalType type,
-            GoalStatus status,
-            String contestName,
-            Boolean isTeam,
-            String result,
-            LocalDate awardDate,
-            String contestUrl,
-            String evidenceFileName,
-            String evidenceMimeType,
-            Long evidenceSize,
-            String title,
-            String memo,
-            LocalDate targetDate
-    ) { }
-
-    /**
-     * 성취 수정 요청. 등록과 달리 type 이 없다 - 이미 정해진 타입의 내용만 고친다.
-     * status 와 detail 은 각각 생략할 수 있고, 생략하면 그 부분은 손대지 않는다.
-     */
-    public record UpdateSpec(
-            GoalStatus status,
-            boolean detailPresent,
-            String contestName,
-            Boolean isTeam,
-            String result,
-            LocalDate awardDate,
-            String contestUrl,
-            String evidenceFileName,
-            String evidenceMimeType,
-            Long evidenceSize,
-            String title,
-            String memo,
-            LocalDate targetDate
-    ) { }
-
     @Transactional
-    public GoalDto createSelfReported(Member owner, SelfReportedSpec spec) {
-        Goal goal = switch (spec.type()) {
+    public GoalDto createSelfReported(Member owner, GoalCreateReqBody request) {
+        GoalDetailReqBody detail = request.detail();
+
+        Goal goal = switch (request.type()) {
             // PROJECT는 파티 확정 시 시스템이 만드는 전용 타입이라 자기신고 경로를 열지 않는다(3.6).
             // 개인 사이드 프로젝트를 남기고 싶으면 CHECKLIST를 쓴다.
             case PROJECT -> throw new ServiceException(
                     "400-4",
                     "프로젝트 성취는 파티 확정 시 자동으로 생성되므로 직접 등록할 수 없습니다."
             );
-            case CONTEST -> createPersonalContest(owner, spec);
-            case CHECKLIST -> createPersonalChecklist(owner, spec);
+            case CONTEST -> createPersonalContest(owner, request.status(), detail);
+            case CHECKLIST -> createPersonalChecklist(owner, request.status(), detail);
         };
 
         return new GoalDto(goalRepository.save(goal));
     }
 
-    private PersonalContest createPersonalContest(Member owner, SelfReportedSpec spec) {
-        if (isBlank(spec.contestName())) {
+    private PersonalContest createPersonalContest(Member owner, GoalStatus status, GoalDetailReqBody detail) {
+        if (isBlank(detail.contestName())) {
             throw new ServiceException("400-4", "대회명을 입력해주세요.");
         }
 
         PersonalContest contest = new PersonalContest(
                 owner,
-                spec.status(),
-                spec.contestName(),
-                Boolean.TRUE.equals(spec.isTeam()),
-                spec.result(),
-                spec.awardDate(),
-                spec.contestUrl()
+                status,
+                detail.contestName(),
+                Boolean.TRUE.equals(detail.isTeam()),
+                detail.result(),
+                detail.awardDate(),
+                detail.contestUrl()
         );
-        contest.updateEvidenceMetadata(spec.evidenceFileName(), spec.evidenceMimeType(), spec.evidenceSize());
+        contest.updateEvidenceMetadata(detail.evidenceFileName(), detail.evidenceMimeType(), detail.evidenceSize());
 
         return contest;
     }
 
-    private PersonalChecklist createPersonalChecklist(Member owner, SelfReportedSpec spec) {
-        if (isBlank(spec.title())) {
+    private PersonalChecklist createPersonalChecklist(Member owner, GoalStatus status, GoalDetailReqBody detail) {
+        if (isBlank(detail.title())) {
             throw new ServiceException("400-4", "목표 제목을 입력해주세요.");
         }
 
         return new PersonalChecklist(
                 owner,
-                spec.status(),
-                spec.title(),
-                spec.memo(),
-                spec.targetDate()
+                status,
+                detail.title(),
+                detail.memo(),
+                detail.targetDate()
         );
     }
 
@@ -213,18 +184,19 @@ public class GoalService {
      * - 400-4 : 타입별 필수 필드 누락
      */
     @Transactional
-    public GoalDto updateSelfReported(Member actor, long goalId, UpdateSpec spec) {
+    public GoalDto updateSelfReported(Member actor, long goalId, GoalUpdateReqBody request) {
         Goal goal = findGoal(goalId);
 
         goal.checkOwnedBy(actor);
         goal.checkModifiable();
 
-        if (spec.status() != null) {
-            goal.changeStatus(spec.status());
+        if (request.status() != null) {
+            goal.changeStatus(request.status());
         }
 
-        if (spec.detailPresent()) {
-            updateDetail(goal, spec);
+        // detail 을 아예 넘기지 않으면 내용은 건드리지 않는다. 넘겼다면 그 타입의 세부 정보를 통째로 교체한다.
+        if (request.detail() != null) {
+            updateDetail(goal, request.detail());
         }
 
         // 변경분을 먼저 내보내야 @LastModifiedDate 가 찍힌다.
@@ -234,30 +206,30 @@ public class GoalService {
         return new GoalDto(goal);
     }
 
-    private void updateDetail(Goal goal, UpdateSpec spec) {
+    private void updateDetail(Goal goal, GoalDetailReqBody detail) {
         // 자기신고 성취는 CONTEST/CHECKLIST 둘뿐이다. PROJECT 는 위 checkModifiable() 에서 이미 걸러졌다.
         if (goal instanceof PersonalContest contest) {
-            if (isBlank(spec.contestName())) {
+            if (isBlank(detail.contestName())) {
                 throw new ServiceException("400-4", "대회명을 입력해주세요.");
             }
 
             contest.update(
-                    spec.contestName(),
-                    Boolean.TRUE.equals(spec.isTeam()),
-                    spec.result(),
-                    spec.awardDate(),
-                    spec.contestUrl()
+                    detail.contestName(),
+                    Boolean.TRUE.equals(detail.isTeam()),
+                    detail.result(),
+                    detail.awardDate(),
+                    detail.contestUrl()
             );
-            contest.updateEvidenceMetadata(spec.evidenceFileName(), spec.evidenceMimeType(), spec.evidenceSize());
+            contest.updateEvidenceMetadata(detail.evidenceFileName(), detail.evidenceMimeType(), detail.evidenceSize());
             return;
         }
 
         if (goal instanceof PersonalChecklist checklist) {
-            if (isBlank(spec.title())) {
+            if (isBlank(detail.title())) {
                 throw new ServiceException("400-4", "목표 제목을 입력해주세요.");
             }
 
-            checklist.update(spec.title(), spec.memo(), spec.targetDate());
+            checklist.update(detail.title(), detail.memo(), detail.targetDate());
             return;
         }
 
@@ -292,30 +264,53 @@ public class GoalService {
      * 파티 트랜잭션이 커밋된 뒤 별도 트랜잭션에서 실행되므로, 여기서 실패해도 파티 마감 자체는 되돌아가지 않는다.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void createProjectsForAssembledParty(long partyId, List<Long> memberIds, LocalDate assembledAt) {
-        List<Member> members = memberRepository.findAllById(memberIds);
+    public void createProjectsForAssembledParty(
+            long partyId,
+            List<AssembledMemberDto> assembledMembers,
+            LocalDate assembledAt
+    ) {
+        Map<Long, Member> membersById = memberRepository
+                .findAllById(assembledMembers.stream().map(AssembledMemberDto::memberId).toList())
+                .stream()
+                .collect(Collectors.toMap(Member::getId, member -> member));
 
         // 이미 이 파티의 성취가 만들어진 사람을 한 번에 뽑아두고 메모리에서 거른다 (참여자마다 쿼리를 날리지 않기 위해)
         Set<Long> alreadyCreatedOwnerIds = Set.copyOf(
                 goalRepository.findOwnerIdsBySourcePartyIdAndType(partyId, GoalType.PROJECT)
         );
 
-        List<Project> projects = members.stream()
-                .filter(member -> !alreadyCreatedOwnerIds.contains(member.getId()))
-                .map(member -> new Project(
-                        member,
-                        // partyAssembleToMemberId와 positionType은 현재 이벤트에 실려오지 않아 비워 둔다.
-                        // 파티 도메인 수정(docs/성취-자동생성_파티도메인_수정요청.md ②)이 반영되면 그대로 채워진다.
-                        null,
+        List<Project> projects = assembledMembers.stream()
+                .filter(assembled -> !alreadyCreatedOwnerIds.contains(assembled.memberId()))
+                .filter(assembled -> membersById.containsKey(assembled.memberId()))
+                .map(assembled -> new Project(
+                        membersById.get(assembled.memberId()),
+                        assembled.partyAssembleToMemberId(),
                         partyId,
                         // title은 전시 게시(작업표 34번) 시점에 PARTY_SHOWCASE에서 채운다.
                         null,
-                        null,
+                        assembled.positionType(),
                         assembledAt
                 ))
                 .toList();
 
         goalRepository.saveAll(projects);
+    }
+
+    /**
+     * 파티 완료 이벤트를 받아 그 파티에서 나온 PROJECT 성취를 ACHIEVED로 전이시키고 종료일을 채운다(3.6).
+     *
+     * 생성 때와 같이 파티 트랜잭션이 커밋된 뒤 별도 트랜잭션에서 돈다.
+     * 여기서 실패해도 파티 완료는 되돌아가지 않으므로, 다시 실행해도 안전해야 한다 -
+     * 이미 ACHIEVED인 성취는 건너뛴다. (Project.complete()는 재호출 시 409-2를 던진다.)
+     *
+     * endDate는 이벤트가 실어온 완료 시점을 쓴다. 여기서 now()를 쓰면 재처리할 때마다 값이 달라진다.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void completeProjectsForCompletedParty(long partyId, LocalDate completedAt) {
+        goalRepository.findAllBySourcePartyIdAndType(partyId, GoalType.PROJECT).stream()
+                .filter(goal -> goal.getStatus() != GoalStatus.ACHIEVED)
+                .map(Project.class::cast)
+                .forEach(project -> project.complete(completedAt));
     }
 
     private boolean isBlank(String value) {

@@ -1,5 +1,6 @@
 package com.back.domain.goal.goal.event;
 
+import com.back.domain.goal.goal.dtos.AssembledMemberDto;
 import com.back.domain.goal.goal.service.GoalService;
 import com.back.domain.party.party.event.PartyAssembledEvent;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +29,7 @@ public class PartyAssembledEventListener {
         goalService.createProjectsForAssembledParty(
                 event.partyId(),
                 event.approvedMembers().stream()
-                        .map(member -> new GoalService.AssembledMember(
+                        .map(member -> new AssembledMemberDto(
                                 member.memberId(),
                                 member.partyAssembleToMemberId(),
                                 member.positionType()
