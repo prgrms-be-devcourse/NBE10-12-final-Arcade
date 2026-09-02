@@ -224,12 +224,13 @@ export function evidenceFilesOf(detail: GoalDetailFields): EvidenceFileFields[] 
   ];
 }
 
-/** 파일 크기 표기. 서버는 바이트로 주고받는다 */
+/** 파일 크기 표기. 서버는 바이트로 주고받는다. 딱 떨어지면 소수점을 붙이지 않는다(10.0MB → 10MB) */
 export function formatFileSize(size?: number): string {
   if (size == null) return '';
   if (size < 1024) return `${size}B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)}KB`;
-  return `${(size / 1024 / 1024).toFixed(1)}MB`;
+  const round = (value: number) => value.toFixed(1).replace(/\.0$/, '');
+  if (size < 1024 * 1024) return `${round(size / 1024)}KB`;
+  return `${round(size / 1024 / 1024)}MB`;
 }
 
 /** yyyy-MM-dd 또는 ISO 문자열에서 연도만 뽑는다 */

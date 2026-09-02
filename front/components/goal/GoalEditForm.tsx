@@ -32,6 +32,26 @@ interface EvidenceFile {
   file?: File;
 }
 
+/**
+ * 증빙으로 받는 형식 — 수상 확인서(PDF)와 결과 발표 화면 캡처(PNG·JPG).
+ * 서버에 업로드 API(⑤-5)가 붙으면 거기서도 같은 규칙을 검증해야 한다. 여기 검사는 1차 안내일 뿐이다.
+ */
+const EVIDENCE_MIME_TYPES = ['image/png', 'image/jpeg', 'application/pdf'];
+const EVIDENCE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.pdf'];
+
+/** 파일 하나당 크기 상한. 스캔한 확인서·화면 캡처는 보통 몇 MB 안쪽이라 10MB면 넉넉하다 */
+const EVIDENCE_MAX_SIZE = 10 * 1024 * 1024;
+
+/** 한 성취에 담을 수 있는 증빙 개수 */
+const EVIDENCE_MAX_COUNT = 5;
+
+/** 허용 형식인지 본다. 브라우저가 type 을 비워 보내는 경우가 있어 그때는 확장자로 판단한다 */
+function isAllowedType(file: File): boolean {
+  if (file.type) return EVIDENCE_MIME_TYPES.includes(file.type);
+  const name = file.name.toLowerCase();
+  return EVIDENCE_EXTENSIONS.some((extension) => name.endsWith(extension));
+}
+
 /** 이름과 크기가 같으면 같은 파일로 본다 — 같은 걸 두 번 고르는 실수를 거른다 */
 function isSameFile(a: EvidenceFile, b: EvidenceFile): boolean {
   return a.name === b.name && a.size === b.size;
@@ -91,6 +111,8 @@ export function GoalEditForm({ goal }: { goal: GoalDetailResponse }) {
       size: file.size,
     })),
   );
+  // 형식·용량·개수에 걸려 못 담은 파일의 사유. 담기지 않았을 뿐이라 저장을 막지는 않는다
+  const [evidenceError, setEvidenceError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // CHECKLIST
@@ -106,22 +128,46 @@ export function GoalEditForm({ goal }: { goal: GoalDetailResponse }) {
 
   const addFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const picked: EvidenceFile[] = Array.from(files).map((file) => ({
-      name: file.name,
-      type: file.type || undefined,
-      size: file.size,
-      // 업로드 API 가 붙으면 이 File 을 그대로 올린다. 메타데이터만 남기면 올릴 실체가 없어진다
-      file,
-    }));
-    // 이미 목록에 있는 파일은 다시 넣지 않는다
-    setEvidence((prev) => [
-      ...prev,
-      ...picked.filter((file) => !prev.some((item) => isSameFile(item, file))),
-    ]);
+
+    const problems: string[] = [];
+    const picked: EvidenceFile[] = [];
+
+    for (const file of Array.from(files)) {
+      if (!isAllowedType(file)) {
+        problems.push(`${file.name} — PNG·JPG·PDF 만 올릴 수 있어요`);
+        continue;
+      }
+      if (file.size > EVIDENCE_MAX_SIZE) {
+        problems.push(`${file.name} — 파일 하나는 ${formatFileSize(EVIDENCE_MAX_SIZE)} 까지예요`);
+        continue;
+      }
+
+      const next: EvidenceFile = {
+        name: file.name,
+        type: file.type || undefined,
+        size: file.size,
+        // 업로드 API 가 붙으면 이 File 을 그대로 올린다. 메타데이터만 남기면 올릴 실체가 없어진다
+        file,
+      };
+      // 이미 목록에 있거나 이번에 같이 고른 파일은 한 번만 남긴다
+      const already = [...evidence, ...picked].some((item) => isSameFile(item, next));
+      if (!already) picked.push(next);
+    }
+
+    // 남은 자리보다 많이 골랐으면 자리가 차는 데까지만 담는다
+    const room = Math.max(EVIDENCE_MAX_COUNT - evidence.length, 0);
+    if (picked.length > room) {
+      problems.push(`증빙은 최대 ${EVIDENCE_MAX_COUNT}개까지 올릴 수 있어요`);
+    }
+
+    setEvidence([...evidence, ...picked.slice(0, room)]);
+    setEvidenceError(problems.join(' · '));
   };
 
   const removeFileAt = (index: number) => {
     setEvidence((prev) => prev.filter((_, at) => at !== index));
+    // 자리를 비웠으니 개수 안내는 더 이상 맞지 않는다
+    setEvidenceError('');
   };
 
   // 서버가 타입별로 요구하는 필수 항목과 같은 규칙 (400-4)
@@ -264,7 +310,10 @@ export function GoalEditForm({ goal }: { goal: GoalDetailResponse }) {
           </FormRow>
           <FormGroup
             label="증빙 자료"
-            hint="수상 확인서·결과 발표 화면처럼 수상을 확인할 수 있는 파일이에요. 여러 개 올릴 수 있어요."
+            hint={`수상 확인서·결과 발표 화면처럼 수상을 확인할 수 있는 파일이에요. PNG·JPG·PDF 를 파일당 ${formatFileSize(
+              EVIDENCE_MAX_SIZE,
+            )}, 최대 ${EVIDENCE_MAX_COUNT}개까지 올릴 수 있어요.`}
+            error={evidenceError}
           >
             {evidence.length > 0 ? (
               <ul className="goal-evidence-list">
@@ -293,16 +342,23 @@ export function GoalEditForm({ goal }: { goal: GoalDetailResponse }) {
               </p>
             ) : null}
 
-            <button type="button" className="editor-add" onClick={() => fileInputRef.current?.click()}>
+            <button
+              type="button"
+              className="editor-add"
+              disabled={evidence.length >= EVIDENCE_MAX_COUNT}
+              onClick={() => fileInputRef.current?.click()}
+            >
               <Icon name="i-plus" />
-              증빙 파일 추가
+              {evidence.length >= EVIDENCE_MAX_COUNT
+                ? `증빙은 ${EVIDENCE_MAX_COUNT}개까지예요`
+                : '증빙 파일 추가'}
             </button>
             <input
               ref={fileInputRef}
               type="file"
               multiple
               hidden
-              accept="image/png,image/jpeg,application/pdf"
+              accept={EVIDENCE_MIME_TYPES.join(',')}
               onChange={(event) => {
                 addFiles(event.target.files);
                 // 같은 파일을 다시 고를 수 있게 비워둔다

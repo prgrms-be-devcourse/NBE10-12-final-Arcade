@@ -1523,6 +1523,8 @@ button.party-mini:hover{border-color:var(--accent);}
   font-size:.82rem;font-weight:800;color:var(--text-dim);cursor:pointer;
 }
 .editor-add:hover{border-color:var(--accent);color:var(--accent);}
+.editor-add:disabled{opacity:.4;cursor:not-allowed;}
+.editor-add:disabled:hover{border-color:var(--border-strong);color:var(--text-dim);}
 .editor-add svg{width:0.8125rem;height:0.8125rem;}
 
 /* ===== 개인 TODO 탭 ===== */
