@@ -26,7 +26,7 @@ public class ApiV1PartyShowcaseController {
     public RsData<PartyShowcaseDto> getDraft(
             @PathVariable long partyId
     ) {
-        PartyShowcaseDto dto = partyShowcaseService.getDraft(partyId);
+        PartyShowcaseDto dto = partyShowcaseService.getDraft(partyId, rq.getActorFromDb());
 
         return new RsData<>(
                 "200-1",

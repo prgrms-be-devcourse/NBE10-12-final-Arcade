@@ -3,6 +3,8 @@ package com.back.domain.party.showcase.controller;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.member.repository.MemberRepository;
+import com.back.domain.party.application.entity.PartyMember;
+import com.back.domain.party.application.repository.PartyMemberRepository;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
@@ -43,6 +45,9 @@ public class ApiV1PartyShowcaseControllerTest {
 
     @Autowired
     private PartyRepository partyRepository;
+
+    @Autowired
+    private PartyMemberRepository partyMemberRepository;
 
     @Autowired
     private PartyShowcaseRepository partyShowcaseRepository;
@@ -104,6 +109,53 @@ public class ApiV1PartyShowcaseControllerTest {
 
         resultActions.andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.resultCode").value("404-1"));
+    }
+
+    @Test
+    @DisplayName("전시 초안 조회: 게시 전이고 파티원도 아니면 403-1이다")
+    @WithUserDetails("user1@test.com")
+    void getDraftBeforePublishAsNonMember() throws Exception {
+        Party party = saveParty("user2@test.com"); // user1은 이 파티랑 무관
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/" + party.getId() + "/showcase"));
+
+        resultActions.andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.resultCode").value("403-1"));
+    }
+
+    @Test
+    @DisplayName("전시 초안 조회: 게시 전이어도 승인된 파티원이면 조회할 수 있다")
+    @WithUserDetails("user2@test.com")
+    void getDraftBeforePublishAsApprovedMember() throws Exception {
+        Party party = saveParty("user1@test.com");
+        Position position = party.getPositions().get(0);
+        Member approvedMember = memberRepository.findByEmail("user2@test.com").orElseThrow();
+        PartyMember partyMember = new PartyMember(party, approvedMember, position, null);
+        partyMember.approve();
+        partyMemberRepository.save(partyMember);
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/" + party.getId() + "/showcase"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.resultCode").value("200-1"));
+    }
+
+    @Test
+    @DisplayName("전시 초안 조회: 이미 게시됐으면 파티원이 아니어도 볼 수 있다")
+    @WithUserDetails("user1@test.com")
+    void getDraftAfterPublishAsNonMember() throws Exception {
+        Party party = saveParty("user2@test.com");
+
+        // api 호출자가 파티장이어야 하는 제약 때문에 user2로 게시된 상태를 리포지토리로 직접 만든다
+        PartyShowcase showcase = new PartyShowcase(party);
+        showcase.publish("정산 자동화 API", "설명");
+        partyShowcaseRepository.save(showcase);
+
+        // 파티랑 무관한 사람이 조회, 공개 게시물이라 통과해야 함
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/" + party.getId() + "/showcase"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.published").value(true));
     }
 
     @Test
@@ -206,11 +258,10 @@ public class ApiV1PartyShowcaseControllerTest {
     @WithUserDetails("user1@test.com")
     void getTop3ExcludesUnpublished() throws Exception {
         Party party = saveParty("user1@test.com");
-        // 게시하지 않고 그대로 둠
-
         ResultActions resultActions = mvc.perform(get("/api/v1/parties/showcase/top3"));
 
         resultActions.andExpect(status().isOk());
+        // 정확한 개수 대신 포함 여부만 확인
         resultActions.andExpect(jsonPath("$.data[?(@.partyId == " + party.getId() + ")]").doesNotExist());
     }
 

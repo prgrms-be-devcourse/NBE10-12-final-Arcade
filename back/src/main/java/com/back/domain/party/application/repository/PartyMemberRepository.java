@@ -2,6 +2,7 @@ package com.back.domain.party.application.repository;
 
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.party.application.entity.PartyMember;
+import com.back.domain.party.application.entity.PartyMemberStatus;
 import com.back.domain.party.party.entity.Party;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -20,4 +21,7 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
 
     @EntityGraph(attributePaths = {"member", "position"})
     List<PartyMember> findAllByParty(Party party);
+
+    boolean existsByPartyAndMemberAndStatus(Party party, Member member, PartyMemberStatus status);
+
 }

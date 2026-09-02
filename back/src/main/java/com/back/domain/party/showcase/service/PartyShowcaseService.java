@@ -30,9 +30,14 @@ public class PartyShowcaseService {
     private final PartyPrRepository partyPrRepository;
     private final ApplicationEventPublisher eventPublisher;
 
-    public PartyShowcaseDto getDraft(long partyId) {
+    public PartyShowcaseDto getDraft(long partyId, Member actor) {
         Party party = findPartyOrThrow(partyId);
         PartyShowcase showcase = partyShowcaseRepository.findByParty(party).orElse(null);
+
+        if (showcase == null || !showcase.isPublished()) {
+            checkViewableAsDraft(party, actor);
+        }
+
         return toDto(party, showcase);
     }
 
@@ -98,5 +103,16 @@ public class PartyShowcaseService {
     private Party findPartyOrThrow(long partyId) {
         return partyRepository.findById(partyId)
                 .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 파티입니다."));
+    }
+
+    private void checkViewableAsDraft(Party party, Member actor) {
+        if (party.isOwnedBy(actor)) {
+            return;
+        }
+        boolean isApprovedMember = partyMemberRepository
+                .existsByPartyAndMemberAndStatus(party, actor, PartyMemberStatus.APPROVED);
+        if (!isApprovedMember) {
+            throw new ServiceException("403-1", "게시되지 않은 전시는 파티원만 미리 볼 수 있습니다.");
+        }
     }
 }
