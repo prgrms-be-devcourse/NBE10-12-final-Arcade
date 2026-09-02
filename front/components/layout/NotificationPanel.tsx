@@ -4,12 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon, type IconName } from '@/components/icons/Icon';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
-import {
-  deleteNotifications,
-  fetchNotifications,
-  markAllNotificationsRead,
-  markNotificationRead,
-} from '@/lib/api';
+import { deleteNotifications, fetchNotifications, markNotificationsRead } from '@/lib/api';
 import type { AppNotification, NotificationTarget, NotificationType } from '@/lib/types';
 
 const NOTIF_ICONS: Record<NotificationType, IconName> = {
@@ -63,9 +58,21 @@ export function NotificationPanel() {
   const toggleOne = (id: string) =>
     setSelected((prev) => (prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]));
 
+  /**
+   * PATCH /notifications/read — 서버에 '전체 읽음' 이 따로 없어서 안 읽은 것들의 id 를 모아 보낸다.
+   * 먼저 화면을 바꾸고, 실패하면 되돌린다.
+   */
   const markAll = async () => {
+    const unreadIds = notifications.filter((item) => item.unread).map((item) => item.id);
+    if (unreadIds.length === 0) return;
+
+    const previous = notifications;
     setNotifications((prev) => prev.map((item) => ({ ...item, unread: false })));
-    await markAllNotificationsRead();
+    try {
+      await markNotificationsRead(unreadIds);
+    } catch {
+      setNotifications(previous);
+    }
   };
 
   /** DELETE /notifications { ids: [...] } */
@@ -78,27 +85,47 @@ export function NotificationPanel() {
     if (!ok) return;
 
     const ids = [...selected];
+    const previous = notifications;
     setNotifications((prev) => prev.filter((item) => !ids.includes(item.id)));
     setSelected([]);
-    await deleteNotifications(ids);
+    try {
+      await deleteNotifications(ids);
+    } catch {
+      setNotifications(previous);
+      setSelected(ids);
+    }
   };
 
   const removeOne = async (id: string) => {
     const ok = await confirm({ title: '이 알림을 삭제할까요?' });
     if (!ok) return;
 
+    const previous = notifications;
     setNotifications((prev) => prev.filter((item) => item.id !== id));
     setSelected((prev) => prev.filter((value) => value !== id));
-    await deleteNotifications([id]);
+    try {
+      await deleteNotifications([id]);
+    } catch {
+      setNotifications(previous);
+    }
   };
 
   const openNotification = async (notification: AppNotification) => {
+    setOpen(false);
+    router.push(NOTIF_ROUTES[notification.target]);
+
+    // 이미 읽은 알림은 다시 보내지 않는다. 읽음 처리가 실패해도 이동은 그대로 둔다
+    if (!notification.unread) return;
+
+    const previous = notifications;
     setNotifications((prev) =>
       prev.map((item) => (item.id === notification.id ? { ...item, unread: false } : item)),
     );
-    await markNotificationRead(notification.id);
-    setOpen(false);
-    router.push(NOTIF_ROUTES[notification.target]);
+    try {
+      await markNotificationsRead([notification.id]);
+    } catch {
+      setNotifications(previous);
+    }
   };
 
   return (
