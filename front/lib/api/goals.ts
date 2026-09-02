@@ -194,6 +194,11 @@ export interface GoalDetailPayload {
   memo?: string;
   /** yyyy-MM-dd */
   targetDate?: string;
+  /**
+   * 연결할 개인 TODO. 그 TODO의 할 일 목록이 성취의 진행 과정으로 붙는다. 끊을 땐 null.
+   * [서버 미지원] PersonalChecklist 에 FK 는 있지만 GoalDetailReqBody 에 필드가 아직 없다.
+   */
+  todoId?: number | null;
 }
 
 export interface CreateGoalPayload {
