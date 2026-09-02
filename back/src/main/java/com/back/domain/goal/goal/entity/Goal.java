@@ -97,6 +97,7 @@ public abstract class Goal extends BaseEntity {
         return this.source == GoalSource.PLATFORM_VERIFIED;
     }
 
+    // 수정·삭제만 소유자로 제한한다. 조회는 누구나 볼 수 있다(기획서 9.4).
     public void checkOwnedBy(Member member) {
         if (!isOwnedBy(member)) {
             throw new ServiceException("403-1", "본인 소유의 성취만 수정/삭제할 수 있습니다.");
