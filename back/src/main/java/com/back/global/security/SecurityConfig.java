@@ -36,12 +36,13 @@ public class SecurityConfig {
                         auth -> auth
                                 .requestMatchers(
                                         HttpMethod.GET,
-                                        "/api/*/posts",
-                                        "/api/*/posts/{id:\\d+}",
-                                        "/api/*/posts/{postId:\\d+}/comments",
-                                        "/api/*/posts/{postId:\\d+}/comments/{id:\\d+}",
+                                        "/api/*/members/{id:\\d+}",
+                                        "/api/*/parties/search",
                                         "/api/*/contests",
-                                        "/api/*/contests/{id:\\d+}"
+                                        "/api/*/contests/{id:\\d+}",
+                                        "/api/*/goals/{id:\\d+}",
+                                        "/api/*/goals/{id:\\d+}/checklist",
+                                        "/api/*/showcase/goals"
                                 ).permitAll()
                                 .requestMatchers(
                                         "/api/*/members/login",
