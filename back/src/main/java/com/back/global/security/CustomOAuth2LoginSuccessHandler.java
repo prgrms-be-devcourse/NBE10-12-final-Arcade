@@ -1,6 +1,7 @@
 package com.back.global.security;
 
 import com.back.domain.member.member.entity.Member;
+import com.back.domain.member.member.dtos.MemberLoginDto;
 import com.back.domain.member.member.service.MemberService;
 import com.back.global.rq.Rq;
 import jakarta.servlet.ServletException;
@@ -26,10 +27,10 @@ public class CustomOAuth2LoginSuccessHandler implements AuthenticationSuccessHan
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
         Member actor = rq.getActorFromDb();
 
-        String accessToken = memberService.genAccessToken(actor);
+        MemberLoginDto loginDto = memberService.createLoginDto(actor);
 
-        rq.setCookie("apiKey", actor.getApiKey());
-        rq.setCookie("accessToken", accessToken);
+        rq.setCookie("accessToken", loginDto.accessToken());
+        rq.setCookie("refreshToken", loginDto.refreshToken());
 
         // 기본 리다이렉트 URL
         String redirectUrl = "/";

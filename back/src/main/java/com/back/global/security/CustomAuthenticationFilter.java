@@ -54,13 +54,13 @@ public class CustomAuthenticationFilter extends OncePerRequestFilter {
         }
 
         // 인증, 인가가 필요없는 API 요청이라면 패스
-        if (List.of("/api/v1/members/login", "/api/v1/members/logout", "/api/v1/members/join", "/api/v1/members/refresh").contains(request.getRequestURI())) {
+        if (List.of("/api/v1/members/login", "/api/v1/members/logout", "/api/v1/members/signup", "/api/v1/members/refresh").contains(request.getRequestURI())) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        String apiKey;
         String accessToken;
+        String refreshToken;
 
         String headerAuthorization = rq.getHeader("Authorization", "");
 
@@ -68,50 +68,44 @@ public class CustomAuthenticationFilter extends OncePerRequestFilter {
             if (!headerAuthorization.startsWith("Bearer "))
                 throw new ServiceException("401-2", "Authorization 헤더가 Bearer 형식이 아닙니다.");
 
-            String[] headerAuthorizationBits = headerAuthorization.split(" ", 3);
-
-            apiKey = headerAuthorizationBits[1];
-            accessToken = headerAuthorizationBits.length == 3 ? headerAuthorizationBits[2] : "";
+            accessToken = headerAuthorization.substring("Bearer ".length()).trim();
+            refreshToken = rq.getCookieValue("refreshToken", "");
         } else {
-            apiKey = rq.getCookieValue("apiKey", "");
+            refreshToken = rq.getCookieValue("refreshToken", "");
             accessToken = rq.getCookieValue("accessToken", "");
         }
 
-        logger.debug("apiKey : " + apiKey);
         logger.debug("accessToken : " + accessToken);
+        logger.debug("refreshToken exists : " + !refreshToken.isBlank());
 
-        boolean isApiKeyExists = !apiKey.isBlank();
         boolean isAccessTokenExists = !accessToken.isBlank();
+        boolean isRefreshTokenExists = !refreshToken.isBlank();
 
-        if (!isApiKeyExists && !isAccessTokenExists) {
+        if (!isAccessTokenExists && !isRefreshTokenExists) {
             filterChain.doFilter(request, response);
             return;
         }
 
         Member member = null;
-        boolean isAccessTokenValid = false;
 
         if (isAccessTokenExists) {
             var payload = memberService.payload(accessToken);
 
             if (payload != null) {
                 member = new Member(payload.memberId(), payload.role());
-
-                isAccessTokenValid = true;
             }
         }
 
-        if (member == null) {
-            member = memberService
-                    .findByApiKey(apiKey)
-                    .orElseThrow(() -> new ServiceException("401-3", "API 키가 유효하지 않습니다."));
+        if (member == null && isRefreshTokenExists) {
+            // 동시 요청이 같은 refresh token을 공유하므로, 여기서는 token rotation 없이
+            // access token만 재발급한다. refresh token rotation은 /members/refresh가 담당한다.
+            member = memberService.getMemberByRefreshToken(refreshToken);
+            rq.setCookie("accessToken", memberService.genAccessToken(member));
         }
 
-        if (isAccessTokenExists && !isAccessTokenValid) {
-            String actorAccessToken = memberService.genAccessToken(member);
-
-            rq.setCookie("accessToken", actorAccessToken);
-            rq.setHeader("Authorization", actorAccessToken);
+        if (member == null) {
+            filterChain.doFilter(request, response);
+            return;
         }
 
         UserDetails user = new SecurityUser(
