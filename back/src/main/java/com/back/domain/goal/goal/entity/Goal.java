@@ -68,7 +68,7 @@ public abstract class Goal extends BaseEntity {
     @Column(nullable = false)
     private int viewCount;
 
-    protected Goal(
+    public Goal(
             Member owner,
             GoalType type,
             GoalStatus status,
@@ -118,14 +118,19 @@ public abstract class Goal extends BaseEntity {
 
     // 사용자가 직접 일으키는 상태 전이. 자동기록 성취는 checkModifiable()에서 이미 막힌다.
     public void changeStatus(GoalStatus next) {
+        // 수정 화면은 현재 상태도 선택지로 보여준다. 상태를 그대로 둔 채 내용만 고치는 경우라
+        // 전이 규칙을 적용할 대상이 아니다 (ACHIEVED 성취의 내용 수정도 이 경로로 통과한다).
+        if (next == this.status) return;
+
         if (!this.status.canTransitionTo(next)) {
             throw new ServiceException("409-2", "허용되지 않는 상태 변경입니다.");
         }
         this.status = next;
     }
 
-    // 파티 라이프사이클 이벤트로 시스템이 전이시키는 경로 (자식 엔티티에서만 호출)
-    protected void markAchieved() {
+    // 파티 라이프사이클 이벤트로 시스템이 전이시키는 경로.
+    // changeStatus()의 전이 규칙을 거치지 않으므로 자식 엔티티의 완료 처리(Project.complete())에서만 호출한다.
+    public void markAchieved() {
         this.status = GoalStatus.ACHIEVED;
     }
 }

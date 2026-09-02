@@ -19,6 +19,24 @@ public record GoalDetailReqBody(
         @Schema(description = "[CONTEST] 수상일. 성취 리스트의 연도 그룹핑 기준", example = "2023-11-15")
         LocalDate awardDate,
 
+        @Schema(
+                description = "[CONTEST] 외부 대회의 공고·결과 발표 페이지 주소. 자기신고는 크루온에 없는 대회를 적는 것이라 링크가 유일한 근거다",
+                example = "https://example.com/contest"
+        )
+        String contestUrl,
+
+        @Schema(
+                description = "[CONTEST] 증빙 파일명. 파일 업로드 API가 아직 없어 메타데이터만 기록한다",
+                example = "수상확인서.pdf"
+        )
+        String evidenceFileName,
+
+        @Schema(description = "[CONTEST] 증빙 파일 형식", example = "application/pdf")
+        String evidenceMimeType,
+
+        @Schema(description = "[CONTEST] 증빙 파일 크기(byte)", example = "204800")
+        Long evidenceSize,
+
         @Schema(description = "[CHECKLIST 필수] 목표 제목", example = "정보처리기사 실기 준비")
         String title,
 

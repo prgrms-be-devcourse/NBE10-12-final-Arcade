@@ -76,6 +76,10 @@ public class Party extends BaseEntity {
     @Column(nullable = false)
     private LocalDateTime deadline;
 
+    // 완료 처리 시점. status만 두면 "언제 끝났는지"가 남지 않아, 성취(Project.endDate)가 참조할 값이 없어진다.
+    // PartyCompletedEvent에 실려 나가므로 리스너가 재실행돼도 같은 값이 쓰인다.
+    private LocalDateTime completedAt;
+
     @BatchSize(size = 100)
     @OneToMany(mappedBy = "party", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Position> positions = new ArrayList<>();
@@ -173,5 +177,6 @@ public class Party extends BaseEntity {
             throw new ServiceException("409-1", "IN_PROGRESS 상태의 파티만 완료 처리할 수 있습니다.");
         }
         this.status = PartyStatus.COMPLETED;
+        this.completedAt = LocalDateTime.now();
     }
 }

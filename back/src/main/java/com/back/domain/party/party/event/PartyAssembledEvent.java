@@ -18,13 +18,4 @@ public record PartyAssembledEvent(
             PositionType positionType
     ) {
     }
-
-    // 하위 호환용. 예전엔 이 이벤트가 memberId 리스트만 담고 있었는데 Goal 도메인 코드가 이 필드명을 그대로 쓰고 있어서 새 구조로 넘어가는 동안 컴파일이 깨지지 않도록 예전 접근 방식을 그대로 남겨둔다.
-    // Goal 쪽이 마이그레이션하면 이 메서드는 지워야 함
-    @Deprecated
-    public List<Long> approvedMemberIds() {
-        return approvedMembers.stream()
-                .map(ApprovedMember::memberId)
-                .toList();
-    }
 }

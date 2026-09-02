@@ -47,6 +47,12 @@ dependencies {
     runtimeOnly("com.h2database:h2")
     runtimeOnly("org.postgresql:postgresql")
 
+    // Querydsl (동적 쿼리)
+    implementation("com.querydsl:querydsl-jpa::jakarta")
+    annotationProcessor("com.querydsl:querydsl-apt::jakarta")
+    annotationProcessor("jakarta.annotation:jakarta.annotation-api")
+    annotationProcessor("jakarta.persistence:jakarta.persistence-api")
+
     developmentOnly("org.springframework.boot:spring-boot-devtools")
 
     // Lombok
