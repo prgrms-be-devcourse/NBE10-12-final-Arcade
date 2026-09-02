@@ -7,6 +7,8 @@ import com.back.domain.contest.contest.service.ContestService;
 import com.back.domain.goal.goal.entity.GoalStatus;
 import com.back.domain.goal.goal.entity.GoalType;
 import com.back.domain.goal.goal.service.GoalService;
+import com.back.domain.goal.goal.dtos.GoalCreateReqBody;
+import com.back.domain.goal.goal.dtos.GoalDetailReqBody;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.member.service.MemberService;
@@ -87,11 +89,52 @@ public class DevInitData {
     }
 
     private void createGoals(Member user1, Member user2, Member user3, LocalDate today) {
-        goalService.createSelfReported(user1, new GoalService.SelfReportedSpec(GoalType.CONTEST, GoalStatus.ACHIEVED, "2025 공공데이터 분석 경진대회", true, "우수상", today.minusMonths(3), null, null, null));
-        goalService.createSelfReported(user1, new GoalService.SelfReportedSpec(GoalType.CHECKLIST, GoalStatus.IN_PROGRESS, null, null, null, null, "Spring Boot 성능 최적화", "부하 테스트와 쿼리 튜닝을 실제 프로젝트에 적용하기", today.plusDays(30)));
-        goalService.createSelfReported(user2, new GoalService.SelfReportedSpec(GoalType.CHECKLIST, GoalStatus.WANT, null, null, null, null, "SQLD 자격증 취득", "주 3회 기출문제 풀이", today.plusMonths(2)));
-        goalService.createSelfReported(user2, new GoalService.SelfReportedSpec(GoalType.CONTEST, GoalStatus.HOLD, "지역문제 해결 해커톤", false, "팀원 일정 조율 중", null, null, null, null));
-        goalService.createSelfReported(user3, new GoalService.SelfReportedSpec(GoalType.CHECKLIST, GoalStatus.ACHIEVED, null, null, null, null, "포트폴리오 리뉴얼", "프로젝트 3개와 디자인 시스템 정리 완료", today.minusDays(10)));
+        goalService.createSelfReported(user1, contestGoal(
+                GoalStatus.ACHIEVED, "2025 공공데이터 분석 경진대회", true,
+                "우수상", today.minusMonths(3), "https://example.com/contests/public-data-2025"
+        ));
+        goalService.createSelfReported(user1, checklistGoal(
+                GoalStatus.IN_PROGRESS, "Spring Boot 성능 최적화",
+                "부하 테스트와 쿼리 튜닝을 실제 프로젝트에 적용하기", today.plusDays(30)
+        ));
+        goalService.createSelfReported(user2, checklistGoal(
+                GoalStatus.WANT, "SQLD 자격증 취득", "주 3회 기출문제 풀이", today.plusMonths(2)
+        ));
+        goalService.createSelfReported(user2, contestGoal(
+                GoalStatus.HOLD, "지역문제 해결 해커톤", false,
+                "팀원 일정 조율 중", null, "https://example.com/contests/local-problem"
+        ));
+        goalService.createSelfReported(user3, checklistGoal(
+                GoalStatus.ACHIEVED, "포트폴리오 리뉴얼",
+                "프로젝트 3개와 디자인 시스템 정리 완료", today.minusDays(10)
+        ));
+    }
+
+    private GoalCreateReqBody contestGoal(
+            GoalStatus status, String contestName, boolean isTeam,
+            String result, LocalDate awardDate, String contestUrl
+    ) {
+        return new GoalCreateReqBody(
+                GoalType.CONTEST,
+                status,
+                new GoalDetailReqBody(
+                        contestName, isTeam, result, awardDate, contestUrl,
+                        null, null, null, null, null, null
+                )
+        );
+    }
+
+    private GoalCreateReqBody checklistGoal(
+            GoalStatus status, String title, String memo, LocalDate targetDate
+    ) {
+        return new GoalCreateReqBody(
+                GoalType.CHECKLIST,
+                status,
+                new GoalDetailReqBody(
+                        null, null, null, null, null, null, null, null,
+                        title, memo, targetDate
+                )
+        );
     }
 
     private void createNotifications(Member user1, Member user2, Member user3) {
