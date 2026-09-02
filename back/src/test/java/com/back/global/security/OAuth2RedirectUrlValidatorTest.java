@@ -21,4 +21,12 @@ class OAuth2RedirectUrlValidatorTest {
         assertThat(validator.getSafeRedirectUrl("/https://evil.com"))
                 .isEqualTo("https://frontend.example/");
     }
+
+    @Test
+    void allowsFrontendOriginWithExplicitDefaultPort() {
+        OAuth2RedirectUrlValidator validator = new OAuth2RedirectUrlValidator("https://example.com");
+
+        assertThat(validator.getSafeRedirectUrl("https://example.com:443/login"))
+                .isEqualTo("https://example.com:443/login");
+    }
 }

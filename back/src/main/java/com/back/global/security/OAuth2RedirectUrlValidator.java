@@ -53,6 +53,18 @@ public class OAuth2RedirectUrlValidator {
                 && uri.getRawUserInfo() == null
                 && Objects.equals(uri.getScheme(), frontendBaseUri.getScheme())
                 && Objects.equals(uri.getHost(), frontendBaseUri.getHost())
-                && uri.getPort() == frontendBaseUri.getPort();
+                && getEffectivePort(uri) == getEffectivePort(frontendBaseUri);
+    }
+
+    private int getEffectivePort(URI uri) {
+        if (uri.getPort() != -1) {
+            return uri.getPort();
+        }
+
+        return switch (uri.getScheme()) {
+            case "http" -> 80;
+            case "https" -> 443;
+            default -> -1;
+        };
     }
 }
