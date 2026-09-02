@@ -459,6 +459,8 @@ export interface MessageReply {
 
 export interface DirectMessage {
   id: ID;
+  /** 상대 회원 id — 답장(상대에게 보내는 새 쪽지)의 수신자. 목 데이터에는 없다 */
+  counterpartId?: ID;
   from: string;
   role: string;
   initial: string;

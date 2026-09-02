@@ -1,5 +1,50 @@
 import type { ChecklistItem, TeamCommit, TeamSpace, TodoItem } from '@/lib/types';
+import type { PartyGithubConnection, PartyPullRequest } from '@/lib/api/partyGithub';
 import { MOCK_USER_SUMMARIES } from './users';
+
+/** 데모용 GitHub 연결 상태 — 실제 값은 GET /parties/{id}/github-connection 에서 온다 */
+export const MOCK_PARTY_GITHUB_CONNECTION: PartyGithubConnection = {
+  status: 'ACTIVE',
+  repositoryFullName: 'crewon-team/paybridge',
+  lastErrorCode: null,
+  lastError: null,
+};
+
+/** 데모용 PR 목록 — 실제 값은 웹훅으로 쌓이고 GET /parties/{id}/pull-requests 로 온다 */
+export const MOCK_PARTY_PULL_REQUESTS: PartyPullRequest[] = [
+  {
+    id: 'pr-1',
+    number: 42,
+    title: '정산 배치 실패 알림 슬랙 연동',
+    htmlUrl: 'https://github.com/crewon-team/paybridge/pull/42',
+    state: 'closed',
+    authorLogin: 'haneul-dev',
+    draft: false,
+    merged: true,
+    baseBranch: 'develop',
+    headBranch: 'feat/slack-alert',
+    openedAt: '2026-08-28T10:12:00Z',
+    closedAt: '2026-08-29T02:31:00Z',
+    mergedAt: '2026-08-29T02:31:00Z',
+    updatedAt: '2026-08-29T02:31:00Z',
+  },
+  {
+    id: 'pr-2',
+    number: 43,
+    title: '대시보드 API 응답 캐싱',
+    htmlUrl: 'https://github.com/crewon-team/paybridge/pull/43',
+    state: 'open',
+    authorLogin: 'somin-fe',
+    draft: true,
+    merged: false,
+    baseBranch: 'develop',
+    headBranch: 'feat/dashboard-cache',
+    openedAt: '2026-08-31T08:05:00Z',
+    closedAt: null,
+    mergedAt: null,
+    updatedAt: '2026-09-01T01:20:00Z',
+  },
+];
 
 export const MOCK_TEAM_SPACE: TeamSpace = {
   id: 'paybridge',

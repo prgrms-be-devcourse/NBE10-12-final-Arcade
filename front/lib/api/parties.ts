@@ -149,6 +149,8 @@ function toParty(dto: PartyListItemResponse): Party {
  * 서버에 없어서 비워 두는 값:
  * - schedule, meetingType, requirements : 상세 화면 전용 필드 미구현
  * - members : 파티원 목록 API 가 아직 없다 (지원자 목록은 파티장 전용이다)
+ * - likedByMe, bookmarkedByMe : PartyDto 에 없다. 대회(ContestDto)에는 있어서 파티만 비어 있다.
+ *   그래서 좋아요·북마크 버튼이 항상 꺼진 상태로 시작한다 (docs/프론트-API연동_백엔드_수정요청.md ⑥)
  */
 function toPartyDetail(dto: PartyResponse): PartyDetail {
   return {
@@ -515,11 +517,25 @@ export async function togglePartyLike(id: string, liked: boolean): Promise<{ lik
 }
 
 /**
- * 파티 북마크.
- * 백엔드 북마크 API 는 아직 대회(contests)에만 있어 데모 동작만 한다.
+ * 파티 북마크. POST /api/v1/parties/{partyId}/bookmarks, DELETE 로 취소 (경로가 복수형이다).
+ *
+ * 서버는 이미 북마크한 파티를 또 북마크하면 409-1 로 거절한다. 그런데 파티 상세 응답에
+ * bookmarkedByMe 가 없어서(toPartyDetail 주석 참고) 버튼은 늘 꺼진 상태로 시작한다 —
+ * 이미 북마크해 둔 파티에서 누르면 409 가 나고 버튼만 되돌아간다.
+ * 409 는 이미 원하는 상태라는 뜻이므로 성공으로 본다. 서버가 상태를 내려주면 이 방어는 걷어낸다.
  */
 export async function togglePartyBookmark(id: string, bookmarked: boolean): Promise<void> {
-  void id;
-  void bookmarked;
-  return mockResponse(undefined as void);
+  if (USE_MOCK) return mockResponse(undefined as void);
+
+  try {
+    if (bookmarked) {
+      await http.post<{ bookmarked: boolean }>(`/parties/${id}/bookmarks`);
+      return;
+    }
+    await http.delete<void>(`/parties/${id}/bookmarks`);
+  } catch (error) {
+    // 409-1 — 북마크 중복 / 없는 북마크 취소. 어느 쪽이든 화면이 바라는 상태와 결과가 같다
+    if (error instanceof ApiError && error.status === 409) return;
+    throw error;
+  }
 }

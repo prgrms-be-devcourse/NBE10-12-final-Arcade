@@ -18,6 +18,7 @@ export * from './host';
 export * from './messages';
 export * from './notifications';
 export * from './parties';
+export * from './partyGithub';
 export * from './teams';
 export * from './todos';
 export * from './users';

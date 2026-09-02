@@ -2,9 +2,10 @@ import { redirect } from 'next/navigation';
 import { MypageView } from '@/components/mypage/MypageView';
 import { isMypageTabKey, type MypageTabKey } from '@/lib/mypageTabs';
 import {
-  fetchMessages,
+  fetchMessagesOrEmpty,
   fetchMyApplications,
   fetchMyBookmarks,
+  fetchMyGoalsOrEmpty,
   fetchMyPartyApplicants,
   fetchMyProfileOrNull,
   fetchTodos,
@@ -24,14 +25,17 @@ export default async function MyPage({
   const { tab } = await searchParams;
   const activeTab: MypageTabKey = isMypageTabKey(tab) ? tab : 'identity';
 
-  const [profile, todos, applicants, myApplications, messages, bookmarks] = await Promise.all([
-    fetchMyProfileOrNull(),
-    fetchTodos(),
-    fetchMyPartyApplicants(),
-    fetchMyApplications(),
-    fetchMessages(),
-    fetchMyBookmarks(),
-  ]);
+  const [profile, achievements, todos, applicants, myApplications, messages, bookmarks] =
+    await Promise.all([
+      fetchMyProfileOrNull(),
+      // 성취는 프로필 응답에 없고 GET /goals/me 로 따로 온다
+      fetchMyGoalsOrEmpty(),
+      fetchTodos(),
+      fetchMyPartyApplicants(),
+      fetchMyApplications(),
+      fetchMessagesOrEmpty(),
+      fetchMyBookmarks(),
+    ]);
 
   // 로그인해야 볼 수 있는 화면이다
   // 로그인해야 볼 수 있는 화면이지만 로그인 화면으로 밀어내지 않고 메인으로 돌려보낸다.
@@ -41,7 +45,7 @@ export default async function MyPage({
   return (
     <MypageView
       initialTab={activeTab}
-      profile={profile}
+      profile={{ ...profile, achievements }}
       todos={todos}
       applicants={applicants}
       myApplications={myApplications}

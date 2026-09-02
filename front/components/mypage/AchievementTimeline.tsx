@@ -160,7 +160,13 @@ export function AchievementTimeline({ achievements }: { achievements: Achievemen
         ))}
       </div>
 
-      {groups.length === 0 ? <p className="achv-empty">조건에 맞는 성취가 없어요.</p> : null}
+      {groups.length === 0 ? (
+        <p className="achv-empty">
+          {achievements.length === 0
+            ? '아직 쌓인 성취가 없어요. 대회 수상이나 스스로 정한 목표를 직접 등록해 보세요.'
+            : '조건에 맞는 성취가 없어요.'}
+        </p>
+      ) : null}
     </>
   );
 }

@@ -15,6 +15,7 @@ import { ProfileEditPanel } from './ProfileEditPanel';
 import { TodoTable } from './TodoTable';
 import { Footer } from '@/components/layout/Footer';
 import { Block, DetailGrid, SideCard } from '@/components/ui/Block';
+import { LinkButton } from '@/components/ui/Button';
 import { StatusPill, Tag } from '@/components/ui/Tag';
 import type { MypageTabKey } from '@/lib/mypageTabs';
 import { POSITION_LABELS } from '@/lib/constants';
@@ -213,6 +214,14 @@ function IdentityTab({ profile }: { profile: UserProfile }) {
             </Block>
 
             <Block title="성취 리스트" reveal>
+              <div className="block-head-row">
+                <p className="block-head-note">
+                  직접 등록한 성취와 파티 활동으로 자동 기록된 성취가 함께 쌓여요.
+                </p>
+                <LinkButton href="/goals/create" variant="ghost">
+                  성취 등록
+                </LinkButton>
+              </div>
               <AchievementTimeline achievements={profile.achievements} />
             </Block>
 
