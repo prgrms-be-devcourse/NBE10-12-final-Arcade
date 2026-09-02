@@ -1,27 +1,69 @@
 /**
  * 성취(Goal) API — ApiV1GoalController 기준.
  *
- * 백엔드에 실제로 구현된 엔드포인트는 아직 등록(POST) 하나뿐이다.
- * 조회·수정·삭제(GET /goals/me, GET /goals/{id}, PATCH, DELETE)가 붙으면 여기에 이어서 추가한다.
+ * 등록(POST /goals)과 상세 조회(GET /goals/{goalId})가 붙어 있다.
+ * 수정·삭제(PATCH, DELETE)가 붙으면 여기에 이어서 추가한다.
  */
-import type { Achievement, GoalStatus, GoalType, ID } from '@/lib/types';
+import type { Achievement, GoalSource, GoalStatus, GoalType, ID, PartyStatus } from '@/lib/types';
+import { mockGoalDetail } from '@/lib/mock';
 import { USE_MOCK, http, mockResponse } from './client';
 
+/**
+ * 백엔드 PositionType.
+ *
+ * 화면 전역 PositionType 은 아직 BACK·FRONT 뿐이라 서버 enum 을 다 담지 못한다.
+ * 파티 포지션 정리가 끝날 때까지 성취 응답에서만 쓰는 넓은 타입을 따로 둔다.
+ */
+export type GoalPositionType = 'BACK' | 'FRONT' | 'UIUX' | 'PM';
+
+export const GOAL_POSITION_LABELS: Record<GoalPositionType, string> = {
+  BACK: '백엔드',
+  FRONT: '프론트엔드',
+  UIUX: 'UI/UX',
+  PM: '기획·PM',
+};
+
+/**
+ * 증빙 파일 한 건의 메타데이터. 파일 자체는 Object Storage 에 있고 응답에는 이 값들만 온다.
+ */
+export interface EvidenceFileFields {
+  storageKey?: string;
+  fileName: string;
+  mimeType?: string;
+  size?: number;
+}
+
 /** 백엔드 GoalDetailDto — type 에 해당하지 않는 필드는 응답에서 빠진다(@JsonInclude NON_NULL) */
-export interface GoalDetailResponse {
+export interface GoalDetailFields {
   /** PROJECT(전시 게시 후) · CHECKLIST */
   title?: string;
   /** PROJECT(전시 게시 후) · CONTEST(수상 결과) */
   result?: string;
   /** PROJECT */
-  positionType?: 'BACK' | 'FRONT' | 'UIUX' | 'PM';
+  positionType?: GoalPositionType;
   startDate?: string;
   endDate?: string;
   /** CONTEST */
   contestName?: string;
   isTeam?: boolean;
   awardDate?: string;
+  /** 외부 대회 원본 페이지 주소. [서버 미지원] PersonalContest 에 아직 컬럼이 없다 */
+  contestUrl?: string;
   targetContestId?: number;
+  /**
+   * CONTEST — 증빙 파일 한 건. 서버가 PersonalContest 에 컬럼 4개로 들고 있던 시절의 모양이다.
+   * evidences 가 오면 그쪽이 전체 목록이라 이 값들은 보지 않는다.
+   */
+  evidenceStorageKey?: string;
+  evidenceFileName?: string;
+  evidenceMimeType?: string;
+  evidenceSize?: number;
+  /**
+   * CONTEST — 증빙 파일 목록. 수상 확인서 + 결과 발표 화면처럼 여러 건을 남길 수 있다.
+   * [서버 미지원] GOAL_EVIDENCE 분리 전까지는 오지 않는다
+   * (docs/프론트-API연동_백엔드_수정요청.md ⑤-4).
+   */
+  evidences?: EvidenceFileFields[];
   /** CHECKLIST */
   memo?: string;
   targetDate?: string;
@@ -37,7 +79,67 @@ export interface GoalResponse {
   sourcePartyId: number | null;
   partyAssembleToMemberId: number | null;
   viewCount: number;
-  detail: GoalDetailResponse;
+  detail: GoalDetailFields;
+  createDate: string;
+  modifyDate: string;
+}
+
+/** 백엔드 PartyPrDto — 파티 저장소에서 동기화된 PR 한 건 */
+export interface PartyPrResponse {
+  id: number;
+  githubPrId: number;
+  /** 저장소 안에서의 PR 번호 (#42) */
+  number: number;
+  title: string;
+  htmlUrl: string;
+  /** GitHub 원문 값 — 'open' | 'closed' */
+  state: string;
+  /** GitHub 로그인명. 아직 크루온 회원과 연결되지 않는다 */
+  authorLogin: string;
+  draft: boolean;
+  merged: boolean;
+  baseBranch: string;
+  headBranch: string;
+  openedAt: string;
+  closedAt: string | null;
+  mergedAt: string | null;
+  githubUpdatedAt: string;
+}
+
+/**
+ * 백엔드 ProjectContextDto — PROJECT 성취가 가리키는 파티 정보.
+ *
+ * PROJECT 성취는 "내가 이 파티에 참여했다"는 연결만 갖고 내용은 파티에 있다.
+ * 그래서 상세 화면은 이 블록으로 구성한다.
+ */
+export interface ProjectContextResponse {
+  partyId: number;
+  partyName: string;
+  title: string;
+  partyStatus: PartyStatus;
+  deadline: string;
+  /** 등록된 저장소. 없으면 응답에서 빠진다 */
+  githubRepoUrl?: string;
+  /** 이 파티에서 맡은 포지션. 파티장은 지원 절차가 없어 값이 없다 */
+  myPositionType?: GoalPositionType;
+  partyOwner: boolean;
+  /** 본인 성취를 볼 때만 채워진다. 남의 성취에서는 빈 배열 */
+  pullRequests: PartyPrResponse[];
+}
+
+/** 백엔드 GoalDetailResponseDto — GET /goals/{goalId} */
+export interface GoalDetailResponse {
+  id: number;
+  ownerId: number;
+  ownerName: string;
+  type: GoalType;
+  status: GoalStatus;
+  source: GoalSource;
+  sourcePartyId: number | null;
+  viewCount: number;
+  detail: GoalDetailFields;
+  /** type 이 PROJECT 일 때만 온다 */
+  project?: ProjectContextResponse;
   createDate: string;
   modifyDate: string;
 }
@@ -50,20 +152,85 @@ export interface GoalResponse {
  * - CHECKLIST : title 필수
  * - PROJECT   : 파티 확정 시 자동 생성되는 전용 타입이라 등록할 수 없다 (400-4)
  */
+/**
+ * 타입별 세부 정보 (백엔드 GoalDetailReqBody).
+ * type 에 해당하지 않는 필드는 서버가 무시한다. null 은 값을 비우겠다는 뜻이다.
+ */
+/** 증빙 파일 한 건. 파일 자체는 업로드 API 가 생기면 따로 올라가고 요청엔 메타데이터만 담는다 */
+export interface EvidenceFilePayload {
+  fileName: string;
+  mimeType?: string | null;
+  size?: number | null;
+}
+
+export interface GoalDetailPayload {
+  /** CONTEST */
+  contestName?: string;
+  isTeam?: boolean;
+  result?: string;
+  /** yyyy-MM-dd */
+  awardDate?: string;
+  /**
+   * 외부 대회 원본 페이지 주소. 비울 땐 null.
+   * 자기신고 대회 성취는 크루온에 없는 외부 대회를 기록하는 것이라 링크를 직접 받는다.
+   * [서버 미지원] PersonalContest 에 컬럼이, GoalDetailReqBody 에 필드가 아직 없다.
+   */
+  contestUrl?: string | null;
+  /**
+   * 증빙 파일 목록 전체. 보낸 목록이 곧 저장될 목록이다 — 빈 배열은 다 지우겠다는 뜻이다.
+   * [서버 미지원] GOAL_EVIDENCE 분리 전까지 서버가 무시하므로 첫 파일은 아래 3개 필드로도 함께 보낸다 (⑤-4).
+   */
+  evidences?: EvidenceFilePayload[];
+  /**
+   * 증빙 파일 한 건의 메타데이터. 파일 자체는 Object Storage 로 따로 올라간다.
+   * 서버가 아직 한 건만 보관해서 남겨둔 자리이고, evidences 를 받게 되면 걷어낸다.
+   */
+  evidenceFileName?: string | null;
+  evidenceMimeType?: string | null;
+  evidenceSize?: number | null;
+
+  /** CHECKLIST */
+  title?: string;
+  memo?: string;
+  /** yyyy-MM-dd */
+  targetDate?: string;
+}
+
 export interface CreateGoalPayload {
   type: Extract<GoalType, 'CONTEST' | 'CHECKLIST'>;
   status: GoalStatus;
-  detail: {
-    contestName?: string;
-    isTeam?: boolean;
-    result?: string;
-    /** yyyy-MM-dd */
-    awardDate?: string;
-    title?: string;
-    memo?: string;
-    /** yyyy-MM-dd */
-    targetDate?: string;
-  };
+  detail: GoalDetailPayload;
+}
+
+/**
+ * 상세 응답에서 증빙 파일 목록을 뽑는다.
+ *
+ * 서버가 GOAL_EVIDENCE 로 나뉘면 detail.evidences 로 오고, 그 전까지는 한 건 분량의
+ * evidence* 필드만 온다. 화면은 어느 쪽이든 목록 하나로 다룬다 (⑤-4).
+ */
+export function evidenceFilesOf(detail: GoalDetailFields): EvidenceFileFields[] {
+  if (detail.evidences?.length) return detail.evidences;
+
+  const fileName = detail.evidenceFileName ?? detail.evidenceStorageKey;
+  if (!fileName) return [];
+
+  return [
+    {
+      storageKey: detail.evidenceStorageKey,
+      fileName,
+      mimeType: detail.evidenceMimeType,
+      size: detail.evidenceSize,
+    },
+  ];
+}
+
+/** 파일 크기 표기. 서버는 바이트로 주고받는다. 딱 떨어지면 소수점을 붙이지 않는다(10.0MB → 10MB) */
+export function formatFileSize(size?: number): string {
+  if (size == null) return '';
+  if (size < 1024) return `${size}B`;
+  const round = (value: number) => value.toFixed(1).replace(/\.0$/, '');
+  if (size < 1024 * 1024) return `${round(size / 1024)}KB`;
+  return `${round(size / 1024 / 1024)}MB`;
 }
 
 /** yyyy-MM-dd 또는 ISO 문자열에서 연도만 뽑는다 */
@@ -140,4 +307,48 @@ export async function createGoal(payload: CreateGoalPayload): Promise<Achievemen
 
   const created = await http.post<GoalResponse>('/goals', payload);
   return toAchievement(created);
+}
+
+/**
+ * GET /api/v1/goals/{goalId} — 성취 상세 조회.
+ *
+ * 성취는 전체 공개라(기획서 2.5) 남의 성취도 볼 수 있지만, 서버 인가 규칙상 로그인은 필요하다.
+ * 미로그인은 401, 없는 성취는 404 로 떨어지므로 호출하는 쪽에서 갈라 처리한다.
+ */
+export async function fetchGoalDetail(goalId: string | number): Promise<GoalDetailResponse> {
+  if (USE_MOCK) return mockResponse(mockGoalDetail(String(goalId)));
+  return http.get<GoalDetailResponse>(`/goals/${goalId}`);
+}
+
+/**
+ * DELETE /api/v1/goals/{goalId} — 성취 삭제.
+ *
+ * 자기신고 성취만 지울 수 있다. 자동기록 성취는 서버가 409-1 로 막는다.
+ * 서버 구현은 아직 붙지 않았고(작업표 8번), 화면 쪽 흐름만 먼저 맞춰 둔다.
+ */
+export async function deleteGoal(goalId: string | number): Promise<void> {
+  if (USE_MOCK) return mockResponse(undefined as void);
+  await http.delete<void>(`/goals/${goalId}`);
+}
+
+/**
+ * 성취 수정 요청.
+ *
+ * type 은 바꿀 수 없다 — 수상 기록을 체크리스트로 바꾸는 건 다른 성취를 만드는 일이다.
+ * detail 은 등록(POST)과 같은 모양이고, 해당 타입에 없는 필드는 서버가 무시한다.
+ */
+export type UpdateGoalPayload = Pick<CreateGoalPayload, 'status' | 'detail'>;
+
+/**
+ * PATCH /api/v1/goals/{goalId} — 성취 수정.
+ *
+ * 자기신고 성취만 고칠 수 있다. 자동기록 성취는 서버가 409-1 로 막는다.
+ * 서버 구현은 아직 붙지 않았고(작업표 7번), 화면 쪽 흐름만 먼저 맞춰 둔다.
+ */
+export async function updateGoal(
+  goalId: string | number,
+  payload: UpdateGoalPayload,
+): Promise<void> {
+  if (USE_MOCK) return mockResponse(undefined as void);
+  await http.patch<void>(`/goals/${goalId}`, payload);
 }

@@ -1,11 +1,10 @@
 /**
  * API 클라이언트.
  *
- * 기본값은 데모(mock) 모드다.
- * `.env.local` 에 아래 두 값을 넣으면 그대로 실제 서버를 호출한다.
+ * `.env.local` 의 두 값으로 동작이 갈린다.
  *
  *   NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api/v1
- *   NEXT_PUBLIC_USE_MOCK=false
+ *   NEXT_PUBLIC_USE_MOCK=false   # true 면 주소가 있어도 데모 데이터를 쓴다
  *
  * 서버 주소를 그대로 둔 채 데모로 되돌리고 싶으면 NEXT_PUBLIC_USE_MOCK=true 만 주면 된다.
  *

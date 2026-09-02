@@ -323,7 +323,7 @@ img,svg{display:block;}
 .rank-1 .crown{width:1rem;height:1rem;color:var(--gold);}
 
 .rank-title{font-family:var(--font-body);font-weight:800;font-size:1.08rem;color:var(--text);line-height:1.4;}
-.tag-row{display:flex;flex-wrap:wrap;gap:0.375rem;}
+.tag-row{display:flex;align-items:center;flex-wrap:wrap;gap:0.375rem;}
 .tag{
   font-size:.74rem;font-weight:700;padding:0.25rem 0.625rem;border-radius:var(--radius-chip);
   background:var(--surface-2);border:0.125rem solid var(--border);color:var(--text-muted);
@@ -476,10 +476,20 @@ img,svg{display:block;}
 
 /* ---------- ACHIEVEMENT LIST (성취 리스트) ---------- */
 .status-badge{
+  display:inline-flex;align-items:center;
   font-size:.68rem;font-weight:800;padding:0.1875rem 0.5rem;border:0.0625rem solid var(--border-strong);color:var(--text-muted);
 }
 .status-badge.achieved{color:var(--accent);border-color:rgba(49,233,210,.4);background:rgba(49,233,210,.08);}
 .status-badge.progress{color:var(--gold);border-color:rgba(245,196,81,.4);background:rgba(245,196,81,.08);}
+
+/*
+ * 출처 표기 (자기신고 / 플랫폼 자동기록) — 기본은 글자만.
+ * 배경도 테두리도 없는데 키캡 그림자만 걸려 있어 검은 선처럼 보였다. 그림자 목록에서 뺐다.
+ * 배지 형태가 필요한 곳(전시 카드, 성취 상세 머리말)에서만 따로 입힌다.
+ */
+.src{font-size:.68rem;font-weight:800;letter-spacing:.03em;}
+.src.verified{color:var(--accent);}
+.src.self{color:var(--text-dim);}
 
 /* ---------- MESSAGES (쪽지함) ---------- */
 .msg-list{display:flex;flex-direction:column;}
@@ -597,9 +607,6 @@ button.party-mini:hover{border-color:var(--accent);}
   content:"";position:absolute;left:0;top:0;bottom:0;width:0.375rem;background:var(--accent);
 }
 .project-body{padding:1rem;}
-.project-body .src{font-size:.68rem;font-weight:800;letter-spacing:.03em;}
-.project-body .src.verified{color:var(--accent);}
-.project-body .src.self{color:var(--text-dim);}
 .project-body h5{margin-top:0.5rem;font-size:.94rem;font-weight:800;color:var(--text);}
 .project-body .sub{margin-top:0.1875rem;font-size:.78rem;color:var(--text-dim);}
 .project-body .chip-row{margin-top:0.625rem;}
@@ -1508,12 +1515,16 @@ button.party-mini:hover{border-color:var(--accent);}
   font-size:.74rem;font-weight:800;color:var(--text-dim);cursor:pointer;
 }
 .editor-del:hover{border-color:var(--gold);color:var(--gold);}
+.editor-del svg{width:0.875rem;height:0.875rem;}
+.editor-del:disabled{opacity:.4;cursor:not-allowed;}
 .editor-add{
   margin-top:0.625rem;width:100%;display:flex;align-items:center;justify-content:center;gap:0.4375rem;
   padding:0.6875rem;border:0.125rem dashed var(--border-strong);background:none;
   font-size:.82rem;font-weight:800;color:var(--text-dim);cursor:pointer;
 }
 .editor-add:hover{border-color:var(--accent);color:var(--accent);}
+.editor-add:disabled{opacity:.4;cursor:not-allowed;}
+.editor-add:disabled:hover{border-color:var(--border-strong);color:var(--text-dim);}
 .editor-add svg{width:0.8125rem;height:0.8125rem;}
 
 /* ===== 개인 TODO 탭 ===== */
@@ -2055,7 +2066,7 @@ body{
 .streak-heatmap .lv3{box-shadow:inset 0 0 0 0.0625rem rgba(0,0,0,.5), 0 0 0.5rem var(--accent-glow);}
 
 /* ---------- 칩 · 배지 : 픽셀 키캡 ---------- */
-.skill-chip,.tag,.status-pill,.badge,.src,.verify-badge,.status-badge,.dday,.hero-chip{
+.skill-chip,.tag,.status-pill,.badge,.verify-badge,.status-badge,.dday,.hero-chip{
   box-shadow:0.125rem 0.125rem 0 0 rgba(0,0,0,.65);
 }
 .badge.verified,.status-pill.live{text-shadow:0 0 0.5rem var(--accent-glow);}
@@ -2239,7 +2250,7 @@ body{
 [data-theme="light"] .chart-col .bar.alt{box-shadow:0 0 0 0.125rem #241d4a, inset 0 0.125rem 0 0 rgba(255,255,255,.6);}
 [data-theme="light"] .skill-chip,[data-theme="light"] .tag,
 [data-theme="light"] .status-pill,[data-theme="light"] .badge,
-[data-theme="light"] .src,[data-theme="light"] .status-badge,
+[data-theme="light"] .status-badge,
 [data-theme="light"] .dday,[data-theme="light"] .hero-chip{
   box-shadow:0.125rem 0.125rem 0 0 rgba(36,29,74,.8);text-shadow:none;
 }
@@ -2867,7 +2878,6 @@ body{
 .slot-chip,
 .status-badge,
 .status-pill,
-.src,
 .dday,
 .commit-sha,
 .icon-btn,
@@ -3373,3 +3383,115 @@ body{
   box-shadow:0 0.5rem 1.5rem rgba(36,29,74,.18);
 }
 [data-theme="light"] .mobile-nav-item.is-active{background:rgba(200,19,104,.1);}
+
+/* ---------- 성취 상세 (/goals/[id]) ---------- */
+
+/*
+ * 성취 상세 머리말 배지 — 유형·상태·출처를 한 종류의 칩으로 통일한다.
+ * .tag / .status-badge / .src 는 원래 크기도 테두리도 제각각이라 한 줄에 두면 어긋난다.
+ */
+.goal-badges .tag,
+.goal-badges .status-badge,
+.goal-badges .src{
+  display:inline-flex;align-items:center;
+  padding:0.25rem 0.625rem;
+  border:0.125rem solid var(--border);border-radius:var(--radius-chip);
+  font-size:.74rem;font-weight:700;line-height:1.35;letter-spacing:0;
+  background:var(--surface-2);color:var(--text-muted);
+  box-shadow:0.125rem 0.125rem 0 0 rgba(0,0,0,.65);
+}
+.goal-badges .status-badge.achieved{color:var(--accent);border-color:rgba(49,233,210,.4);background:rgba(49,233,210,.08);}
+.goal-badges .status-badge.progress{color:var(--gold);border-color:rgba(245,196,81,.4);background:rgba(245,196,81,.08);}
+.goal-badges .src.verified{color:var(--accent);border-color:rgba(49,233,210,.4);background:var(--accent-soft);}
+[data-theme="light"] .goal-badges .tag,
+[data-theme="light"] .goal-badges .status-badge,
+[data-theme="light"] .goal-badges .src{box-shadow:0.125rem 0.125rem 0 0 rgba(36,29,74,.8);text-shadow:none;}
+
+/* 증빙 파일 목록 — 파일명과 형식만 줄줄이 */
+.goal-file-list{margin-top:1rem;display:flex;flex-direction:column;}
+.goal-file-list li{
+  display:flex;align-items:baseline;gap:0.75rem;flex-wrap:wrap;
+  padding:0.5625rem 0;border-bottom:0.0625rem solid var(--border);
+}
+.goal-file-list li:last-child{border-bottom:none;}
+.goal-file-name{font-size:.86rem;color:var(--text);word-break:break-all;}
+.goal-file-type{font-size:.76rem;color:var(--text-dim);}
+
+.goal-owner-line{
+  margin-top:0.625rem;display:flex;align-items:center;gap:0.375rem;flex-wrap:wrap;
+  font-size:.84rem;color:var(--text-dim);
+}
+.goal-owner-line a{color:var(--text-muted);font-weight:700;}
+.goal-owner-line a:hover{color:var(--accent);}
+.goal-dot{color:var(--text-dim);}
+
+.goal-note{
+  margin-top:0.875rem;padding:0.625rem 0.75rem;
+  background:var(--accent-soft);border-left:0.1875rem solid var(--accent);
+  font-size:.82rem;color:var(--text-muted);line-height:1.6;
+}
+.goal-empty{padding:0.875rem 0;font-size:.84rem;color:var(--text-dim);line-height:1.6;}
+
+/* 라벨 + 값 목록. 값이 없는 행은 컴포넌트에서 걸러 넣지 않는다 */
+.goal-info{margin-top:1rem;display:flex;flex-direction:column;}
+.goal-info > div{
+  display:flex;align-items:baseline;gap:0.875rem;
+  padding:0.5625rem 0;border-bottom:0.0625rem solid var(--border);
+}
+.goal-info > div:last-child{border-bottom:none;}
+/* 라벨 폭은 width 로 잡는다. flex-basis 로 잡으면 세로 배치일 때 라벨 '높이'가 되어 행이 벌어진다 */
+.goal-info dt{flex:none;width:5.5rem;font-size:.8rem;color:var(--text-dim);font-weight:700;}
+.goal-info dd{flex:1;min-width:0;font-size:.86rem;color:var(--text);word-break:break-word;}
+.goal-info dd a{color:var(--text);font-weight:700;}
+.goal-info dd a:hover{color:var(--accent);}
+.side-card .goal-info{margin-top:0;}
+.side-card .goal-info dt{width:4.5rem;}
+
+/* 동기화된 PR 목록 */
+.goal-pr-list{margin-top:1rem;display:flex;flex-direction:column;gap:0.75rem;}
+.goal-pr-item{
+  padding:0.875rem 1rem;background:var(--surface);border:0.125rem solid var(--border);
+}
+.goal-pr-top{display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;}
+.goal-pr-num{font-family:var(--font-pixel);font-size:.62rem;color:var(--accent);}
+.goal-pr-branch{
+  font-size:.72rem;color:var(--text-dim);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;
+}
+.goal-pr-title{
+  margin-top:0.5rem;display:inline-flex;align-items:center;gap:0.375rem;
+  font-size:.92rem;font-weight:700;color:var(--text);line-height:1.5;
+}
+.goal-pr-title:hover{color:var(--accent);}
+.goal-pr-title svg{width:0.75rem;height:0.75rem;flex:0 0 auto;}
+.goal-pr-meta{
+  margin-top:0.375rem;display:flex;align-items:center;gap:0.375rem;flex-wrap:wrap;
+  font-size:.76rem;color:var(--text-dim);
+}
+.goal-pr-author{font-weight:700;color:var(--text-muted);}
+
+/* 사이드 바로가기 — .card-link 은 inline-flex 라 그냥 두면 한 줄에 붙는다 */
+.side-card .card-link{display:flex;align-items:center;gap:0.375rem;}
+.side-card .card-link + .card-link{margin-top:0.625rem;}
+.side-card .card-link svg{width:0.875rem;height:0.875rem;flex:0 0 auto;}
+
+@media (max-width:37.5rem){
+  /* 라벨을 값 위로 올린다. 세로 방향에서는 dd 의 flex:1 이 남는 높이를 흡수하므로 함께 끈다. */
+  .goal-info > div{flex-direction:column;gap:0.25rem;}
+  .goal-info dt{width:auto;}
+  .goal-info dd{flex:none;}
+}
+.achv-item-link{color:inherit;}
+.achv-item-link:hover{color:var(--accent);}
+
+/* 성취 수정 — 증빙 파일 목록 (파일명 · 형식 · 삭제) */
+.goal-evidence-list{display:flex;flex-direction:column;gap:0.5rem;}
+.goal-evidence-list li{
+  display:flex;align-items:center;gap:0.75rem;padding:0.625rem 0.75rem;
+  border:0.125rem solid var(--border);background:var(--surface);
+}
+.goal-evidence-list .goal-file-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.goal-evidence-list .editor-del{padding:0.375rem 0.5rem;}
+.goal-evidence-list + .editor-add{margin-top:0.625rem;}
+/* 다건일 때 목록과 추가 버튼 사이에 '첫 파일만 저장돼요' 안내가 끼어든다 */
+.goal-note + .editor-add{margin-top:0.625rem;}
