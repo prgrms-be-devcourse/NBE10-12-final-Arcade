@@ -13,6 +13,8 @@ import java.util.Optional;
 public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> {
     boolean existsByPartyAndMember(Party party, Member member);
 
+    boolean existsByPartyAndMemberAndStatus(Party party, Member member, PartyMemberStatus status);
+
     Optional<PartyMember> findByIdAndParty(long id, Party party);
 
     // 특정 회원이 그 파티에서 맡은 포지션을 찾을 때 쓴다. 파티 전체를 읽어 메모리에서 거르지 않기 위함.
@@ -22,6 +24,7 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
     @EntityGraph(attributePaths = {"member", "position"})
     List<PartyMember> findAllByParty(Party party);
 
-    boolean existsByPartyAndMemberAndStatus(Party party, Member member, PartyMemberStatus status);
-
+    // 여러 파티의 파티원을 한 번에 조회 - TOP3처럼 파티가 여러 개일 때 파티마다 쿼리 날리는 걸 방지
+    @EntityGraph(attributePaths = {"member"})
+    List<PartyMember> findAllByPartyIn(List<Party> parties);
 }

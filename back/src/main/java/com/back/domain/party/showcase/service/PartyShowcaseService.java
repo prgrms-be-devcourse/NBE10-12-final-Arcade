@@ -5,6 +5,7 @@ import com.back.domain.party.application.entity.PartyMemberStatus;
 import com.back.domain.party.application.repository.PartyMemberRepository;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.repository.PartyRepository;
+import com.back.domain.party.partyPr.entity.PartyPr;
 import com.back.domain.party.partyPr.repository.PartyPrRepository;
 import com.back.domain.party.showcase.dtos.PartyShowcaseDto;
 import com.back.domain.party.showcase.entity.PartyShowcase;
@@ -18,6 +19,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -32,13 +35,17 @@ public class PartyShowcaseService {
 
     public PartyShowcaseDto getDraft(long partyId, Member actor) {
         Party party = findPartyOrThrow(partyId);
+
         PartyShowcase showcase = partyShowcaseRepository.findByParty(party).orElse(null);
 
         if (showcase == null || !showcase.isPublished()) {
             checkViewableAsDraft(party, actor);
         }
 
-        return toDto(party, showcase);
+        List<String> memberNames = getApprovedMemberNames(party);
+        List<PartyShowcaseDto.PrSummary> pullRequests = getPrSummaries(party.getId());
+
+        return toDto(party, showcase, memberNames, pullRequests);
     }
 
     @Transactional
@@ -56,34 +63,78 @@ public class PartyShowcaseService {
 
         eventPublisher.publishEvent(new PartyShowcasePublishedEvent(party.getId(), title, description));
 
-        return toDto(party, showcase);
+        List<String> memberNames = getApprovedMemberNames(party);
+        List<PartyShowcaseDto.PrSummary> pullRequests = getPrSummaries(party.getId());
+
+        return toDto(party, showcase, memberNames, pullRequests);
     }
 
     public List<PartyShowcaseDto> getTop3() {
-        return partyShowcaseRepository.findPublishedOrderByPartyLikeCountDesc(PageRequest.of(0, 3)).stream()
-                .map(showcase -> toDto(showcase.getParty(), showcase))
+        List<PartyShowcase> showcases = partyShowcaseRepository
+                .findPublishedOrderByPartyLikeCountDesc(PageRequest.of(0, 3));
+
+        if (showcases.isEmpty()) {
+            return List.of();
+        }
+
+        List<Party> parties = showcases.stream().map(PartyShowcase::getParty).toList();
+        List<Long> partyIds = parties.stream().map(Party::getId).toList();
+
+        Map<Long, List<String>> memberNamesByPartyId = partyMemberRepository.findAllByPartyIn(parties).stream()
+                .filter(pm -> pm.getStatus() == PartyMemberStatus.APPROVED)
+                .collect(Collectors.groupingBy(
+                        pm -> pm.getParty().getId(),
+                        Collectors.mapping(pm -> pm.getMember().getName(), Collectors.toList())
+                ));
+
+        Map<Long, List<PartyShowcaseDto.PrSummary>> pullRequestsByPartyId = partyPrRepository
+                .findAllByPartyIdInOrderByGithubUpdatedAtDesc(partyIds).stream()
+                .collect(Collectors.groupingBy(
+                        pr -> pr.getParty().getId(),
+                        Collectors.mapping(this::toPrSummary, Collectors.toList())
+                ));
+
+        return showcases.stream()
+                .map(showcase -> toDto(
+                        showcase.getParty(),
+                        showcase,
+                        memberNamesByPartyId.getOrDefault(showcase.getParty().getId(), List.of()),
+                        pullRequestsByPartyId.getOrDefault(showcase.getParty().getId(), List.of())
+                ))
                 .toList();
     }
 
-    private PartyShowcaseDto toDto(Party party, PartyShowcase showcase) {
-        List<String> memberNames = partyMemberRepository.findAllByParty(party).stream()
+    private List<String> getApprovedMemberNames(Party party) {
+        return partyMemberRepository.findAllByParty(party).stream()
                 .filter(pm -> pm.getStatus() == PartyMemberStatus.APPROVED)
                 .map(pm -> pm.getMember().getName())
                 .toList();
+    }
 
-        List<PartyShowcaseDto.PrSummary> pullRequests = partyPrRepository
-                .findAllByPartyIdOrderByGithubUpdatedAtDesc(party.getId()).stream()
-                .map(pr -> new PartyShowcaseDto.PrSummary(
-                        pr.getNumber(),
-                        pr.getTitle(),
-                        pr.getHtmlUrl(),
-                        pr.getState(),
-                        pr.getAuthorLogin(),
-                        pr.isMerged(),
-                        pr.getMergedAt()
-                ))
+    private List<PartyShowcaseDto.PrSummary> getPrSummaries(long partyId) {
+        return partyPrRepository.findAllByPartyIdOrderByGithubUpdatedAtDesc(partyId).stream()
+                .map(this::toPrSummary)
                 .toList();
+    }
 
+    private PartyShowcaseDto.PrSummary toPrSummary(PartyPr pr) {
+        return new PartyShowcaseDto.PrSummary(
+                pr.getNumber(),
+                pr.getTitle(),
+                pr.getHtmlUrl(),
+                pr.getState(),
+                pr.getAuthorLogin(),
+                pr.isMerged(),
+                pr.getMergedAt()
+        );
+    }
+
+    private PartyShowcaseDto toDto(
+            Party party,
+            PartyShowcase showcase,
+            List<String> memberNames,
+            List<PartyShowcaseDto.PrSummary> pullRequests
+    ) {
         return new PartyShowcaseDto(
                 party.getId(),
                 party.getPartyName(),
