@@ -23,7 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ActiveProfiles("test")
-@SpringBootTest
+@SpringBootTest(properties = "custom.frontend.base-url=http://localhost:3000")
 @AutoConfigureMockMvc
 @Transactional
 @Import(RedisTestContainerConfig.class)
@@ -77,10 +77,36 @@ class GithubSocialLinkIntegrationTest {
         actor.setGithubSocial("GITHUB__12345", "github@test.com");
 
         mvc.perform(get("/oauth2/authorization/github")
+                        .param("redirectUrl", "/login?from=profile")
+                        .cookie(new Cookie("apiKey", actor.getApiKey())))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", "http://localhost:3000/login?from=profile&state=400-1"));
+    }
+
+    @Test
+    @DisplayName("소셜 로그인 차단 시 설정된 프론트 origin의 절대 redirectUrl은 허용된다")
+    void allowsConfiguredFrontendRedirectUrl() throws Exception {
+        Member actor = saveMember("github-linked-frontend@test.com");
+        actor.setGithubSocial("GITHUB__12345", "github@test.com");
+
+        mvc.perform(get("/oauth2/authorization/github")
                         .param("redirectUrl", "http://localhost:3000/login?from=profile")
                         .cookie(new Cookie("apiKey", actor.getApiKey())))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(header().string("Location", "http://localhost:3000/login?from=profile&state=400-1"));
+    }
+
+    @Test
+    @DisplayName("소셜 로그인 차단 시 외부 redirectUrl은 홈으로 대체된다")
+    void blocksExternalRedirectUrl() throws Exception {
+        Member actor = saveMember("github-linked-external@test.com");
+        actor.setGithubSocial("GITHUB__12345", "github@test.com");
+
+        mvc.perform(get("/oauth2/authorization/github")
+                .param("redirectUrl", "https://malicious.example")
+                        .cookie(new Cookie("apiKey", actor.getApiKey())))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", "http://localhost:3000/?state=400-1"));
     }
 
     private Member saveMember(String email) {

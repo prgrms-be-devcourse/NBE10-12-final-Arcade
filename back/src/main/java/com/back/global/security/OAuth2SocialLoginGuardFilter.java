@@ -11,10 +11,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 
 @Component
 @RequiredArgsConstructor
@@ -22,6 +21,7 @@ public class OAuth2SocialLoginGuardFilter extends OncePerRequestFilter {
     private static final String GITHUB_AUTHORIZATION_URI = "/oauth2/authorization/github";
 
     private final Rq rq;
+    private final OAuth2RedirectUrlValidator redirectUrlValidator;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -54,13 +54,13 @@ public class OAuth2SocialLoginGuardFilter extends OncePerRequestFilter {
     }
 
     private void redirectWithError(HttpServletRequest request, RsData<Void> rsData) {
-        String redirectUrl = request.getParameter("redirectUrl");
-        if (redirectUrl == null || redirectUrl.isBlank()) {
-            redirectUrl = "/";
-        }
-
-        String separator = redirectUrl.contains("?") ? "&" : "?";
-        String state = URLEncoder.encode(rsData.resultCode(), StandardCharsets.UTF_8);
-        rq.sendRedirect(redirectUrl + separator + "state=" + state);
+        String redirectUrl = redirectUrlValidator.getSafeRedirectUrl(request.getParameter("redirectUrl"));
+        rq.sendRedirect(
+                UriComponentsBuilder.fromUriString(redirectUrl)
+                        .queryParam("state", rsData.resultCode())
+                        .build()
+                        .encode()
+                        .toUriString()
+        );
     }
 }

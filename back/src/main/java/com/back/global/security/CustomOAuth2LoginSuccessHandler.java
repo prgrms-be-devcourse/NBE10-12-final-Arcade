@@ -20,6 +20,7 @@ import java.util.Base64;
 public class CustomOAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     private final MemberService memberService;
     private final Rq rq;
+    private final OAuth2RedirectUrlValidator redirectUrlValidator;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
@@ -39,7 +40,7 @@ public class CustomOAuth2LoginSuccessHandler implements AuthenticationSuccessHan
         if (stateParam != null) {
             // Base64 URL-safe 디코딩, '#' 앞은 redirectUrl, 뒤는 originState
             String decodedStateParam = new String(Base64.getUrlDecoder().decode(stateParam), StandardCharsets.UTF_8);
-            redirectUrl = decodedStateParam.split("#", 2)[0];
+            redirectUrl = redirectUrlValidator.getSafeRedirectUrl(decodedStateParam.split("#", 2)[0]);
         }
 
         rq.sendRedirect(redirectUrl);
