@@ -85,10 +85,26 @@ const CONTEST_GOAL: GoalDetailResponse = {
     result: '우수상',
     awardDate: '2025-09-12',
     contestUrl: 'https://www.data.go.kr/contest/2025',
+    // 서버가 아직 한 건만 보관해서 예전 필드에는 첫 파일이 담긴다
     evidenceStorageKey: 'goal/2/evidence/award.pdf',
     evidenceFileName: '수상확인서.pdf',
     evidenceMimeType: 'application/pdf',
     evidenceSize: 284_915,
+    // 여러 건이 열렸을 때의 모양. 화면은 이 목록을 먼저 본다
+    evidences: [
+      {
+        storageKey: 'goal/2/evidence/award.pdf',
+        fileName: '수상확인서.pdf',
+        mimeType: 'application/pdf',
+        size: 284_915,
+      },
+      {
+        storageKey: 'goal/2/evidence/result.png',
+        fileName: '결과발표화면.png',
+        mimeType: 'image/png',
+        size: 1_204_330,
+      },
+    ],
   },
   createDate: '2025-09-13T20:11:00',
   modifyDate: '2025-09-13T20:11:00',

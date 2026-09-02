@@ -7,24 +7,39 @@ import { FormActions, FormGroup, FormRow, TextAreaField, TextField } from '@/com
 import { RadioChipGroup } from '@/components/ui/RadioChipGroup';
 import { Button } from '@/components/ui/Button';
 import { ApiError } from '@/lib/api';
-import { updateGoal, type GoalDetailResponse, type UpdateGoalPayload } from '@/lib/api/goals';
+import {
+  evidenceFilesOf,
+  formatFileSize,
+  updateGoal,
+  type GoalDetailResponse,
+  type UpdateGoalPayload,
+} from '@/lib/api/goals';
 import { GOAL_STATUS_LABELS, GOAL_STATUS_TRANSITIONS, GOAL_TYPE_LABELS } from '@/lib/constants';
 import type { GoalStatus } from '@/lib/types';
 
 const TEAM_OPTIONS = ['팀 참가', '개인 참가'] as const;
 
-/** 화면에서 다루는 증빙 파일 한 건 */
+/**
+ * 화면에서 다루는 증빙 파일 한 건.
+ *
+ * file 은 이번에 고른 파일에만 있다 — 이미 저장돼 있던 건 서버에서 메타데이터만 받아오기 때문이다.
+ * 업로드 API(⑤-5)가 붙으면 file 이 있는 것만 실제로 올리면 된다. 메타데이터만 남기면 그때 올릴 게 없다.
+ */
 interface EvidenceFile {
   name: string;
   type?: string;
   size?: number;
+  file?: File;
 }
 
-function formatBytes(size?: number): string {
-  if (size == null) return '';
-  if (size < 1024) return `${size}B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)}KB`;
-  return `${(size / 1024 / 1024).toFixed(1)}MB`;
+/** 이름과 크기가 같으면 같은 파일로 본다 — 같은 걸 두 번 고르는 실수를 거른다 */
+function isSameFile(a: EvidenceFile, b: EvidenceFile): boolean {
+  return a.name === b.name && a.size === b.size;
+}
+
+/** 파일 이름 옆에 붙는 형식 · 크기 문구 */
+function fileMeta(file: EvidenceFile): string {
+  return [file.type, formatFileSize(file.size)].filter(Boolean).join(' · ');
 }
 
 /**
@@ -68,17 +83,13 @@ export function GoalEditForm({ goal }: { goal: GoalDetailResponse }) {
   const [awardDate, setAwardDate] = useState(dateValue(detail.awardDate));
   const [contestUrl, setContestUrl] = useState(detail.contestUrl ?? '');
 
-  // CONTEST — 증빙 자료. 서버는 아직 한 건만 보관하지만 화면은 여러 건을 다룬다
-  const [evidence, setEvidence] = useState<EvidenceFile[]>(
-    detail.evidenceFileName ?? detail.evidenceStorageKey
-      ? [
-          {
-            name: detail.evidenceFileName ?? detail.evidenceStorageKey!,
-            type: detail.evidenceMimeType,
-            size: detail.evidenceSize,
-          },
-        ]
-      : [],
+  // CONTEST — 증빙 자료. 수상 확인서 + 결과 발표 화면처럼 여러 건을 올릴 수 있다
+  const [evidence, setEvidence] = useState<EvidenceFile[]>(() =>
+    evidenceFilesOf(detail).map((file) => ({
+      name: file.fileName,
+      type: file.mimeType,
+      size: file.size,
+    })),
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -95,16 +106,22 @@ export function GoalEditForm({ goal }: { goal: GoalDetailResponse }) {
 
   const addFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const picked = Array.from(files).map((file) => ({
+    const picked: EvidenceFile[] = Array.from(files).map((file) => ({
       name: file.name,
       type: file.type || undefined,
       size: file.size,
+      // 업로드 API 가 붙으면 이 File 을 그대로 올린다. 메타데이터만 남기면 올릴 실체가 없어진다
+      file,
     }));
-    // 같은 파일을 두 번 고르면 한 번만 남긴다
+    // 이미 목록에 있는 파일은 다시 넣지 않는다
     setEvidence((prev) => [
       ...prev,
-      ...picked.filter((file) => !prev.some((item) => item.name === file.name)),
+      ...picked.filter((file) => !prev.some((item) => isSameFile(item, file))),
     ]);
+  };
+
+  const removeFileAt = (index: number) => {
+    setEvidence((prev) => prev.filter((_, at) => at !== index));
   };
 
   // 서버가 타입별로 요구하는 필수 항목과 같은 규칙 (400-4)
@@ -132,7 +149,13 @@ export function GoalEditForm({ goal }: { goal: GoalDetailResponse }) {
             result: trimmed(result),
             awardDate: trimmed(awardDate),
             contestUrl: trimmed(contestUrl) ?? null,
-            // 서버는 아직 한 건만 보관한다. 목록의 첫 파일을 보내고 비었으면 지운다
+            // 화면에 남아 있는 목록이 곧 저장될 목록이다. 지운 파일은 여기서 빠져 있다
+            evidences: evidence.map((file) => ({
+              fileName: file.name,
+              mimeType: file.type ?? null,
+              size: file.size ?? null,
+            })),
+            // 서버가 아직 한 건만 보관해서(⑤-4) 첫 파일은 예전 필드로도 같이 보낸다. 비었으면 지운다
             evidenceFileName: evidence[0]?.name ?? null,
             evidenceMimeType: evidence[0]?.type ?? null,
             evidenceSize: evidence[0]?.size ?? null,
@@ -245,25 +268,29 @@ export function GoalEditForm({ goal }: { goal: GoalDetailResponse }) {
           >
             {evidence.length > 0 ? (
               <ul className="goal-evidence-list">
-                {evidence.map((file) => (
-                  <li key={file.name}>
+                {evidence.map((file, index) => (
+                  <li key={`${file.name}:${file.size ?? ''}`}>
                     <span className="goal-file-name">{file.name}</span>
-                    <span className="goal-file-type">
-                      {[file.type, formatBytes(file.size)].filter(Boolean).join(' · ')}
-                    </span>
+                    <span className="goal-file-type">{fileMeta(file)}</span>
                     <button
                       type="button"
                       className="editor-del"
                       aria-label={`${file.name} 삭제`}
-                      onClick={() =>
-                        setEvidence((prev) => prev.filter((item) => item.name !== file.name))
-                      }
+                      onClick={() => removeFileAt(index)}
                     >
                       <Icon name="i-x" />
                     </button>
                   </li>
                 ))}
               </ul>
+            ) : null}
+
+            {/* 서버가 GOAL_EVIDENCE 로 나뉘기 전까지는 첫 파일만 저장된다. 여러 개를 담았을 때만 알린다 */}
+            {evidence.length > 1 ? (
+              <p className="goal-note">
+                지금은 서버가 증빙을 한 건만 보관해서 <b>{evidence[0].name}</b> 만 저장돼요. 나머지는
+                여러 건 저장이 열리면 함께 올라갑니다.
+              </p>
             ) : null}
 
             <button type="button" className="editor-add" onClick={() => fileInputRef.current?.click()}>

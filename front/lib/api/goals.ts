@@ -23,6 +23,16 @@ export const GOAL_POSITION_LABELS: Record<GoalPositionType, string> = {
   PM: '기획·PM',
 };
 
+/**
+ * 증빙 파일 한 건의 메타데이터. 파일 자체는 Object Storage 에 있고 응답에는 이 값들만 온다.
+ */
+export interface EvidenceFileFields {
+  storageKey?: string;
+  fileName: string;
+  mimeType?: string;
+  size?: number;
+}
+
 /** 백엔드 GoalDetailDto — type 에 해당하지 않는 필드는 응답에서 빠진다(@JsonInclude NON_NULL) */
 export interface GoalDetailFields {
   /** PROJECT(전시 게시 후) · CHECKLIST */
@@ -40,11 +50,20 @@ export interface GoalDetailFields {
   /** 외부 대회 원본 페이지 주소. [서버 미지원] PersonalContest 에 아직 컬럼이 없다 */
   contestUrl?: string;
   targetContestId?: number;
-  /** CONTEST — 증빙 파일은 Object Storage 에 있고 응답에는 메타데이터만 온다 */
+  /**
+   * CONTEST — 증빙 파일 한 건. 서버가 PersonalContest 에 컬럼 4개로 들고 있던 시절의 모양이다.
+   * evidences 가 오면 그쪽이 전체 목록이라 이 값들은 보지 않는다.
+   */
   evidenceStorageKey?: string;
   evidenceFileName?: string;
   evidenceMimeType?: string;
   evidenceSize?: number;
+  /**
+   * CONTEST — 증빙 파일 목록. 수상 확인서 + 결과 발표 화면처럼 여러 건을 남길 수 있다.
+   * [서버 미지원] GOAL_EVIDENCE 분리 전까지는 오지 않는다
+   * (docs/프론트-API연동_백엔드_수정요청.md ⑤-4).
+   */
+  evidences?: EvidenceFileFields[];
   /** CHECKLIST */
   memo?: string;
   targetDate?: string;
@@ -137,6 +156,13 @@ export interface GoalDetailResponse {
  * 타입별 세부 정보 (백엔드 GoalDetailReqBody).
  * type 에 해당하지 않는 필드는 서버가 무시한다. null 은 값을 비우겠다는 뜻이다.
  */
+/** 증빙 파일 한 건. 파일 자체는 업로드 API 가 생기면 따로 올라가고 요청엔 메타데이터만 담는다 */
+export interface EvidenceFilePayload {
+  fileName: string;
+  mimeType?: string | null;
+  size?: number | null;
+}
+
 export interface GoalDetailPayload {
   /** CONTEST */
   contestName?: string;
@@ -151,8 +177,13 @@ export interface GoalDetailPayload {
    */
   contestUrl?: string | null;
   /**
-   * 증빙 파일 메타데이터. 파일 자체는 Object Storage 로 따로 올라간다.
-   * [서버 미지원] GoalDetailReqBody 에 아직 이 필드들이 없어 지금은 무시된다.
+   * 증빙 파일 목록 전체. 보낸 목록이 곧 저장될 목록이다 — 빈 배열은 다 지우겠다는 뜻이다.
+   * [서버 미지원] GOAL_EVIDENCE 분리 전까지 서버가 무시하므로 첫 파일은 아래 3개 필드로도 함께 보낸다 (⑤-4).
+   */
+  evidences?: EvidenceFilePayload[];
+  /**
+   * 증빙 파일 한 건의 메타데이터. 파일 자체는 Object Storage 로 따로 올라간다.
+   * 서버가 아직 한 건만 보관해서 남겨둔 자리이고, evidences 를 받게 되면 걷어낸다.
    */
   evidenceFileName?: string | null;
   evidenceMimeType?: string | null;
@@ -169,6 +200,36 @@ export interface CreateGoalPayload {
   type: Extract<GoalType, 'CONTEST' | 'CHECKLIST'>;
   status: GoalStatus;
   detail: GoalDetailPayload;
+}
+
+/**
+ * 상세 응답에서 증빙 파일 목록을 뽑는다.
+ *
+ * 서버가 GOAL_EVIDENCE 로 나뉘면 detail.evidences 로 오고, 그 전까지는 한 건 분량의
+ * evidence* 필드만 온다. 화면은 어느 쪽이든 목록 하나로 다룬다 (⑤-4).
+ */
+export function evidenceFilesOf(detail: GoalDetailFields): EvidenceFileFields[] {
+  if (detail.evidences?.length) return detail.evidences;
+
+  const fileName = detail.evidenceFileName ?? detail.evidenceStorageKey;
+  if (!fileName) return [];
+
+  return [
+    {
+      storageKey: detail.evidenceStorageKey,
+      fileName,
+      mimeType: detail.evidenceMimeType,
+      size: detail.evidenceSize,
+    },
+  ];
+}
+
+/** 파일 크기 표기. 서버는 바이트로 주고받는다 */
+export function formatFileSize(size?: number): string {
+  if (size == null) return '';
+  if (size < 1024) return `${size}B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)}KB`;
+  return `${(size / 1024 / 1024).toFixed(1)}MB`;
 }
 
 /** yyyy-MM-dd 또는 ISO 문자열에서 연도만 뽑는다 */

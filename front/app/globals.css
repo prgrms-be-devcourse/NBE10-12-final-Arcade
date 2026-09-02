@@ -3491,3 +3491,5 @@ body{
 .goal-evidence-list .goal-file-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .goal-evidence-list .editor-del{padding:0.375rem 0.5rem;}
 .goal-evidence-list + .editor-add{margin-top:0.625rem;}
+/* 다건일 때 목록과 추가 버튼 사이에 '첫 파일만 저장돼요' 안내가 끼어든다 */
+.goal-note + .editor-add{margin-top:0.625rem;}

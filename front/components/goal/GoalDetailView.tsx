@@ -7,6 +7,8 @@ import { SourceBadge, Tag } from '@/components/ui/Tag';
 import { GoalOwnerTools } from './GoalOwnerTools';
 import {
   GOAL_POSITION_LABELS,
+  evidenceFilesOf,
+  formatFileSize,
   type GoalDetailResponse,
   type PartyPrResponse,
 } from '@/lib/api/goals';
@@ -292,16 +294,9 @@ function ContestSection({ goal }: { goal: GoalDetailResponse }) {
   /*
    * 증빙 파일 목록.
    * 서버는 아직 한 건 분량의 필드(evidenceFileName·evidenceMimeType…)만 내려주지만,
-   * 여러 건으로 늘어나도 화면이 그대로 받도록 배열로 다룬다.
+   * 여러 건(detail.evidences)으로 늘어나도 화면이 그대로 받도록 목록으로 다룬다.
    */
-  const evidenceFiles = detail.evidenceFileName ?? detail.evidenceStorageKey
-    ? [
-        {
-          name: detail.evidenceFileName ?? detail.evidenceStorageKey!,
-          type: detail.evidenceMimeType,
-        },
-      ]
-    : [];
+  const evidenceFiles = evidenceFilesOf(detail);
 
   return (
     <>
@@ -339,16 +334,21 @@ function ContestSection({ goal }: { goal: GoalDetailResponse }) {
         {evidenceFiles.length > 0 ? (
           <>
             <ul className="goal-file-list">
-              {evidenceFiles.map((file) => (
-                <li key={file.name}>
-                  <span className="goal-file-name">{file.name}</span>
-                  {file.type ? <span className="goal-file-type">{file.type}</span> : null}
-                </li>
-              ))}
+              {evidenceFiles.map((file) => {
+                const meta = [file.mimeType, formatFileSize(file.size)].filter(Boolean).join(' · ');
+                return (
+                  <li key={`${file.fileName}:${file.size ?? ''}`}>
+                    <span className="goal-file-name">{file.fileName}</span>
+                    {meta ? <span className="goal-file-type">{meta}</span> : null}
+                  </li>
+                );
+              })}
             </ul>
             {/* 파일 자체는 Object Storage 에 있고 응답에는 메타데이터만 온다.
                 내려받기 URL 발급 API가 붙기 전까지는 등록 여부만 보여준다. */}
-            <p className="goal-note">증빙 파일이 등록되어 있어요. 내려받기는 준비 중이에요.</p>
+            <p className="goal-note">
+              증빙 파일 {evidenceFiles.length}건이 등록되어 있어요. 내려받기는 준비 중이에요.
+            </p>
           </>
         ) : (
           <p className="goal-empty">등록된 증빙 자료가 없어요.</p>
