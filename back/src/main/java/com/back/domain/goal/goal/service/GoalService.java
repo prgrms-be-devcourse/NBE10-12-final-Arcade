@@ -21,8 +21,6 @@ import com.back.domain.party.partyPr.dtos.PartyPrDto;
 import com.back.domain.party.partyPr.repository.PartyPrRepository;
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -135,19 +133,22 @@ public class GoalService {
      * 본인 것만 돌려주므로 소유자 검증이 따로 필요 없다 - 조회 자체를 owner 로 건다.
      *
      * 마이페이지 연혁(components/mypage/AchievementTimeline.tsx)의 필터 네 개와 같은 축이다.
+     *
+     * 페이징하지 않는다 - 연혁은 이력 전체를 연도별로 묶어 보여주는 화면이라 끊어 주면 연도 그룹이 잘린다.
      */
-    public Page<GoalDto> getMyGoals(
+    public List<GoalDto> getMyGoals(
             Member owner,
             GoalStatus status,
             GoalType type,
             GoalSource source,
             Integer year,
-            String keyword,
-            Pageable pageable
+            String keyword
     ) {
         return goalRepository
-                .searchMyGoals(owner, status, type, source, year, keyword, pageable)
-                .map(GoalDto::new);
+                .searchMyGoals(owner, status, type, source, year, keyword)
+                .stream()
+                .map(GoalDto::new)
+                .toList();
     }
 
     /**

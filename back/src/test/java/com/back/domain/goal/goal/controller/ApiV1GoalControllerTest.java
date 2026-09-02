@@ -13,6 +13,7 @@ import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.position.entity.Position;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -56,6 +58,9 @@ public class ApiV1GoalControllerTest {
 
     @Autowired
     private PartyRepository partyRepository;
+
+    @Autowired
+    private EntityManager em;
 
     /** PROJECT 성취 상세 검증용 - 파티를 만들고 그 파티를 가리키는 자동기록 성취를 심는다 */
     private Project savePartyAndProjectGoal(String ownerEmail) {
@@ -244,8 +249,8 @@ public class ApiV1GoalControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.resultCode").value("200-1"))
                 .andExpect(jsonPath("$.msg").value("내 성취 목록 조회 성공"))
-                .andExpect(jsonPath("$.data.content", hasSize(3)))
-                .andExpect(jsonPath("$.data.content[*].source", everyItem(equalTo("SELF_REPORTED"))));
+                .andExpect(jsonPath("$.data", hasSize(3)))
+                .andExpect(jsonPath("$.data[*].source", everyItem(equalTo("SELF_REPORTED"))));
     }
 
     @Test
@@ -256,8 +261,8 @@ public class ApiV1GoalControllerTest {
 
         mvc.perform(get("/api/v1/goals/me").param("type", "CHECKLIST"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content", hasSize(2)))
-                .andExpect(jsonPath("$.data.content[*].type", everyItem(equalTo("CHECKLIST"))));
+                .andExpect(jsonPath("$.data", hasSize(2)))
+                .andExpect(jsonPath("$.data[*].type", everyItem(equalTo("CHECKLIST"))));
     }
 
     @Test
@@ -268,8 +273,50 @@ public class ApiV1GoalControllerTest {
 
         mvc.perform(get("/api/v1/goals/me").param("status", "ACHIEVED").param("type", "CHECKLIST"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content", hasSize(1)))
-                .andExpect(jsonPath("$.data.content[0].detail.title").value("토익 900점"));
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].detail.title").value("토익 900점"));
+    }
+
+    @Test
+    @DisplayName("내 성취 목록: 최신순으로 온다")
+    @WithUserDetails("user1@test.com")
+    void getMyGoalsIsOrderedByNewestFirst() throws Exception {
+        seedGoals();   // 사내 해커톤 → 정보처리기사 실기 → 토익 900점 순으로 등록된다
+
+        mvc.perform(get("/api/v1/goals/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(3)))
+                .andExpect(jsonPath("$.data[0].detail.title").value("토익 900점"))
+                .andExpect(jsonPath("$.data[1].detail.title").value("정보처리기사 실기"))
+                .andExpect(jsonPath("$.data[2].detail.contestName").value("사내 해커톤"));
+    }
+
+    /**
+     * 생성 시각이 같은 행끼리도 순서가 정해져야 한다.
+     *
+     * createDate 하나로만 정렬하면 같은 시각의 행들 순서가 조회할 때마다 달라질 수 있다.
+     * 그래서 id 를 보조 정렬키로 두었고, 이 테스트가 그 보조키를 지킨다.
+     * (한 번의 요청으로 여러 성취가 만들어지는 파티 확정 자동생성이 실제로 이 상황을 만든다.)
+     */
+    @Test
+    @DisplayName("내 성취 목록: 생성 시각이 같으면 나중에 만들어진 것이 먼저 온다")
+    @WithUserDetails("user1@test.com")
+    void getMyGoalsBreaksTieByIdDescending() throws Exception {
+        long first = saveChecklistGoalOf("user1@test.com", "먼저 만든 것");
+        long second = saveChecklistGoalOf("user1@test.com", "나중에 만든 것");
+
+        // 두 성취의 createDate 를 같은 값으로 맞춰 보조 정렬키만 남긴다
+        em.flush();
+        em.createNativeQuery("update goal set create_date = timestamp '2026-01-01 00:00:00' where id in (:ids)")
+                .setParameter("ids", List.of(first, second))
+                .executeUpdate();
+        em.clear();
+
+        mvc.perform(get("/api/v1/goals/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(2)))
+                .andExpect(jsonPath("$.data[0].id").value((int) second))
+                .andExpect(jsonPath("$.data[1].id").value((int) first));
     }
 
     /**
@@ -285,19 +332,19 @@ public class ApiV1GoalControllerTest {
 
         mvc.perform(get("/api/v1/goals/me").param("source", "SELF_REPORTED"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content", hasSize(3)))
-                .andExpect(jsonPath("$.data.content[*].source", everyItem(equalTo("SELF_REPORTED"))));
+                .andExpect(jsonPath("$.data", hasSize(3)))
+                .andExpect(jsonPath("$.data[*].source", everyItem(equalTo("SELF_REPORTED"))));
 
         mvc.perform(get("/api/v1/goals/me").param("source", "PLATFORM_VERIFIED"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content", hasSize(1)))
-                .andExpect(jsonPath("$.data.content[0].source").value("PLATFORM_VERIFIED"))
-                .andExpect(jsonPath("$.data.content[0].type").value("PROJECT"));
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].source").value("PLATFORM_VERIFIED"))
+                .andExpect(jsonPath("$.data[0].type").value("PROJECT"));
 
         // 필터를 빼면 둘 다 나온다
         mvc.perform(get("/api/v1/goals/me"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content", hasSize(4)));
+                .andExpect(jsonPath("$.data", hasSize(4)));
     }
 
     @Test
@@ -312,15 +359,15 @@ public class ApiV1GoalControllerTest {
                         .param("source", "PLATFORM_VERIFIED")
                         .param("type", "CHECKLIST"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content", hasSize(0)));
+                .andExpect(jsonPath("$.data", hasSize(0)));
 
         // 자기신고 + 달성
         mvc.perform(get("/api/v1/goals/me")
                         .param("source", "SELF_REPORTED")
                         .param("status", "ACHIEVED"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content", hasSize(2)))
-                .andExpect(jsonPath("$.data.content[*].source", everyItem(equalTo("SELF_REPORTED"))));
+                .andExpect(jsonPath("$.data", hasSize(2)))
+                .andExpect(jsonPath("$.data[*].source", everyItem(equalTo("SELF_REPORTED"))));
     }
 
     @Test
@@ -329,7 +376,7 @@ public class ApiV1GoalControllerTest {
     void getMyGoalsExcludesOthers() throws Exception {
         mvc.perform(get("/api/v1/goals/me"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content", hasSize(0)));
+                .andExpect(jsonPath("$.data", hasSize(0)));
     }
 
     @Test
@@ -458,8 +505,8 @@ public class ApiV1GoalControllerTest {
         // 수상일 2023-11-15 인 대회 성취 한 건
         mvc.perform(get("/api/v1/goals/me").param("year", "2023"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content", hasSize(1)))
-                .andExpect(jsonPath("$.data.content[0].detail.contestName").value("사내 해커톤"));
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].detail.contestName").value("사내 해커톤"));
     }
 
     /**
@@ -491,20 +538,20 @@ public class ApiV1GoalControllerTest {
         // CONTEST 는 수상일
         mvc.perform(get("/api/v1/goals/me").param("year", "2023"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content", hasSize(1)))
-                .andExpect(jsonPath("$.data.content[0].type").value("CONTEST"));
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].type").value("CONTEST"));
 
         // CHECKLIST 는 목표일
         mvc.perform(get("/api/v1/goals/me").param("year", "2024"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content", hasSize(1)))
-                .andExpect(jsonPath("$.data.content[0].type").value("CHECKLIST"));
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].type").value("CHECKLIST"));
 
         // PROJECT 는 참여 시작일
         mvc.perform(get("/api/v1/goals/me").param("year", "2026"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content", hasSize(1)))
-                .andExpect(jsonPath("$.data.content[0].type").value("PROJECT"));
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].type").value("PROJECT"));
     }
 
     /**
@@ -519,7 +566,7 @@ public class ApiV1GoalControllerTest {
 
         mvc.perform(get("/api/v1/goals/me").param("year", String.valueOf(LocalDate.now().getYear())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content[*].detail.title", hasItem("토익 900점")));
+                .andExpect(jsonPath("$.data[*].detail.title", hasItem("토익 900점")));
     }
 
     @Test
@@ -530,13 +577,13 @@ public class ApiV1GoalControllerTest {
 
         mvc.perform(get("/api/v1/goals/me").param("keyword", "해커톤"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content", hasSize(1)))
-                .andExpect(jsonPath("$.data.content[0].detail.contestName").value("사내 해커톤"));
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].detail.contestName").value("사내 해커톤"));
 
         mvc.perform(get("/api/v1/goals/me").param("keyword", "정보처리"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content", hasSize(1)))
-                .andExpect(jsonPath("$.data.content[0].detail.title").value("정보처리기사 실기"));
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].detail.title").value("정보처리기사 실기"));
     }
 
     @Test
@@ -547,8 +594,8 @@ public class ApiV1GoalControllerTest {
 
         mvc.perform(get("/api/v1/goals/me").param("keyword", "장려상"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content", hasSize(1)))
-                .andExpect(jsonPath("$.data.content[0].detail.contestName").value("사내 해커톤"));
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].detail.contestName").value("사내 해커톤"));
     }
 
     @Test
@@ -565,7 +612,7 @@ public class ApiV1GoalControllerTest {
 
         mvc.perform(get("/api/v1/goals/me").param("keyword", "aws"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content", hasSize(1)));
+                .andExpect(jsonPath("$.data", hasSize(1)));
     }
 
     @Test
@@ -578,7 +625,7 @@ public class ApiV1GoalControllerTest {
                         .param("year", "2023")
                         .param("keyword", "정보처리"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content", hasSize(0)));
+                .andExpect(jsonPath("$.data", hasSize(0)));
     }
 
     @Test
@@ -589,7 +636,7 @@ public class ApiV1GoalControllerTest {
 
         mvc.perform(get("/api/v1/goals/me").param("keyword", "   "))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content", hasSize(3)));
+                .andExpect(jsonPath("$.data", hasSize(3)));
     }
 
     @Test
@@ -600,7 +647,7 @@ public class ApiV1GoalControllerTest {
 
         mvc.perform(get("/api/v1/goals/me").param("keyword", "정보처리"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content", hasSize(0)));
+                .andExpect(jsonPath("$.data", hasSize(0)));
     }
 
     /* ---------- 성취 수정 ---------- */
@@ -857,7 +904,7 @@ public class ApiV1GoalControllerTest {
 
         mvc.perform(get("/api/v1/goals/me"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content", hasSize(0)));
+                .andExpect(jsonPath("$.data", hasSize(0)));
     }
 
     @Test

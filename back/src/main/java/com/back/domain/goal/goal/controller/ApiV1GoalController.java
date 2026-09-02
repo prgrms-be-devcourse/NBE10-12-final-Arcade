@@ -16,8 +16,8 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
+
+import java.util.List;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -96,6 +96,10 @@ public class ApiV1GoalController {
                     마이페이지 연혁 화면의 필터(상태·유형·출처·연도)와 같은 축이다.
                     최신순(생성일 내림차순)으로 정렬한다.
 
+                    페이징하지 않고 조건에 맞는 성취를 전부 돌려준다.
+                    연혁은 한 사람의 이력 전체를 연도별로 묶어 보여주는 화면이라, 끊어서 주면 연도 그룹과
+                    연도 선택지가 잘린다. 회원당 성취는 많아야 수백 건 규모다.
+
                     year 가 보는 '성취의 대표 날짜'는 타입마다 다르다.
                     PROJECT 는 참여 시작일, CONTEST 는 수상일, CHECKLIST 는 목표일이고,
                     그 값이 없으면 등록일로 떨어진다.
@@ -107,7 +111,7 @@ public class ApiV1GoalController {
                     - 401-1 : 미로그인
                     """
     )
-    public RsData<Page<GoalDto>> getMyGoals(
+    public RsData<List<GoalDto>> getMyGoals(
             @Parameter(description = "진행 상태 필터")
             @RequestParam(required = false) GoalStatus status,
 
@@ -121,19 +125,15 @@ public class ApiV1GoalController {
             @RequestParam(required = false) Integer year,
 
             @Parameter(description = "검색어. 제목·대회명·수상 결과·메모에 대한 부분 일치(대소문자 무시)")
-            @RequestParam(required = false) String keyword,
-
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(required = false) String keyword
     ) {
-        Page<GoalDto> goals = goalService.getMyGoals(
+        List<GoalDto> goals = goalService.getMyGoals(
                 rq.getActorFromDb(),
                 status,
                 type,
                 source,
                 year,
-                keyword,
-                PageRequest.of(page, size)
+                keyword
         );
 
         return new RsData<>(

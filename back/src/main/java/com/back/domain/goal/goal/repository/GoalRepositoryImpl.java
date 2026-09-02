@@ -15,9 +15,6 @@ import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.support.PageableExecutionUtils;
 
 import java.util.List;
 
@@ -32,14 +29,13 @@ public class GoalRepositoryImpl implements GoalRepositoryCustom {
     private static final QPersonalChecklist checklist = QPersonalChecklist.personalChecklist;
 
     @Override
-    public Page<Goal> searchMyGoals(
+    public List<Goal> searchMyGoals(
             Member owner,
             GoalStatus status,
             GoalType type,
             GoalSource source,
             Integer year,
-            String keyword,
-            Pageable pageable
+            String keyword
     ) {
         BooleanBuilder where = new BooleanBuilder()
                 .and(goal.owner.eq(owner))
@@ -49,35 +45,13 @@ public class GoalRepositoryImpl implements GoalRepositoryCustom {
                 .and(eqYear(year))
                 .and(containsKeyword(keyword));
 
-        List<Goal> content = withSubTypes(queryFactory.selectFrom(goal))
+        // 같은 시각에 만들어진 행끼리 순서가 흔들리지 않게 id 를 보조키로 둔다.
+        return withSubTypes(queryFactory.selectFrom(goal))
                 .where(where)
                 .orderBy(goal.createDate.desc(), goal.id.desc())
-                .offset(pageable.getOffset())
-                .limit(pageable.getPageSize())
                 .fetch();
-
-        // count 는 자식 테이블을 읽을 필요가 없지만, year·keyword 조건이 자식 컬럼을 보므로 조인은 그대로 둔다.
-        JPAQuery<Long> countQuery = withSubTypes(queryFactory.select(goal.count()).from(goal))
-                .where(where);
-
-        // 마지막 페이지이거나 첫 페이지가 다 안 찼으면 count 쿼리를 아예 날리지 않는다.
-        return PageableExecutionUtils.getPage(content, pageable, countQuery::fetchOne);
     }
 
-    /**
-     * 자식 테이블을 조건절에서 가리킬 수 있게 명시적으로 붙인다.
-     *
-     * Goal 은 JOINED 상속이라 Goal 만 조회해도 하이버네이트가 자식 테이블을 함께 읽지만,
-     * 그건 조회 결과를 조립하기 위한 조인이라 조건절에서 쓸 이름이 없다.
-     *
-     * 그래서 실제 SQL 에는 자식 테이블 조인이 두 벌(조립용 3 + 조건용 3) 나간다.
-     * 전부 PK 동등 조인이고 성취는 회원당 수십 건 규모라 비용은 크지 않다.
-     *
-     * 원래는 treat() 로 조립용 조인을 그대로 쓰는 게 맞지만 지금 스택에서는 쓸 수 없다 -
-     * Querydsl 5.1.0 의 as() 다운캐스트는 HQL treat() 을 만들지 않고 부모 경로를 그대로 내보내서,
-     * Project 와 PersonalChecklist 에 모두 있는 title 에서 "declared in multiple subtypes" 로 깨진다.
-     * Querydsl 이 treat() 을 제대로 내보내게 되면 이 헬퍼를 지우고 다운캐스트로 바꾸면 된다.
-     */
     private <T> JPAQuery<T> withSubTypes(JPAQuery<T> query) {
         return query
                 .leftJoin(project).on(project.id.eq(goal.id))
