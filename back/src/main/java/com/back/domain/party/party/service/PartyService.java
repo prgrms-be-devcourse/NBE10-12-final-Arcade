@@ -52,7 +52,7 @@ public class PartyService {
         String title,
         String description,
         Long targetContestId,
-        String contestName,
+        String contestTitle,
         String contestLinkUrl,
         TopicType topicType,
         PartyTag partyTag,
@@ -75,7 +75,7 @@ public class PartyService {
                 ? null
                 : contestLookupPort.findContestById(targetContestId).orElseThrow();
 
-        if (isMissingContestInfo(topicType, targetContest, contestName)) {
+        if (isMissingContestInfo(topicType, targetContest, contestTitle)) {
             throw new ServiceException("400-1", "등록된 대회가 없으면 대회명을 입력해야 합니다.");
         }
 
@@ -85,7 +85,7 @@ public class PartyService {
             title,
             description,
             targetContest,
-            contestName,
+            contestTitle,
             contestLinkUrl,
             topicType,
             partyTag,
@@ -114,7 +114,7 @@ public class PartyService {
             String title,
             String description,
             Long targetContestId,
-            String contestName,
+            String contestTitle,
             String contestLinkUrl,
             TopicType topicType,
             PartyTag partyTag,
@@ -133,7 +133,7 @@ public class PartyService {
                 ? null
                 : contestLookupPort.findContestById(targetContestId).orElseThrow();
 
-        if (isMissingContestInfo(topicType, targetContest, contestName)) {
+        if (isMissingContestInfo(topicType, targetContest, contestTitle)) {
             throw new ServiceException("400-1", "등록된 대회가 없으면 대회명을 입력해야 합니다.");
         }
 
@@ -142,7 +142,7 @@ public class PartyService {
                 title,
                 description,
                 targetContest,
-                contestName,
+                contestTitle,
                 contestLinkUrl,
                 topicType,
                 partyTag,
@@ -179,10 +179,10 @@ public class PartyService {
                 .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 파티입니다."));
     }
 
-    private boolean isMissingContestInfo(TopicType topicType, Contest targetContest, String contestName) {
+    private boolean isMissingContestInfo(TopicType topicType, Contest targetContest, String contestTitle) {
         return topicType == TopicType.CONTEST
                 && targetContest == null
-                && (contestName == null || contestName.isBlank());
+                && (contestTitle == null || contestTitle.isBlank());
     }
 
     public Page<PartyListItemDto> getList(
