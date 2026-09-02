@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.annotation.Order;
 import org.springframework.transaction.annotation.Transactional;
 
 @Profile("!prod")
@@ -24,10 +25,10 @@ public class NotProdInitData {
     private final CustomConfigProperties customConfigProperties;
 
     @Bean
+    @Order(1)
     ApplicationRunner notProdInitDataApplicationRunner() {
         return args -> {
             self.work1();
-            self.work2();
         };
     }
 
@@ -52,7 +53,10 @@ public class NotProdInitData {
                     notProdMember.nickname(),
                     notProdMember.apiKey()
             );
+
         });
+        memberService.findByEmail("system").ifPresent(Member::grantAdmin);
+        memberService.findByEmail("admin").ifPresent(Member::grantAdmin);
     }
 
     private void createMemberWithApiKey(String email, String password, String name, String apiKey) {
@@ -60,14 +64,4 @@ public class NotProdInitData {
         memberService.modifyApiKey(member.id(), apiKey);
     }
 
-    @Transactional
-    public void work2() {
-
-        Member memberUser1 = memberService.findByEmail("user1@test.com").get();
-        Member memberUser2 = memberService.findByEmail("user2@test.com").get();
-        Member memberUser3 = memberService.findByEmail("user3@test.com").get();
-
-        memberService.findByEmail("system").ifPresent(Member::grantAdmin);
-        memberService.findByEmail("admin").ifPresent(Member::grantAdmin);
-    }
 }
