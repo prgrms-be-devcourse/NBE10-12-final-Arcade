@@ -15,6 +15,7 @@ import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.position.entity.Position;
+import com.back.domain.search.search.service.PartySearchKeywordPort;
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -39,6 +40,7 @@ public class PartyService {
     private final LikeInteractionPort likeInteractionPort;
     private final BookmarkInteractionPort bookmarkInteractionPort;
     private final ContestLookupPort contestLookupPort;
+    private final PartySearchKeywordPort partySearchKeywordPort;
 
     public record PositionCreateSpec(
         PositionType type,
@@ -98,7 +100,10 @@ public class PartyService {
             party.addPosition(new Position(spec.type(), spec.capacity()))
         );
 
-        return new PartyDto(partyRepository.save(party));
+        Party savedParty = partyRepository.save(party);
+        partySearchKeywordPort.keywordParty(savedParty.getId(), title);
+
+        return new PartyDto(savedParty);
     }
 
     public record PositionCapacityUpdateSpec(
@@ -158,6 +163,8 @@ public class PartyService {
             party.findPosition(spec.positionId()).changeCapacity(spec.capacity());
         });
         }
+
+        partySearchKeywordPort.keywordParty(partyId, title);
 
         return new PartyDto(party);
     }
@@ -241,6 +248,7 @@ public class PartyService {
     // delete()만 부르면 좋아요/북마크 삭제가 별도 트랜잭션으로 빠져 원자성이 깨질 수 있어서
     @Transactional
     public void deletePartyAndInteractions(long partyId, Member actor) {
+        partySearchKeywordPort.deleteKeywordParty(partyId);
         delete(partyId, actor);
         likeInteractionPort.deleteAllLikesForTarget(TargetType.PARTY, partyId);
         bookmarkInteractionPort.deleteAllBookmarksForTarget(TargetType.PARTY, partyId);

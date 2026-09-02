@@ -1,4 +1,4 @@
-package com.back.domain.search.service;
+package com.back.domain.search.search.service;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;

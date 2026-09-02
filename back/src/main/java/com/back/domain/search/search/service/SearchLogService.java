@@ -1,8 +1,8 @@
-package com.back.domain.search.service;
+package com.back.domain.search.search.service;
 
 import com.back.domain.member.member.entity.Member;
-import com.back.domain.search.entity.SearchLog;
-import com.back.domain.search.repository.SearchLogRepository;
+import com.back.domain.search.search.entity.SearchLog;
+import com.back.domain.search.search.repository.SearchLogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

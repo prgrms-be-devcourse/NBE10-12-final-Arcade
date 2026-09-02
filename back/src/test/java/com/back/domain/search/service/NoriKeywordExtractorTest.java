@@ -1,5 +1,6 @@
 package com.back.domain.search.service;
 
+import com.back.domain.search.search.service.NoriKeywordExtractor;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
