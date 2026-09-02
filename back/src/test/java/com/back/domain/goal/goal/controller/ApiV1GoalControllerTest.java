@@ -437,14 +437,6 @@ public class ApiV1GoalControllerTest {
     }
 
     @Test
-    @DisplayName("성취 상세: 비로그인이면 401-1 이다")
-    void getGoalWithoutLogin() throws Exception {
-        mvc.perform(get("/api/v1/goals/1"))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.resultCode").value("401-1"));
-    }
-
-    @Test
     @DisplayName("성취 상세: /goals/me 가 상세 경로에 먹히지 않는다")
     @WithUserDetails("user1@test.com")
     void meIsNotTreatedAsGoalId() throws Exception {

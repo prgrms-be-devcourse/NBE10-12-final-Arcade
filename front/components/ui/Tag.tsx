@@ -28,7 +28,7 @@ export function DDay({ children }: { children: ReactNode }) {
  */
 export function SourceBadge({ source }: { source: GoalSource }) {
   return (
-    <span className={source === 'PLATFORM_VERIFIED' ? 'src verified' : 'src self'}>
+    <span className={`goal-badges ${ source === 'PLATFORM_VERIFIED' ? 'src verified' : 'src self' }`}>
       {GOAL_SOURCE_LABELS[source]}
     </span>
   );

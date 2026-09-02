@@ -7,6 +7,9 @@ spring:
     name: back
   profiles:
     active: dev
+  docker:
+    compose:
+      enabled: false
   output:
     ansi:
       enabled: always

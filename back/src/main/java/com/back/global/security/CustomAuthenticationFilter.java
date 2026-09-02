@@ -99,8 +99,14 @@ public class CustomAuthenticationFilter extends OncePerRequestFilter {
         if (member == null && isRefreshTokenExists) {
             // 동시 요청이 같은 refresh token을 공유하므로, 여기서는 token rotation 없이
             // access token만 재발급한다. refresh token rotation은 /members/refresh가 담당한다.
-            member = memberService.getMemberByRefreshToken(refreshToken);
-            rq.setCookie("accessToken", memberService.genAccessToken(member));
+            try {
+                member = memberService.getMemberByRefreshToken(refreshToken);
+                rq.setCookie("accessToken", memberService.genAccessToken(member));
+            } catch (ServiceException ignored) {
+                // 만료·재사용·유효하지 않은 refresh token은 자동 인증에 실패한 것으로만 처리한다.
+                // 공개 API는 익명으로 계속 진행하고, 보호 API는 SecurityConfig가 401-1로 처리한다.
+                member = null;
+            }
         }
 
         if (member == null) {
