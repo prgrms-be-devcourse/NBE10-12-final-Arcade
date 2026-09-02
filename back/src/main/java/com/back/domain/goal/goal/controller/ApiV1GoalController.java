@@ -1,7 +1,6 @@
 package com.back.domain.goal.goal.controller;
 
 import com.back.domain.goal.goal.dtos.GoalCreateReqBody;
-import com.back.domain.goal.goal.dtos.GoalDetailReqBody;
 import com.back.domain.goal.goal.dtos.GoalDetailResponseDto;
 import com.back.domain.goal.goal.dtos.GoalDto;
 import com.back.domain.goal.goal.dtos.GoalUpdateReqBody;
@@ -58,26 +57,7 @@ public class ApiV1GoalController {
     public RsData<GoalDto> create(
             @Valid @RequestBody GoalCreateReqBody request
     ) {
-        GoalDetailReqBody detail = request.detail();
-
-        GoalDto goalDto = goalService.createSelfReported(
-                rq.getActorFromDb(),
-                new GoalService.SelfReportedSpec(
-                        request.type(),
-                        request.status(),
-                        detail.contestName(),
-                        detail.isTeam(),
-                        detail.result(),
-                        detail.awardDate(),
-                        detail.contestUrl(),
-                        detail.evidenceFileName(),
-                        detail.evidenceMimeType(),
-                        detail.evidenceSize(),
-                        detail.title(),
-                        detail.memo(),
-                        detail.targetDate()
-                )
-        );
+        GoalDto goalDto = goalService.createSelfReported(rq.getActorFromDb(), request);
 
         return new RsData<>(
                 "201-1",
@@ -206,27 +186,7 @@ public class ApiV1GoalController {
             @PathVariable long goalId,
             @Valid @RequestBody GoalUpdateReqBody request
     ) {
-        GoalDetailReqBody detail = request.detail();
-
-        GoalDto goalDto = goalService.updateSelfReported(
-                rq.getActorFromDb(),
-                goalId,
-                new GoalService.UpdateSpec(
-                        request.status(),
-                        detail != null,
-                        detail == null ? null : detail.contestName(),
-                        detail == null ? null : detail.isTeam(),
-                        detail == null ? null : detail.result(),
-                        detail == null ? null : detail.awardDate(),
-                        detail == null ? null : detail.contestUrl(),
-                        detail == null ? null : detail.evidenceFileName(),
-                        detail == null ? null : detail.evidenceMimeType(),
-                        detail == null ? null : detail.evidenceSize(),
-                        detail == null ? null : detail.title(),
-                        detail == null ? null : detail.memo(),
-                        detail == null ? null : detail.targetDate()
-                )
-        );
+        GoalDto goalDto = goalService.updateSelfReported(rq.getActorFromDb(), goalId, request);
 
         return new RsData<>(
                 "200-1",

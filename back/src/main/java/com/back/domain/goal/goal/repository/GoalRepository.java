@@ -20,4 +20,13 @@ public interface GoalRepository extends JpaRepository<Goal, Long>, GoalRepositor
             @Param("type") GoalType type
     );
 
+    // 파티 완료 시 그 파티에서 나온 성취를 한 번에 가져온다.
+    // partyAssembleToMemberId를 타고 들어갈 수도 있지만 PARTY_ASSEMBLE_TO_MEMBER를 한 번 더 읽어야 하고,
+    // sourcePartyId는 이미 idx_goal_source_party가 걸려 있어 여기로 바로 찾는 편이 싸다.
+    @Query("select g from Goal g where g.sourcePartyId = :sourcePartyId and g.type = :type")
+    List<Goal> findAllBySourcePartyIdAndType(
+            @Param("sourcePartyId") Long sourcePartyId,
+            @Param("type") GoalType type
+    );
+
 }
