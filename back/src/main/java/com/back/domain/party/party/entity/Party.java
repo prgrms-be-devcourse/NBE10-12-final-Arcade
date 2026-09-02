@@ -47,7 +47,7 @@ public class Party extends BaseEntity {
     private Contest targetContest;
 
     // targetContestId가 없을 때(미등록 외부 대회) 자유 입력
-    private String contestName;
+    private String contestTitle;
     private String contestLinkUrl;
 
     @Enumerated(EnumType.STRING)
@@ -90,7 +90,7 @@ public class Party extends BaseEntity {
         String title,
         String description,
         Contest targetContest,
-        String contestName,
+        String contestTitle,
         String contestLinkUrl,
         TopicType topicType,
         PartyTag partyTag,
@@ -103,7 +103,7 @@ public class Party extends BaseEntity {
         this.title = title;
         this.description = description;
         this.targetContest = targetContest;
-        this.contestName = contestName;
+        this.contestTitle = contestTitle;
         this.contestLinkUrl = contestLinkUrl;
         this.topicType = topicType;
         this.partyTag = partyTag;
@@ -142,7 +142,7 @@ public class Party extends BaseEntity {
 
     public void update(
             String partyName, String title, String description,
-            Contest targetContest, String contestName, String contestLinkUrl,
+            Contest targetContest, String contestTitle, String contestLinkUrl,
             TopicType topicType, PartyTag partyTag, String githubRepoUrl,
             LocalDateTime deadline
     ) {
@@ -150,7 +150,7 @@ public class Party extends BaseEntity {
         this.title = title;
         this.description = description;
         this.targetContest = targetContest;
-        this.contestName = contestName;
+        this.contestTitle = contestTitle;
         this.contestLinkUrl = contestLinkUrl;
         this.topicType = topicType;
         this.partyTag = partyTag;

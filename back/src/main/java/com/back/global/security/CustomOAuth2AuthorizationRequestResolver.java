@@ -18,6 +18,7 @@ import java.util.UUID;
 public class CustomOAuth2AuthorizationRequestResolver implements OAuth2AuthorizationRequestResolver {
 
     private final ClientRegistrationRepository clientRegistrationRepository;
+    private final OAuth2RedirectUrlValidator redirectUrlValidator;
 
     private DefaultOAuth2AuthorizationRequestResolver createDefaultResolver() {
         return new DefaultOAuth2AuthorizationRequestResolver(
@@ -42,8 +43,7 @@ public class CustomOAuth2AuthorizationRequestResolver implements OAuth2Authoriza
         if (req == null) return null;
 
         // 요청 파라미터에서 redirectUrl 가져오기
-        String redirectUrl = request.getParameter("redirectUrl");
-        if (redirectUrl == null) redirectUrl = "/";
+        String redirectUrl = redirectUrlValidator.getSafeRedirectUrl(request.getParameter("redirectUrl"));
 
         // CSRF 방지용 nonce 추가
         String originState = UUID.randomUUID().toString();
