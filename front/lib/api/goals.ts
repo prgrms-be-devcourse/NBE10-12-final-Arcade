@@ -1,11 +1,11 @@
 /**
  * 성취(Goal) API — ApiV1GoalController 기준.
  *
- * 붙어 있는 엔드포인트는 등록(POST /goals)과 내 목록(GET /goals/me) 두 개다.
- * 상세·수정·삭제(GET /goals/{id}, PATCH, DELETE)가 붙으면 여기에 이어서 추가한다.
+ * 등록(POST /goals) · 내 목록(GET /goals/me) · 상세 조회(GET /goals/{goalId})가 붙어 있다.
+ * 수정·삭제(PATCH, DELETE)는 화면 흐름만 먼저 맞춰 둔 상태다.
  */
-import type { Achievement, GoalSource, GoalStatus, GoalType, ID } from '@/lib/types';
-import { MOCK_CURRENT_USER_ID, MOCK_PROFILES } from '@/lib/mock';
+import type { Achievement, GoalSource, GoalStatus, GoalType, ID, PartyStatus } from '@/lib/types';
+import { MOCK_CURRENT_USER_ID, MOCK_PROFILES, mockGoalDetail } from '@/lib/mock';
 import { ApiError, USE_MOCK, http, mockResponse } from './client';
 
 /**
@@ -361,4 +361,48 @@ export async function fetchMyGoalsOrEmpty(query: MyGoalsQuery = {}): Promise<Ach
     if (error instanceof ApiError && error.status === 401) return [];
     throw error;
   }
+}
+
+/**
+ * GET /api/v1/goals/{goalId} — 성취 상세 조회.
+ *
+ * 성취는 전체 공개라(기획서 2.5) 남의 성취도 볼 수 있지만, 서버 인가 규칙상 로그인은 필요하다.
+ * 미로그인은 401, 없는 성취는 404 로 떨어지므로 호출하는 쪽에서 갈라 처리한다.
+ */
+export async function fetchGoalDetail(goalId: string | number): Promise<GoalDetailResponse> {
+  if (USE_MOCK) return mockResponse(mockGoalDetail(String(goalId)));
+  return http.get<GoalDetailResponse>(`/goals/${goalId}`);
+}
+
+/**
+ * DELETE /api/v1/goals/{goalId} — 성취 삭제.
+ *
+ * 자기신고 성취만 지울 수 있다. 자동기록 성취는 서버가 409-1 로 막는다.
+ * 서버 구현은 아직 붙지 않았고(작업표 8번), 화면 쪽 흐름만 먼저 맞춰 둔다.
+ */
+export async function deleteGoal(goalId: string | number): Promise<void> {
+  if (USE_MOCK) return mockResponse(undefined as void);
+  await http.delete<void>(`/goals/${goalId}`);
+}
+
+/**
+ * 성취 수정 요청.
+ *
+ * type 은 바꿀 수 없다 — 수상 기록을 체크리스트로 바꾸는 건 다른 성취를 만드는 일이다.
+ * detail 은 등록(POST)과 같은 모양이고, 해당 타입에 없는 필드는 서버가 무시한다.
+ */
+export type UpdateGoalPayload = Pick<CreateGoalPayload, 'status' | 'detail'>;
+
+/**
+ * PATCH /api/v1/goals/{goalId} — 성취 수정.
+ *
+ * 자기신고 성취만 고칠 수 있다. 자동기록 성취는 서버가 409-1 로 막는다.
+ * 서버 구현은 아직 붙지 않았고(작업표 7번), 화면 쪽 흐름만 먼저 맞춰 둔다.
+ */
+export async function updateGoal(
+  goalId: string | number,
+  payload: UpdateGoalPayload,
+): Promise<void> {
+  if (USE_MOCK) return mockResponse(undefined as void);
+  await http.patch<void>(`/goals/${goalId}`, payload);
 }
