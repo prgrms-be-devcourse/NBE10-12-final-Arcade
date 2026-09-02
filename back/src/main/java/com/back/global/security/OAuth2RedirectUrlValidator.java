@@ -43,6 +43,8 @@ public class OAuth2RedirectUrlValidator {
                 && uri.getRawAuthority() == null
                 && redirectUrl.startsWith("/")
                 && !redirectUrl.startsWith("//")
+                // 첫 '/'를 제거한 값이 URL 스킴으로 해석되면 resolve가 외부 URL로 전환할 수 있다.
+                && !URI.create(redirectUrl.substring(1)).isAbsolute()
                 && !redirectUrl.contains("\\");
     }
 
