@@ -135,7 +135,10 @@ public class MemberService {
         return authTokenService.genAccessToken(member);
     }
 
-    private MemberLoginDto createLoginDto(Member member) {
+    /**
+     * 비밀번호 인증 또는 OAuth 인증이 완료된 회원에게 새 토큰 쌍을 발급한다.
+     */
+    public MemberLoginDto createLoginDto(Member member) {
         String refreshToken = generateRefreshToken();
         redisTemplate.opsForValue().set(
             refreshTokenKey(refreshToken),
