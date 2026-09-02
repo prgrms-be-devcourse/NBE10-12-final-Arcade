@@ -54,12 +54,7 @@ public class PersonalTodoItem extends BaseEntity {
         this.content = requireContent(content);
     }
 
-    /**
-     * 완료 처리. 이미 완료된 항목이면 아무 것도 하지 않는다.
-     *
-     * 화면이 완료 버튼을 누르는 순간 낙관적으로 상태를 바꾸고 요청을 보내므로 같은 요청이 두 번 올 수 있다.
-     * 그때 doneAt 을 다시 찍으면 "6월에 끝낸 일"의 완료 시각이 오늘로 밀린다.
-     */
+    /** 멱등. 화면이 낙관적으로 갱신해 같은 요청이 두 번 올 수 있는데, doneAt 이 오늘로 밀리면 안 된다. */
     public void complete() {
         if (this.done) return;
 
@@ -67,10 +62,7 @@ public class PersonalTodoItem extends BaseEntity {
         this.doneAt = LocalDateTime.now();
     }
 
-    /**
-     * 완료 취소. 지금 화면에는 이 경로가 없다 - 완료한 항목은 수정·삭제 버튼까지 사라진다.
-     * 되돌리기를 열지는 화면 쪽 결정이라, 엔티티에는 자리만 만들어 두고 API 는 2차에서 붙인다.
-     */
+    /** 완료 취소. 화면에 되돌리기 UI 가 없어 API 는 열지 않았다. */
     public void reopen() {
         if (!this.done) return;
 

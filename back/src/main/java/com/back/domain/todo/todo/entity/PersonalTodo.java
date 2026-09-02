@@ -49,34 +49,23 @@ public class PersonalTodo extends BaseEntity {
     @Column(nullable = false)
     private TodoStatus status;
 
-    /**
-     * 상태를 인자로 받지 않고 WANT 로 시작한다. 새로 만든 TODO 는 아직 손대기 전이고,
-     * 만들자마자 HOLD 나 ACHIEVED 인 TODO 는 성립하지 않는다.
-     * (Party 가 RECRUITING, Project 가 IN_PROGRESS 를 생성자에서 고정하는 것과 같다.)
-     *
-     * 프론트 등록 화면도 상태를 보내지 않는다 - createTodo 가 title·category·memo 만 넘긴다.
-     */
+    /** 등록 화면이 상태를 보내지 않는다. 새 TODO 는 손대기 전이라 WANT 로 시작한다. */
     public PersonalTodo(Member owner, String title, TodoCategory category, String memo) {
         this.owner = owner;
-        this.title = title;
+        this.title = requireTitle(title);
         this.category = category;
         this.memo = memo;
         this.status = TodoStatus.WANT;
     }
 
+    /** 부분 수정. null 은 그대로 두고, 빈 문자열은 비운다. 화면이 메모를 따로 저장한다. */
     public void update(String title, TodoCategory category, String memo) {
-        this.title = title;
-        this.category = category;
-        this.memo = memo;
+        if (title != null) this.title = requireTitle(title);
+        if (category != null) this.category = category;
+        if (memo != null) this.memo = memo;
     }
 
-    /**
-     * 상태는 자유롭게 오간다. 완료한 할 일을 다시 여는 건 정상적인 사용이라 전이 규칙을 두지 않는다.
-     * 성취(GoalStatus)와 다른 점이고, TodoStatus 를 따로 둔 이유이기도 하다.
-     *
-     * 항목을 전부 체크했다고 해서 자동으로 ACHIEVED 가 되지는 않는다 - 사용자가 걸어둔 HOLD 를 덮어쓰게 된다.
-     * 화면의 '목록 완료 처리' 버튼이 이 메서드를 부른다.
-     */
+    /** 전이 규칙 없음. 완료한 할 일을 다시 여는 건 정상이다. 항목을 다 체크해도 자동 전이하지 않는다. */
     public void changeStatus(TodoStatus next) {
         this.status = next;
     }
@@ -89,5 +78,13 @@ public class PersonalTodo extends BaseEntity {
         if (!isOwnedBy(member)) {
             throw new ServiceException("403-1", "본인의 개인 TODO만 조회/수정할 수 있습니다.");
         }
+    }
+
+    private static String requireTitle(String title) {
+        if (title == null || title.isBlank()) {
+            throw new ServiceException("400-4", "제목을 입력해주세요.");
+        }
+
+        return title;
     }
 }
