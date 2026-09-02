@@ -4,6 +4,7 @@ import com.back.RedisTestContainerConfig;
 import com.back.domain.member.auth.service.AuthService;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
+import com.back.domain.member.member.service.MemberService;
 import com.back.global.exception.ServiceException;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.DisplayName;
@@ -33,6 +34,9 @@ class GithubSocialLinkIntegrationTest {
 
     @Autowired
     private MemberRepository memberRepository;
+
+    @Autowired
+    private MemberService memberService;
 
     @Autowired
     private MockMvc mvc;
@@ -78,7 +82,7 @@ class GithubSocialLinkIntegrationTest {
 
         mvc.perform(get("/oauth2/authorization/github")
                         .param("redirectUrl", "/login?from=profile")
-                        .cookie(new Cookie("apiKey", actor.getApiKey())))
+                        .cookie(new Cookie("accessToken", memberService.genAccessToken(actor))))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(header().string("Location", "http://localhost:3000/login?from=profile&state=400-1"));
     }
@@ -91,7 +95,7 @@ class GithubSocialLinkIntegrationTest {
 
         mvc.perform(get("/oauth2/authorization/github")
                         .param("redirectUrl", "http://localhost:3000/login?from=profile")
-                        .cookie(new Cookie("apiKey", actor.getApiKey())))
+                        .cookie(new Cookie("accessToken", memberService.genAccessToken(actor))))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(header().string("Location", "http://localhost:3000/login?from=profile&state=400-1"));
     }
@@ -104,7 +108,7 @@ class GithubSocialLinkIntegrationTest {
 
         mvc.perform(get("/oauth2/authorization/github")
                 .param("redirectUrl", "https://malicious.example")
-                        .cookie(new Cookie("apiKey", actor.getApiKey())))
+                        .cookie(new Cookie("accessToken", memberService.genAccessToken(actor))))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(header().string("Location", "http://localhost:3000/?state=400-1"));
     }
