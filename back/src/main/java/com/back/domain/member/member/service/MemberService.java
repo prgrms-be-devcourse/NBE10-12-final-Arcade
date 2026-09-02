@@ -123,6 +123,32 @@ public class MemberService {
         return createLoginDto(member);
     }
 
+    /**
+     * refresh token을 소비하지 않고 유효성만 확인한다.
+     *
+     * access token 자동 갱신 경로에서 refresh token을 rotation하면 같은 쿠키로 들어온
+     * 동시 요청이 서로를 무효화할 수 있으므로, 이 메서드는 access token 재발급에만 사용한다.
+     */
+    public Member getMemberByRefreshToken(String refreshToken) {
+        String memberIdValue = redisTemplate.opsForValue().get(refreshTokenKey(refreshToken));
+
+        if (memberIdValue == null) {
+            if (Boolean.TRUE.equals(redisTemplate.hasKey(usedRefreshTokenKey(refreshToken)))) {
+                throw new ServiceException("401-4", "재사용된 리프레시 토큰입니다.");
+            }
+
+            throw new ServiceException("401-3", "유효하지 않거나 만료된 토큰입니다.");
+        }
+
+        try {
+            long memberId = Long.parseLong(memberIdValue);
+            return memberRepository.findById(memberId)
+                    .orElseThrow(() -> new ServiceException("404-1", "회원을 찾을 수 없습니다."));
+        } catch (NumberFormatException e) {
+            throw new ServiceException("401-3", "유효하지 않거나 만료된 토큰입니다.");
+        }
+    }
+
     public Optional<Member> findByEmail(String email) {
         return memberRepository.findByEmail(email);
     }
@@ -135,7 +161,10 @@ public class MemberService {
         return authTokenService.genAccessToken(member);
     }
 
-    private MemberLoginDto createLoginDto(Member member) {
+    /**
+     * 비밀번호 인증 또는 OAuth 인증이 완료된 회원에게 새 토큰 쌍을 발급한다.
+     */
+    public MemberLoginDto createLoginDto(Member member) {
         String refreshToken = generateRefreshToken();
         redisTemplate.opsForValue().set(
             refreshTokenKey(refreshToken),
