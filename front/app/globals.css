@@ -1516,6 +1516,31 @@ button.party-mini:hover{border-color:var(--accent);}
 .editor-add:hover{border-color:var(--accent);color:var(--accent);}
 .editor-add svg{width:0.8125rem;height:0.8125rem;}
 
+/* ===== 팀 스페이스 — PR 목록 · GitHub 연결 상태 ===== */
+.pr-list{display:flex;flex-direction:column;gap:0.5rem;}
+.pr-item{
+  display:flex;flex-direction:column;gap:0.375rem;padding:0.75rem 0.875rem;
+  border:0.125rem solid var(--border);background:var(--surface);
+}
+.pr-top{display:flex;align-items:center;gap:0.625rem;min-width:0;}
+.pr-title{font-size:.88rem;font-weight:700;color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pr-title:hover{color:var(--accent);}
+.pr-badge{
+  flex-shrink:0;padding:0.1875rem 0.4375rem;border:0.125rem solid var(--border-strong);
+  font-size:.7rem;font-weight:800;color:var(--text-dim);
+}
+.pr-badge[data-tone="merged"]{border-color:var(--accent);color:var(--accent);}
+.pr-badge[data-tone="open"]{border-color:var(--gold);color:var(--gold);}
+.pr-meta{display:flex;flex-wrap:wrap;gap:0.625rem;font-size:.76rem;color:var(--text-dim);}
+.pr-number{font-weight:800;color:var(--text-muted);}
+.pr-branch{font-family:var(--font-mono,monospace);}
+
+.gh-status{margin-top:0.625rem;font-size:.78rem;color:var(--text-muted);line-height:1.6;}
+.gh-status[data-status="ACTIVE"]{color:var(--accent);}
+.gh-status[data-status="INSTALLATION_REQUIRED"],
+.gh-status[data-status="ERROR"]{color:var(--gold);}
+.gh-status-detail{margin-top:0.25rem;font-size:.74rem;color:var(--text-dim);line-height:1.5;}
+
 /* 블록 제목 아래 안내문 + 우측 버튼 한 줄 (성취 리스트 등) */
 .block-head-row{display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:1rem;}
 .block-head-note{font-size:.82rem;color:var(--text-dim);line-height:1.6;}

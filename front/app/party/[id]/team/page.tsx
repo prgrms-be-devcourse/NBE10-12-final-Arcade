@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { Icon } from '@/components/icons/Icon';
 import { CommitTimeline } from '@/components/team/CommitTimeline';
+import { GithubConnectionCard } from '@/components/team/GithubConnectionCard';
+import { PullRequestList } from '@/components/team/PullRequestList';
 import { SendMessageButton } from '@/components/message/SendMessageButton';
 import { FinishPartyButton } from '@/components/team/FinishPartyButton';
 import { ProjectCard } from '@/components/exhibition/ProjectCard';
@@ -10,6 +12,8 @@ import { LeaderRow } from '@/components/ui/Avatar';
 import { DDay, Tag, TagRow } from '@/components/ui/Tag';
 import {
   fetchExhibitions,
+  fetchPartyGithubConnectionOrNull,
+  fetchPartyPullRequestsOrEmpty,
   fetchTeamCommits,
   fetchTeamRepository,
   fetchTeamSpace,
@@ -18,12 +22,16 @@ import { MOCK_CURRENT_USER_ID, MOCK_USER_SUMMARIES } from '@/lib/mock';
 
 export default async function TeamSpacePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [team, repository, commits, exhibitions] = await Promise.all([
-    fetchTeamSpace(id),
-    fetchTeamRepository(id),
-    fetchTeamCommits(id),
-    fetchExhibitions(),
-  ]);
+  const [team, repository, commits, exhibitions, githubConnection, pullRequests] =
+    await Promise.all([
+      fetchTeamSpace(id),
+      fetchTeamRepository(id),
+      fetchTeamCommits(id),
+      fetchExhibitions(),
+      // GitHub 연동·PR 은 실제 서버 값이다. 나머지 팀 스페이스 정보는 아직 데모다
+      fetchPartyGithubConnectionOrNull(id),
+      fetchPartyPullRequestsOrEmpty(id),
+    ]);
 
   const currentUser = MOCK_USER_SUMMARIES[MOCK_CURRENT_USER_ID].name;
   const leader = team.members[0];
@@ -82,6 +90,13 @@ export default async function TeamSpacePage({ params }: { params: Promise<{ id: 
               </Block>
 
               <Block
+                title="진행 기록 · Pull Request"
+                description="연결된 GitHub 저장소의 PR을 웹훅으로 받아 쌓아둔 목록이에요. 파티가 끝나면 이 기록이 참여자 성취의 근거가 됩니다."
+              >
+                <PullRequestList pullRequests={pullRequests} />
+              </Block>
+
+              <Block
                 title="진행 기록 · 커밋"
                 description="연결된 GitHub 저장소에 푸시하면 웹훅으로 커밋이 자동 수집돼요. 커밋 작성자는 프로필에 등록한 GitHub 사용자명으로 팀원과 연결됩니다."
               >
@@ -93,8 +108,8 @@ export default async function TeamSpacePage({ params }: { params: Promise<{ id: 
                   quorum={team.commitQuorum}
                 />
                 <p className="checklist-note">
-                  파티가 완료되면 이 커밋 기록이 작성자·승인자·시각과 함께 참여자 성취 프로필의
-                  결과물로 저장됩니다. (저장 범위는 팀 논의 중)
+                  <b>이 커밋 목록은 아직 데모예요.</b> 서버가 저장하는 협업 기록은 위의 PR 목록이고,
+                  커밋 단위 수집·승인·댓글은 저장 스키마가 정해지면 붙습니다.
                 </p>
               </Block>
             </>
@@ -121,19 +136,11 @@ export default async function TeamSpacePage({ params }: { params: Promise<{ id: 
               <FinishPartyButton partyId={team.partyId} />
 
               <SideCard title="저장소">
-                <a className="link-row" href={`https://${repository}`} target="_blank" rel="noopener noreferrer">
-                  <span className="icon">
-                    <Icon name="i-external" />
-                  </span>
-                  <span className="txt">
-                    <span className="k">GitHub</span>
-                    <br />
-                    <span className="v">{repository}</span>
-                  </span>
-                </a>
-                <p style={{ marginTop: '0.625rem', fontSize: '.76rem', color: 'var(--text-dim)', lineHeight: 1.5 }}>
-                  전시용 링크로만 사용돼요. 커밋·PR 자동 연동은 아직 지원하지 않아요.
-                </p>
+                <GithubConnectionCard
+                  partyId={id}
+                  connection={githubConnection}
+                  fallbackRepository={repository}
+                />
               </SideCard>
 
               {teamProject ? (
