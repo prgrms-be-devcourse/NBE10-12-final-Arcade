@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { MypageView } from '@/components/mypage/MypageView';
 import { isMypageTabKey, type MypageTabKey } from '@/lib/mypageTabs';
 import {
-  fetchMessages,
+  fetchMessagesOrEmpty,
   fetchMyApplications,
   fetchMyBookmarks,
   fetchMyGoalsOrEmpty,
@@ -33,7 +33,7 @@ export default async function MyPage({
       fetchTodos(),
       fetchMyPartyApplicants(),
       fetchMyApplications(),
-      fetchMessages(),
+      fetchMessagesOrEmpty(),
       fetchMyBookmarks(),
     ]);
 

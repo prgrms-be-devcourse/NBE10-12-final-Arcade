@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon, type IconName } from '@/components/icons/Icon';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { deleteNotifications, fetchNotifications, markNotificationsRead } from '@/lib/api';
+import { useRefreshOnVisible } from '@/lib/hooks/useRefreshOnVisible';
 import type { AppNotification, NotificationTarget, NotificationType } from '@/lib/types';
 
 const NOTIF_ICONS: Record<NotificationType, IconName> = {
@@ -36,9 +37,26 @@ export function NotificationPanel() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
 
-  useEffect(() => {
-    fetchNotifications().then(setNotifications).catch(() => setNotifications([]));
+  /** 목록 다시 읽기. 배경 갱신이 실패하면 화면에 있던 것을 그대로 둔다 */
+  const load = useCallback(() => {
+    fetchNotifications()
+      .then(setNotifications)
+      .catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  /*
+   * 서버에 푸시가 없어서 창을 다시 볼 때 읽어온다.
+   * 패널을 열어둔 동안은 건너뛴다 — 읽는 중에 목록이 바뀌면 선택해 둔 항목이 어긋난다.
+   */
+  useRefreshOnVisible(
+    useCallback(() => {
+      if (!open) load();
+    }, [open, load]),
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -139,6 +157,8 @@ export function NotificationPanel() {
         aria-expanded={open}
         onClick={(event) => {
           event.stopPropagation();
+          // 열 때 한 번 읽어둔다 — 열어보는 순간이 가장 최신을 원하는 시점이다
+          if (!open) load();
           setOpen((value) => !value);
         }}
       >

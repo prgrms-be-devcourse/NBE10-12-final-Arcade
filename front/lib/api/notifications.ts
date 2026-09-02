@@ -7,6 +7,7 @@
 import type { AppNotification, ID, NotificationTarget, NotificationType } from '@/lib/types';
 import { MOCK_NOTIFICATIONS } from '@/lib/mock';
 import { USE_MOCK, http, mockResponse } from './client';
+import { timeAgo } from './time';
 
 /** 백엔드 NotificationType. 지금은 파티 지원 승인 한 종류뿐이고 앞으로 늘어난다 */
 export type ServerNotificationType = 'PARTY_APPLICATION_APPROVED';
@@ -44,23 +45,6 @@ const NOTIFICATION_TYPES: Record<ServerNotificationType, NotificationType> = {
 const NOTIFICATION_TARGETS: Record<ServerNotificationType, NotificationTarget> = {
   PARTY_APPLICATION_APPROVED: 'mypageManage',
 };
-
-/** 알림 목록의 시각 문구. 하루가 넘으면 날짜로 적는다 */
-function timeAgo(value: string): string {
-  const then = new Date(value).getTime();
-  if (Number.isNaN(then)) return '';
-
-  const MINUTE = 60_000;
-  const HOUR = 60 * MINUTE;
-  const DAY = 24 * HOUR;
-  const diff = Date.now() - then;
-
-  if (diff < MINUTE) return '방금 전';
-  if (diff < HOUR) return `${Math.floor(diff / MINUTE)}분 전`;
-  if (diff < DAY) return `${Math.floor(diff / HOUR)}시간 전`;
-  if (diff < 7 * DAY) return `${Math.floor(diff / DAY)}일 전`;
-  return value.slice(0, 10).replace(/-/g, '.');
-}
 
 /**
  * NotificationDto → AppNotification.
