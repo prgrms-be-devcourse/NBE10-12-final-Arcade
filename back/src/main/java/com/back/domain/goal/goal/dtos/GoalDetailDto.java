@@ -28,6 +28,11 @@ public record GoalDetailDto(
         Boolean isTeam,
         LocalDate awardDate,
         Long targetContestId,
+        // 증빙자료는 Object Storage 에 두고 여기엔 메타데이터만 내려준다
+        String evidenceStorageKey,
+        String evidenceFileName,
+        String evidenceMimeType,
+        Long evidenceSize,
 
         // CHECKLIST
         String memo,
@@ -38,7 +43,7 @@ public record GoalDetailDto(
             return new GoalDetailDto(
                     project.getTitle(), project.getResult(),
                     project.getPositionType(), project.getStartDate(), project.getEndDate(),
-                    null, null, null, null,
+                    null, null, null, null, null, null, null, null,
                     null, null
             );
         }
@@ -48,6 +53,8 @@ public record GoalDetailDto(
                     null, contest.getResult(),
                     null, null, null,
                     contest.getContestName(), contest.isTeam(), contest.getAwardDate(), contest.getTargetContestId(),
+                    contest.getEvidenceStorageKey(), contest.getEvidenceFileName(),
+                    contest.getEvidenceMimeType(), contest.getEvidenceSize(),
                     null, null
             );
         }
@@ -56,7 +63,7 @@ public record GoalDetailDto(
             return new GoalDetailDto(
                     checklist.getTitle(), null,
                     null, null, null,
-                    null, null, null, null,
+                    null, null, null, null, null, null, null, null,
                     checklist.getMemo(), checklist.getTargetDate()
             );
         }

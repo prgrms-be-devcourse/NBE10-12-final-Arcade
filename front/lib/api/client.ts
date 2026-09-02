@@ -6,6 +6,8 @@
  *   NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api/v1
  *   NEXT_PUBLIC_USE_MOCK=false   # true 면 주소가 있어도 데모 데이터를 쓴다
  *
+ * 서버 주소를 그대로 둔 채 데모로 되돌리고 싶으면 NEXT_PUBLIC_USE_MOCK=true 만 주면 된다.
+ *
  * 백엔드는 모든 응답을 { resultCode, msg, data } 봉투로 감싼다(기획서 8장).
  * request() 가 그 껍데기를 벗겨 data 만 돌려주므로, 각 api 모듈은 data 타입만 신경 쓰면 된다.
  */
@@ -15,8 +17,8 @@ export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
 /**
  * 데모 데이터 사용 여부.
  *
- * 플래그를 적었으면 그 값이 우선이다. 서버 주소를 지우지 않고도 데모 모드로 돌아올 수 있어야 한다.
- * 플래그가 없을 때만 서버 주소 유무로 판단한다.
+ * 명시적으로 준 값이 항상 이긴다. 아무것도 주지 않았을 때만 서버 주소 유무로 판단한다.
+ * (예전에는 주소가 있으면 USE_MOCK=true 를 줘도 무시돼서, 데모로 되돌리려면 주소까지 지워야 했다)
  */
 export const USE_MOCK = (() => {
   const flag = process.env.NEXT_PUBLIC_USE_MOCK;

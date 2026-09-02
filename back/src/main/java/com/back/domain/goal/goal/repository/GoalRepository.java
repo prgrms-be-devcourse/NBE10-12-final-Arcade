@@ -1,7 +1,12 @@
 package com.back.domain.goal.goal.repository;
 
 import com.back.domain.goal.goal.entity.Goal;
+import com.back.domain.goal.goal.entity.GoalSource;
+import com.back.domain.goal.goal.entity.GoalStatus;
 import com.back.domain.goal.goal.entity.GoalType;
+import com.back.domain.member.member.entity.Member;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -18,5 +23,22 @@ public interface GoalRepository extends JpaRepository<Goal, Long> {
     List<Long> findOwnerIdsBySourcePartyIdAndType(
             @Param("sourcePartyId") Long sourcePartyId,
             @Param("type") GoalType type
+    );
+
+    // 내 성취 목록. 상태·타입·출처는 셋 다 선택이라 null이면 조건에서 빠진다(기획서 9.4).
+    // JOINED 상속이라 Goal 하나만 조회해도 하이버네이트가 자식 테이블까지 함께 읽어온다.
+    @Query("""
+        select g from Goal g
+        where g.owner = :owner
+          and (:status is null or g.status = :status)
+          and (:type is null or g.type = :type)
+          and (:source is null or g.source = :source)
+        """)
+    Page<Goal> findAllByOwnerWithFilters(
+            @Param("owner") Member owner,
+            @Param("status") GoalStatus status,
+            @Param("type") GoalType type,
+            @Param("source") GoalSource source,
+            Pageable pageable
     );
 }

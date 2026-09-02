@@ -19,11 +19,11 @@ import org.springframework.transaction.annotation.Transactional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ActiveProfiles("test")
-@SpringBootTest
+@SpringBootTest(properties = "custom.frontend.base-url=http://localhost:3000")
 @AutoConfigureMockMvc
 @Transactional
 @Import(RedisTestContainerConfig.class)
@@ -71,16 +71,42 @@ class GithubSocialLinkIntegrationTest {
     }
 
     @Test
-    @DisplayName("GitHub가 이미 연결된 계정의 GitHub OAuth 시작 요청은 차단된다")
+    @DisplayName("GitHub가 이미 연결된 계정의 GitHub OAuth 시작 요청은 오류 state와 함께 프론트로 리다이렉트된다")
     void blocksDuplicateGithubOAuthAuthorizationRequest() throws Exception {
         Member actor = saveMember("github-linked@test.com");
         actor.setGithubSocial("GITHUB__12345", "github@test.com");
 
         mvc.perform(get("/oauth2/authorization/github")
+                        .param("redirectUrl", "/login?from=profile")
                         .cookie(new Cookie("apiKey", actor.getApiKey())))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.resultCode").value("400-1"))
-                .andExpect(jsonPath("$.msg").value("현재 계정에는 이미 GitHub 계정이 연결되어 있습니다."));
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", "http://localhost:3000/login?from=profile&state=400-1"));
+    }
+
+    @Test
+    @DisplayName("소셜 로그인 차단 시 설정된 프론트 origin의 절대 redirectUrl은 허용된다")
+    void allowsConfiguredFrontendRedirectUrl() throws Exception {
+        Member actor = saveMember("github-linked-frontend@test.com");
+        actor.setGithubSocial("GITHUB__12345", "github@test.com");
+
+        mvc.perform(get("/oauth2/authorization/github")
+                        .param("redirectUrl", "http://localhost:3000/login?from=profile")
+                        .cookie(new Cookie("apiKey", actor.getApiKey())))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", "http://localhost:3000/login?from=profile&state=400-1"));
+    }
+
+    @Test
+    @DisplayName("소셜 로그인 차단 시 외부 redirectUrl은 홈으로 대체된다")
+    void blocksExternalRedirectUrl() throws Exception {
+        Member actor = saveMember("github-linked-external@test.com");
+        actor.setGithubSocial("GITHUB__12345", "github@test.com");
+
+        mvc.perform(get("/oauth2/authorization/github")
+                .param("redirectUrl", "https://malicious.example")
+                        .cookie(new Cookie("apiKey", actor.getApiKey())))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", "http://localhost:3000/?state=400-1"));
     }
 
     private Member saveMember(String email) {
