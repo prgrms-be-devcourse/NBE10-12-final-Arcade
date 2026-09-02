@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Icon } from '@/components/icons/Icon';
 import { BackLink } from '@/components/ui/BackLink';
 import { Block, DetailGrid, SideCard } from '@/components/ui/Block';
+import { ProgressBar } from '@/components/ui/ProgressBar';
 import { SourceBadge, Tag } from '@/components/ui/Tag';
 import { GoalOwnerTools } from './GoalOwnerTools';
 import {
@@ -11,8 +12,14 @@ import {
   formatFileSize,
   type GoalDetailResponse,
   type PartyPrResponse,
+  type TodoContextResponse,
 } from '@/lib/api/goals';
-import { GOAL_STATUS_LABELS, GOAL_TYPE_LABELS, PARTY_STATUS_LABELS } from '@/lib/constants';
+import {
+  GOAL_STATUS_LABELS,
+  GOAL_TYPE_LABELS,
+  PARTY_STATUS_LABELS,
+  todoCategoryLabel,
+} from '@/lib/constants';
 
 /** yyyy-MM-dd 또는 ISO 문자열 → 2026.08.01 */
 function formatDate(value?: string | null): string {
@@ -358,22 +365,83 @@ function ContestSection({ goal }: { goal: GoalDetailResponse }) {
   );
 }
 
-/** CHECKLIST — 스스로 정한 목표 */
+/** CHECKLIST — 스스로 정한 목표와, 연결했다면 그 진행 과정 */
 function ChecklistSection({ goal }: { goal: GoalDetailResponse }) {
-  const { detail } = goal;
+  const { detail, todo } = goal;
 
   return (
-    <Block title="목표 내용" className="block-spaced">
-      <InfoList
-        rows={[
-          ['목표', detail.title],
-          ['목표일', formatDate(detail.targetDate)],
-        ]}
-      />
-      {detail.memo ? (
-        <p className="detail-desc">{detail.memo}</p>
+    <>
+      <Block title="목표 내용" className="block-spaced">
+        <InfoList
+          rows={[
+            ['목표', detail.title],
+            ['목표일', formatDate(detail.targetDate)],
+          ]}
+        />
+        {detail.memo ? (
+          <p className="detail-desc">{detail.memo}</p>
+        ) : (
+          <p className="goal-empty">적어둔 메모가 없어요.</p>
+        )}
+      </Block>
+
+      <TodoProgressBlock todo={todo} />
+    </>
+  );
+}
+
+/**
+ * 연결된 개인 TODO의 할 일 목록 — 마이페이지 연혁과 같은 타임라인으로 보여준다.
+ *
+ * 완료한 항목은 체크한 시각을, 남은 항목은 '진행 중'을 찍어 어떤 순서로 해냈는지가 드러나게 한다.
+ */
+function TodoProgressBlock({ todo }: { todo?: TodoContextResponse }) {
+  if (!todo) {
+    return (
+      <Block title="진행 과정">
+        <p className="goal-empty">
+          연결된 개인 TODO가 없어요. 성취를 수정해 개인 TODO를 연결하면 진행 과정이 여기에 쌓입니다.
+        </p>
+      </Block>
+    );
+  }
+
+  return (
+    <Block
+      title="진행 과정"
+      description={`개인 TODO '${todo.title}'에 쌓은 할 일이에요.`}
+    >
+      <div className="goal-todo-summary">
+        <span className="status-badge">{todoCategoryLabel(todo.category)}</span>
+        <span className="goal-todo-count">
+          {todo.doneCount}/{todo.totalCount} 완료
+        </span>
+      </div>
+
+      <ProgressBar done={todo.doneCount} total={todo.totalCount} />
+
+      {/* TODO 메모는 목록 전체에 대한 말이라 항목 위에 둔다 - 아래에 두면 마지막 항목 설명처럼 읽힌다 */}
+      {todo.memo ? <p className="goal-todo-memo">{todo.memo}</p> : null}
+
+      {todo.items.length > 0 ? (
+        <div className="achv-track goal-todo-track">
+          {todo.items.map((item) => (
+            <div
+              key={item.id}
+              className="achv-item"
+              data-status={item.done ? '달성' : '진행중'}
+            >
+              <div className="achv-item-top">
+                <span className="achv-date">
+                  {item.done ? formatDate(item.doneAt) : '진행 중'}
+                </span>
+              </div>
+              <h5>{item.content}</h5>
+            </div>
+          ))}
+        </div>
       ) : (
-        <p className="goal-empty">적어둔 메모가 없어요.</p>
+        <p className="goal-empty">아직 등록한 할 일이 없어요.</p>
       )}
     </Block>
   );

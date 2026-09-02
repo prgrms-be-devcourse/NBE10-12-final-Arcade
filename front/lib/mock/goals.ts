@@ -123,6 +123,23 @@ const CHECKLIST_GOAL: GoalDetailResponse = {
     title: '정보처리기사 취득',
     memo: '필기 2월, 실기 5월 목표. 실기는 SQL·알고리즘 파트를 먼저 정리하기.',
     targetDate: '2026-05-30',
+    todoId: 1,
+  },
+  // 연결된 개인 TODO — 상세의 '진행 과정' 타임라인이 이 값으로 그려진다
+  todo: {
+    todoId: 1,
+    title: '정보처리기사 실기 준비',
+    category: 'STUDY',
+    memo: '매주 토요일 2시간씩 기출 위주로 정리하기.',
+    status: 'IN_PROGRESS',
+    totalCount: 4,
+    doneCount: 2,
+    items: [
+      { id: 11, content: '2024년 기출 3회분 풀이', done: true, doneAt: '2026-02-14T21:10:00', sortOrder: 0 },
+      { id: 12, content: 'SQL 파트 요약 정리', done: true, doneAt: '2026-03-02T09:40:00', sortOrder: 1 },
+      { id: 13, content: '실무 알고리즘 오답노트', done: false, doneAt: null, sortOrder: 2 },
+      { id: 14, content: '모의고사 2회 응시', done: false, doneAt: null, sortOrder: 3 },
+    ],
   },
   createDate: '2026-01-04T09:30:00',
   modifyDate: '2026-01-04T09:30:00',

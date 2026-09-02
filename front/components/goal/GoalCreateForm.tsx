@@ -7,7 +7,12 @@ import { RadioChipGroup } from '@/components/ui/RadioChipGroup';
 import { Button } from '@/components/ui/Button';
 import { ApiError } from '@/lib/api';
 import { createGoal, fetchTodos, type CreateGoalPayload } from '@/lib/api';
-import { GOAL_STATUSES, GOAL_STATUS_LABELS, GOAL_TYPE_LABELS } from '@/lib/constants';
+import {
+  GOAL_STATUSES,
+  GOAL_STATUS_LABELS,
+  GOAL_TYPE_LABELS,
+  todoCategoryLabel,
+} from '@/lib/constants';
 import type { GoalStatus, TodoItem } from '@/lib/types';
 
 /** 자기신고로 등록할 수 있는 유형. PROJECT 는 파티 확정 시 시스템이 만든다(400-4) */
@@ -217,7 +222,7 @@ export function GoalCreateForm() {
           >
             {pickedTodo ? (
               <div className="picked-card">
-                <span className="picker-poster">{pickedTodo.category}</span>
+                <span className="picker-poster">{todoCategoryLabel(pickedTodo.category)}</span>
                 <span className="picker-meta">
                   <span className="pname">{pickedTodo.title}</span>
                   <span className="psub">
@@ -254,7 +259,7 @@ export function GoalCreateForm() {
                         className="picker-item"
                         onClick={() => pickTodo(todo)}
                       >
-                        <span className="picker-poster">{todo.category}</span>
+                        <span className="picker-poster">{todoCategoryLabel(todo.category)}</span>
                         <span className="picker-meta">
                           <span className="pname">{todo.title}</span>
                           <span className="psub">
