@@ -157,13 +157,26 @@ public class PartyShowcaseService {
     }
 
     private void checkViewableAsDraft(Party party, Member actor) {
+        if (actor == null) {
+            throw new ServiceException(
+                    "403-1",
+                    "게시되지 않은 전시는 파티원만 미리 볼 수 있습니다."
+            );
+        }
         if (party.isOwnedBy(actor)) {
             return;
         }
         boolean isApprovedMember = partyMemberRepository
-                .existsByPartyAndMemberAndStatus(party, actor, PartyMemberStatus.APPROVED);
+                .existsByPartyAndMemberAndStatus(
+                        party,
+                        actor,
+                        PartyMemberStatus.APPROVED
+                );
         if (!isApprovedMember) {
-            throw new ServiceException("403-1", "게시되지 않은 전시는 파티원만 미리 볼 수 있습니다.");
+            throw new ServiceException(
+                    "403-1",
+                    "게시되지 않은 전시는 파티원만 미리 볼 수 있습니다."
+            );
         }
     }
 }
