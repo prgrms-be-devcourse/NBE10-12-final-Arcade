@@ -5,6 +5,7 @@ import com.back.domain.notification.notification.dtos.NotificationDto;
 import com.back.domain.notification.notification.dtos.NotificationPageDto;
 import com.back.domain.notification.notification.dtos.NotificationReadResponse;
 import com.back.domain.notification.notification.entity.Notification;
+import com.back.domain.notification.notification.entity.NotificationType;
 import com.back.domain.notification.notification.repository.NotificationRepository;
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,15 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class NotificationService {
     private final NotificationRepository notificationRepository;
+
+    /**
+     * 알림을 발행하는 도메인 서비스가 공통으로 사용하는 생성 진입점이다.
+     * 알림의 읽음/삭제 정책은 이 서비스에서 계속 관리한다.
+     */
+    @Transactional
+    public Notification create(Member member, NotificationType type, String content) {
+        return notificationRepository.save(new Notification(member, type, content));
+    }
 
     public NotificationPageDto getList(Member member, Boolean isRead, int page, int size) {
         PageRequest pageable = PageRequest.of(page, size, Sort.by(
