@@ -1,7 +1,6 @@
 package com.back.global.security;
 
 import com.back.domain.member.member.entity.Member;
-import com.back.domain.member.member.dtos.MemberLoginDto;
 import com.back.domain.member.member.service.MemberService;
 import com.back.global.exception.ServiceException;
 import com.back.global.rq.Rq;
@@ -98,17 +97,10 @@ public class CustomAuthenticationFilter extends OncePerRequestFilter {
         }
 
         if (member == null && isRefreshTokenExists) {
-            // refresh token은 한 번 사용하면 폐기되므로, 재발급된 토큰 쌍으로 즉시 교체한다.
-            MemberLoginDto loginDto = memberService.refreshToken(refreshToken);
-            var payload = memberService.payload(loginDto.accessToken());
-
-            if (payload == null) {
-                throw new ServiceException("401-3", "유효하지 않은 토큰입니다.");
-            }
-
-            member = new Member(payload.memberId(), payload.role());
-            rq.setCookie("accessToken", loginDto.accessToken());
-            rq.setCookie("refreshToken", loginDto.refreshToken());
+            // 동시 요청이 같은 refresh token을 공유하므로, 여기서는 token rotation 없이
+            // access token만 재발급한다. refresh token rotation은 /members/refresh가 담당한다.
+            member = memberService.getMemberByRefreshToken(refreshToken);
+            rq.setCookie("accessToken", memberService.genAccessToken(member));
         }
 
         if (member == null) {
