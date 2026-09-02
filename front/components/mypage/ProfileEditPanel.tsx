@@ -15,7 +15,6 @@ import { ChipRow, SkillChip } from '@/components/ui/Tag';
 import { POSITION_LABELS, POSITION_TYPES } from '@/lib/constants';
 import { updateMyProfile } from '@/lib/api';
 import type {
-  Achievement,
   CareerItem,
   PositionType,
   ProfileLink,
@@ -28,7 +27,7 @@ interface ProfileEditPanelProps {
   onSaved: (profile: UserProfile) => void;
 }
 
-/** 마이페이지 프로필 수정 패널 (성취 · 경력 · 링크 인라인 에디터 포함) */
+/** 마이페이지 프로필 수정 패널 (경력 · 링크 인라인 에디터 포함) */
 export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPanelProps) {
   const { confirm, dialog } = useConfirm();
   const [nickname, setNickname] = useState(profile.name);
@@ -38,7 +37,6 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
   const [avatarFileName, setAvatarFileName] = useState<string | null>(null);
   const [skills, setSkills] = useState<string[]>(profile.skills);
   const [skillInput, setSkillInput] = useState('');
-  const [achievements, setAchievements] = useState<Achievement[]>(profile.achievements);
   const [careers, setCareers] = useState<CareerItem[]>(profile.careers);
   const [links, setLinks] = useState<ProfileLink[]>(profile.links);
   const [saving, setSaving] = useState(false);
@@ -53,7 +51,6 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
         githubUsername: githubUsername.trim() || undefined,
         avatarFileName: avatarFileName ?? undefined,
         skills,
-        achievements,
         careers,
         links,
       });
@@ -68,7 +65,7 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
       {dialog}
       <h3 className="block-title">프로필 수정</h3>
       <p className="form-hint" style={{ marginTop: 0, marginBottom: '1.125rem' }}>
-        닉네임·대표 포지션·소개는 파티 지원 시 그대로 노출됩니다. 자동기록 성취는 수정할 수 없어요.
+        닉네임·대표 포지션·소개는 파티 지원 시 그대로 노출됩니다. 성취는 성취 등록 화면에서 관리해요.
       </p>
 
       <FormGroup label="프로필 사진">
@@ -158,76 +155,6 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
           }}
         />
       </FormGroup>
-
-      <EditorBlock
-        title="성취 리스트"
-        hint="플랫폼 자동기록 성취는 삭제할 수 없어요. 직접 추가한 항목만 편집됩니다."
-        addLabel="성취 추가"
-        onAdd={() =>
-          setAchievements((prev) => [
-            ...prev,
-            {
-              id: `achv-${Date.now()}`,
-              type: 'PROJECT',
-              status: 'WANT',
-              source: 'SELF_REPORTED',
-              year: String(new Date().getFullYear()),
-              period: '',
-              title: '',
-              description: '',
-              tags: [],
-              links: [],
-              viewCount: 0,
-            },
-          ])
-        }
-      >
-        {achievements.map((achievement) => (
-          <div key={achievement.id} className="editor-row">
-            <TextField
-              placeholder="제목"
-              value={achievement.title}
-              disabled={achievement.source === 'PLATFORM_VERIFIED'}
-              onChange={(event) =>
-                setAchievements((prev) =>
-                  prev.map((item) =>
-                    item.id === achievement.id ? { ...item, title: event.target.value } : item,
-                  ),
-                )
-              }
-            />
-            <TextField
-              placeholder="기간 (예: 2026.08)"
-              value={achievement.period}
-              disabled={achievement.source === 'PLATFORM_VERIFIED'}
-              onChange={(event) =>
-                setAchievements((prev) =>
-                  prev.map((item) =>
-                    item.id === achievement.id ? { ...item, period: event.target.value } : item,
-                  ),
-                )
-              }
-            />
-            <button
-              type="button"
-              className="editor-del"
-              aria-label="성취 삭제"
-              disabled={achievement.source === 'PLATFORM_VERIFIED'}
-              onClick={async () => {
-                const ok = await confirm({
-                  title: '성취를 삭제할까요?',
-                  description: `'${achievement.title || '제목 없음'}' 항목이 프로필에서 사라져요.`,
-                });
-                if (ok) {
-                  setAchievements((prev) => prev.filter((item) => item.id !== achievement.id));
-                }
-              }}
-            >
-              <Icon name="i-x" />
-            </button>
-          </div>
-        ))}
-      </EditorBlock>
 
       <EditorBlock
         title="경력"
