@@ -68,7 +68,7 @@ public abstract class Goal extends BaseEntity {
     @Column(nullable = false)
     private int viewCount;
 
-    protected Goal(
+    public Goal(
             Member owner,
             GoalType type,
             GoalStatus status,
@@ -128,8 +128,9 @@ public abstract class Goal extends BaseEntity {
         this.status = next;
     }
 
-    // 파티 라이프사이클 이벤트로 시스템이 전이시키는 경로 (자식 엔티티에서만 호출)
-    protected void markAchieved() {
+    // 파티 라이프사이클 이벤트로 시스템이 전이시키는 경로.
+    // changeStatus()의 전이 규칙을 거치지 않으므로 자식 엔티티의 완료 처리(Project.complete())에서만 호출한다.
+    public void markAchieved() {
         this.status = GoalStatus.ACHIEVED;
     }
 }
