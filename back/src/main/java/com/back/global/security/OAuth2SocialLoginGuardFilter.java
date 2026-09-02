@@ -4,7 +4,6 @@ import com.back.domain.member.member.entity.Member;
 import com.back.global.exception.ServiceException;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
-import com.back.standard.util.Util;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,6 +11,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
 
@@ -21,6 +21,7 @@ public class OAuth2SocialLoginGuardFilter extends OncePerRequestFilter {
     private static final String GITHUB_AUTHORIZATION_URI = "/oauth2/authorization/github";
 
     private final Rq rq;
+    private final OAuth2RedirectUrlValidator redirectUrlValidator;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -35,10 +36,7 @@ public class OAuth2SocialLoginGuardFilter extends OncePerRequestFilter {
         try {
             actor = rq.getActorFromDb();
         } catch (ServiceException e) {
-            RsData<Void> rsData = e.getRsData();
-            response.setStatus(rsData.statusCode());
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write(Util.json.toString(rsData));
+            redirectWithError(request, e.getRsData());
             return;
         }
 
@@ -48,12 +46,21 @@ public class OAuth2SocialLoginGuardFilter extends OncePerRequestFilter {
                 && !actor.getGithubProviderUserId().isBlank()) {
             RsData<Void> rsData = new RsData<>("400-1",
                     "현재 계정에는 이미 GitHub 계정이 연결되어 있습니다.");
-            response.setStatus(rsData.statusCode());
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write(Util.json.toString(rsData));
+            redirectWithError(request, rsData);
             return;
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private void redirectWithError(HttpServletRequest request, RsData<Void> rsData) {
+        String redirectUrl = redirectUrlValidator.getSafeRedirectUrl(request.getParameter("redirectUrl"));
+        rq.sendRedirect(
+                UriComponentsBuilder.fromUriString(redirectUrl)
+                        .queryParam("state", rsData.resultCode())
+                        .build()
+                        .encode()
+                        .toUriString()
+        );
     }
 }
