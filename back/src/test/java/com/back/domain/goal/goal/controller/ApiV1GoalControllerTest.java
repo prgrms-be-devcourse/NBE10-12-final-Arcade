@@ -272,6 +272,57 @@ public class ApiV1GoalControllerTest {
                 .andExpect(jsonPath("$.data.content[0].detail.title").value("토익 900점"));
     }
 
+    /**
+     * 출처 필터 — 자기신고(SELF_REPORTED)와 파티 활동 자동기록(PLATFORM_VERIFIED)을 갈라 본다.
+     * 마이페이지 연혁 filterBlock 의 '출처' 칩에 대응한다.
+     */
+    @Test
+    @DisplayName("내 성취 목록: source 로 자기신고와 자동기록을 갈라 볼 수 있다")
+    @WithUserDetails("user1@test.com")
+    void getMyGoalsFilteredBySource() throws Exception {
+        seedGoals();                                // 자기신고 3건
+        savePartyAndProjectGoal("user1@test.com");  // 자동기록 1건
+
+        mvc.perform(get("/api/v1/goals/me").param("source", "SELF_REPORTED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content", hasSize(3)))
+                .andExpect(jsonPath("$.data.content[*].source", everyItem(equalTo("SELF_REPORTED"))));
+
+        mvc.perform(get("/api/v1/goals/me").param("source", "PLATFORM_VERIFIED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content", hasSize(1)))
+                .andExpect(jsonPath("$.data.content[0].source").value("PLATFORM_VERIFIED"))
+                .andExpect(jsonPath("$.data.content[0].type").value("PROJECT"));
+
+        // 필터를 빼면 둘 다 나온다
+        mvc.perform(get("/api/v1/goals/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content", hasSize(4)));
+    }
+
+    @Test
+    @DisplayName("내 성취 목록: source 와 다른 필터를 함께 걸 수 있다")
+    @WithUserDetails("user1@test.com")
+    void getMyGoalsFilteredBySourceAndOthers() throws Exception {
+        seedGoals();
+        savePartyAndProjectGoal("user1@test.com");
+
+        // 자동기록 + CHECKLIST 는 성립할 수 없는 조합이라 빈 결과
+        mvc.perform(get("/api/v1/goals/me")
+                        .param("source", "PLATFORM_VERIFIED")
+                        .param("type", "CHECKLIST"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content", hasSize(0)));
+
+        // 자기신고 + 달성
+        mvc.perform(get("/api/v1/goals/me")
+                        .param("source", "SELF_REPORTED")
+                        .param("status", "ACHIEVED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content", hasSize(2)))
+                .andExpect(jsonPath("$.data.content[*].source", everyItem(equalTo("SELF_REPORTED"))));
+    }
+
     @Test
     @DisplayName("내 성취 목록: 남의 성취는 나오지 않는다")
     @WithUserDetails("user2@test.com")
