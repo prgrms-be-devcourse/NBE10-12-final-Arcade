@@ -46,6 +46,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("io.micrometer:micrometer-registry-prometheus")
 
+    // 검색 - 한국어 형태소 분석(Nori)
+    implementation("org.apache.lucene:lucene-analysis-nori:10.4.0")
+
     // H2 DB
     implementation("org.springframework.boot:spring-boot-h2console")
     runtimeOnly("com.h2database:h2")

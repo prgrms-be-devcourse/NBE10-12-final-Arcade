@@ -1,0 +1,24 @@
+package com.back.domain.search.service;
+
+import com.back.domain.member.member.entity.Member;
+import com.back.domain.search.entity.SearchLog;
+import com.back.domain.search.repository.SearchLogRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+public class SearchLogService {
+
+    private final SearchLogRepository searchLogRepository;
+
+    @Transactional
+    public void log(Member actor, String keyword) {
+        if (actor == null) {
+            return;
+        }
+
+        searchLogRepository.save(new SearchLog(actor, keyword));
+    }
+}
