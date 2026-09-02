@@ -52,6 +52,30 @@ public class GoalService {
             Boolean isTeam,
             String result,
             LocalDate awardDate,
+            String contestUrl,
+            String evidenceFileName,
+            String evidenceMimeType,
+            Long evidenceSize,
+            String title,
+            String memo,
+            LocalDate targetDate
+    ) { }
+
+    /**
+     * 성취 수정 요청. 등록과 달리 type 이 없다 - 이미 정해진 타입의 내용만 고친다.
+     * status 와 detail 은 각각 생략할 수 있고, 생략하면 그 부분은 손대지 않는다.
+     */
+    public record UpdateSpec(
+            GoalStatus status,
+            boolean detailPresent,
+            String contestName,
+            Boolean isTeam,
+            String result,
+            LocalDate awardDate,
+            String contestUrl,
+            String evidenceFileName,
+            String evidenceMimeType,
+            Long evidenceSize,
             String title,
             String memo,
             LocalDate targetDate
@@ -78,14 +102,18 @@ public class GoalService {
             throw new ServiceException("400-4", "대회명을 입력해주세요.");
         }
 
-        return new PersonalContest(
+        PersonalContest contest = new PersonalContest(
                 owner,
                 spec.status(),
                 spec.contestName(),
                 Boolean.TRUE.equals(spec.isTeam()),
                 spec.result(),
-                spec.awardDate()
+                spec.awardDate(),
+                spec.contestUrl()
         );
+        contest.updateEvidenceMetadata(spec.evidenceFileName(), spec.evidenceMimeType(), spec.evidenceSize());
+
+        return contest;
     }
 
     private PersonalChecklist createPersonalChecklist(Member owner, SelfReportedSpec spec) {
@@ -103,18 +131,22 @@ public class GoalService {
     }
 
     /**
-     * 내 성취 목록. 상태·타입·출처 필터는 셋 다 선택이며, 값을 넘기지 않으면 조건에서 빠진다(기획서 9.4).
+     * 내 성취 검색. 상태·타입·출처·연도·키워드 다섯 필터가 모두 선택이며, 넘기지 않은 조건은 쿼리에서 빠진다(기획서 9.4).
      * 본인 것만 돌려주므로 소유자 검증이 따로 필요 없다 - 조회 자체를 owner 로 건다.
+     *
+     * 마이페이지 연혁(components/mypage/AchievementTimeline.tsx)의 필터 네 개와 같은 축이다.
      */
     public Page<GoalDto> getMyGoals(
             Member owner,
             GoalStatus status,
             GoalType type,
             GoalSource source,
+            Integer year,
+            String keyword,
             Pageable pageable
     ) {
         return goalRepository
-                .findAllByOwnerWithFilters(owner, status, type, source, pageable)
+                .searchMyGoals(owner, status, type, source, year, keyword, pageable)
                 .map(GoalDto::new);
     }
 
@@ -130,8 +162,7 @@ public class GoalService {
      * 조회수(viewCount)는 여기서 올리지 않는다. 공개 노출 집계는 전시 API 가 맡는다(기획서 3.2).
      */
     public GoalDetailResponseDto getGoal(Member actor, long goalId) {
-        Goal goal = goalRepository.findById(goalId)
-                .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 성취입니다."));
+        Goal goal = findGoal(goalId);
 
         return new GoalDetailResponseDto(goal, buildProjectContext(goal, actor));
     }
@@ -162,6 +193,97 @@ public class GoalService {
                 : List.of();
 
         return ProjectContextDto.of(party, myPositionType, partyOwner, pullRequests);
+    }
+
+    /**
+     * 성취 수정. 소유자 본인의 자기신고 성취만 고칠 수 있다(기획서 9.4).
+     *
+     * 파티 활동으로 자동기록된 PROJECT 성취는 크루온이 보증하는 기록이라 손댈 수 없다.
+     * 사람이 고칠 수 있으면 "이 사람이 실제로 무엇을 했는지"를 보증한다는 성취의 전제가 깨진다.
+     *
+     * detail 을 넘겼다면 그 타입의 세부 정보를 통째로 교체한다.
+     * 화면이 폼 전체를 보내오므로, 넘어오지 않은 항목은 그대로 두는 게 아니라 비운다.
+     *
+     * 예외
+     * - 404-1 : 존재하지 않는 성취
+     * - 403-1 : 남의 성취
+     * - 409-1 : 자동기록(PLATFORM_VERIFIED) 성취
+     * - 409-2 : 허용되지 않는 상태 전이
+     * - 400-4 : 타입별 필수 필드 누락
+     */
+    @Transactional
+    public GoalDto updateSelfReported(Member actor, long goalId, UpdateSpec spec) {
+        Goal goal = findGoal(goalId);
+
+        goal.checkOwnedBy(actor);
+        goal.checkModifiable();
+
+        if (spec.status() != null) {
+            goal.changeStatus(spec.status());
+        }
+
+        if (spec.detailPresent()) {
+            updateDetail(goal, spec);
+        }
+
+        // 변경분을 먼저 내보내야 @LastModifiedDate 가 찍힌다.
+        // 이걸 빼면 응답의 modifyDate 가 수정 전 값(=등록 시각) 그대로 나간다.
+        goalRepository.flush();
+
+        return new GoalDto(goal);
+    }
+
+    private void updateDetail(Goal goal, UpdateSpec spec) {
+        // 자기신고 성취는 CONTEST/CHECKLIST 둘뿐이다. PROJECT 는 위 checkModifiable() 에서 이미 걸러졌다.
+        if (goal instanceof PersonalContest contest) {
+            if (isBlank(spec.contestName())) {
+                throw new ServiceException("400-4", "대회명을 입력해주세요.");
+            }
+
+            contest.update(
+                    spec.contestName(),
+                    Boolean.TRUE.equals(spec.isTeam()),
+                    spec.result(),
+                    spec.awardDate(),
+                    spec.contestUrl()
+            );
+            contest.updateEvidenceMetadata(spec.evidenceFileName(), spec.evidenceMimeType(), spec.evidenceSize());
+            return;
+        }
+
+        if (goal instanceof PersonalChecklist checklist) {
+            if (isBlank(spec.title())) {
+                throw new ServiceException("400-4", "목표 제목을 입력해주세요.");
+            }
+
+            checklist.update(spec.title(), spec.memo(), spec.targetDate());
+            return;
+        }
+
+        throw new IllegalStateException("수정할 수 없는 성취 타입입니다: " + goal.getClass());
+    }
+
+    /**
+     * 성취 삭제. 소유자 본인의 자기신고 성취만 지울 수 있다(기획서 9.4).
+     *
+     * 예외
+     * - 404-1 : 존재하지 않는 성취
+     * - 403-1 : 남의 성취
+     * - 409-1 : 자동기록(PLATFORM_VERIFIED) 성취
+     */
+    @Transactional
+    public void deleteSelfReported(Member actor, long goalId) {
+        Goal goal = findGoal(goalId);
+
+        goal.checkOwnedBy(actor);
+        goal.checkDeletable();
+
+        goalRepository.delete(goal);
+    }
+
+    private Goal findGoal(long goalId) {
+        return goalRepository.findById(goalId)
+                .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 성취입니다."));
     }
 
     /**
