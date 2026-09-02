@@ -19,7 +19,9 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.IntStream;
 
 @Service
 @RequiredArgsConstructor
@@ -49,22 +51,34 @@ public class PartyLifecycleService {
                 .filter(m -> m.getStatus() == PartyMemberStatus.PENDING)
                 .forEach(PartyMember::reject);
 
-        List<Member> approvedMembers = members.stream()
+        // Member만 뽑지 않고 PartyMember를 그대로 들고 있어야 positionType을 이벤트에 실을 수 있다
+        List<PartyMember> approvedPartyMembers = members.stream()
                 .filter(m -> m.getStatus() == PartyMemberStatus.APPROVED)
-                .map(PartyMember::getMember)
                 .toList();
 
         // 파티 확정 원본 사건과 그 시점 승인된 참여자별 파생 레코드를 분리 기록
         PartyAssemble partyAssemble = partyAssembleRepository.save(new PartyAssemble(party));
-        List<PartyAssembleToMember> assembleToMembers = approvedMembers.stream()
-                .map(member -> new PartyAssembleToMember(partyAssemble, member))
+        List<PartyAssembleToMember> assembleToMembers = approvedPartyMembers.stream()
+                .map(pm -> new PartyAssembleToMember(partyAssemble, pm.getMember()))
                 .toList();
         partyAssembleToMemberRepository.saveAll(assembleToMembers);
+
+        LocalDate assembledAt = LocalDate.now();
+
+        // approvedPartyMembers와 assembleToMembers는 같은 순서로 만들어졌으니 인덱스로 짝지어 memberId + 그 사람의 PartyAssembleToMember id + positionType을 한 번에 이벤트에 실어 보낸다
+        List<PartyAssembledEvent.ApprovedMember> approvedMembersPayload = IntStream.range(0, approvedPartyMembers.size())
+                .mapToObj(i -> new PartyAssembledEvent.ApprovedMember(
+                        approvedPartyMembers.get(i).getMember().getId(),
+                        assembleToMembers.get(i).getId(),
+                        approvedPartyMembers.get(i).getPosition().getType()
+                ))
+                .toList();
 
         // 성취 자동생성, 체크리스트 오픈은 해당 도메인이 리스너를 붙이면 되므로 여기서는 이벤트 발행까지만
         eventPublisher.publishEvent(new PartyAssembledEvent(
                 party.getId(),
-                approvedMembers.stream().map(Member::getId).toList()
+                assembledAt,
+                approvedMembersPayload
         ));
 
         return new PartyDto(party);
