@@ -1516,6 +1516,10 @@ button.party-mini:hover{border-color:var(--accent);}
 .editor-add:hover{border-color:var(--accent);color:var(--accent);}
 .editor-add svg{width:0.8125rem;height:0.8125rem;}
 
+/* 블록 제목 아래 안내문 + 우측 버튼 한 줄 (성취 리스트 등) */
+.block-head-row{display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:1rem;}
+.block-head-note{font-size:.82rem;color:var(--text-dim);line-height:1.6;}
+
 /* ===== 개인 TODO 탭 ===== */
 .todo-head-row{display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:1rem;}
 .data-table{width:100%;border:0.125rem solid var(--border-strong);background:var(--surface);border-collapse:collapse;}

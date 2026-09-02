@@ -44,7 +44,7 @@ function toPositionType(value: string | undefined): PositionType {
  * 백엔드에 아직 없어서 비워 두는 값:
  * - bio, careers, links      : 프로필 확장 필드 미구현
  * - stats, streakDays, badges: 마이페이지 요약 API(기획서 9.11) 미구현
- * - achievements             : GET /goals/me 미구현 (성취 등록만 붙어 있음)
+ * - achievements             : 프로필 응답에 없다. GET /goals/me 로 따로 읽어 마이페이지에서 합친다
  * - memberRole               : GET /members/me 응답에 role 이 없다. 로그인 응답에서 받아 덮어쓴다.
  */
 export function toUserProfile(
