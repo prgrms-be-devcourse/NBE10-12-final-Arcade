@@ -18,10 +18,12 @@ public record PersonalTodoDto(
         TodoStatus status,
         long totalCount,
         long doneCount,
+        /** 이미 성취에 연결됐는지. 저장하지 않고 조회 때 계산한다 */
+        boolean linked,
         LocalDateTime createDate,
         LocalDateTime modifyDate
 ) {
-    public PersonalTodoDto(PersonalTodo todo, long totalCount, long doneCount) {
+    public PersonalTodoDto(PersonalTodo todo, long totalCount, long doneCount, boolean linked) {
         this(
                 todo.getId(),
                 todo.getOwner().getId(),
@@ -31,6 +33,7 @@ public record PersonalTodoDto(
                 todo.getStatus(),
                 totalCount,
                 doneCount,
+                linked,
                 todo.getCreateDate(),
                 todo.getModifyDate()
         );
