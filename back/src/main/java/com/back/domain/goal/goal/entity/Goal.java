@@ -63,11 +63,6 @@ public abstract class Goal extends BaseEntity {
     @Column(name = "source_party_id")
     private Long sourcePartyId;
 
-    // 상세 조회 시마다 증가하는 단순 카운트.
-    // PLATFORM_VERIFIED는 sourcePartyId가 가리키는 PARTY.viewCount에 합산되므로 여기엔 쌓이지 않는다(3.2).
-    @Column(nullable = false)
-    private int viewCount;
-
     public Goal(
             Member owner,
             GoalType type,
@@ -82,11 +77,6 @@ public abstract class Goal extends BaseEntity {
         this.source = source;
         this.partyAssembleToMemberId = partyAssembleToMemberId;
         this.sourcePartyId = sourcePartyId;
-        this.viewCount = 0;
-    }
-
-    public void increaseViewCount() {
-        this.viewCount++;
     }
 
     public boolean isOwnedBy(Member member) {

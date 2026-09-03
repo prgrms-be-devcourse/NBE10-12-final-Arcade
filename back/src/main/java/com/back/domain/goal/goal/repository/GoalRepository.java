@@ -34,10 +34,8 @@ public interface GoalRepository extends JpaRepository<Goal, Long>, GoalRepositor
     /**
      * 이 개인 TODO에 연결된 성취. 없으면 비어 있다.
      *
-     * FK가 성취 쪽에 있어서 TODO는 자기가 연결됐는지 모른다. 두 곳에서 이 조회가 필요하다.
-     * - TODO 삭제 전: 연결된 성취를 찾아 detachTodo()로 먼저 떼어내야 한다
-     * - 성취 등록 시: personal_todo_id가 UNIQUE인데 JOINED + IDENTITY 채번이라 제약 위반이 save() 시점에
-     *   DataIntegrityViolationException으로 터진다. 메시지를 다듬으려면 저장 전에 미리 걸러야 한다
+     * FK가 성취 쪽에 있어서 TODO는 자기가 연결됐는지 모르기 때문에 확인 단계
+     * - TODO 삭제 전: 연결된 성취를 찾아 null로 변경
      */
     @Query("select c from PersonalChecklist c where c.personalTodo.id = :personalTodoId")
     Optional<PersonalChecklist> findChecklistByPersonalTodoId(@Param("personalTodoId") Long personalTodoId);

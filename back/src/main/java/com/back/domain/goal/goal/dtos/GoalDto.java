@@ -15,7 +15,6 @@ public record GoalDto(
         GoalSource source,
         Long sourcePartyId,
         Long partyAssembleToMemberId,
-        int viewCount,
         GoalDetailDto detail,
         LocalDateTime createDate,
         LocalDateTime modifyDate
@@ -29,7 +28,6 @@ public record GoalDto(
                 goal.getSource(),
                 goal.getSourcePartyId(),
                 goal.getPartyAssembleToMemberId(),
-                goal.getViewCount(),
                 GoalDetailDto.from(goal),
                 goal.getCreateDate(),
                 goal.getModifyDate()

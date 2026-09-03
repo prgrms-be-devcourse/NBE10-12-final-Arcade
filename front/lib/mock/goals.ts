@@ -14,7 +14,6 @@ const PROJECT_GOAL: GoalDetailResponse = {
   status: 'IN_PROGRESS',
   source: 'PLATFORM_VERIFIED',
   sourcePartyId: 10,
-  viewCount: 2064,
   detail: {
     // 전시 게시(PARTY_SHOWCASE) 전이라 title·result 는 아직 비어 있다
     positionType: 'BACK',
@@ -78,7 +77,6 @@ const CONTEST_GOAL: GoalDetailResponse = {
   status: 'ACHIEVED',
   source: 'SELF_REPORTED',
   sourcePartyId: null,
-  viewCount: 318,
   detail: {
     title: '2025 공공데이터 활용 공모전',
     isTeam: true,
@@ -118,7 +116,6 @@ const CHECKLIST_GOAL: GoalDetailResponse = {
   status: 'WANT',
   source: 'SELF_REPORTED',
   sourcePartyId: null,
-  viewCount: 12,
   detail: {
     title: '정보처리기사 취득',
     memo: '필기 2월, 실기 5월 목표. 실기는 SQL·알고리즘 파트를 먼저 정리하기.',
@@ -132,13 +129,10 @@ const CHECKLIST_GOAL: GoalDetailResponse = {
     category: 'STUDY',
     memo: '매주 토요일 2시간씩 기출 위주로 정리하기.',
     status: 'IN_PROGRESS',
-    totalCount: 4,
-    doneCount: 2,
+    // 완료한 항목만 온다 - 미완료는 서버가 내보내지 않는다
     items: [
       { id: 11, content: '2024년 기출 3회분 풀이', done: true, doneAt: '2026-02-14T21:10:00', sortOrder: 0 },
       { id: 12, content: 'SQL 파트 요약 정리', done: true, doneAt: '2026-03-02T09:40:00', sortOrder: 1 },
-      { id: 13, content: '실무 알고리즘 오답노트', done: false, doneAt: null, sortOrder: 2 },
-      { id: 14, content: '모의고사 2회 응시', done: false, doneAt: null, sortOrder: 3 },
     ],
   },
   createDate: '2026-01-04T09:30:00',

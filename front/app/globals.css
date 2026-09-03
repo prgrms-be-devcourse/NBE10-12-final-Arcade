@@ -3527,6 +3527,5 @@ body{
 
 /* 성취 상세 — 연결된 개인 TODO의 진행 과정 */
 .goal-todo-summary{display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;}
-.goal-todo-count{font-size:.78rem;color:var(--text-dim);}
 .goal-todo-memo{margin-top:0.875rem;font-size:.84rem;color:var(--text-muted);line-height:1.6;}
 .goal-todo-track{margin-top:1.125rem;}

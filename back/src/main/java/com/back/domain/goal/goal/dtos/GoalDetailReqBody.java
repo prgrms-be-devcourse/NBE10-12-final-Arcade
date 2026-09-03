@@ -44,5 +44,11 @@ public record GoalDetailReqBody(
         String memo,
 
         @Schema(description = "[CHECKLIST] 시작일 또는 목표일", example = "2026-10-01")
-        LocalDate targetDate
+        LocalDate targetDate,
+
+        @Schema(
+                description = "[CHECKLIST] 연결할 개인 TODO. 그 TODO의 할 일이 성취의 진행 과정으로 붙는다. 생략하면 연결하지 않고, 수정에서 생략하면 연결이 끊긴다",
+                example = "3"
+        )
+        Long todoId
 ) { }

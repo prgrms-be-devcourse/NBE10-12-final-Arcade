@@ -67,6 +67,15 @@ public class ApiV1PersonalTodoControllerTest {
         ));
     }
 
+    /** 이 TODO 를 가리키는 체크리스트 성취를 하나 만든다 */
+    private void linkToGoal(String email, PersonalTodo todo) {
+        PersonalChecklist checklist = new PersonalChecklist(
+                member(email), GoalStatus.IN_PROGRESS, "연결된 성취", null, null
+        );
+        checklist.linkTodo(todo);
+        goalRepository.save(checklist);
+    }
+
     private ResultActions createTodo(String body) throws Exception {
         return mvc.perform(post("/api/v1/todos").contentType(MediaType.APPLICATION_JSON).content(body));
     }
@@ -147,6 +156,47 @@ public class ApiV1PersonalTodoControllerTest {
         mvc.perform(get("/api/v1/todos/me"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content[0].totalCount").value(0));
+    }
+
+    @Test
+    @DisplayName("목록: linked=false 면 아직 성취에 연결되지 않은 것만 온다")
+    @WithUserDetails("user1@test.com")
+    void getMyTodosFilteredByUnlinked() throws Exception {
+        PersonalTodo linked = saveTodo("user1@test.com");
+        linkToGoal("user1@test.com", linked);
+        PersonalTodo free = saveTodo("user1@test.com");
+
+        mvc.perform(get("/api/v1/todos/me").param("linked", "false"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content", hasSize(1)))
+                .andExpect(jsonPath("$.data.content[0].id").value(free.getId()));
+    }
+
+    @Test
+    @DisplayName("목록: linked=true 면 연결된 것만 온다")
+    @WithUserDetails("user1@test.com")
+    void getMyTodosFilteredByLinked() throws Exception {
+        PersonalTodo linked = saveTodo("user1@test.com");
+        linkToGoal("user1@test.com", linked);
+        saveTodo("user1@test.com");
+
+        mvc.perform(get("/api/v1/todos/me").param("linked", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content", hasSize(1)))
+                .andExpect(jsonPath("$.data.content[0].id").value(linked.getId()));
+    }
+
+    @Test
+    @DisplayName("목록: 연결된 TODO 가 하나도 없어도 linked=false 가 전부 돌려준다")
+    @WithUserDetails("user1@test.com")
+    void getMyTodosUnlinkedWithoutAnyLink() throws Exception {
+        saveTodo("user1@test.com");
+        saveTodo("user1@test.com");
+
+        // linkedIds 가 비면 in 절이 깨질 수 있어 대체값을 넣는데, 그래도 결과가 맞아야 한다
+        mvc.perform(get("/api/v1/todos/me").param("linked", "false"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content", hasSize(2)));
     }
 
     @Test
