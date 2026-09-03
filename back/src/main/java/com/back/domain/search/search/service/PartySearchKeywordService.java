@@ -15,14 +15,16 @@ import java.util.List;
 public class PartySearchKeywordService implements PartySearchKeywordPort {
 
     private final PartySearchKeywordRepository partySearchKeywordRepository;
-    private final KeywordExtractor keywordExtractor;
+    private final KeywordExtractionPort keywordExtractionPort;
+    private final KeywordNormalizationPort keywordNormalizationPort;
     private final PartyRepository partyRepository;
 
     @Override
     @Transactional
     public void keywordParty(long partyId, String text) {
-        List<String> keywords = keywordExtractor.extract(text);
-        String joined = String.join(" ", keywords);
+        List<String> keywords = keywordExtractionPort.extract(text);
+        List<String> normalized = keywordNormalizationPort.normalize(keywords);
+        String joined = String.join(" ", normalized);
 
         partySearchKeywordRepository.findByParty_Id(partyId).ifPresentOrElse(
                 existing -> existing.updateKeywords(joined),

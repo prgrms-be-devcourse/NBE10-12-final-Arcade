@@ -16,48 +16,34 @@ public class KeywordSynonymSeeder implements CommandLineRunner {
     private final KeywordSynonymRepository keywordSynonymRepository;
 
     private static final Map<String, String> SEED_SYNONYMS = Map.ofEntries(
-            // 포지션
-            Map.entry("서버", "백엔드"),
-            Map.entry("서버개발", "백엔드"),
             Map.entry("backend", "백엔드"),
             Map.entry("프론트", "프론트엔드"),
-            Map.entry("클라이언트", "프론트엔드"),
             Map.entry("frontend", "프론트엔드"),
-            Map.entry("디자인", "UIUX"),
-            Map.entry("기획", "PM"),
+            Map.entry("developer", "개발자"),
 
-            // 모집 형태 (공모전/해커톤은 서로 다른 형식이라 동의어로 묶지 않음)
             Map.entry("스터디원", "스터디"),
             Map.entry("토이프로젝트", "프로젝트"),
             Map.entry("사이드프로젝트", "프로젝트"),
 
-            // 분야
             Map.entry("웹", "웹개발"),
             Map.entry("앱", "앱개발"),
             Map.entry("모바일", "앱개발"),
             Map.entry("게임", "게임개발"),
 
-            // 언어 (자스/씨플플/씨샵/고랭은 개발자 커뮤니티에서 실제 쓰이는 표현)
             Map.entry("javascript", "자바스크립트"),
             Map.entry("js", "자바스크립트"),
-            Map.entry("자스", "자바스크립트"),
             Map.entry("typescript", "타입스크립트"),
             Map.entry("ts", "타입스크립트"),
             Map.entry("python", "파이썬"),
             Map.entry("kotlin", "코틀린"),
             Map.entry("java", "자바"),
             Map.entry("cpp", "C++"),
-            Map.entry("씨쁠쁠", "C++"),
-            Map.entry("씨플플", "C++"),
             Map.entry("csharp", "C#"),
-            Map.entry("씨샵", "C#"),
             Map.entry("swift", "스위프트"),
             Map.entry("golang", "Go"),
-            Map.entry("고랭", "Go"),
             Map.entry("rust", "러스트"),
             Map.entry("dart", "다트"),
 
-            // 프론트엔드 프레임워크
             Map.entry("react", "리액트"),
             Map.entry("vue", "뷰"),
             Map.entry("vuejs", "뷰"),
@@ -69,7 +55,6 @@ public class KeywordSynonymSeeder implements CommandLineRunner {
             Map.entry("tailwind", "테일윈드"),
             Map.entry("tailwindcss", "테일윈드"),
 
-            // 백엔드 프레임워크
             Map.entry("spring", "스프링"),
             Map.entry("springboot", "스프링부트"),
             Map.entry("express", "익스프레스"),
@@ -83,7 +68,6 @@ public class KeywordSynonymSeeder implements CommandLineRunner {
             Map.entry("laravel", "라라벨"),
             Map.entry("rails", "레일즈"),
 
-            // DB
             Map.entry("postgres", "포스트그레스"),
             Map.entry("postgresql", "포스트그레스"),
             Map.entry("mongodb", "몽고디비"),
@@ -93,12 +77,10 @@ public class KeywordSynonymSeeder implements CommandLineRunner {
             Map.entry("dynamodb", "다이나모디비"),
             Map.entry("elasticsearch", "엘라스틱서치"),
 
-            // 모바일
             Map.entry("flutter", "플러터"),
             Map.entry("reactnative", "리액트네이티브"),
             Map.entry("android", "안드로이드"),
 
-            // 인프라
             Map.entry("kubernetes", "쿠버네티스"),
             Map.entry("k8s", "쿠버네티스"),
             Map.entry("docker", "도커"),
@@ -107,12 +89,9 @@ public class KeywordSynonymSeeder implements CommandLineRunner {
             Map.entry("nginx", "엔진엑스"),
             Map.entry("azure", "애저"),
 
-            // 협업 · 버전관리
             Map.entry("github", "깃허브"),
-            Map.entry("깃헙", "깃허브"),
             Map.entry("gitlab", "깃랩"),
 
-            // AI · 데이터
             Map.entry("인공지능", "AI"),
             Map.entry("machinelearning", "머신러닝"),
             Map.entry("deeplearning", "딥러닝"),
@@ -120,7 +99,6 @@ public class KeywordSynonymSeeder implements CommandLineRunner {
             Map.entry("tensorflow", "텐서플로우"),
             Map.entry("pytorch", "파이토치"),
 
-            // 협업 도구
             Map.entry("figma", "피그마"),
             Map.entry("notion", "노션"),
             Map.entry("postman", "포스트맨"),

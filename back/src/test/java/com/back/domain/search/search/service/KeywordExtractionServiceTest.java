@@ -1,15 +1,14 @@
-package com.back.domain.search.service;
+package com.back.domain.search.search.service;
 
-import com.back.domain.search.search.service.NoriKeywordExtractor;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class NoriKeywordExtractorTest {
+class KeywordExtractionServiceTest {
 
-    private final NoriKeywordExtractor extractor = new NoriKeywordExtractor();
+    private final KeywordExtractionService extractor = new KeywordExtractionService();
 
     @Test
     void extractsNounKeywordsFromQuery() {

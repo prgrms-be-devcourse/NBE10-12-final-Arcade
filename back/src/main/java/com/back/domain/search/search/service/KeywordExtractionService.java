@@ -23,7 +23,7 @@ import java.util.Set;
 import static org.apache.lucene.analysis.TokenStream.DEFAULT_TOKEN_ATTRIBUTE_FACTORY;
 
 @Component
-public class NoriKeywordExtractor implements KeywordExtractor {
+public class KeywordExtractionService implements KeywordExtractionPort {
 
     private static final String USER_DICTIONARY_PATH = "nori/user-dictionary.txt";
 
@@ -34,7 +34,7 @@ public class NoriKeywordExtractor implements KeywordExtractor {
 
     private final Analyzer analyzer;
 
-    public NoriKeywordExtractor() {
+    public KeywordExtractionService() {
         this.analyzer = buildAnalyzer(loadUserDictionary());
     }
 

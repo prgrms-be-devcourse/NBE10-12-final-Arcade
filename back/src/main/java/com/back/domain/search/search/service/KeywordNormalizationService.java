@@ -11,7 +11,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class KeywordSynonymNormalizer implements KeywordNormalizer {
+public class KeywordNormalizationService implements KeywordNormalizationPort {
 
     private final KeywordSynonymRepository keywordSynonymRepository;
 
