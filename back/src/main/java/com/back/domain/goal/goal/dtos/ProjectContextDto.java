@@ -4,6 +4,7 @@ import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.partyPr.dtos.PartyPrDto;
 import com.back.domain.party.position.entity.PartyStatus;
+import com.back.domain.party.showcase.entity.PartyShowcase;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.time.LocalDateTime;
@@ -28,6 +29,10 @@ public record ProjectContextDto(
         PositionType myPositionType,
         /** 파티장인지 여부 */
         boolean partyOwner,
+        /** 전시 게시글 제목. 게시 전이면 없다 */
+        String showcaseTitle,
+        /** 전시 게시글 본문. 게시 전이면 없다 */
+        String showcaseDescription,
         /** 동기화된 PR 목록. 본인 성취를 볼 때만 채운다 */
         List<PartyPrDto> pullRequests
 ) {
@@ -35,6 +40,7 @@ public record ProjectContextDto(
             Party party,
             PositionType myPositionType,
             boolean partyOwner,
+            PartyShowcase showcase,
             List<PartyPrDto> pullRequests
     ) {
         return new ProjectContextDto(
@@ -46,6 +52,8 @@ public record ProjectContextDto(
                 party.getGithubRepoUrl(),
                 myPositionType,
                 partyOwner,
+                showcase == null ? null : showcase.getTitle(),
+                showcase == null ? null : showcase.getDescription(),
                 pullRequests
         );
     }
