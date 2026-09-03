@@ -37,6 +37,8 @@ export async function fetchPopularExhibitions(): Promise<ExhibitionProject[]> {
 interface PartyShowcaseResponse {
   partyId: number;
   partyName: string;
+  /** 백엔드가 제공하는 파티장 회원 ID. 배포 전 응답과의 호환을 위해 선택값으로 둔다. */
+  ownerId?: number;
   ownerName: string;
   title: string | null;
   description: string | null;
@@ -59,7 +61,7 @@ function toExhibitionProject(showcase: PartyShowcaseResponse): ExhibitionProject
     likeCount: showcase.likeCount,
     sourcePartyId: String(showcase.partyId),
     leader: {
-      id: String(showcase.partyId),
+      id: String(showcase.ownerId ?? showcase.partyId),
       name: showcase.ownerName,
       initial: showcase.ownerName.charAt(0) || 'C',
       role: '',
