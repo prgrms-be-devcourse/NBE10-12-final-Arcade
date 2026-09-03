@@ -21,10 +21,8 @@ public class RelatedTermExpansionService implements RelatedTermExpansionPort {
     public List<String> expand(List<String> keywords) {
         Set<String> expanded = new LinkedHashSet<>(keywords);
 
-        for (String keyword : keywords) {
-            keywordRelatedTermRepository.findByTerm(keyword)
-                    .forEach(relation -> expanded.add(relation.getRelatedTerm()));
-        }
+        keywordRelatedTermRepository.findByTermIn(keywords)
+                .forEach(relation -> expanded.add(relation.getRelatedTerm()));
 
         return List.copyOf(expanded);
     }

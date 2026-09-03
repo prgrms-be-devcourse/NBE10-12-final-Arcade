@@ -142,6 +142,8 @@ public class PartyService {
             throw new ServiceException("400-1", "등록된 대회가 없으면 대회명을 입력해야 합니다.");
         }
 
+        String previousTitle = party.getTitle();
+
         party.update(
                 partyName,
                 title,
@@ -164,7 +166,9 @@ public class PartyService {
         });
         }
 
-        partySearchKeywordPort.keywordParty(partyId, title);
+        if (!previousTitle.equals(title)) {
+            partySearchKeywordPort.keywordParty(partyId, title);
+        }
 
         return new PartyDto(party);
     }

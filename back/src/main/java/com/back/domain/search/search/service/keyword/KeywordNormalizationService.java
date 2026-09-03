@@ -7,6 +7,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -17,15 +19,12 @@ public class KeywordNormalizationService implements KeywordNormalizationPort {
 
     @Override
     public List<String> normalize(List<String> keywords) {
+        Map<String, String> canonicalByTerm = keywordSynonymRepository.findByTermIn(keywords).stream()
+                .collect(Collectors.toMap(KeywordSynonym::getTerm, KeywordSynonym::getCanonicalTerm));
+
         return keywords.stream()
-                .map(this::canonicalize)
+                .map(keyword -> canonicalByTerm.getOrDefault(keyword, keyword))
                 .distinct()
                 .toList();
-    }
-
-    private String canonicalize(String keyword) {
-        return keywordSynonymRepository.findByTerm(keyword)
-                .map(KeywordSynonym::getCanonicalTerm)
-                .orElse(keyword);
     }
 }

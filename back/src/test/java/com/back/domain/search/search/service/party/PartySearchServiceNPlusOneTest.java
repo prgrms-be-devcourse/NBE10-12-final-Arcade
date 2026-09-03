@@ -70,7 +70,7 @@ class PartySearchServiceNPlusOneTest {
         Page<Long> matchedIds = partyMatchQueryLikeService.findMatchingPartyIds(
                 List.of("오너엔플러스원테스트"), PageRequest.of(0, 10)
         );
-        List<Party> parties = partyRepository.findAllByIdInOrderByIdDesc(matchedIds.getContent());
+        List<Party> parties = partyRepository.findAllByIdIn(matchedIds.getContent());
         List<PartyListItemDto> dtos = parties.stream().map(PartyListItemDto::new).toList();
 
         assertThat(dtos).hasSize(3);
