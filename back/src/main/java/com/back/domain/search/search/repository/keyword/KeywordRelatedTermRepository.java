@@ -7,7 +7,5 @@ import java.util.Collection;
 import java.util.List;
 
 public interface KeywordRelatedTermRepository extends JpaRepository<KeywordRelatedTerm, Long> {
-    List<KeywordRelatedTerm> findByTerm(String term);
-
     List<KeywordRelatedTerm> findByTermIn(Collection<String> terms);
 }

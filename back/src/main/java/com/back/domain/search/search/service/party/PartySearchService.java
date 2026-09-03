@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+@Transactional
 public class PartySearchService {
 
     private final KeywordExtractionPort keywordExtractionPort;
@@ -59,7 +59,8 @@ public class PartySearchService {
                 .map(partyById::get)
                 .filter(Objects::nonNull)
                 .toList();
-        Page<Party> matched = new PageImpl<>(parties, pageable, matchedIds.getTotalElements());
+        long missing = ids.size() - parties.size();
+        Page<Party> matched = new PageImpl<>(parties, pageable, matchedIds.getTotalElements() - missing);
 
         Page<PartyListItemDto> dtoPage = matched.map(PartyListItemDto::new);
         return new PartySearchResultDto(query, expanded, dtoPage);

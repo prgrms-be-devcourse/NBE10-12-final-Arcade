@@ -3,14 +3,17 @@ package com.back.domain.party.party.repository;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.entity.PartyTag;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface PartyRepository extends JpaRepository<Party, Long>,PartyContestLookupPort{
     @Query("""
@@ -68,4 +71,8 @@ public interface PartyRepository extends JpaRepository<Party, Long>,PartyContest
 
     @Query("select p from Party p join fetch p.owner where p.id in :ids")
     List<Party> findAllByIdIn(@Param("ids") List<Long> ids);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from Party p where p.id = :id")
+    Optional<Party> findByIdForUpdate(@Param("id") long id);
 }

@@ -29,11 +29,20 @@ public class PartyMatchQueryLikeService implements PartyMatchQueryPort {
                 .map(psk -> psk.getParty().getId());
     }
 
+    private static final char LIKE_ESCAPE_CHAR = '\\';
+
     private Specification<PartySearchKeyword> matchesAnyKeyword(List<String> keywords) {
         return (root, query, cb) -> keywords.stream()
-                .map(keyword -> cb.like(root.get("keywords"), "%" + keyword + "%"))
+                .map(keyword -> cb.like(root.get("keywords"), "%" + escapeLike(keyword) + "%", LIKE_ESCAPE_CHAR))
                 .reduce(cb::or)
                 .orElseGet(cb::disjunction);
+    }
+
+    private String escapeLike(String value) {
+        return value
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
     }
 
     private Specification<PartySearchKeyword> isRecruiting() {

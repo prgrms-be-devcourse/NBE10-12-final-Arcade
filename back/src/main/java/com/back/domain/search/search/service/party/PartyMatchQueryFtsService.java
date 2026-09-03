@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Profile("prod")
 @Service
@@ -21,7 +22,9 @@ public class PartyMatchQueryFtsService implements PartyMatchQueryPort {
 
     @Override
     public Page<Long> findMatchingPartyIds(List<String> keywords, Pageable pageable) {
-        String tsQuery = String.join(" | ", keywords);
+        String tsQuery = keywords.stream()
+                .map(keyword -> "'" + keyword.replace("'", "''") + "'")
+                .collect(Collectors.joining(" | "));
 
         return partySearchKeywordRepository.searchPartyIdsByKeywords(tsQuery, PartyStatus.RECRUITING.name(), pageable);
     }

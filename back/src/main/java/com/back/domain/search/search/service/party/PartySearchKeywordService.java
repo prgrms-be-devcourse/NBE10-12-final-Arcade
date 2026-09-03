@@ -28,12 +28,11 @@ public class PartySearchKeywordService implements PartySearchKeywordPort {
         List<String> normalized = keywordNormalizationPort.normalize(keywords);
         String joined = String.join(" ", normalized);
 
+        Party party = partyRepository.findByIdForUpdate(partyId).orElseThrow();
+
         partySearchKeywordRepository.findByParty_Id(partyId).ifPresentOrElse(
                 existing -> existing.updateKeywords(joined),
-                () -> {
-                    Party party = partyRepository.getReferenceById(partyId);
-                    partySearchKeywordRepository.save(new PartySearchKeyword(party, joined));
-                }
+                () -> partySearchKeywordRepository.save(new PartySearchKeyword(party, joined))
         );
     }
 
