@@ -2,8 +2,8 @@ package com.back.domain.search.search.service.party;
 
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.position.entity.PartyStatus;
-import com.back.domain.search.search.entity.PartySearchKeyword;
-import com.back.domain.search.search.repository.PartySearchKeywordRepository;
+import com.back.domain.search.search.entity.party.PartySearchKeyword;
+import com.back.domain.search.search.repository.party.PartySearchKeywordRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.domain.Page;

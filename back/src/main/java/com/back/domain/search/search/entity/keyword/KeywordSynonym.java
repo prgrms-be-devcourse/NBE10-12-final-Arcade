@@ -1,4 +1,4 @@
-package com.back.domain.search.search.entity;
+package com.back.domain.search.search.entity.keyword;
 
 import com.back.global.jpa.entity.BaseEntity;
 import jakarta.persistence.Column;

@@ -1,6 +1,6 @@
-package com.back.domain.search.search.repository;
+package com.back.domain.search.search.repository.party;
 
-import com.back.domain.search.search.entity.PartySearchKeyword;
+import com.back.domain.search.search.entity.party.PartySearchKeyword;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

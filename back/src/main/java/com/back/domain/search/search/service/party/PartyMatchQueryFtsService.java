@@ -1,8 +1,8 @@
 package com.back.domain.search.search.service.party;
 
 import com.back.domain.party.party.entity.Party;
-import com.back.domain.search.search.entity.PartySearchKeyword;
-import com.back.domain.search.search.repository.PartySearchKeywordRepository;
+import com.back.domain.search.search.entity.party.PartySearchKeyword;
+import com.back.domain.search.search.repository.party.PartySearchKeywordRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.domain.Page;
@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Profile("prod")
 @Service
@@ -23,7 +22,7 @@ public class PartyMatchQueryFtsService implements PartyMatchQueryPort {
 
     @Override
     public Page<Party> findMatchingParties(List<String> keywords, Pageable pageable) {
-        String tsQuery = keywords.stream().collect(Collectors.joining(" | "));
+        String tsQuery = String.join(" | ", keywords);
 
         return partySearchKeywordRepository.searchByKeywords(tsQuery, pageable)
                 .map(PartySearchKeyword::getParty);

@@ -1,6 +1,6 @@
-package com.back.domain.search.search.repository;
+package com.back.domain.search.search.repository.keyword;
 
-import com.back.domain.search.search.entity.KeywordRelatedTerm;
+import com.back.domain.search.search.entity.keyword.KeywordRelatedTerm;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

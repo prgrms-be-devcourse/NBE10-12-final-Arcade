@@ -1,4 +1,4 @@
-package com.back.domain.search.search.repository;
+package com.back.domain.search.search.repository.party;
 
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
@@ -6,7 +6,7 @@ import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
 import com.back.domain.party.party.repository.PartyRepository;
-import com.back.domain.search.search.entity.PartySearchKeyword;
+import com.back.domain.search.search.entity.party.PartySearchKeyword;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

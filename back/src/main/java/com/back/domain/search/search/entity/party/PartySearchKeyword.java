@@ -1,4 +1,4 @@
-package com.back.domain.search.search.entity;
+package com.back.domain.search.search.entity.party;
 
 import com.back.domain.party.party.entity.Party;
 import com.back.global.jpa.entity.BaseEntity;

@@ -1,7 +1,7 @@
 package com.back.domain.search.search.service.keyword;
 
-import com.back.domain.search.search.entity.KeywordRelatedTerm;
-import com.back.domain.search.search.repository.KeywordRelatedTermRepository;
+import com.back.domain.search.search.entity.keyword.KeywordRelatedTerm;
+import com.back.domain.search.search.repository.keyword.KeywordRelatedTermRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
