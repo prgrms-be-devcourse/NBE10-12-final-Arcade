@@ -2,6 +2,15 @@ import type { ChecklistItem, TodoItem } from '@/lib/types';
 import { MOCK_SOLO_SPACES, MOCK_TODOS } from '@/lib/mock';
 import { USE_MOCK, http, mockResponse } from './client';
 
+/** 개인 TODO 상세 API와 목 데이터에서 공통으로 사용하는 최소 필드다. */
+interface SoloSpaceResponse {
+  title: string;
+  category?: string;
+  type?: string;
+  memo?: string;
+  status?: string;
+}
+
 /**
  * 백엔드에 대응 엔드포인트가 아직 없는 모듈이다.
  *
@@ -48,7 +57,7 @@ export async function createTodo(payload: {
 }
 
 /** GET /todos/{id} — 개인 TODO 상세(솔로 팀 스페이스) */
-export async function fetchSoloSpace(id: string): Promise<any> {
+export async function fetchSoloSpace(id: string): Promise<SoloSpaceResponse> {
   if (USE_MOCK) {
     const found = MOCK_SOLO_SPACES[id];
     if (found) return mockResponse(found);
@@ -62,7 +71,7 @@ export async function fetchSoloSpace(id: string): Promise<any> {
       checklist: [],
     });
   }
-  return http.get(`/todos/${id}`);
+  return http.get<SoloSpaceResponse>(`/todos/${id}`);
 }
 
 /** PATCH /todos/{id} — 백엔드에는 메모 전용 API가 없어 기존 값을 함께 보낸다. */
