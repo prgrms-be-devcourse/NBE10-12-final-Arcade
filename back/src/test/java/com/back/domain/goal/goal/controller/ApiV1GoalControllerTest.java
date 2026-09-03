@@ -106,7 +106,7 @@ public class ApiV1GoalControllerTest {
                   "type": "CONTEST",
                   "status": "ACHIEVED",
                   "detail": {
-                    "contestName": "사내 해커톤",
+                    "title": "사내 해커톤",
                     "isTeam": true,
                     "result": "장려상",
                     "awardDate": "2023-11-15"
@@ -120,7 +120,7 @@ public class ApiV1GoalControllerTest {
                 .andExpect(jsonPath("$.data.type").value("CONTEST"))
                 .andExpect(jsonPath("$.data.status").value("ACHIEVED"))
                 .andExpect(jsonPath("$.data.source").value("SELF_REPORTED"))
-                .andExpect(jsonPath("$.data.detail.contestName").value("사내 해커톤"))
+                .andExpect(jsonPath("$.data.detail.title").value("사내 해커톤"))
                 .andExpect(jsonPath("$.data.detail.isTeam").value(true))
                 .andExpect(jsonPath("$.data.detail.result").value("장려상"))
                 .andExpect(jsonPath("$.data.detail.awardDate").value("2023-11-15"));
@@ -220,7 +220,7 @@ public class ApiV1GoalControllerTest {
                 {
                   "type": "CONTEST",
                   "status": "ACHIEVED",
-                  "detail": { "contestName": "사내 해커톤", "result": "장려상", "awardDate": "2023-11-15" }
+                  "detail": { "title": "사내 해커톤", "result": "장려상", "awardDate": "2023-11-15" }
                 }
                 """).andExpect(status().isCreated());
         createGoal("""
@@ -288,7 +288,7 @@ public class ApiV1GoalControllerTest {
                 .andExpect(jsonPath("$.data", hasSize(3)))
                 .andExpect(jsonPath("$.data[0].detail.title").value("토익 900점"))
                 .andExpect(jsonPath("$.data[1].detail.title").value("정보처리기사 실기"))
-                .andExpect(jsonPath("$.data[2].detail.contestName").value("사내 해커톤"));
+                .andExpect(jsonPath("$.data[2].detail.title").value("사내 해커톤"));
     }
 
     /**
@@ -498,7 +498,7 @@ public class ApiV1GoalControllerTest {
         mvc.perform(get("/api/v1/goals/me").param("year", "2023"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(1)))
-                .andExpect(jsonPath("$.data[0].detail.contestName").value("사내 해커톤"));
+                .andExpect(jsonPath("$.data[0].detail.title").value("사내 해커톤"));
     }
 
     /**
@@ -515,7 +515,7 @@ public class ApiV1GoalControllerTest {
                 {
                   "type": "CONTEST",
                   "status": "ACHIEVED",
-                  "detail": { "contestName": "사내 해커톤", "awardDate": "2023-11-15" }
+                  "detail": { "title": "사내 해커톤", "awardDate": "2023-11-15" }
                 }
                 """).andExpect(status().isCreated());
         createGoal("""
@@ -570,7 +570,7 @@ public class ApiV1GoalControllerTest {
         mvc.perform(get("/api/v1/goals/me").param("keyword", "해커톤"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(1)))
-                .andExpect(jsonPath("$.data[0].detail.contestName").value("사내 해커톤"));
+                .andExpect(jsonPath("$.data[0].detail.title").value("사내 해커톤"));
 
         mvc.perform(get("/api/v1/goals/me").param("keyword", "정보처리"))
                 .andExpect(status().isOk())
@@ -587,7 +587,7 @@ public class ApiV1GoalControllerTest {
         mvc.perform(get("/api/v1/goals/me").param("keyword", "장려상"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(1)))
-                .andExpect(jsonPath("$.data[0].detail.contestName").value("사내 해커톤"));
+                .andExpect(jsonPath("$.data[0].detail.title").value("사내 해커톤"));
     }
 
     @Test
@@ -670,7 +670,7 @@ public class ApiV1GoalControllerTest {
                 {
                   "status": "ACHIEVED",
                   "detail": {
-                    "contestName": "2026 공공데이터 공모전",
+                    "title": "2026 공공데이터 공모전",
                     "isTeam": true,
                     "result": "우수상",
                     "awardDate": "2026-08-24",
@@ -684,7 +684,7 @@ public class ApiV1GoalControllerTest {
                 .andExpect(jsonPath("$.data.status").value("ACHIEVED"))
                 .andExpect(jsonPath("$.data.type").value("CONTEST"))
                 .andExpect(jsonPath("$.data.source").value("SELF_REPORTED"))
-                .andExpect(jsonPath("$.data.detail.contestName").value("2026 공공데이터 공모전"))
+                .andExpect(jsonPath("$.data.detail.title").value("2026 공공데이터 공모전"))
                 .andExpect(jsonPath("$.data.detail.result").value("우수상"))
                 .andExpect(jsonPath("$.data.detail.contestUrl").value("https://example.com/contest"));
     }
@@ -700,7 +700,7 @@ public class ApiV1GoalControllerTest {
                 """)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("ACHIEVED"))
-                .andExpect(jsonPath("$.data.detail.contestName").value("사내 해커톤"));
+                .andExpect(jsonPath("$.data.detail.title").value("사내 해커톤"));
     }
 
     /**
@@ -716,12 +716,12 @@ public class ApiV1GoalControllerTest {
         updateGoal(goalId, """
                 {
                   "status": "IN_PROGRESS",
-                  "detail": { "contestName": "이름만 바꿈" }
+                  "detail": { "title": "이름만 바꿈" }
                 }
                 """)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("IN_PROGRESS"))
-                .andExpect(jsonPath("$.data.detail.contestName").value("이름만 바꿈"));
+                .andExpect(jsonPath("$.data.detail.title").value("이름만 바꿈"));
     }
 
     /**
@@ -754,11 +754,11 @@ public class ApiV1GoalControllerTest {
     void updateGoalDetailReplacesOmittedFields() throws Exception {
         long goalId = saveContestGoalOf("user1@test.com");
         updateGoal(goalId, """
-                { "detail": { "contestName": "사내 해커톤", "result": "장려상", "contestUrl": "https://a.example" } }
+                { "detail": { "title": "사내 해커톤", "result": "장려상", "contestUrl": "https://a.example" } }
                 """).andExpect(status().isOk());
 
         updateGoal(goalId, """
-                { "detail": { "contestName": "사내 해커톤" } }
+                { "detail": { "title": "사내 해커톤" } }
                 """)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.detail.result").doesNotExist())
@@ -774,7 +774,7 @@ public class ApiV1GoalControllerTest {
         updateGoal(goalId, """
                 {
                   "detail": {
-                    "contestName": "사내 해커톤",
+                    "title": "사내 해커톤",
                     "evidenceFileName": "수상확인서.pdf",
                     "evidenceMimeType": "application/pdf",
                     "evidenceSize": 204800
@@ -795,7 +795,7 @@ public class ApiV1GoalControllerTest {
         long goalId = saveContestGoalOf("user1@test.com");
 
         updateGoal(goalId, """
-                { "detail": { "contestName": "이름 변경" } }
+                { "detail": { "title": "이름 변경" } }
                 """)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.modifyDate").value(
