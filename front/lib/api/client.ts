@@ -96,8 +96,49 @@ export interface RequestOptions extends Omit<RequestInit, "body"> {
   body?: unknown;
 }
 
+/**
+ * 보호 API가 401을 반환한 뒤에는 만료·변조된 access/refresh 쿠키를 서버에서 지운다.
+ *
+ * 쿠키가 HttpOnly라 프론트에서 직접 삭제할 수 없으며, 동시에 여러 화면 컴포넌트가 인증 API를
+ * 호출할 수 있어 진행 중인 정리 요청은 하나만 공유한다. 로그인 실패처럼 토큰 유효성과 무관한
+ * 공개 인증 엔드포인트의 401은 이 처리에서 제외한다.
+ */
+let invalidSessionCleanup: Promise<void> | null = null;
+const SESSION_ENDPOINT_PATHS = new Set([
+  "/members/login",
+  "/members/logout",
+  "/members/signup",
+  "/members/refresh",
+]);
+
+async function clearInvalidSessionCookies(path: string): Promise<void> {
+  if (
+    USE_MOCK ||
+    typeof window === "undefined" ||
+    SESSION_ENDPOINT_PATHS.has(path)
+  ) {
+    return;
+  }
+
+  if (!invalidSessionCleanup) {
+    invalidSessionCleanup = fetch(buildUrl("/members/logout"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+    })
+      // 로그아웃 호출 자체가 실패해도 원래 401 오류를 가리거나 미처리 Promise를 만들면 안 된다.
+      .catch(() => undefined)
+      .then(() => undefined)
+      .finally(() => {
+        invalidSessionCleanup = null;
+      });
+  }
+
+  await invalidSessionCleanup;
+}
+
 function buildUrl(path: string, query?: RequestOptions["query"]): string {
-  const url = `${apiBase()}${path.startsWith("/") ? path : `/${path}`}`;
+  const url = `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
   if (!query) return url;
   const params = new URLSearchParams();
   Object.entries(query).forEach(([key, value]) => {
@@ -167,6 +208,12 @@ export async function request<T>(
     const resultCode = isEnvelope<unknown>(errorBody)
       ? errorBody.resultCode
       : undefined;
+
+    // 토큰이 잘못되어 보호 API 접근이 거부된 경우, HttpOnly access/refresh 쿠키를 서버에서
+    // 함께 지운다. 다음 화면에서는 비로그인 상태로 정상 진입한다.
+    if (response.status === 401) {
+      await clearInvalidSessionCookies(path);
+    }
 
     throw new ApiError(message, response.status, errorBody, resultCode);
   }

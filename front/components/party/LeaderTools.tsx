@@ -22,7 +22,7 @@ export function LeaderTools({ party }: { party: PartyDetail }) {
   const total = party.positions.reduce((sum, position) => sum + position.capacity, 0);
 
   const isLeader = me?.profile.id === party.leader.id;
-  if (!isLeader) return null;
+  if (!isLeader || party.status !== 'RECRUITING') return null;
 
   const close = async () => {
     await closePartyRecruit(party.id);

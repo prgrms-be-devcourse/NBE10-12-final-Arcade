@@ -21,8 +21,8 @@ export function PartyCard({ party }: { party: Party }) {
       <h3 className="pboard-title">{party.title}</h3>
 
       <div className="position-slots">
-        {party.positions.map((position) => (
-          <SlotChip key={position.type} position={position} />
+        {party.positions.map((position, index) => (
+          <SlotChip key={`${position.type}-${index}`} position={position} />
         ))}
       </div>
 

@@ -13,10 +13,10 @@ import { ProfileCard } from './ProfileCard';
 import { PasswordChangeModal } from './PasswordChangeModal';
 import { ProfileEditPanel } from './ProfileEditPanel';
 import { TodoTable } from './TodoTable';
-import { Footer } from '@/components/layout/Footer';
 import { Block, DetailGrid, SideCard } from '@/components/ui/Block';
 import { LinkButton } from '@/components/ui/Button';
 import { StatusPill, Tag } from '@/components/ui/Tag';
+import { socialLogin } from '@/lib/api';
 import type { MypageTabKey } from '@/lib/mypageTabs';
 import { POSITION_LABELS } from '@/lib/constants';
 import type {
@@ -61,6 +61,11 @@ export function MypageView({
     router.replace(`/mypage?tab=${key}`, { scroll: false });
   };
 
+  /** 로그인 화면의 GitHub 버튼과 같은 OAuth 진입점을 쓰고, 인증 뒤에는 마이페이지로 돌아온다. */
+  const connectGithub = () => {
+    void socialLogin('github', `${window.location.origin}/mypage`);
+  };
+
   return (
     <main>
       <div className="mypage-wrap container">
@@ -79,6 +84,7 @@ export function MypageView({
               profile={profile}
               onEdit={() => setEditing(true)}
               onChangePassword={() => setPasswordOpen(true)}
+              onConnectGithub={profile.githubLinked ? undefined : connectGithub}
             />
 
             <HeroStats streakDays={profile.streakDays} badges={profile.badges} />
@@ -171,7 +177,6 @@ export function MypageView({
           />
         ) : null}
 
-        <Footer contained={false} />
       </div>
     </main>
   );

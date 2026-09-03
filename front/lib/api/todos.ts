@@ -1,6 +1,6 @@
 import type { ChecklistItem, TodoItem } from '@/lib/types';
 import { MOCK_SOLO_SPACES, MOCK_TODOS } from '@/lib/mock';
-import { http, mockResponse } from './client';
+import { USE_MOCK, http, mockResponse } from './client';
 
 /**
  * 백엔드에 대응 엔드포인트가 아직 없는 모듈이다.
@@ -11,16 +11,13 @@ import { http, mockResponse } from './client';
  *
  * 서버가 준비되면 이 상수를 지우고 client 의 USE_MOCK 을 다시 import 하면 아래 http 호출이 살아난다.
  */
-const USE_MOCK: boolean = true;
-
-
-/** GET /me/todos */
+/** GET /todos/me */
 export async function fetchTodos(): Promise<TodoItem[]> {
   if (USE_MOCK) return mockResponse(MOCK_TODOS);
-  return http.get<TodoItem[]>('/me/todos');
+  return http.get<TodoItem[]>('/todos/me');
 }
 
-/** POST /me/todos */
+/** POST /todos */
 export async function createTodo(payload: {
   title: string;
   category: string;
@@ -47,11 +44,11 @@ export async function createTodo(payload: {
       doneCount: 0,
     });
   }
-  return http.post<TodoItem>('/me/todos', payload);
+  return http.post<TodoItem>('/todos', payload);
 }
 
-/** GET /me/todos/{id} — 개인 TODO 상세(솔로 팀 스페이스) */
-export async function fetchSoloSpace(id: string) {
+/** GET /todos/{id} — 개인 TODO 상세(솔로 팀 스페이스) */
+export async function fetchSoloSpace(id: string): Promise<any> {
   if (USE_MOCK) {
     const found = MOCK_SOLO_SPACES[id];
     if (found) return mockResponse(found);
@@ -65,16 +62,22 @@ export async function fetchSoloSpace(id: string) {
       checklist: [],
     });
   }
-  return http.get(`/me/todos/${id}`);
+  return http.get(`/todos/${id}`);
 }
 
-/** PUT /me/todos/{id}/memo */
+/** PATCH /todos/{id} — 백엔드에는 메모 전용 API가 없어 기존 값을 함께 보낸다. */
 export async function saveSoloMemo(id: string, memo: string): Promise<void> {
   if (USE_MOCK) return mockResponse(undefined as void);
-  return http.put<void>(`/me/todos/${id}/memo`, { memo });
+  const todo = await fetchSoloSpace(id);
+  await http.patch(`/todos/${id}`, {
+    title: todo.title,
+    category: todo.category ?? todo.type,
+    memo,
+    status: todo.status ?? 'WANT',
+  });
 }
 
-/** POST /me/todos/{id}/items */
+/** POST /todos/{id}/items */
 export async function createSoloItem(id: string, content: string): Promise<ChecklistItem> {
   if (USE_MOCK) {
     return mockResponse({
@@ -86,21 +89,29 @@ export async function createSoloItem(id: string, content: string): Promise<Check
       quorum: 0,
     });
   }
-  return http.post<ChecklistItem>(`/me/todos/${id}/items`, { content });
+  return http.post<ChecklistItem>(`/todos/${id}/items`, { content });
 }
 
-/** PATCH /me/todos/{id}/items/{itemId} */
+/** PATCH /todos/{id}/items/{itemId} — 내용 수정 */
 export async function toggleSoloItem(
   id: string,
   itemId: string,
   done: boolean,
 ): Promise<void> {
   if (USE_MOCK) return mockResponse(undefined as void);
-  return http.patch<void>(`/me/todos/${id}/items/${itemId}`, { done });
+  if (done) {
+    await http.post<void>(`/todos/${id}/items/${itemId}/complete`);
+  }
 }
 
-/** POST /me/todos/{id}/finish */
+/** PATCH /todos/{id} — TODO 완료 상태 변경 */
 export async function finishTodo(id: string): Promise<void> {
   if (USE_MOCK) return mockResponse(undefined as void);
-  return http.post<void>(`/me/todos/${id}/finish`);
+  const todo = await fetchSoloSpace(id);
+  await http.patch(`/todos/${id}`, {
+    title: todo.title,
+    category: todo.category ?? todo.type,
+    memo: todo.memo ?? '',
+    status: 'ACHIEVED',
+  });
 }
