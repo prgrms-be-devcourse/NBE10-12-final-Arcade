@@ -23,14 +23,15 @@ public record GoalDetailResponseDto(
         GoalStatus status,
         GoalSource source,
         Long sourcePartyId,
-        int viewCount,
         GoalDetailDto detail,
         /** type 이 PROJECT 일 때만 값이 있다 */
         ProjectContextDto project,
+        /** CHECKLIST 성취에 개인 TODO 가 연결됐을 때만 값이 있다 */
+        TodoContextDto todo,
         LocalDateTime createDate,
         LocalDateTime modifyDate
 ) {
-    public GoalDetailResponseDto(Goal goal, ProjectContextDto project) {
+    public GoalDetailResponseDto(Goal goal, ProjectContextDto project, TodoContextDto todo) {
         this(
                 goal.getId(),
                 goal.getOwner().getId(),
@@ -39,9 +40,9 @@ public record GoalDetailResponseDto(
                 goal.getStatus(),
                 goal.getSource(),
                 goal.getSourcePartyId(),
-                goal.getViewCount(),
                 GoalDetailDto.from(goal),
                 project,
+                todo,
                 goal.getCreateDate(),
                 goal.getModifyDate()
         );

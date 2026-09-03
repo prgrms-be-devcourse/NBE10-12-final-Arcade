@@ -94,8 +94,6 @@ export interface Achievement {
   description: string;
   tags: string[];
   links: AchievementLink[];
-  /** 상세 조회 시마다 증가 (기획서 3.2) */
-  viewCount: number;
   /** PLATFORM_VERIFIED 일 때만 값 존재 — 좋아요·조회수를 원본 파티로 합산 (기획서 3.2) */
   sourcePartyId?: ID;
 }

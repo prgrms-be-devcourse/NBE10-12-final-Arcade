@@ -16,6 +16,11 @@ public interface PersonalTodoItemRepository extends JpaRepository<PersonalTodoIt
 
     Page<PersonalTodoItem> findAllByTodoOrderBySortOrderAscIdAsc(PersonalTodo todo, Pageable pageable);
 
+    /**
+     * 완료한 항목만 해낸 순서대로.-> 성취 체크리스트 상세페이지 에서 사용
+     */
+    List<PersonalTodoItem> findAllByTodoAndDoneIsTrueOrderByDoneAtAscIdAsc(PersonalTodo todo);
+
     // 진행률은 페이지가 아니라 전체 기준이라 목록 응답만으로는 셀 수 없다.
     long countByTodo(PersonalTodo todo);
 

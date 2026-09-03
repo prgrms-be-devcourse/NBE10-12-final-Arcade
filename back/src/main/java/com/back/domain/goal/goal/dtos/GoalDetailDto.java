@@ -37,7 +37,9 @@ public record GoalDetailDto(
 
         // CHECKLIST
         String memo,
-        LocalDate targetDate
+        LocalDate targetDate,
+        /** 연결된 개인 TODO. 항목까지 보려면 상세 응답의 todo 블록을 쓴다 */
+        Long todoId
 ) {
     public static GoalDetailDto from(Goal goal) {
         if (goal instanceof Project project) {
@@ -45,7 +47,7 @@ public record GoalDetailDto(
                     project.getTitle(), project.getResult(),
                     project.getPositionType(), project.getStartDate(), project.getEndDate(),
                     null, null, null, null, null, null, null, null, null,
-                    null, null
+                    null, null, null
             );
         }
 
@@ -57,7 +59,7 @@ public record GoalDetailDto(
                     contest.getContestUrl(), contest.getTargetContestId(),
                     contest.getEvidenceStorageKey(), contest.getEvidenceFileName(),
                     contest.getEvidenceMimeType(), contest.getEvidenceSize(),
-                    null, null
+                    null, null, null
             );
         }
 
@@ -66,7 +68,8 @@ public record GoalDetailDto(
                     checklist.getTitle(), null,
                     null, null, null,
                     null, null, null, null, null, null, null, null, null,
-                    checklist.getMemo(), checklist.getTargetDate()
+                    checklist.getMemo(), checklist.getTargetDate(),
+                    checklist.getPersonalTodo() == null ? null : checklist.getPersonalTodo().getId()
             );
         }
 

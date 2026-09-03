@@ -13,6 +13,12 @@ import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.position.entity.Position;
+import com.back.domain.todo.todo.entity.PersonalTodo;
+import com.back.domain.todo.todo.entity.PersonalTodoItem;
+import org.springframework.data.domain.PageRequest;
+import com.back.domain.todo.todo.entity.TodoCategory;
+import com.back.domain.todo.todo.repository.PersonalTodoItemRepository;
+import com.back.domain.todo.todo.repository.PersonalTodoRepository;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -60,7 +66,29 @@ public class ApiV1GoalControllerTest {
     private PartyRepository partyRepository;
 
     @Autowired
+    private PersonalTodoRepository personalTodoRepository;
+
+    @Autowired
+    private PersonalTodoItemRepository personalTodoItemRepository;
+
+    @Autowired
     private EntityManager em;
+
+    /** 연결 대상 개인 TODO - 화면과 같은 흐름으로 TODO 를 만들고 항목을 한 건씩 붙인다 */
+    private PersonalTodo saveTodoOf(String email, String... contents) {
+        Member owner = memberRepository.findByEmail(email).orElseThrow();
+        PersonalTodo todo = personalTodoRepository.save(
+                new PersonalTodo(owner, "정보처리기사 실기 준비", TodoCategory.STUDY, "매주 토요일 2시간")
+        );
+
+        for (String content : contents) {
+            personalTodoItemRepository.save(new PersonalTodoItem(
+                    todo, content, personalTodoItemRepository.nextSortOrder(todo)
+            ));
+        }
+
+        return todo;
+    }
 
     /** PROJECT 성취 상세 검증용 - 파티를 만들고 그 파티를 가리키는 자동기록 성취를 심는다 */
     private Project savePartyAndProjectGoal(String ownerEmail) {
@@ -146,8 +174,7 @@ public class ApiV1GoalControllerTest {
                 .andExpect(jsonPath("$.data.type").value("CHECKLIST"))
                 .andExpect(jsonPath("$.data.status").value("WANT"))
                 .andExpect(jsonPath("$.data.detail.title").value("정보처리기사 실기 준비"))
-                .andExpect(jsonPath("$.data.detail.memo").value("매주 토요일 2시간"))
-                .andExpect(jsonPath("$.data.viewCount").value(0));
+                .andExpect(jsonPath("$.data.detail.memo").value("매주 토요일 2시간"));
     }
 
     @Test
@@ -640,6 +667,208 @@ public class ApiV1GoalControllerTest {
         mvc.perform(get("/api/v1/goals/me").param("keyword", "정보처리"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data", hasSize(0)));
+    }
+
+    /* ---------- 개인 TODO 연결 ---------- */
+
+    @Test
+    @DisplayName("등록: 체크리스트에 개인 TODO 를 연결하면 detail.todoId 로 저장된다")
+    @WithUserDetails("user1@test.com")
+    void createChecklistWithTodo() throws Exception {
+        PersonalTodo todo = saveTodoOf("user1@test.com", "기출 3회분 풀이");
+
+        createGoal("""
+                {
+                  "type": "CHECKLIST",
+                  "status": "WANT",
+                  "detail": { "title": "정보처리기사 취득", "todoId": %d }
+                }
+                """.formatted(todo.getId()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.detail.todoId").value(todo.getId()));
+    }
+
+    @Test
+    @DisplayName("등록: todoId 를 생략하면 연결 없이 등록된다")
+    @WithUserDetails("user1@test.com")
+    void createChecklistWithoutTodo() throws Exception {
+        createGoal("""
+                {
+                  "type": "CHECKLIST",
+                  "status": "WANT",
+                  "detail": { "title": "정보처리기사 취득" }
+                }
+                """)
+                .andExpect(status().isCreated())
+                // @JsonInclude(NON_NULL) 이라 연결이 없으면 필드 자체가 빠진다
+                .andExpect(jsonPath("$.data.detail.todoId").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("등록: 남의 개인 TODO 는 연결할 수 없다 (403-1)")
+    @WithUserDetails("user1@test.com")
+    void cannotLinkOthersTodo() throws Exception {
+        PersonalTodo others = saveTodoOf("user2@test.com", "항목1");
+
+        createGoal("""
+                {
+                  "type": "CHECKLIST",
+                  "status": "WANT",
+                  "detail": { "title": "정보처리기사 취득", "todoId": %d }
+                }
+                """.formatted(others.getId()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.resultCode").value("403-1"));
+    }
+
+    @Test
+    @DisplayName("등록: 이미 다른 성취에 연결된 TODO 면 409-1 이다")
+    @WithUserDetails("user1@test.com")
+    void cannotLinkTodoTwice() throws Exception {
+        PersonalTodo todo = saveTodoOf("user1@test.com", "항목1");
+        String body = """
+                {
+                  "type": "CHECKLIST",
+                  "status": "WANT",
+                  "detail": { "title": "정보처리기사 취득", "todoId": %d }
+                }
+                """.formatted(todo.getId());
+
+        createGoal(body).andExpect(status().isCreated());
+
+        createGoal(body)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.resultCode").value("409-1"));
+    }
+
+    @Test
+    @DisplayName("등록: 없는 TODO 를 연결하면 404-1 이다")
+    @WithUserDetails("user1@test.com")
+    void cannotLinkMissingTodo() throws Exception {
+        createGoal("""
+                {
+                  "type": "CHECKLIST",
+                  "status": "WANT",
+                  "detail": { "title": "정보처리기사 취득", "todoId": 999999 }
+                }
+                """)
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.resultCode").value("404-1"));
+    }
+
+    @Test
+    @DisplayName("상세: 완료한 항목만 해낸 순서대로 온다 (미완료는 내보내지 않는다)")
+    @WithUserDetails("user1@test.com")
+    void detailCarriesOnlyDoneTodoItems() throws Exception {
+        PersonalTodo todo = saveTodoOf("user1@test.com", "기출 3회분 풀이", "SQL 파트 정리", "모의고사 응시");
+        List<PersonalTodoItem> items = personalTodoItemRepository
+                .findAllByTodoOrderBySortOrderAscIdAsc(todo, PageRequest.of(0, 10))
+                .getContent();
+
+        // 두 번째를 먼저 끝내고 첫 번째를 나중에 끝낸다 - 추가 순서가 아니라 완료 순서로 와야 한다
+        items.get(1).complete();
+        em.flush();
+        items.get(0).complete();
+        em.flush();
+
+        long goalId = goalRepository.save(linkedChecklist("user1@test.com", todo)).getId();
+        em.flush();
+        em.clear();
+
+        mvc.perform(get("/api/v1/goals/" + goalId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.todo.todoId").value(todo.getId()))
+                .andExpect(jsonPath("$.data.todo.category").value("STUDY"))
+                // 미완료 '모의고사 응시' 는 빠진다
+                .andExpect(jsonPath("$.data.todo.items", hasSize(2)))
+                .andExpect(jsonPath("$.data.todo.items[0].content").value("SQL 파트 정리"))
+                .andExpect(jsonPath("$.data.todo.items[1].content").value("기출 3회분 풀이"))
+                .andExpect(jsonPath("$.data.todo.items[*].done", everyItem(equalTo(true))))
+                // 남은 개수를 유추할 수 있으면 감춘 게 아니다
+                .andExpect(jsonPath("$.data.todo.totalCount").doesNotExist())
+                .andExpect(jsonPath("$.data.todo.doneCount").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("상세: 완료한 항목이 하나도 없으면 items 가 빈 배열이다")
+    @WithUserDetails("user1@test.com")
+    void detailWithNoDoneItems() throws Exception {
+        PersonalTodo todo = saveTodoOf("user1@test.com", "항목1", "항목2");
+        long goalId = goalRepository.save(linkedChecklist("user1@test.com", todo)).getId();
+        em.flush();
+        em.clear();
+
+        mvc.perform(get("/api/v1/goals/" + goalId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.todo.items", hasSize(0)));
+    }
+
+    @Test
+    @DisplayName("상세: 연결이 없으면 todo 블록이 빠진다")
+    @WithUserDetails("user1@test.com")
+    void detailWithoutTodoBlock() throws Exception {
+        long goalId = saveChecklistGoalOf("user1@test.com", "정보처리기사 취득");
+
+        mvc.perform(get("/api/v1/goals/" + goalId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.todo").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("상세: 남의 성취에서도 TODO 항목이 보인다")
+    @WithUserDetails("user1@test.com")
+    void othersGoalStillCarriesTodoItems() throws Exception {
+        PersonalTodo todo = saveTodoOf("user2@test.com", "항목1", "항목2");
+        personalTodoItemRepository
+                .findAllByTodoOrderBySortOrderAscIdAsc(todo, PageRequest.of(0, 10))
+                .getContent().get(0).complete();
+
+        long goalId = goalRepository.save(linkedChecklist("user2@test.com", todo)).getId();
+        em.flush();
+        em.clear();
+
+        mvc.perform(get("/api/v1/goals/" + goalId))
+                .andExpect(status().isOk())
+                // 완료한 한 건만 보인다
+                .andExpect(jsonPath("$.data.todo.items", hasSize(1)));
+    }
+
+    @Test
+    @DisplayName("수정: detail 에 todoId 를 빼면 연결이 끊긴다 (통째 교체 규칙)")
+    @WithUserDetails("user1@test.com")
+    void updateClearsTodoLink() throws Exception {
+        PersonalTodo todo = saveTodoOf("user1@test.com", "항목1");
+        long goalId = goalRepository.save(linkedChecklist("user1@test.com", todo)).getId();
+
+        updateGoal(goalId, """
+                { "detail": { "title": "정보처리기사 취득" } }
+                """)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.detail.todoId").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("수정: 이미 연결된 그 TODO 를 그대로 다시 보내도 통과한다")
+    @WithUserDetails("user1@test.com")
+    void updateKeepsSameTodoLink() throws Exception {
+        PersonalTodo todo = saveTodoOf("user1@test.com", "항목1");
+        long goalId = goalRepository.save(linkedChecklist("user1@test.com", todo)).getId();
+
+        updateGoal(goalId, """
+                { "detail": { "title": "정보처리기사 취득", "todoId": %d } }
+                """.formatted(todo.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.detail.todoId").value(todo.getId()));
+    }
+
+    /** TODO 가 연결된 체크리스트 성취 하나 */
+    private PersonalChecklist linkedChecklist(String email, PersonalTodo todo) {
+        Member owner = memberRepository.findByEmail(email).orElseThrow();
+        PersonalChecklist checklist =
+                new PersonalChecklist(owner, GoalStatus.IN_PROGRESS, "정보처리기사 취득", null, null);
+        checklist.linkTodo(todo);
+
+        return checklist;
     }
 
     /* ---------- 성취 수정 ---------- */

@@ -119,7 +119,7 @@ public class DevInitData {
                 status,
                 new GoalDetailReqBody(
                         contestName, isTeam, result, awardDate, contestUrl,
-                        null, null, null, null, null, null
+                        null, null, null, null, null, null, null
                 )
         );
     }
@@ -132,7 +132,7 @@ public class DevInitData {
                 status,
                 new GoalDetailReqBody(
                         null, null, null, null, null, null, null, null,
-                        title, memo, targetDate
+                        title, memo, targetDate, null
                 )
         );
     }
