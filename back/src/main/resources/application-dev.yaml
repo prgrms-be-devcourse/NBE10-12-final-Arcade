@@ -32,7 +32,7 @@ logging:
 custom:
   cookie:
     secure: false
-    same-site: Strict
+    same-site: Lax
   cors:
     allowed-origins: http://localhost:3000,https://cdpn.io
   openapi:
