@@ -1,14 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FormActions, FormGroup, FormRow, TextAreaField, TextField } from '@/components/ui/Field';
 import { RadioChipGroup } from '@/components/ui/RadioChipGroup';
 import { Button } from '@/components/ui/Button';
 import { ApiError } from '@/lib/api';
-import { createGoal, type CreateGoalPayload } from '@/lib/api';
-import { GOAL_STATUSES, GOAL_STATUS_LABELS, GOAL_TYPE_LABELS } from '@/lib/constants';
-import type { GoalStatus } from '@/lib/types';
+import { createGoal, fetchTodos, type CreateGoalPayload } from '@/lib/api';
+import {
+  GOAL_STATUSES,
+  GOAL_STATUS_LABELS,
+  GOAL_TYPE_LABELS,
+  todoCategoryLabel,
+} from '@/lib/constants';
+import type { GoalStatus, TodoItem } from '@/lib/types';
 
 /** 자기신고로 등록할 수 있는 유형. PROJECT 는 파티 확정 시 시스템이 만든다(400-4) */
 const SELF_REPORTED_TYPES = ['CONTEST', 'CHECKLIST'] as const;
@@ -45,11 +50,49 @@ export function GoalCreateForm() {
   const [memo, setMemo] = useState('');
   const [targetDate, setTargetDate] = useState('');
 
+  // 연결할 개인 TODO. 파티 등록의 공모전 선택과 같은 구성이다
+  const [todos, setTodos] = useState<TodoItem[]>([]);
+  const [todoKeyword, setTodoKeyword] = useState('');
+  const [pickedTodo, setPickedTodo] = useState<TodoItem | null>(null);
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const isContest = type === 'CONTEST';
+
+  // 내 TODO 는 많아야 수십 건이라 한 번 읽어두고 검색은 화면에서 거른다
+  useEffect(() => {
+    if (isContest) return;
+    let alive = true;
+    fetchTodos()
+      .then((rows) => {
+        if (alive) setTodos(rows);
+      })
+      .catch(() => {
+        if (alive) setTodos([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [isContest]);
+
+  const todoResults = useMemo(() => {
+    const keyword = todoKeyword.trim().toLowerCase();
+    const rows = keyword
+      ? todos.filter((todo) => todo.title.toLowerCase().includes(keyword))
+      : todos;
+    return rows.slice(0, 8);
+  }, [todos, todoKeyword]);
+
+  /** 고른 TODO 의 제목을 비어 있을 때만 채운다. 이미 적은 제목을 덮지 않는다 */
+  const pickTodo = (todo: TodoItem) => {
+    setPickedTodo(todo);
+    if (!title.trim()) {
+      setTitle(todo.title);
+      setErrors((prev) => ({ ...prev, title: '' }));
+    }
+  };
 
   // 서버가 타입별로 요구하는 필수 항목과 같은 규칙 (400-4)
   const validate = () => {
@@ -62,6 +105,9 @@ export function GoalCreateForm() {
 
   const submit = async () => {
     if (!validate()) return;
+
+    // 목 데이터의 id 는 'todo-1' 같은 문자열이라 숫자로 떨어질 때만 보낸다
+    const todoId = pickedTodo ? Number(pickedTodo.id) : undefined;
 
     const payload: CreateGoalPayload = {
       type,
@@ -77,6 +123,7 @@ export function GoalCreateForm() {
             title: title.trim(),
             memo: trimmed(memo),
             targetDate: trimmed(targetDate),
+            todoId: Number.isFinite(todoId) ? todoId : undefined,
           },
     };
 
@@ -169,6 +216,70 @@ export function GoalCreateForm() {
         </>
       ) : (
         <>
+          <FormGroup
+            label="연결할 개인 TODO"
+            hint="마이페이지에 만든 개인 TODO를 연결하면 그 할 일 목록이 성취의 진행 과정으로 남아요. 연결하지 않아도 등록됩니다."
+          >
+            {pickedTodo ? (
+              <div className="picked-card">
+                <span className="picker-poster">{todoCategoryLabel(pickedTodo.category)}</span>
+                <span className="picker-meta">
+                  <span className="pname">{pickedTodo.title}</span>
+                  <span className="psub">
+                    {pickedTodo.createdAt} 생성 · 할 일 {pickedTodo.doneCount}/{pickedTodo.totalCount}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  className="picked-clear"
+                  onClick={() => {
+                    setPickedTodo(null);
+                    setTodoKeyword('');
+                  }}
+                >
+                  연결 해제
+                </button>
+              </div>
+            ) : (
+              <div className="picker">
+                <div className="contest-link-field">
+                  <TextField
+                    placeholder="TODO 제목으로 검색 (예: 정보처리기사)"
+                    autoComplete="off"
+                    value={todoKeyword}
+                    onChange={(event) => setTodoKeyword(event.target.value)}
+                  />
+                </div>
+                {todoResults.length > 0 ? (
+                  <div className="picker-results">
+                    {todoResults.map((todo) => (
+                      <button
+                        key={todo.id}
+                        type="button"
+                        className="picker-item"
+                        onClick={() => pickTodo(todo)}
+                      >
+                        <span className="picker-poster">{todoCategoryLabel(todo.category)}</span>
+                        <span className="picker-meta">
+                          <span className="pname">{todo.title}</span>
+                          <span className="psub">
+                            {todo.createdAt} 생성 · 할 일 {todo.doneCount}/{todo.totalCount}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="form-hint">
+                    {todoKeyword.trim()
+                      ? '검색 결과가 없어요.'
+                      : '연결할 수 있는 개인 TODO가 없어요. 마이페이지에서 먼저 만들어 주세요.'}
+                  </p>
+                )}
+              </div>
+            )}
+          </FormGroup>
+
           <FormGroup label="목표 제목" htmlFor="goalTitle" required error={errors.title}>
             <TextField
               id="goalTitle"

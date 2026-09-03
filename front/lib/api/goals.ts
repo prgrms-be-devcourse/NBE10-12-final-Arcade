@@ -67,6 +67,11 @@ export interface GoalDetailFields {
   /** CHECKLIST */
   memo?: string;
   targetDate?: string;
+  /**
+   * 연결된 개인 TODO의 id. 항목까지 보려면 상세 응답의 todo 블록을 쓴다.
+   * [서버 미지원] PersonalChecklist 에 FK 는 있지만 응답에 아직 담기지 않는다.
+   */
+  todoId?: number | null;
 }
 
 /** 백엔드 GoalDto */
@@ -127,6 +132,34 @@ export interface ProjectContextResponse {
   pullRequests: PartyPrResponse[];
 }
 
+/** 연결된 개인 TODO의 할 일 한 건 (백엔드 PersonalTodoItemDto) */
+export interface TodoItemResponse {
+  id: number;
+  content: string;
+  done: boolean;
+  /** 체크한 시각. 진행 과정을 시점순으로 보여주는 기준이다 */
+  doneAt: string | null;
+  sortOrder: number;
+}
+
+/**
+ * CHECKLIST 성취에 연결된 개인 TODO (백엔드 TodoContextDto).
+ *
+ * 개인 TODO 자체는 비공개지만, 성취에 연결한 것을 공개 의사표시로 보고 남의 성취에서도 보여준다.
+ * [서버 미지원] PersonalChecklist 에 FK 는 있지만 상세 응답에 이 블록이 아직 없다.
+ */
+export interface TodoContextResponse {
+  todoId: number;
+  title: string;
+  category: string;
+  memo?: string;
+  status: GoalStatus;
+  totalCount: number;
+  doneCount: number;
+  /** 표시 순서대로 */
+  items: TodoItemResponse[];
+}
+
 /** 백엔드 GoalDetailResponseDto — GET /goals/{goalId} */
 export interface GoalDetailResponse {
   id: number;
@@ -140,6 +173,8 @@ export interface GoalDetailResponse {
   detail: GoalDetailFields;
   /** type 이 PROJECT 일 때만 온다 */
   project?: ProjectContextResponse;
+  /** CHECKLIST 성취에 개인 TODO 가 연결됐을 때만 온다 */
+  todo?: TodoContextResponse;
   createDate: string;
   modifyDate: string;
 }
@@ -194,6 +229,11 @@ export interface GoalDetailPayload {
   memo?: string;
   /** yyyy-MM-dd */
   targetDate?: string;
+  /**
+   * 연결할 개인 TODO. 그 TODO의 할 일 목록이 성취의 진행 과정으로 붙는다. 끊을 땐 null.
+   * [서버 미지원] PersonalChecklist 에 FK 는 있지만 GoalDetailReqBody 에 필드가 아직 없다.
+   */
+  todoId?: number | null;
 }
 
 export interface CreateGoalPayload {
