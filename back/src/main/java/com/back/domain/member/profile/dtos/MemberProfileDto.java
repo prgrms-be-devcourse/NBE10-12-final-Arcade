@@ -12,6 +12,8 @@ public record MemberProfileDto(
     String nickname,
     String webpage,
     String profileImageUrl,
+    /** GitHub 계정 연동 여부만 공개한다. provider 식별자·이메일은 응답에 포함하지 않는다. */
+    boolean githubLinked,
     List<String> positions,
     List<String> techStacks
 ) {
@@ -23,6 +25,8 @@ public record MemberProfileDto(
                 profile.getNickname(),
                 profile.getWebPage(),
                 profile.getMember().getProfileImgUrl(),
+                profile.getMember().getGithubProviderUserId() != null
+                        && !profile.getMember().getGithubProviderUserId().isBlank(),
                 profile.getPositions()
                         .stream()
                         .map(it -> it.getPositionType().name())
