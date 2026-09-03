@@ -102,9 +102,10 @@ public class GoalRepositoryImpl implements GoalRepositoryCustom {
 
         String trimmed = keyword.trim();
 
+        // PROJECT 는 파티 이름만 훑는다. 전시글 본문까지 넣으려면 조인이 필요한데,
+        // or 안의 암시적 조인은 전시글 없는 성취를 통째로 떨굴 수 있어 지금은 두지 않는다.
         return project.title.containsIgnoreCase(trimmed)
-                .or(project.result.containsIgnoreCase(trimmed))
-                .or(contest.contestName.containsIgnoreCase(trimmed))
+                .or(contest.title.containsIgnoreCase(trimmed))
                 .or(contest.result.containsIgnoreCase(trimmed))
                 .or(checklist.title.containsIgnoreCase(trimmed))
                 .or(checklist.memo.containsIgnoreCase(trimmed));
