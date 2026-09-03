@@ -23,7 +23,6 @@ public record GoalDetailResponseDto(
         GoalStatus status,
         GoalSource source,
         Long sourcePartyId,
-        int viewCount,
         GoalDetailDto detail,
         /** type 이 PROJECT 일 때만 값이 있다 */
         ProjectContextDto project,
@@ -41,7 +40,6 @@ public record GoalDetailResponseDto(
                 goal.getStatus(),
                 goal.getSource(),
                 goal.getSourcePartyId(),
-                goal.getViewCount(),
                 GoalDetailDto.from(goal),
                 project,
                 todo,

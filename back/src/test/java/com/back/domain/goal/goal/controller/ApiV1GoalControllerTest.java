@@ -174,8 +174,7 @@ public class ApiV1GoalControllerTest {
                 .andExpect(jsonPath("$.data.type").value("CHECKLIST"))
                 .andExpect(jsonPath("$.data.status").value("WANT"))
                 .andExpect(jsonPath("$.data.detail.title").value("정보처리기사 실기 준비"))
-                .andExpect(jsonPath("$.data.detail.memo").value("매주 토요일 2시간"))
-                .andExpect(jsonPath("$.data.viewCount").value(0));
+                .andExpect(jsonPath("$.data.detail.memo").value("매주 토요일 2시간"));
     }
 
     @Test
