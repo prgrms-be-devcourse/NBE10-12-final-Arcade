@@ -56,13 +56,11 @@ class PartySearchKeywordRepositoryFtsTest {
         ));
         partySearchKeywordRepository.save(new PartySearchKeyword(party, "백엔드 스터디"));
 
-        Page<Party> result = partySearchKeywordRepository.searchByKeywords(
+        Page<Long> result = partySearchKeywordRepository.searchPartyIdsByKeywords(
                 "백엔드", "RECRUITING", PageRequest.of(0, 10)
         );
 
-        assertThat(result.getContent())
-                .extracting(Party::getId)
-                .contains(party.getId());
+        assertThat(result.getContent()).contains(party.getId());
     }
 
     @Test
@@ -74,12 +72,26 @@ class PartySearchKeywordRepositoryFtsTest {
         ));
         partySearchKeywordRepository.save(new PartySearchKeyword(party, "프론트엔드 스터디"));
 
-        Page<Party> result = partySearchKeywordRepository.searchByKeywords(
+        Page<Long> result = partySearchKeywordRepository.searchPartyIdsByKeywords(
                 "게임개발", "RECRUITING", PageRequest.of(0, 10)
         );
 
-        assertThat(result.getContent())
-                .extracting(Party::getId)
-                .doesNotContain(party.getId());
+        assertThat(result.getContent()).doesNotContain(party.getId());
+    }
+
+    @Test
+    void acceptsCanonicalTermsWithSpecialCharacters() {
+        Member owner = memberRepository.save(new Member("fts-owner3@test.com", "pw", "owner3", null));
+        Party party = partyRepository.save(new Party(
+                owner, "파티명3", "제목3", null, null, "외부 대회", "https://example.com",
+                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7)
+        ));
+        partySearchKeywordRepository.save(new PartySearchKeyword(party, "C++ 스터디"));
+
+        Page<Long> result = partySearchKeywordRepository.searchPartyIdsByKeywords(
+                "C++ | C#", "RECRUITING", PageRequest.of(0, 10)
+        );
+
+        assertThat(result.getContent()).contains(party.getId());
     }
 }

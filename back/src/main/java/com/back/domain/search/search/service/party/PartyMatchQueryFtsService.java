@@ -1,6 +1,5 @@
 package com.back.domain.search.search.service.party;
 
-import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.position.entity.PartyStatus;
 import com.back.domain.search.search.repository.party.PartySearchKeywordRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,9 +20,9 @@ public class PartyMatchQueryFtsService implements PartyMatchQueryPort {
     private final PartySearchKeywordRepository partySearchKeywordRepository;
 
     @Override
-    public Page<Party> findMatchingParties(List<String> keywords, Pageable pageable) {
+    public Page<Long> findMatchingPartyIds(List<String> keywords, Pageable pageable) {
         String tsQuery = String.join(" | ", keywords);
 
-        return partySearchKeywordRepository.searchByKeywords(tsQuery, PartyStatus.RECRUITING.name(), pageable);
+        return partySearchKeywordRepository.searchPartyIdsByKeywords(tsQuery, PartyStatus.RECRUITING.name(), pageable);
     }
 }

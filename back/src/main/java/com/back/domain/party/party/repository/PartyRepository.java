@@ -10,6 +10,8 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
+
 public interface PartyRepository extends JpaRepository<Party, Long>,PartyContestLookupPort{
     @Query("""
         select p from Party p
@@ -63,4 +65,7 @@ public interface PartyRepository extends JpaRepository<Party, Long>,PartyContest
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("update Party p set p.likeCount = case when p.likeCount > 0 then p.likeCount - 1 else 0 end where p.id = :id")
     void decreaseLikeCount(@Param("id") long id);
+
+    @Query("select p from Party p join fetch p.owner where p.id in :ids order by p.id desc")
+    List<Party> findAllByIdInOrderByIdDesc(@Param("ids") List<Long> ids);
 }

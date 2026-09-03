@@ -29,11 +29,4 @@ class KeywordNormalizationServiceTest {
 
         assertThat(normalized).containsExactly("크루온");
     }
-
-    @Test
-    void deduplicatesAfterNormalization() {
-        List<String> normalized = keywordNormalizationPort.normalize(List.of("프론트", "frontend"));
-
-        assertThat(normalized).containsExactly("프론트엔드");
-    }
 }

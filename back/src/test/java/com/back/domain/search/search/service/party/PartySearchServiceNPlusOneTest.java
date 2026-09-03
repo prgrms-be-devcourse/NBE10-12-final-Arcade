@@ -67,10 +67,11 @@ class PartySearchServiceNPlusOneTest {
         Statistics statistics = entityManagerFactory.unwrap(org.hibernate.SessionFactory.class).getStatistics();
         statistics.clear();
 
-        Page<Party> matched = partyMatchQueryLikeService.findMatchingParties(
+        Page<Long> matchedIds = partyMatchQueryLikeService.findMatchingPartyIds(
                 List.of("오너엔플러스원테스트"), PageRequest.of(0, 10)
         );
-        List<PartyListItemDto> dtos = matched.map(PartyListItemDto::new).getContent();
+        List<Party> parties = partyRepository.findAllByIdInOrderByIdDesc(matchedIds.getContent());
+        List<PartyListItemDto> dtos = parties.stream().map(PartyListItemDto::new).toList();
 
         assertThat(dtos).hasSize(3);
         assertThat(statistics.getPrepareStatementCount()).isEqualTo(3);

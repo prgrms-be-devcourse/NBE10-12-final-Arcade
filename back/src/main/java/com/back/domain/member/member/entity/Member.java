@@ -8,7 +8,6 @@ import jakarta.persistence.Enumerated;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.BatchSize;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
@@ -21,7 +20,6 @@ import java.util.UUID;
 @Entity
 @Getter
 @NoArgsConstructor
-@BatchSize(size = 100)
 public class Member extends BaseEntity {
 
     private LocalDateTime lastLoginAt;

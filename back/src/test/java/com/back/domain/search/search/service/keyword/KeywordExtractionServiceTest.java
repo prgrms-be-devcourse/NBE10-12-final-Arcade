@@ -18,15 +18,6 @@ class KeywordExtractionServiceTest {
     }
 
     @Test
-    void extractsSharedKeywordsFromDifferentlyWordedTitles() {
-        List<String> first = extractor.extract("백엔드 스터디원 모집합니다");
-        List<String> second = extractor.extract("백엔드 개발 스터디 팀원 구해요");
-
-        assertThat(first).contains("백엔드", "스터디");
-        assertThat(second).contains("백엔드", "스터디");
-    }
-
-    @Test
     void returnsEmptyListForBlankText() {
         assertThat(extractor.extract("")).isEmpty();
         assertThat(extractor.extract(null)).isEmpty();

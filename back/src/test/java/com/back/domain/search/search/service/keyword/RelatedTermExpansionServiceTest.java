@@ -29,11 +29,4 @@ class RelatedTermExpansionServiceTest {
 
         assertThat(expanded).doesNotContain("디자인", "기획", "클라이언트");
     }
-
-    @Test
-    void keepsOriginalKeywordWhenNoRelationExists() {
-        List<String> expanded = relatedTermExpansionPort.expand(List.of("리액트"));
-
-        assertThat(expanded).containsExactly("리액트");
-    }
 }

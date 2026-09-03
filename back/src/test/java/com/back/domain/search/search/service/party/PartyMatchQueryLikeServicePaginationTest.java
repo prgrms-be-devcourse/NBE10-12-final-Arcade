@@ -52,13 +52,12 @@ class PartyMatchQueryLikeServicePaginationTest {
 
         List<String> keywords = List.of("페이징테스트");
 
-        Page<Party> page0 = partyMatchQueryLikeService.findMatchingParties(keywords, PageRequest.of(0, 2));
-        Page<Party> page1 = partyMatchQueryLikeService.findMatchingParties(keywords, PageRequest.of(1, 2));
-        Page<Party> page2 = partyMatchQueryLikeService.findMatchingParties(keywords, PageRequest.of(2, 2));
+        Page<Long> page0 = partyMatchQueryLikeService.findMatchingPartyIds(keywords, PageRequest.of(0, 2));
+        Page<Long> page1 = partyMatchQueryLikeService.findMatchingPartyIds(keywords, PageRequest.of(1, 2));
+        Page<Long> page2 = partyMatchQueryLikeService.findMatchingPartyIds(keywords, PageRequest.of(2, 2));
 
         List<Long> allIds = List.of(page0, page1, page2).stream()
                 .flatMap(p -> p.getContent().stream())
-                .map(Party::getId)
                 .collect(Collectors.toList());
 
         assertThat(allIds).hasSize(5);
