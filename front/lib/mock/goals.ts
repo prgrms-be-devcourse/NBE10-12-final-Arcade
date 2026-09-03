@@ -80,7 +80,7 @@ const CONTEST_GOAL: GoalDetailResponse = {
   sourcePartyId: null,
   viewCount: 318,
   detail: {
-    contestName: '2025 공공데이터 활용 공모전',
+    title: '2025 공공데이터 활용 공모전',
     isTeam: true,
     result: '우수상',
     awardDate: '2025-09-12',
