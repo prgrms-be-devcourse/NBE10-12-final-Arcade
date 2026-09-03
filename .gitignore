@@ -23,6 +23,7 @@ pnpm-debug.log*
 .env.*
 !.env.example
 !.env.local.example
+!.env.prod.example
 
 # Secrets
 *.pem
@@ -41,6 +42,7 @@ replay_pid*
 application-local.yml
 application-local.yaml
 application-local.properties
+!back/src/main/resources/application-local.yaml
 application-secret.yml
 application-secret.yaml
 application-secret.properties
@@ -55,6 +57,11 @@ build/
 *.trace.db
 *.h2.db
 *.lock.db
+
+# Docker 바인드 마운트 데이터 (compose 의 ./data/*)
+# Postgres 는 단일 파일이 아니라 PGDATA 디렉터리 전체가 DB 다 — 파일이 1,000개를 넘는다.
+# 앞의 / 는 저장소 루트에만 적용하겠다는 뜻이다. front/data 같은 것은 막지 않는다.
+/data/
 
 # Node / Next.js
 node_modules/

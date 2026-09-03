@@ -1,0 +1,7 @@
+build/
+.gradle/
+.idea/
+*.mv.db
+*.trace.db
+.env
+.env.local
