@@ -1,5 +1,6 @@
 package com.back.domain.todo.todo.service;
 
+import com.back.domain.goal.goal.repository.GoalRepository;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.todo.todo.dtos.PersonalTodoDetailDto;
 import com.back.domain.todo.todo.dtos.PersonalTodoDto;
@@ -13,7 +14,6 @@ import com.back.domain.todo.todo.entity.PersonalTodoItem;
 import com.back.domain.todo.todo.entity.TodoStatus;
 import com.back.domain.todo.todo.repository.PersonalTodoItemRepository;
 import com.back.domain.todo.todo.repository.PersonalTodoRepository;
-import com.back.domain.todo.todo.repository.TodoLinkedGoalPort;
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -40,7 +41,11 @@ public class PersonalTodoService {
 
     private final PersonalTodoRepository personalTodoRepository;
     private final PersonalTodoItemRepository personalTodoItemRepository;
-    private final TodoLinkedGoalPort todoLinkedGoalPort;
+    /**
+     * 연결 정보는 성취(PersonalChecklist)가 FK 로 갖는다. TODO 는 자기가 연결됐는지 모르므로 여기서 물어본다.
+     * (GoalService 가 PartyRepository 를 직접 주입받는 것과 같은 방식이다.)
+     */
+    private final GoalRepository goalRepository;
 
     @Transactional
     public PersonalTodoDto create(Member owner, TodoCreateReqBody request) {
@@ -48,24 +53,42 @@ public class PersonalTodoService {
                 new PersonalTodo(owner, request.title(), request.category(), request.memo())
         );
 
-        return new PersonalTodoDto(todo, 0, 0);
+        // 방금 만든 TODO 라 항목도 연결도 없다
+        return new PersonalTodoDto(todo, 0, 0, false);
     }
 
-    /** 목록. 진행률은 TODO 마다 세지 않고 한 번에 모아 붙인다. */
-    public Page<PersonalTodoDto> getMyTodos(Member owner, TodoStatus status, Pageable pageable) {
-        Page<PersonalTodo> todos = status == null
-                ? personalTodoRepository.findAllByOwnerOrderByCreateDateDesc(owner, pageable)
-                : personalTodoRepository.findAllByOwnerAndStatusOrderByCreateDateDesc(owner, status, pageable);
+    /**
+     * 목록. 진행률도 연결 여부도 TODO 마다 묻지 않고 한 번에 모아 붙인다.
+     *
+     * linked 를 false 로 주면 아직 성취에 연결되지 않은 것만 온다 - 성취 등록 화면의 TODO 선택에 쓴다.
+     */
+    public Page<PersonalTodoDto> getMyTodos(
+            Member owner,
+            TodoStatus status,
+            Boolean linked,
+            Pageable pageable
+    ) {
+        // 응답의 linked 필드에도 필요해서 필터 여부와 무관하게 한 번은 읽는다
+        Set<Long> linkedTodoIds = Set.copyOf(goalRepository.findLinkedPersonalTodoIds(owner.getId()));
+
+        Page<PersonalTodo> todos = personalTodoRepository.searchMyTodos(
+                owner, status, linked, idsForInClause(linkedTodoIds), pageable);
 
         Map<Long, TodoProgressDto> progressByTodoId = loadProgress(todos.getContent());
 
         return todos.map(todo -> {
             TodoProgressDto progress = progressByTodoId.get(todo.getId());
+            boolean isLinked = linkedTodoIds.contains(todo.getId());
 
             return progress == null
-                    ? new PersonalTodoDto(todo, 0, 0)
-                    : new PersonalTodoDto(todo, progress.totalCount(), progress.doneCount());
+                    ? new PersonalTodoDto(todo, 0, 0, isLinked)
+                    : new PersonalTodoDto(todo, progress.totalCount(), progress.doneCount(), isLinked);
         });
+    }
+
+    /** `in ()` 은 DB 에 따라 문법 오류라, 비었을 때는 어떤 id 와도 맞지 않는 값을 넣는다 */
+    private List<Long> idsForInClause(Set<Long> ids) {
+        return ids.isEmpty() ? List.of(-1L) : List.copyOf(ids);
     }
 
     private Map<Long, TodoProgressDto> loadProgress(List<PersonalTodo> todos) {
@@ -111,7 +134,12 @@ public class PersonalTodoService {
     public void delete(Member actor, long todoId) {
         PersonalTodo todo = findOwnedTodo(actor, todoId);
 
-        todoLinkedGoalPort.detachFromTodo(todoId);
+        // 연결된 성취가 있으면 FK 를 먼저 끊는다. 완료된 성취면 detachTodo() 가 409-1 로 막는다.
+        goalRepository.findChecklistByPersonalTodoId(todoId).ifPresent(checklist -> {
+            checklist.detachTodo();
+            // FK 를 끊는 UPDATE 가 TODO 의 DELETE 보다 먼저 나가야 한다
+            goalRepository.flush();
+        });
         personalTodoItemRepository.deleteAllByTodo(todo);
         personalTodoRepository.delete(todo);
     }
@@ -185,7 +213,8 @@ public class PersonalTodoService {
         return new PersonalTodoDto(
                 todo,
                 personalTodoItemRepository.countByTodo(todo),
-                personalTodoItemRepository.countByTodoAndDoneIsTrue(todo)
+                personalTodoItemRepository.countByTodoAndDoneIsTrue(todo),
+                goalRepository.findChecklistByPersonalTodoId(todo.getId()).isPresent()
         );
     }
 }

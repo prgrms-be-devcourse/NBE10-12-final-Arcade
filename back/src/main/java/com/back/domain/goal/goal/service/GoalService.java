@@ -7,6 +7,7 @@ import com.back.domain.goal.goal.dtos.GoalUpdateReqBody;
 import com.back.domain.goal.goal.dtos.GoalDetailResponseDto;
 import com.back.domain.goal.goal.dtos.GoalDto;
 import com.back.domain.goal.goal.dtos.ProjectContextDto;
+import com.back.domain.goal.goal.dtos.TodoContextDto;
 import com.back.domain.goal.goal.entity.Goal;
 import com.back.domain.goal.goal.entity.GoalSource;
 import com.back.domain.goal.goal.entity.GoalStatus;
@@ -23,6 +24,9 @@ import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.partyPr.dtos.PartyPrDto;
 import com.back.domain.party.partyPr.repository.PartyPrRepository;
+import com.back.domain.todo.todo.entity.PersonalTodo;
+import com.back.domain.todo.todo.repository.PersonalTodoItemRepository;
+import com.back.domain.todo.todo.repository.PersonalTodoRepository;
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -47,6 +51,9 @@ public class GoalService {
     private final PartyRepository partyRepository;
     private final PartyMemberRepository partyMemberRepository;
     private final PartyPrRepository partyPrRepository;
+
+    private final PersonalTodoRepository personalTodoRepository;
+    private final PersonalTodoItemRepository personalTodoItemRepository;
 
     @Transactional
     public GoalDto createSelfReported(Member owner, GoalCreateReqBody request) {
@@ -90,13 +97,42 @@ public class GoalService {
             throw new ServiceException("400-4", "목표 제목을 입력해주세요.");
         }
 
-        return new PersonalChecklist(
+        PersonalChecklist checklist = new PersonalChecklist(
                 owner,
                 status,
                 detail.title(),
                 detail.memo(),
                 detail.targetDate()
         );
+        linkTodo(checklist, owner, detail.todoId(), null);
+
+        return checklist;
+    }
+
+    /**
+     * 개인 TODO 를 성취에 연결한다. todoId 가 null 이면 연결하지 않는다(수정에서는 연결을 끊는다).
+     *
+     * 남의 TODO 를 연결하면 그 사람의 진행 과정이 공개되므로 소유자를 확인한다.
+     * 중복 연결은 personal_todo_id UNIQUE 로도 막히지만, JOINED + IDENTITY 채번이라
+     * 제약 위반이 save() 시점에 DataIntegrityViolationException 으로 터진다. 그래서 미리 거른다.
+     */
+    private void linkTodo(PersonalChecklist checklist, Member owner, Long todoId, Long selfGoalId) {
+        if (todoId == null) {
+            checklist.linkTodo(null);
+            return;
+        }
+
+        PersonalTodo todo = personalTodoRepository.findById(todoId)
+                .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 개인 TODO입니다."));
+        todo.checkOwnedBy(owner);
+
+        goalRepository.findChecklistByPersonalTodoId(todoId)
+                .filter(linked -> !linked.getId().equals(selfGoalId))
+                .ifPresent(linked -> {
+                    throw new ServiceException("409-1", "이미 다른 성취에 연결된 개인 TODO입니다.");
+                });
+
+        checklist.linkTodo(todo);
     }
 
     /**
@@ -136,7 +172,7 @@ public class GoalService {
     public GoalDetailResponseDto getGoal(Member actor, long goalId) {
         Goal goal = findGoal(goalId);
 
-        return new GoalDetailResponseDto(goal, buildProjectContext(goal, actor));
+        return new GoalDetailResponseDto(goal, buildProjectContext(goal, actor), buildTodoContext(goal));
     }
 
     /**
@@ -165,6 +201,27 @@ public class GoalService {
                 : List.of();
 
         return ProjectContextDto.of(party, myPositionType, partyOwner, pullRequests);
+    }
+
+    /**
+     * 연결된 개인 TODO 와 그 항목들. 연결이 없으면 null 이다.
+     *
+     * 남의 성취에서도 채운다 - TODO 를 성취에 연결한 것 자체가 진행 과정을 공개하겠다는 뜻이다.
+     * (파티 PR 목록을 본인에게만 보여주는 것과 다르다. 그쪽은 사용자가 공개를 고른 적이 없다.)
+     *
+     * 다만 완료한 항목만 담는다. 해낸 것은 발자취지만 아직 못 한 일은 소유자 개인의 할 일이다.
+     * 그래서 진행률도 따로 내려주지 않는다 - 남은 개수를 유추할 방법이 없어야 한다.
+     */
+    private TodoContextDto buildTodoContext(Goal goal) {
+        if (!(goal instanceof PersonalChecklist checklist)) return null;
+
+        PersonalTodo todo = checklist.getPersonalTodo();
+        if (todo == null) return null;
+
+        return TodoContextDto.of(
+                todo,
+                personalTodoItemRepository.findAllByTodoAndDoneIsTrueOrderByDoneAtAscIdAsc(todo)
+        );
     }
 
     /**
@@ -230,6 +287,7 @@ public class GoalService {
             }
 
             checklist.update(detail.title(), detail.memo(), detail.targetDate());
+            linkTodo(checklist, checklist.getOwner(), detail.todoId(), checklist.getId());
             return;
         }
 
