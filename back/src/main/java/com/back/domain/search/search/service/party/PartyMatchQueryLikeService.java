@@ -25,7 +25,7 @@ public class PartyMatchQueryLikeService implements PartyMatchQueryPort {
 
     @Override
     public Page<Party> findMatchingParties(List<String> keywords, Pageable pageable) {
-        Specification<PartySearchKeyword> spec = matchesAnyKeyword(keywords).and(isRecruiting()).and(fetchParty());
+        Specification<PartySearchKeyword> spec = matchesAnyKeyword(keywords).and(isRecruiting()).and(fetchParty()).and(orderByPartyIdDesc());
 
         return partySearchKeywordRepository.findAll(spec, pageable)
                 .map(PartySearchKeyword::getParty);
@@ -46,6 +46,15 @@ public class PartyMatchQueryLikeService implements PartyMatchQueryPort {
         return (root, query, cb) -> {
             if (query.getResultType() != Long.class && query.getResultType() != long.class) {
                 root.fetch("party", JoinType.INNER);
+            }
+            return cb.conjunction();
+        };
+    }
+
+    private Specification<PartySearchKeyword> orderByPartyIdDesc() {
+        return (root, query, cb) -> {
+            if (query.getResultType() != Long.class && query.getResultType() != long.class) {
+                query.orderBy(cb.desc(root.get("party").get("id")));
             }
             return cb.conjunction();
         };

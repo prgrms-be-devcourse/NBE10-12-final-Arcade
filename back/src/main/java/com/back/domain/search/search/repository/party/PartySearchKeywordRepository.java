@@ -20,6 +20,7 @@ public interface PartySearchKeywordRepository extends JpaRepository<PartySearchK
                 JOIN party p ON p.id = psk.party_id
                 WHERE to_tsvector('simple', psk.keywords) @@ to_tsquery('simple', :tsQuery)
                   AND p.status = :status
+                ORDER BY p.id DESC
                 """,
             countQuery = """
                 SELECT count(*) FROM party_search_keyword psk

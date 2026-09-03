@@ -36,8 +36,15 @@ class ApiV1SearchControllerTest {
     }
 
     @Test
-    void tooShortQReturns400_4() throws Exception {
+    void punctuationOnlyQReturns400_4() throws Exception {
         mvc.perform(get("/api/v1/parties/search").param("q", "!!!"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-4"));
+    }
+
+    @Test
+    void particlesAndConjunctionsOnlyQReturns400_4() throws Exception {
+        mvc.perform(get("/api/v1/parties/search").param("q", "그리고 그래서"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.resultCode").value("400-4"));
     }
