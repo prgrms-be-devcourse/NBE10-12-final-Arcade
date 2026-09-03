@@ -118,8 +118,9 @@ public class DevInitData {
                 GoalType.CONTEST,
                 status,
                 new GoalDetailReqBody(
-                        contestName, isTeam, result, awardDate, contestUrl,
-                        null, null, null, null, null, null
+                        isTeam, result, awardDate, contestUrl,
+                        null, null, null,
+                        contestName, null, null
                 )
         );
     }
@@ -131,7 +132,8 @@ public class DevInitData {
                 GoalType.CHECKLIST,
                 status,
                 new GoalDetailReqBody(
-                        null, null, null, null, null, null, null, null,
+                        null, null, null, null,
+                        null, null, null,
                         title, memo, targetDate
                 )
         );
