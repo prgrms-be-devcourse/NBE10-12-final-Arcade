@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.validation.annotation.Validated;
@@ -41,7 +42,7 @@ public class ApiV1SearchController {
     )
     public RsData<PartySearchResultDto> search(
             @Parameter(description = "검색어")
-            @RequestParam(required = false) @NotBlank String q,
+            @RequestParam(required = false) @NotBlank @Size(max = 25) String q,
             @Parameter(description = "0부터 시작하는 페이지 번호")
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @Parameter(description = "페이지 크기")

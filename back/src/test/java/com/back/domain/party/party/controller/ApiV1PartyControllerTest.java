@@ -77,7 +77,7 @@ public class ApiV1PartyControllerTest {
             {
                 "partyName": "오락실 팀",
                 "title": "오락실 공모전 팀원 모집",
-                "description": "설명",
+                "description": "테스트용 파티 설명입니다",
                 "targetContestId": %d,
                 "topicType": "CONTEST",
                 "partyTag": "WEB",
@@ -95,7 +95,7 @@ public class ApiV1PartyControllerTest {
             {
                 "partyName": "오락실 팀",
                 "title": "오락실 공모전 팀원 모집",
-                "description": "설명",
+                "description": "테스트용 파티 설명입니다",
                 "topicType": "PROJECT",
                 "partyTag": "WEB",
                 "checklistRequiredApprovals": 1,

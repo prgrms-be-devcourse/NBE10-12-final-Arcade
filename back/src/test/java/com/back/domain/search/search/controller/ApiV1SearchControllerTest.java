@@ -41,4 +41,11 @@ class ApiV1SearchControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.resultCode").value("400-4"));
     }
+
+    @Test
+    void tooLongQReturns400_1() throws Exception {
+        mvc.perform(get("/api/v1/parties/search").param("q", "가".repeat(26)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-1"));
+    }
 }
