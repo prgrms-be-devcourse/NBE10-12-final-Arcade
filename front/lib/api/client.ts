@@ -12,7 +12,11 @@
  * request() 가 그 껍데기를 벗겨 data 만 돌려주므로, 각 api 모듈은 data 타입만 신경 쓰면 된다.
  */
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
+/**
+ * 브라우저가 부르는 주소. NEXT_PUBLIC_ 이라 빌드 시점에 번들로 인라인된다.
+ * WebSocket 주소와 OAuth 오리진 계산도 이 값을 쓴다(둘 다 브라우저 전용).
+ */
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
 /**
  * 데모 데이터 사용 여부.
@@ -22,10 +26,25 @@ export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
  */
 export const USE_MOCK = (() => {
   const flag = process.env.NEXT_PUBLIC_USE_MOCK;
-  if (flag === 'true') return true;
-  if (flag === 'false') return false;
+  if (flag === "true") return true;
+  if (flag === "false") return false;
   return !API_BASE_URL;
 })();
+/**
+ * 서버(SSR)가 부르는 주소. **NEXT_PUBLIC_ 접두사가 없다** — 번들에 박히지 않고
+ * 런타임에 읽히므로 컨테이너 환경변수로 주입할 수 있다.
+ *
+ * 컨테이너 안에서 localhost 는 자기 자신이라 브라우저와 같은 값을 쓸 수 없다.
+ * 비어 있으면 공개 주소로 떨어진다 (호스트에서 직접 실행하는 개발 환경).
+ */
+const INTERNAL_API_BASE_URL = process.env.API_BASE_URL_INTERNAL ?? "";
+
+/** 호출 시점에 따라 베이스 주소가 갈린다. */
+function apiBase(): string {
+  if (typeof window === "undefined" && INTERNAL_API_BASE_URL)
+    return INTERNAL_API_BASE_URL;
+  return API_BASE_URL;
+}
 
 /** 목 응답에 약간의 지연을 줘서 로딩 상태를 실제처럼 확인할 수 있게 한다. */
 const MOCK_LATENCY_MS = 180;
@@ -47,17 +66,17 @@ export class ApiError extends Error {
     readonly resultCode?: string,
   ) {
     super(message);
-    this.name = 'ApiError';
+    this.name = "ApiError";
   }
 }
 
 /** 봉투인지 판별한다. 봉투가 아니면(예: 프록시 오류) 그대로 쓴다. */
 function isEnvelope<T>(value: unknown): value is ApiEnvelope<T> {
   return (
-    typeof value === 'object' &&
+    typeof value === "object" &&
     value !== null &&
-    'resultCode' in value &&
-    'data' in value
+    "resultCode" in value &&
+    "data" in value
   );
 }
 
@@ -71,18 +90,18 @@ export async function mockResponse<T>(data: T, ms?: number): Promise<T> {
   return structuredClone(data);
 }
 
-export interface RequestOptions extends Omit<RequestInit, 'body'> {
+export interface RequestOptions extends Omit<RequestInit, "body"> {
   /** 쿼리 스트링으로 붙일 값들 (undefined 는 제외됨) */
   query?: Record<string, string | number | boolean | undefined | null>;
   body?: unknown;
 }
 
-function buildUrl(path: string, query?: RequestOptions['query']): string {
-  const url = `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+function buildUrl(path: string, query?: RequestOptions["query"]): string {
+  const url = `${apiBase()}${path.startsWith("/") ? path : `/${path}`}`;
   if (!query) return url;
   const params = new URLSearchParams();
   Object.entries(query).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
+    if (value !== undefined && value !== null && value !== "") {
       params.append(key, String(value));
     }
   });
@@ -98,20 +117,26 @@ function buildUrl(path: string, query?: RequestOptions['query']): string {
  * 브라우저에서는 이 함수가 곧바로 undefined 를 돌려주고 평소대로 credentials 로 처리된다.
  */
 async function serverCookieHeader(): Promise<string | undefined> {
-  if (typeof window !== 'undefined') return undefined;
+  if (typeof window !== "undefined") return undefined;
   try {
-    const { cookies } = await import('next/headers');
+    const { cookies } = await import("next/headers");
     const store = await cookies();
-    const value = store.toString();
-    return value || undefined;
-  } catch {
-    // 요청 컨텍스트 밖(빌드 시 정적 생성 등)에서는 쿠키를 읽을 수 없다
+    return store.toString() || undefined;
+  } catch (error) {
+    // 정적 생성 bailout 은 Next 의 제어 흐름이다. 삼키면 Next 가 이 라우트를
+    // 동적으로 승격시키지 못해 빌드 때 백엔드를 호출하게 된다. 그것만 다시 던진다.
+    const { unstable_rethrow } = await import("next/navigation");
+    unstable_rethrow(error);
+    // 그 밖의 경우(요청 컨텍스트 밖 호출 등)는 쿠키 없이 진행한다
     return undefined;
   }
 }
 
 /** 실제 서버 호출용 공통 fetch 래퍼 */
-export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+export async function request<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<T> {
   const { query, body, headers, ...rest } = options;
 
   const cookie = await serverCookieHeader();
@@ -119,12 +144,12 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   const response = await fetch(buildUrl(path, query), {
     ...rest,
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...(cookie ? { Cookie: cookie } : {}),
       ...headers,
     },
     body: body === undefined ? undefined : JSON.stringify(body),
-    credentials: 'include',
+    credentials: "include",
   });
 
   if (!response.ok) {
@@ -139,7 +164,9 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     const message = isEnvelope<unknown>(errorBody)
       ? errorBody.msg
       : `API 요청 실패: ${response.status}`;
-    const resultCode = isEnvelope<unknown>(errorBody) ? errorBody.resultCode : undefined;
+    const resultCode = isEnvelope<unknown>(errorBody)
+      ? errorBody.resultCode
+      : undefined;
 
     throw new ApiError(message, response.status, errorBody, resultCode);
   }
@@ -152,13 +179,14 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 }
 
 export const http = {
-  get: <T>(path: string, options?: RequestOptions) => request<T>(path, { ...options, method: 'GET' }),
+  get: <T>(path: string, options?: RequestOptions) =>
+    request<T>(path, { ...options, method: "GET" }),
   post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
-    request<T>(path, { ...options, method: 'POST', body }),
+    request<T>(path, { ...options, method: "POST", body }),
   put: <T>(path: string, body?: unknown, options?: RequestOptions) =>
-    request<T>(path, { ...options, method: 'PUT', body }),
+    request<T>(path, { ...options, method: "PUT", body }),
   patch: <T>(path: string, body?: unknown, options?: RequestOptions) =>
-    request<T>(path, { ...options, method: 'PATCH', body }),
+    request<T>(path, { ...options, method: "PATCH", body }),
   delete: <T>(path: string, options?: RequestOptions) =>
-    request<T>(path, { ...options, method: 'DELETE' }),
+    request<T>(path, { ...options, method: "DELETE" }),
 };
