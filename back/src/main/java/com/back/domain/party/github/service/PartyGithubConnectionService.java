@@ -19,6 +19,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.security.SecureRandom;
@@ -53,7 +55,8 @@ public class PartyGithubConnectionService {
 
         ensureOwner(party, actor);
 
-        if (repositoryFullName(party.getGithubRepoUrl()).isBlank()) {
+        String expectedRepository = repositoryFullName(party.getGithubRepoUrl());
+        if (expectedRepository.isBlank()) {
             throw new ServiceException(
                     "400-22",
                     "GITHUB_REPOSITORY_URL_INVALID"
@@ -81,7 +84,7 @@ public class PartyGithubConnectionService {
                     .findByPartyId(partyId)
                     .orElseGet(() ->
                             connectionRepository.save(
-                                    new PartyGithubConnection(party)));
+                                    new PartyGithubConnection(party, expectedRepository)));
 
         connection.awaitInstallation();
 
@@ -112,7 +115,7 @@ public class PartyGithubConnectionService {
                         .findByPartyId(party.getId())
                         .orElseGet(
                                 () -> connectionRepository.save(
-                                        new PartyGithubConnection(party)));
+                                        new PartyGithubConnection(party, expectedRepository)));
         connection.startSync();
 
         try {
@@ -149,15 +152,46 @@ public class PartyGithubConnectionService {
 
         } catch (RestClientResponseException e) {
             if (e.getStatusCode().value() == 401 || e.getStatusCode().value() == 404) {
-                connectionFailureService.markInstallationRequired(party.getId(), "GITHUB_APP_INSTALLATION_UNAVAILABLE", "GitHub App 설치를 다시 확인해주세요.");
+                markInstallationRequiredAfterCompletion(party.getId(), "GITHUB_APP_INSTALLATION_UNAVAILABLE", "GitHub App 설치를 다시 확인해주세요.");
             } else {
-                connectionFailureService.markError(party.getId(), "GITHUB_APP_ERROR", e.getMessage());
+                markErrorAfterCompletion(party.getId(), "GITHUB_APP_ERROR", e.getMessage());
             }
             throw e;
         } catch (RuntimeException e) {
-            connectionFailureService.markError(party.getId(), "GITHUB_APP_ERROR", e.getMessage());
+            markErrorAfterCompletion(party.getId(), "GITHUB_APP_ERROR", e.getMessage());
             throw e;
         }
+    }
+
+    /**
+     * 현재 설치 콜백 트랜잭션이 연결 행을 잠근 상태에서 REQUIRES_NEW를 시작하면 H2가
+     * CannotAcquireLockException을 낸다. 원래 트랜잭션이 끝난 뒤에만 실패 상태를 기록한다.
+     */
+    private void markErrorAfterCompletion(long partyId, String code, String message) {
+        runAfterCompletion(() -> connectionFailureService.markError(partyId, code, message));
+    }
+
+    private void markInstallationRequiredAfterCompletion(long partyId, String code, String message) {
+        runAfterCompletion(() -> connectionFailureService.markInstallationRequired(partyId, code, message));
+    }
+
+    private void runAfterCompletion(Runnable action) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            action.run();
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status != TransactionSynchronization.STATUS_ROLLED_BACK) return;
+                try {
+                    action.run();
+                } catch (RuntimeException ignored) {
+                    // 실패 상태 기록이 원래 GitHub 설치 오류를 가리지 않도록 보조 처리로 취급한다.
+                }
+            }
+        });
     }
 
     public PartyGithubConnectionDto getStatus(long partyId) {

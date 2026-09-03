@@ -30,7 +30,10 @@ public class PartyGithubConnectionFailureService {
         return connectionRepository.findByPartyId(partyId)
             .orElseGet(() -> {
                 Party party = partyRepository.getReferenceById(partyId);
-                return connectionRepository.save(new PartyGithubConnection(party));
+                // 연결 레코드는 repositoryFullName이 DB 필수값이다. 이 경로는 설치 실패를
+                // 남기는 용도라 원본 URL을 보관하고, 정상 설치 시 owner/repository 값으로 갱신된다.
+                String repository = party.getGithubRepoUrl() == null ? "" : party.getGithubRepoUrl();
+                return connectionRepository.save(new PartyGithubConnection(party, repository));
             });
     }
 }
