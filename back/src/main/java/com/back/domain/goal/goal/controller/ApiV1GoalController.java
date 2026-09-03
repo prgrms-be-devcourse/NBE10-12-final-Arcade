@@ -43,8 +43,8 @@ public class ApiV1GoalController {
                     사용자가 직접 등록하는 성취를 생성한다. source는 항상 SELF_REPORTED로 저장된다.
 
                     type에 따라 detail의 필수 필드가 다르다.
-                    - CONTEST(수상·대회) : contestName 필수
-                    - CHECKLIST(자격/도전/자유 목표) : title 필수
+                    - CONTEST(수상·대회) : title(대회명) 필수
+                    - CHECKLIST(자격/도전/자유 목표) : title(목표 제목) 필수
                     - PROJECT : 파티 확정 시 시스템이 자동 생성하는 전용 타입이라 400-4로 거부된다.
                       개인 사이드 프로젝트를 남기려면 CHECKLIST를 사용한다.
 
@@ -174,7 +174,7 @@ public class ApiV1GoalController {
 
                     예외
                     - 400-1 : 형식 검증 실패
-                    - 400-4 : 타입별 필수 필드 누락 (CONTEST-contestName, CHECKLIST-title)
+                    - 400-4 : title 누락
                     - 401-1 : 미로그인
                     - 403-1 : 남의 성취
                     - 404-1 : 존재하지 않는 성취
