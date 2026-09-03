@@ -2,6 +2,7 @@ package com.back.domain.search.search.service.party;
 
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
+import com.back.domain.party.party.dtos.PartyListItemDto;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
@@ -21,6 +22,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -28,7 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("test")
 @TestPropertySource(properties = "spring.jpa.properties.hibernate.generate_statistics=true")
 @Transactional
-class PartyMatchQueryLikeServiceNPlusOneTest {
+class PartySearchServiceNPlusOneTest {
 
     @Autowired
     private PartyMatchQueryLikeService partyMatchQueryLikeService;
@@ -49,14 +51,14 @@ class PartyMatchQueryLikeServiceNPlusOneTest {
     private EntityManager entityManager;
 
     @Test
-    void doesNotIssueOneQueryPerPartyWhenFetchingMatches() {
-        Member owner = memberRepository.save(new Member("nplus1-owner@test.com", "pw", "owner", null));
-        for (int i = 0; i < 5; i++) {
+    void doesNotIssueOneQueryPerOwnerWhenMappingToDto() {
+        for (int i = 0; i < 3; i++) {
+            Member owner = memberRepository.save(new Member("owner-nplus1-" + i + "@test.com", "pw", "owner" + i, null));
             Party party = partyRepository.save(new Party(
                     owner, "파티명" + i, "제목" + i, null, null, "외부 대회", "https://example.com",
                     TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7)
             ));
-            partySearchKeywordRepository.save(new PartySearchKeyword(party, "엔플러스원테스트 스터디"));
+            partySearchKeywordRepository.save(new PartySearchKeyword(party, "오너엔플러스원테스트 스터디"));
         }
 
         entityManager.flush();
@@ -65,12 +67,12 @@ class PartyMatchQueryLikeServiceNPlusOneTest {
         Statistics statistics = entityManagerFactory.unwrap(org.hibernate.SessionFactory.class).getStatistics();
         statistics.clear();
 
-        Page<Party> result = partyMatchQueryLikeService.findMatchingParties(
-                java.util.List.of("엔플러스원테스트"), PageRequest.of(0, 10)
+        Page<Party> matched = partyMatchQueryLikeService.findMatchingParties(
+                List.of("오너엔플러스원테스트"), PageRequest.of(0, 10)
         );
-        result.getContent().forEach(Party::getId);
+        List<PartyListItemDto> dtos = matched.map(PartyListItemDto::new).getContent();
 
-        assertThat(result.getContent()).hasSize(5);
-        assertThat(statistics.getPrepareStatementCount()).isEqualTo(1);
+        assertThat(dtos).hasSize(3);
+        assertThat(statistics.getPrepareStatementCount()).isEqualTo(3);
     }
 }
