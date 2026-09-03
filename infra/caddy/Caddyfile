@@ -1,0 +1,18 @@
+# 로컬용 리버스 프록시. 프론트와 백엔드를 한 진입점(:80)으로 묶는다.
+
+{$SITE_ADDR::80} {
+	# 백엔드가 맡는 경로. /api 접두사를 벗기지 않는다 — 백엔드가 /api/v1 을 기대한다.
+	@backend {
+		path /api/*
+		path /login/*
+		path /oauth2/*
+	}
+	handle @backend {
+		reverse_proxy backend:8080
+	}
+
+	# 나머지는 전부 Next.js 로.
+	handle {
+		reverse_proxy frontend:3000
+	}
+}
