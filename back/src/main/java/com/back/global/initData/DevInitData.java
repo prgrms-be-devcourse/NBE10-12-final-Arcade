@@ -23,6 +23,7 @@ import com.back.domain.party.party.service.PartyService;
 import com.back.standard.util.Util;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -49,6 +50,9 @@ public class DevInitData {
     private final GoalService goalService;
     private final NotificationService notificationService;
 
+    @Value("${custom.openapi.api-docs-url}")
+    private String apiDocsUrl;
+
     @Bean
     @Order(2)
     ApplicationRunner devInitDataApplicationRunner() {
@@ -59,7 +63,7 @@ public class DevInitData {
                     "--yes",
                     "--package", "typescript@v5",
                     "--package", "openapi-typescript",
-                    "openapi-typescript", "http://localhost:8080/v3/api-docs/apiV1",
+                    "openapi-typescript", apiDocsUrl,
                     "-o", "../front/src/global/backend/apiV1/schema.d.ts",
                     "--properties-required-by-default"
             );

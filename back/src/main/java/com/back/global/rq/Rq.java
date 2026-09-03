@@ -2,6 +2,7 @@ package com.back.global.rq;
 
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.service.MemberService;
+import com.back.global.app.CustomConfigProperties;
 import com.back.global.exception.ServiceException;
 import com.back.global.security.SecurityUser;
 import jakarta.servlet.http.Cookie;
@@ -22,6 +23,7 @@ public class Rq {
     private final HttpServletRequest req;
     private final HttpServletResponse resp;
     private final MemberService memberService;
+    private final CustomConfigProperties customConfigProperties;
 
     public Member getActor() {
         return Optional.ofNullable(
@@ -83,11 +85,8 @@ public class Rq {
         Cookie cookie = new Cookie(name, value);
         cookie.setPath("/");
         cookie.setHttpOnly(true);
-        cookie.setDomain("localhost");
-        cookie.setSecure(true);
-        // GitHub OAuth/App 설치 후 외부 사이트에서 localhost로 돌아오는 최상위 GET에도
-        // 인증 쿠키가 전송되어야 한다. Strict면 첫 SSR 요청에서 쿠키가 빠져 401이 난다.
-        cookie.setAttribute("SameSite", "Lax");
+        cookie.setSecure(customConfigProperties.getCookie().isSecure());
+        cookie.setAttribute("SameSite", customConfigProperties.getCookie().getSameSite());
 
         cookie.setMaxAge(value.isBlank() ? 0 : maxAgeSeconds);
 
