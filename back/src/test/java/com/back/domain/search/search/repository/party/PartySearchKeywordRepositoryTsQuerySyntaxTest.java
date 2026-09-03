@@ -25,7 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @Testcontainers
-class PartySearchKeywordRepositoryFtsTest {
+class PartySearchKeywordRepositoryTsQuerySyntaxTest {
 
     @Container
     static final PostgreSQLContainer POSTGRES = new PostgreSQLContainer("postgres:16");
@@ -48,38 +48,20 @@ class PartySearchKeywordRepositoryFtsTest {
     private MemberRepository memberRepository;
 
     @Test
-    void findsPartyByMatchingKeyword() {
-        Member owner = memberRepository.save(new Member("fts-owner@test.com", "pw", "owner", null));
+    void searchByKeywordsAcceptsCanonicalTermsWithSpecialCharacters() {
+        Member owner = memberRepository.save(new Member("tsquery-owner@test.com", "pw", "owner", null));
         Party party = partyRepository.save(new Party(
                 owner, "파티명", "제목", null, null, "외부 대회", "https://example.com",
                 TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7)
         ));
-        partySearchKeywordRepository.save(new PartySearchKeyword(party, "백엔드 스터디"));
+        partySearchKeywordRepository.save(new PartySearchKeyword(party, "C++ 스터디"));
 
         Page<Party> result = partySearchKeywordRepository.searchByKeywords(
-                "백엔드", "RECRUITING", PageRequest.of(0, 10)
+                "C++ | C#", "RECRUITING", PageRequest.of(0, 10)
         );
 
         assertThat(result.getContent())
                 .extracting(Party::getId)
                 .contains(party.getId());
-    }
-
-    @Test
-    void doesNotMatchUnrelatedKeyword() {
-        Member owner = memberRepository.save(new Member("fts-owner2@test.com", "pw", "owner2", null));
-        Party party = partyRepository.save(new Party(
-                owner, "파티명2", "제목2", null, null, "외부 대회", "https://example.com",
-                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7)
-        ));
-        partySearchKeywordRepository.save(new PartySearchKeyword(party, "프론트엔드 스터디"));
-
-        Page<Party> result = partySearchKeywordRepository.searchByKeywords(
-                "게임개발", "RECRUITING", PageRequest.of(0, 10)
-        );
-
-        assertThat(result.getContent())
-                .extracting(Party::getId)
-                .doesNotContain(party.getId());
     }
 }

@@ -1,7 +1,7 @@
 package com.back.domain.search.search.service.party;
 
 import com.back.domain.party.party.entity.Party;
-import com.back.domain.search.search.entity.party.PartySearchKeyword;
+import com.back.domain.party.position.entity.PartyStatus;
 import com.back.domain.search.search.repository.party.PartySearchKeywordRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
@@ -24,7 +24,6 @@ public class PartyMatchQueryFtsService implements PartyMatchQueryPort {
     public Page<Party> findMatchingParties(List<String> keywords, Pageable pageable) {
         String tsQuery = String.join(" | ", keywords);
 
-        return partySearchKeywordRepository.searchByKeywords(tsQuery, pageable)
-                .map(PartySearchKeyword::getParty);
+        return partySearchKeywordRepository.searchByKeywords(tsQuery, PartyStatus.RECRUITING.name(), pageable);
     }
 }
