@@ -85,7 +85,7 @@ export async function login(
  */
 export async function socialLogin(
   provider: "github",
-  redirectUrl = "http://localhost:3000/",
+  redirectUrl?: string,
 ): Promise<AuthUser | void> {
   if (USE_MOCK) {
     const profile = MOCK_PROFILES.haneul;
@@ -100,7 +100,8 @@ export async function socialLogin(
 
   // OAuth2 진입점은 /api/v1 아래가 아니라 서버 루트에 있다
   const origin = API_BASE_URL.replace(/\/api\/v\d+\/?$/, "");
-  const target = `${origin}/oauth2/authorization/${provider}?redirectUrl=${encodeURIComponent(redirectUrl)}`;
+  const targetRedirectUrl = redirectUrl ?? `${window.location.origin}/`;
+  const target = `${origin}/oauth2/authorization/${provider}?redirectUrl=${encodeURIComponent(targetRedirectUrl)}`;
 
   window.location.href = target;
 }
