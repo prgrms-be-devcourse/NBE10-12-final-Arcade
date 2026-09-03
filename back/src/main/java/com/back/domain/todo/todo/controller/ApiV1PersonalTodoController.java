@@ -68,10 +68,10 @@ public class ApiV1PersonalTodoController {
             summary = "내 개인 TODO 목록",
             description = """
                     본인 것만 돌려준다. 최신순이며 status·linked 는 모두 선택이다.
-                    각 항목에 진행률(totalCount·doneCount)과 성취 연결 여부(linked)가 함께 온다.
+                    각 항목에 진행률(totalCount·doneCount)이 함께 온다.
 
-                    linked 는 저장된 값이 아니라 조회 때 계산한다 - 연결 정보는 성취(PersonalChecklist)가 FK 로 갖는다.
                     linked=false 를 주면 아직 성취에 연결되지 않은 것만 온다. 성취 등록 화면의 TODO 선택에 쓴다.
+                    연결 정보는 성취(PersonalChecklist)가 FK 로 갖고 있어 조회 때 계산한다.
 
                     예외
                     - 400-1 : status 가 정의된 값이 아니거나 page·size 범위 밖

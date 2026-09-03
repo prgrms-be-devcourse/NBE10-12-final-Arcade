@@ -24,7 +24,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -38,6 +37,9 @@ public class PersonalTodoService {
 
     /** 상세에 함께 내려주는 항목 첫 페이지 크기 */
     private static final int DETAIL_ITEM_SIZE = 20;
+
+    /** 어떤 id 와도 맞지 않는 값. `in ()` 을 피하려고 쓴다 */
+    private static final List<Long> NO_IDS = List.of(-1L);
 
     private final PersonalTodoRepository personalTodoRepository;
     private final PersonalTodoItemRepository personalTodoItemRepository;
@@ -53,8 +55,8 @@ public class PersonalTodoService {
                 new PersonalTodo(owner, request.title(), request.category(), request.memo())
         );
 
-        // 방금 만든 TODO 라 항목도 연결도 없다
-        return new PersonalTodoDto(todo, 0, 0, false);
+        // 방금 만든 TODO 라 항목이 없다
+        return new PersonalTodoDto(todo, 0, 0);
     }
 
     /**
@@ -68,27 +70,28 @@ public class PersonalTodoService {
             Boolean linked,
             Pageable pageable
     ) {
-        // 응답의 linked 필드에도 필요해서 필터 여부와 무관하게 한 번은 읽는다
-        Set<Long> linkedTodoIds = Set.copyOf(goalRepository.findLinkedPersonalTodoIds(owner.getId()));
+        // 연결 여부로 거를 때만 성취 쪽을 읽는다
+        List<Long> linkedTodoIds = linked == null
+                ? NO_IDS
+                : idsForInClause(goalRepository.findLinkedPersonalTodoIds(owner.getId()));
 
         Page<PersonalTodo> todos = personalTodoRepository.searchMyTodos(
-                owner, status, linked, idsForInClause(linkedTodoIds), pageable);
+                owner, status, linked, linkedTodoIds, pageable);
 
         Map<Long, TodoProgressDto> progressByTodoId = loadProgress(todos.getContent());
 
         return todos.map(todo -> {
             TodoProgressDto progress = progressByTodoId.get(todo.getId());
-            boolean isLinked = linkedTodoIds.contains(todo.getId());
 
             return progress == null
-                    ? new PersonalTodoDto(todo, 0, 0, isLinked)
-                    : new PersonalTodoDto(todo, progress.totalCount(), progress.doneCount(), isLinked);
+                    ? new PersonalTodoDto(todo, 0, 0)
+                    : new PersonalTodoDto(todo, progress.totalCount(), progress.doneCount());
         });
     }
 
     /** `in ()` 은 DB 에 따라 문법 오류라, 비었을 때는 어떤 id 와도 맞지 않는 값을 넣는다 */
-    private List<Long> idsForInClause(Set<Long> ids) {
-        return ids.isEmpty() ? List.of(-1L) : List.copyOf(ids);
+    private List<Long> idsForInClause(List<Long> ids) {
+        return ids.isEmpty() ? NO_IDS : ids;
     }
 
     private Map<Long, TodoProgressDto> loadProgress(List<PersonalTodo> todos) {
@@ -213,8 +216,7 @@ public class PersonalTodoService {
         return new PersonalTodoDto(
                 todo,
                 personalTodoItemRepository.countByTodo(todo),
-                personalTodoItemRepository.countByTodoAndDoneIsTrue(todo),
-                goalRepository.findChecklistByPersonalTodoId(todo.getId()).isPresent()
+                personalTodoItemRepository.countByTodoAndDoneIsTrue(todo)
         );
     }
 }

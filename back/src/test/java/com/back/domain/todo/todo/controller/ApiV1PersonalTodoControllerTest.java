@@ -159,22 +159,6 @@ public class ApiV1PersonalTodoControllerTest {
     }
 
     @Test
-    @DisplayName("목록: 성취 연결 여부가 linked 로 함께 온다")
-    @WithUserDetails("user1@test.com")
-    void getMyTodosCarriesLinkedFlag() throws Exception {
-        PersonalTodo linked = saveTodo("user1@test.com");
-        linkToGoal("user1@test.com", linked);
-        saveTodo("user1@test.com");
-
-        mvc.perform(get("/api/v1/todos/me"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content", hasSize(2)))
-                // 최신순이라 방금 만든 미연결 TODO 가 먼저다
-                .andExpect(jsonPath("$.data.content[0].linked").value(false))
-                .andExpect(jsonPath("$.data.content[1].linked").value(true));
-    }
-
-    @Test
     @DisplayName("목록: linked=false 면 아직 성취에 연결되지 않은 것만 온다")
     @WithUserDetails("user1@test.com")
     void getMyTodosFilteredByUnlinked() throws Exception {
@@ -185,8 +169,7 @@ public class ApiV1PersonalTodoControllerTest {
         mvc.perform(get("/api/v1/todos/me").param("linked", "false"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content", hasSize(1)))
-                .andExpect(jsonPath("$.data.content[0].id").value(free.getId()))
-                .andExpect(jsonPath("$.data.content[0].linked").value(false));
+                .andExpect(jsonPath("$.data.content[0].id").value(free.getId()));
     }
 
     @Test
