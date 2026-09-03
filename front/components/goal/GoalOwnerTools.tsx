@@ -15,7 +15,7 @@ import { deleteGoal, type GoalDetailResponse } from '@/lib/api/goals';
 export function GoalOwnerTools({ goal }: { goal: GoalDetailResponse }) {
   if (goal.source !== 'SELF_REPORTED') return null;
 
-  const title = goal.detail.title ?? goal.detail.contestName ?? '이 성취';
+  const title = goal.detail.title ?? '이 성취';
 
   return (
     <SideCard title="성취 관리" className="leader-tools">

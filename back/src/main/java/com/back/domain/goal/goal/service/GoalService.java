@@ -22,6 +22,8 @@ import com.back.domain.member.member.repository.MemberRepository;
 import com.back.domain.party.application.repository.PartyMemberRepository;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.repository.PartyRepository;
+import com.back.domain.party.showcase.entity.PartyShowcase;
+import com.back.domain.party.showcase.repository.PartyShowcaseRepository;
 import com.back.domain.party.partyPr.dtos.PartyPrDto;
 import com.back.domain.party.partyPr.repository.PartyPrRepository;
 import com.back.domain.todo.todo.entity.PersonalTodo;
@@ -52,6 +54,10 @@ public class GoalService {
     private final PartyMemberRepository partyMemberRepository;
     private final PartyPrRepository partyPrRepository;
 
+    // 전시 게시글. PROJECT 성취가 FK 로 가리키고, 게시 이벤트를 받아 채운다.
+    private final PartyShowcaseRepository partyShowcaseRepository;
+
+    // CHECKLIST 성취에 연결된 개인 TODO. 성취 -> TODO 단방향이라 이쪽에서만 읽는다.
     private final PersonalTodoRepository personalTodoRepository;
     private final PersonalTodoItemRepository personalTodoItemRepository;
 
@@ -74,14 +80,14 @@ public class GoalService {
     }
 
     private PersonalContest createPersonalContest(Member owner, GoalStatus status, GoalDetailReqBody detail) {
-        if (isBlank(detail.contestName())) {
+        if (isBlank(detail.title())) {
             throw new ServiceException("400-4", "대회명을 입력해주세요.");
         }
 
         PersonalContest contest = new PersonalContest(
                 owner,
                 status,
-                detail.contestName(),
+                detail.title(),
                 Boolean.TRUE.equals(detail.isTeam()),
                 detail.result(),
                 detail.awardDate(),
@@ -200,7 +206,10 @@ public class GoalService {
                         .toList()
                 : List.of();
 
-        return ProjectContextDto.of(party, myPositionType, partyOwner, pullRequests);
+        // 전시글은 Project 가 FK 로 들고 있어 파티를 다시 뒤지지 않는다
+        PartyShowcase showcase = goal instanceof Project project ? project.getPartyShowcase() : null;
+
+        return ProjectContextDto.of(party, myPositionType, partyOwner, showcase, pullRequests);
     }
 
     /**
@@ -266,12 +275,12 @@ public class GoalService {
     private void updateDetail(Goal goal, GoalDetailReqBody detail) {
         // 자기신고 성취는 CONTEST/CHECKLIST 둘뿐이다. PROJECT 는 위 checkModifiable() 에서 이미 걸러졌다.
         if (goal instanceof PersonalContest contest) {
-            if (isBlank(detail.contestName())) {
+            if (isBlank(detail.title())) {
                 throw new ServiceException("400-4", "대회명을 입력해주세요.");
             }
 
             contest.update(
-                    detail.contestName(),
+                    detail.title(),
                     Boolean.TRUE.equals(detail.isTeam()),
                     detail.result(),
                     detail.awardDate(),
@@ -327,6 +336,10 @@ public class GoalService {
             List<AssembledMemberDto> assembledMembers,
             LocalDate assembledAt
     ) {
+        // 성취 카드에 보일 이름이다. 이벤트에 실려오지 않아 여기서 한 번 읽는다.
+        Party party = partyRepository.findById(partyId)
+                .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 파티입니다."));
+
         Map<Long, Member> membersById = memberRepository
                 .findAllById(assembledMembers.stream().map(AssembledMemberDto::memberId).toList())
                 .stream()
@@ -344,8 +357,7 @@ public class GoalService {
                         membersById.get(assembled.memberId()),
                         assembled.partyAssembleToMemberId(),
                         partyId,
-                        // title은 전시 게시(작업표 34번) 시점에 PARTY_SHOWCASE에서 채운다.
-                        null,
+                        party.getPartyName(),
                         assembled.positionType(),
                         assembledAt
                 ))
@@ -369,6 +381,25 @@ public class GoalService {
                 .filter(goal -> goal.getStatus() != GoalStatus.ACHIEVED)
                 .map(Project.class::cast)
                 .forEach(project -> project.complete(completedAt));
+    }
+
+    /**
+     * 전시 게시 이벤트를 받아 그 파티의 PROJECT 성취에 전시글을 연결한다(기획서 3.6, 작업표 34번).
+     *
+     * 확정·완료 리스너와 같이 커밋 이후 별도 트랜잭션에서 돈다.
+     * 값을 복사하지 않고 FK 만 걸어서, 두 번 받아도 같은 전시글을 다시 가리킬 뿐이라 안전하다.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void linkShowcaseToProjects(long partyId) {
+        Party party = partyRepository.findById(partyId)
+                .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 파티입니다."));
+
+        PartyShowcase showcase = partyShowcaseRepository.findByParty(party)
+                .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 전시 게시글입니다."));
+
+        goalRepository.findAllBySourcePartyIdAndType(partyId, GoalType.PROJECT).stream()
+                .map(Project.class::cast)
+                .forEach(project -> project.linkShowcase(showcase));
     }
 
     private boolean isBlank(String value) {

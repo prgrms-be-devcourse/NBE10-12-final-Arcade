@@ -17,8 +17,9 @@ import java.time.LocalDate;
 @PrimaryKeyJoinColumn(name = "goal_id")
 public class PersonalContest extends Goal {
 
+    // 대회명. 세 타입 모두 '이 성취의 이름'을 title 로 통일한다.
     @Column(nullable = false)
-    private String contestName;
+    private String title;
 
     @Column(nullable = false)
     private boolean isTeam;
@@ -48,14 +49,14 @@ public class PersonalContest extends Goal {
     public PersonalContest(
             Member owner,
             GoalStatus status,
-            String contestName,
+            String title,
             boolean isTeam,
             String result,
             LocalDate awardDate,
             String contestUrl
     ) {
         super(owner, GoalType.CONTEST, status, GoalSource.SELF_REPORTED, null, null);
-        this.contestName = contestName;
+        this.title = title;
         this.isTeam = isTeam;
         this.result = result;
         this.awardDate = awardDate;
@@ -64,8 +65,8 @@ public class PersonalContest extends Goal {
 
     // 수정은 타입의 필드를 통째로 덮어쓴다. 화면이 항상 그 타입의 detail 전체를 보내오기 때문에,
     // 넘어오지 않은 값은 "그대로 두기"가 아니라 "비우기"다.
-    public void update(String contestName, boolean isTeam, String result, LocalDate awardDate, String contestUrl) {
-        this.contestName = contestName;
+    public void update(String title, boolean isTeam, String result, LocalDate awardDate, String contestUrl) {
+        this.title = title;
         this.isTeam = isTeam;
         this.result = result;
         this.awardDate = awardDate;

@@ -114,7 +114,7 @@ export function GoalCreateForm() {
       status,
       detail: isContest
         ? {
-            contestName: contestName.trim(),
+            title: contestName.trim(),
             isTeam: teamLabel === TEAM_OPTIONS[0],
             result: trimmed(result),
             awardDate: trimmed(awardDate),

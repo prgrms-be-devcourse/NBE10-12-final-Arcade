@@ -2,11 +2,15 @@ package com.back.domain.goal.goal.entity;
 
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
+import com.back.domain.party.showcase.entity.PartyShowcase;
 import com.back.global.exception.ServiceException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrimaryKeyJoinColumn;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -23,23 +27,14 @@ import java.time.LocalDate;
 @PrimaryKeyJoinColumn(name = "goal_id")
 public class Project extends Goal {
 
-    // [추후 PARTY_SHOWCASE.title로 채워짐 - 작업표 34번]
-    //
-    // 이 값의 출처는 전시 게시글(PARTY_SHOWCASE.title)이고, 그 테이블은 아직 없다.
-    // PARTY_SHOWCASE.title 자체가 파티장이 게시를 확정해야 채워지는 값이라 파티 확정 시점에는 가져올 것이 없으므로,
-    // 생성 시에는 null로 두고 전시 게시가 이뤄질 때 updateShowcase()로 채운다.
-    //
-    // 조회할 때마다 파티를 다시 읽지 않으려고 값을 들고 있는 구조다.
-    // 대신 참여자 수만큼 같은 값이 복사되므로, 전시 게시글이 수정되면 이 파티의 Project 전체를 함께 갱신해야 한다.
-    // 갱신 경로는 updateShowcase() 하나로 통일한다 - 다른 데서 title/result를 직접 건드리지 말 것.
-    //
-    // TODO 전시 게시를 하지 않은 파티는 title이 계속 null이다.
-    //      성취 카드에 제목이 비어 보이므로, 34번을 붙일 때 화면에서 무엇을 대신 보여줄지 정해야 한다.
+    // 파티 이름(PARTY.partyName). 확정 시점의 값을 복사한다 - 목록에서 성취마다 파티를 다시 읽지 않으려고.
+    @Column(nullable = false)
     private String title;
 
-    // [추후 PARTY_SHOWCASE.description으로 채워짐 - 작업표 34번]
-    // title과 동일하게 전시 게시 시점에 채워진다.
-    private String result;
+    // 전시 게시글. 게시 전이면 null이고, 게시되는 순간 리스너가 채운다.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "party_showcase_id")
+    private PartyShowcase partyShowcase;
 
     // 이 파티에서 맡은 포지션. 파티장은 지원 절차를 거치지 않아 포지션이 정해져 있지 않으므로 null이다.
     // 파티 생성 시 파티장도 자기 포지션을 고르게 되면 그때 채운다.
@@ -78,18 +73,12 @@ public class Project extends Goal {
     }
 
     /**
-     * 전시 게시글(PARTY_SHOWCASE)의 제목·설명을 이 성취에 반영한다.
-     * PARTY_SHOWCASE.title -> title, PARTY_SHOWCASE.description -> result 로 매핑한다(기획서 3.6).
+     * 전시 게시글을 연결한다. 전시글은 파티당 하나인데 Project는 참여자 수만큼 있어
+     * 그 파티의 Project 전체에 대해 호출한다.
      *
-     * 전시 게시 확정 API(POST /api/v1/parties/{partyId}/showcase, 작업표 34번)를 구현할 때
-     * 게시글 저장 직후 같은 트랜잭션에서 호출해야 한다.
-     *
-     * 전시 게시글은 파티당 1개인데 Project는 참여자 수만큼 있으므로,
-     * 해당 파티의 Project 전체에 대해 호출해야 한다.
-     * 하나라도 빠지면 파티원마다 다른 제목이 보이고 에러는 나지 않는다.
+     * 이미 같은 전시글이 걸려 있으면 아무 것도 하지 않는다 - 이벤트를 두 번 받아도 안전해야 한다.
      */
-    public void updateShowcase(String title, String result) {
-        this.title = title;
-        this.result = result;
+    public void linkShowcase(PartyShowcase partyShowcase) {
+        this.partyShowcase = partyShowcase;
     }
 }

@@ -97,7 +97,7 @@ export function GoalEditForm({ goal }: { goal: GoalDetailResponse }) {
   const [status, setStatus] = useState<GoalStatus>(goal.status);
 
   // CONTEST
-  const [contestName, setContestName] = useState(detail.contestName ?? '');
+  const [contestName, setContestName] = useState(detail.title ?? '');
   const [teamLabel, setTeamLabel] = useState<string>(detail.isTeam ? TEAM_OPTIONS[0] : TEAM_OPTIONS[1]);
   const [result, setResult] = useState(detail.result ?? '');
   const [awardDate, setAwardDate] = useState(dateValue(detail.awardDate));
@@ -190,7 +190,7 @@ export function GoalEditForm({ goal }: { goal: GoalDetailResponse }) {
       status,
       detail: isContest
         ? {
-            contestName: contestName.trim(),
+            title: contestName.trim(),
             isTeam: teamLabel === TEAM_OPTIONS[0],
             result: trimmed(result),
             awardDate: trimmed(awardDate),

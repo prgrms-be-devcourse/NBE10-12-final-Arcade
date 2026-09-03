@@ -75,7 +75,7 @@ function InfoList({ rows }: { rows: InfoRow[] }) {
 function goalTitle(goal: GoalDetailResponse): string {
   const { detail, project, type } = goal;
   if (type === 'PROJECT') return detail.title ?? project?.partyName ?? '참여한 파티';
-  if (type === 'CONTEST') return detail.contestName ?? '수상·대회';
+  if (type === 'CONTEST') return detail.title ?? '수상·대회';
   return detail.title ?? '체크리스트';
 }
 
@@ -309,7 +309,7 @@ function ContestSection({ goal }: { goal: GoalDetailResponse }) {
       <Block title="대회 정보" className="block-spaced">
         <InfoList
           rows={[
-            ['대회명', detail.contestName],
+            ['대회명', detail.title],
             ['참가 형태', detail.isTeam == null ? '' : detail.isTeam ? '팀 참가' : '개인 참가'],
             ['수상 결과', detail.result],
             ['수상일', formatDate(detail.awardDate)],

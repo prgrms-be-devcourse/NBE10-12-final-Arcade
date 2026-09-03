@@ -44,7 +44,6 @@ export interface GoalDetailFields {
   startDate?: string;
   endDate?: string;
   /** CONTEST */
-  contestName?: string;
   isTeam?: boolean;
   awardDate?: string;
   /** 외부 대회 원본 페이지 주소. [서버 미지원] PersonalContest 에 아직 컬럼이 없다 */
@@ -183,8 +182,8 @@ export interface GoalDetailResponse {
  * 자기신고 등록 요청 (GoalCreateReqBody).
  *
  * type 에 따라 detail 의 필수 필드가 다르다.
- * - CONTEST   : contestName 필수
- * - CHECKLIST : title 필수
+ * - CONTEST   : title(대회명) 필수
+ * - CHECKLIST : title(목표 제목) 필수
  * - PROJECT   : 파티 확정 시 자동 생성되는 전용 타입이라 등록할 수 없다 (400-4)
  */
 /**
@@ -200,7 +199,6 @@ export interface EvidenceFilePayload {
 
 export interface GoalDetailPayload {
   /** CONTEST */
-  contestName?: string;
   isTeam?: boolean;
   result?: string;
   /** yyyy-MM-dd */
@@ -318,7 +316,7 @@ export function toAchievement(goal: GoalResponse): Achievement {
     source: goal.source,
     year: yearOf(dateForYear),
     period: periodOf(goal),
-    title: goal.detail.title ?? goal.detail.contestName ?? '',
+    title: goal.detail.title ?? '',
     description: goal.detail.result ?? goal.detail.memo ?? '',
     tags: [],
     links: [],
@@ -336,7 +334,7 @@ export async function createGoal(payload: CreateGoalPayload): Promise<Achievemen
       source: 'SELF_REPORTED',
       year: yearOf(payload.detail.awardDate ?? payload.detail.targetDate),
       period: '',
-      title: payload.detail.title ?? payload.detail.contestName ?? '',
+      title: payload.detail.title ?? '',
       description: payload.detail.result ?? payload.detail.memo ?? '',
       tags: [],
       links: [],
