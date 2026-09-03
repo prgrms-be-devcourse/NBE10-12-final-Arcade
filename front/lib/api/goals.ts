@@ -136,8 +136,9 @@ export interface ProjectContextResponse {
 export interface TodoItemResponse {
   id: number;
   content: string;
+  /** 성취 상세에는 완료한 항목만 오므로 항상 true 다 */
   done: boolean;
-  /** 체크한 시각. 진행 과정을 시점순으로 보여주는 기준이다 */
+  /** 체크한 시각. 이 값으로 정렬돼 온다 */
   doneAt: string | null;
   sortOrder: number;
 }
@@ -154,9 +155,10 @@ export interface TodoContextResponse {
   category: string;
   memo?: string;
   status: GoalStatus;
-  totalCount: number;
-  doneCount: number;
-  /** 표시 순서대로 */
+  /**
+   * 완료한 항목만, 해낸 순서대로 온다. 미완료 항목과 진행률은 오지 않는다 -
+   * 해낸 것은 발자취지만 아직 못 한 일은 소유자 개인의 할 일이다.
+   */
   items: TodoItemResponse[];
 }
 
