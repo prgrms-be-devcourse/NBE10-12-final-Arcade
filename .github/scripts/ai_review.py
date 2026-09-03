@@ -2,7 +2,6 @@ import json
 import os
 import re
 import subprocess
-import time
 from pathlib import Path
 
 from google import genai
@@ -19,20 +18,26 @@ from pr_review_render import (
     render_counts,
     to_github_comments,
 )
+from review_model_policy import build_model_plan, classify_model_error
 
 REPO = os.environ["REPO"]
 PR_NUMBER = os.environ["PR_NUMBER"]
 REVIEW_TAG = "<!-- ai-code-review -->"
 COMMENT_TITLE = "## CodeReview"
-MODELS = [m.strip() for m in os.environ.get("MODELS", "").split(",") if m.strip()] \
-    or ["gemini-3.6-flash"]
-MAX_INPUT_TOKENS = 800_000
-MAX_OUTPUT_TOKENS = 60_000
+MODEL_GROUP_1 = [
+    model.strip() for model in os.environ.get("MODEL_GROUP_1", "").split(",")
+    if model.strip()
+] or ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash"]
+MODEL_GROUP_2 = [
+    model.strip() for model in os.environ.get("MODEL_GROUP_2", "").split(",")
+    if model.strip()
+] or ["gemini-3.5-flash-lite"]
+MODEL_TIMEOUT_MS = int(os.environ.get("MODEL_TIMEOUT_MS", "75000"))
+MAX_INPUT_CHARS = int(os.environ.get("MAX_INPUT_CHARS", "120000"))
+MAX_OUTPUT_TOKENS = int(os.environ.get("MAX_OUTPUT_TOKENS", "8192"))
 TEMPERATURE = 0.8
-RETRY_DELAYS = (1, 3, 7)
 INCLUDE_FILE_CONTENTS = os.environ.get("INCLUDE_FILE_CONTENTS", "true").strip().lower() == "true"
 MAX_FILE_CHARS = 100_000
-SAFE_INPUT_CHARS = 200_000
 TRUNCATION_NOTE = "\n... (Diff truncated due to size)"
 
 
@@ -69,17 +74,7 @@ def read_changed_files(list_path="files.txt") -> list[tuple[str, str]]:
     return out
 
 
-def count_input_tokens(client, system_prompt: str, user_message: str) -> int:
-    """시스템 프롬프트와 사용자 메시지 → 입력 토큰 수."""
-    result = client.models.count_tokens(
-        model=MODELS[0],
-        contents=user_message,
-        config=types.CountTokensConfig(system_instruction=system_prompt),
-    )
-    return result.total_tokens
-
-
-def fit_to_budget(client, system_prompt, base_diff, pr_title, pr_body,
+def fit_to_budget(system_prompt, base_diff, pr_title, pr_body,
                   reported=(), files=()):
     """원본 diff·PR 제목·본문·기존 지적·파일 전문 → (라인 번호가 붙은 diff, 파일별 유효 라인, 사용자 메시지, 잘렸는지)."""
     diff, truncated = base_diff, False
@@ -89,20 +84,17 @@ def fit_to_budget(client, system_prompt, base_diff, pr_title, pr_body,
         annotated, valid_lines = annotate_diff(text)
         message = build_user_message(pr_title, pr_body, annotated, reported, files)
 
-        if len(message) <= SAFE_INPUT_CHARS:
-            return annotated, valid_lines, message, truncated
-
-        used = count_input_tokens(client, system_prompt, message)
-        if used <= MAX_INPUT_TOKENS:
+        if len(system_prompt) + len(message) <= MAX_INPUT_CHARS:
             return annotated, valid_lines, message, truncated
 
         if files:
-            print(f"입력 {used:,}토큰이 예산 {MAX_INPUT_TOKENS:,}을 넘어 파일 전문을 뺍니다.")
+            print(f"입력이 {MAX_INPUT_CHARS:,}자 상한을 넘어 파일 전문을 뺍니다.")
             files = ()
             continue
 
-        print(f"입력 {used:,}토큰이 예산 {MAX_INPUT_TOKENS:,}을 넘어 diff를 줄입니다.")
-        diff = base_diff[: int(len(diff) * MAX_INPUT_TOKENS / used * 0.95)]
+        total_chars = len(system_prompt) + len(message)
+        print(f"입력 {total_chars:,}자가 상한 {MAX_INPUT_CHARS:,}자를 넘어 diff를 줄입니다.")
+        diff = diff[: max(1, int(len(diff) * MAX_INPUT_CHARS / total_chars * 0.95))]
         truncated = True
 
     return annotated, valid_lines, message, truncated
@@ -163,11 +155,11 @@ def annotate_diff(diff_text: str):
     return "\n".join(annotated), valid_lines
 
 
-def note_model(model: str) -> None:
+def note_model(model: str, primary_model: str) -> None:
     """사용한 모델 → Actions 어노테이션과 실행 요약에 기록."""
-    fallback = model != MODELS[0]
+    fallback = model != primary_model
     if fallback:
-        print(f"::notice::폴백: {MODELS[0]} → {model}")
+        print(f"::notice::폴백: {primary_model} → {model}")
     else:
         print(f"리뷰 모델: {model}")
 
@@ -177,43 +169,32 @@ def note_model(model: str) -> None:
             f.write(f"- 리뷰 모델: `{model}`{' (폴백)' if fallback else ''}\n")
 
 
-def generate_with_retry(client, system_prompt, user_message, schema):
+def generate_with_fallback(client, system_prompt, user_message, schema, model_plan=None):
     """프롬프트와 응답 스키마 → (모델 응답, 사용한 모델)."""
     last_error = None
-    attempts = len(RETRY_DELAYS) + 1
+    model_plan = model_plan or build_model_plan(MODEL_GROUP_1, MODEL_GROUP_2)
+    print(f"모델 시도 순서: {' → '.join(model_plan)}")
 
-    for model in MODELS:
-        for attempt in range(attempts):
-            try:
-                return client.models.generate_content(
-                    model=model,
-                    contents=user_message,
-                    config=types.GenerateContentConfig(
-                        system_instruction=system_prompt,
-                        response_mime_type="application/json",
-                        response_schema=schema,
-                        max_output_tokens=MAX_OUTPUT_TOKENS,
-                        temperature=TEMPERATURE,
-                    ),
-                ), model
-            except Exception as e:
-                code = getattr(e, "code", None)
-                last_error = e
-
-                if code == 429:
-                    print(f"::warning::{model} 쿼터 소진 ({format_error(e)})")
-                    break
-
-                if code is not None and code >= 500:
-                    if attempt < len(RETRY_DELAYS):
-                        wait_s = RETRY_DELAYS[attempt]
-                        print(f"{model} {code}, {wait_s}s 후 재시도... ({attempt + 1}/{attempts})")
-                        time.sleep(wait_s)
-                        continue
-                    print(f"::warning::{model} {code} 반복")
-                    break
-
-                raise
+    for model in model_plan:
+        try:
+            return client.models.generate_content(
+                model=model,
+                contents=user_message,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    response_mime_type="application/json",
+                    response_schema=schema,
+                    max_output_tokens=MAX_OUTPUT_TOKENS,
+                    temperature=TEMPERATURE,
+                ),
+            ), model
+        except Exception as e:
+            last_error = e
+            action, reason = classify_model_error(e)
+            if action == "fallback":
+                print(f"::warning::{model} 폴백 ({reason}: {format_error(e)})")
+                continue
+            raise
 
     raise last_error
 
@@ -267,11 +248,17 @@ def main():
         else ""
     )
     system_prompt = build_system_prompt(tech_stack)
-    client = genai.Client(api_key=os.environ["MODEL_API_KEY"])
+    client = genai.Client(
+        api_key=os.environ["MODEL_API_KEY"],
+        http_options=types.HttpOptions(
+            timeout=MODEL_TIMEOUT_MS,
+            retry_options=types.HttpRetryOptions(attempts=1),
+        ),
+    )
     reported = fetch_reported()
+    model_plan = build_model_plan(MODEL_GROUP_1, MODEL_GROUP_2)
 
     _, valid_line_map, user_message, truncated = fit_to_budget(
-        client,
         system_prompt,
         diff_output,
         os.environ.get("PR_TITLE", "No Title"),
@@ -280,17 +267,18 @@ def main():
         read_changed_files(),
     )
     if truncated:
-        print("::warning::diff가 토큰 예산을 넘어 뒷부분이 잘린 채 리뷰했습니다.")
+        print("::warning::diff가 입력 크기 상한을 넘어 뒷부분이 잘린 채 리뷰했습니다.")
 
     try:
-        result, model = generate_with_retry(
-            client, system_prompt, user_message, build_response_schema()
+        result, model = generate_with_fallback(
+            client, system_prompt, user_message, build_response_schema(), model_plan
         )
     except Exception as e:
-        print(f"::error::리뷰 생성 실패 (API 오류: {format_error(e)}, 시도한 모델: {', '.join(MODELS)})")
+        print(f"::error::리뷰 생성 실패 (API 오류: {format_error(e)}, "
+              f"시도한 모델: {', '.join(model_plan)})")
         raise
 
-    note_model(model)
+    note_model(model, model_plan[0])
 
     try:
         review = json.loads(result.text)
