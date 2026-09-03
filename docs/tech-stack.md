@@ -13,7 +13,7 @@ LLM 리뷰 봇의 `# Project context`로 프롬프트에 실린다. 사실만 �
 | JJWT              | 0.13.0                           | 명시 선언                                    |
 | DB                | H2(runtime), PostgreSQL(runtime) | 명시 선언                                    |
 | Redis             | spring-data-redis 4.1.0 / lettuce-core 7.5.2 | Spring Boot BOM |
-| Testcontainers    | 2.0.5, 이미지 `redis:7.0.8-alpine` | `RedisTestContainerConfig` |
+| Testcontainers    | 2.0.5, 이미지 `redis:7.4.11-alpine` | `RedisTestContainerConfig` |
 | JaCoCo            | 0.8.15                           | `jacoco` 플러그인, Java 25 지원은 0.8.14부터 |
 
 ### 응답과 예외
