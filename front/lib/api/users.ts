@@ -1,5 +1,4 @@
 import type {
-  Achievement,
   BookmarkItem,
   CareerItem,
   MemberRole,
@@ -118,7 +117,6 @@ export interface ProfileUpdatePayload {
   githubUsername?: string;
   avatarFileName?: string;
   skills: string[];
-  achievements: Achievement[];
   careers: CareerItem[];
   links: ProfileLink[];
 }
@@ -127,8 +125,8 @@ export interface ProfileUpdatePayload {
  * PATCH /api/v1/members/me
  *
  * 서버가 받는 값은 nickname·webpage·profileImageUrl·positions·techStacks 뿐이다.
- * bio·githubUsername·achievements·careers·links 는 저장되지 않는다 (백엔드 필드 미구현).
- * 특히 성취는 이 화면에서 편집해도 반영되지 않으니, POST /goals 로 등록하는 흐름을 따로 붙여야 한다.
+ * bio·githubUsername·careers·links 는 저장되지 않는다 (백엔드 필드 미구현).
+ * 성취는 이 화면에서 다루지 않는다 - 등록·수정은 /goals 화면이 담당한다.
  */
 export async function updateMyProfile(payload: ProfileUpdatePayload): Promise<UserProfile> {
   if (USE_MOCK) {
@@ -141,7 +139,7 @@ export async function updateMyProfile(payload: ProfileUpdatePayload): Promise<Us
       bio: payload.bio,
       githubUsername: payload.githubUsername,
       skills: payload.skills,
-      achievements: payload.achievements,
+      achievements: current.achievements,
       careers: payload.careers,
       links: payload.links,
     });

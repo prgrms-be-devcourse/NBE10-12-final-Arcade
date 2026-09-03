@@ -74,6 +74,20 @@ export const GOAL_TYPE_LABELS: Record<GoalType, string> = {
   CHECKLIST: '체크리스트',
 };
 
+/**
+ * 개인 TODO 분류 (백엔드 TodoCategory).
+ * 목 데이터는 아직 한글 값을 그대로 쓰고 있어, 맵에 없으면 받은 값을 그대로 보여준다.
+ */
+export const TODO_CATEGORY_LABELS: Record<string, string> = {
+  STUDY: '학습',
+  SIDE: '사이드',
+  CAREER: '커리어',
+  CERTIFICATE: '자격증',
+  ETC: '기타',
+};
+
+export const todoCategoryLabel = (category: string) => TODO_CATEGORY_LABELS[category] ?? category;
+
 export const GOAL_STATUSES: readonly GoalStatus[] = ['WANT', 'IN_PROGRESS', 'HOLD', 'ACHIEVED'];
 
 export const GOAL_STATUS_LABELS: Record<GoalStatus, string> = {
