@@ -48,7 +48,7 @@ public class ApiV1PartyController {
     public record PartyCreateReqBody(
         @NotNull String partyName,
         @NotNull String title,
-        @Size(min = 10, max = 20000) String description,
+        @Size(max = 20000) String description,
         Long targetContestId,
         String contestTitle,
         String contestLinkUrl,
