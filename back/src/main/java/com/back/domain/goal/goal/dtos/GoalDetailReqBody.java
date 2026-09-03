@@ -7,7 +7,7 @@ import java.time.LocalDate;
 // 타입별로 쓰는 필드가 달라 detail 하나에 모아 받는다. 실제로 무엇이 필수인지는 타입에 따라 서비스가 검증한다.
 @Schema(description = "타입별 세부 정보. type에 해당하지 않는 필드는 무시된다")
 public record GoalDetailReqBody(
-정        @Schema(description = "[CONTEST] 팀 참가 여부. 생략하면 false(개인)", example = "true")
+        @Schema(description = "[CONTEST] 팀 참가 여부. 생략하면 false(개인)", example = "true")
         Boolean isTeam,
 
         @Schema(description = "[CONTEST] 수상 결과", example = "장려상")
