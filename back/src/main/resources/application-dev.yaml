@@ -10,3 +10,30 @@ spring:
     username: sa
     password:
     driver-class-name: org.h2.Driver
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+        highlight_sql: true
+        use_sql_comments: true
+logging:
+  level:
+    com.back: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
+    org.hibernate.orm.jdbc.extract: TRACE
+    org.springframework.transaction.interceptor: TRACE
+custom:
+  cookie:
+    secure: false
+    same-site: Strict
+  cors:
+    allowed-origins: http://localhost:3000,https://cdpn.io
+  openapi:
+    api-docs-url: ${CUSTOM__OPENAPI__API_DOCS_URL:http://localhost:${SERVER_PORT:8080}/v3/api-docs/apiV1}

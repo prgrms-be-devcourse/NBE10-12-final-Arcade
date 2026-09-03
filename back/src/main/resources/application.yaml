@@ -6,7 +6,10 @@ spring:
   application:
     name: back
   profiles:
-    active: dev
+    default: dev
+    group:
+      local: compose
+      prod: compose
   docker:
     compose:
       enabled: false
@@ -16,19 +19,6 @@ spring:
   datasource:
     hikari:
       auto-commit: false
-  jpa:
-    show-sql: true
-    hibernate:
-      ddl-auto: update
-    properties:
-      hibernate:
-        format_sql: true
-        highlight_sql: true
-        use_sql_comments: true
-  data:
-    redis:
-      host: localhost
-      port: 6379
   security:
     oauth2:
       client:
@@ -46,19 +36,18 @@ spring:
             user-name-attribute: id
 springdoc:
   default-produces-media-type: application/json;charset=UTF-8
-logging:
-  level:
-    com.back: DEBUG
-    org.hibernate.orm.jdbc.bind: TRACE
-    org.hibernate.orm.jdbc.extract: TRACE
-    org.springframework.transaction.interceptor: TRACE
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
 custom:
   frontend:
     base-url: ${CUSTOM__FRONTEND__BASE_URL:/}
   jwt:
     secretKey: ${CUSTOM__JWT__SECRET_KEY:abcdefghijklmnopqrstuvwxyz1234567890abcdefghijklmnopqrstuvwxyz1234567890abcdefghijklmnopqrstuvwxyz1234567890}
   accessToken:
-    expirationSeconds: 900
+    expirationSeconds: ${CUSTOM__ACCESS_TOKEN__EXPIRATION_SECONDS:900}
   github:
     app:
       id: ${CUSTOM__GITHUB__APP__ID:}

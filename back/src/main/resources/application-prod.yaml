@@ -1,0 +1,21 @@
+spring:
+  jpa:
+    show-sql: false
+    hibernate:
+      # 운영 스키마는 애플리케이션이 변경하지 않는다.
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+        highlight_sql: false
+        use_sql_comments: false
+logging:
+  level:
+    com.back: ${LOGGING_LEVEL_COM_BACK:INFO}
+    org.hibernate.orm.jdbc.bind: ${LOGGING_LEVEL_ORG_HIBERNATE_ORM_JDBC_BIND:OFF}
+    org.hibernate.orm.jdbc.extract: ${LOGGING_LEVEL_ORG_HIBERNATE_ORM_JDBC_EXTRACT:OFF}
+    org.springframework.transaction.interceptor: ${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_TRANSACTION_INTERCEPTOR:INFO}
+custom:
+  cookie:
+    secure: true
+    same-site: Strict

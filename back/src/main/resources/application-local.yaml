@@ -1,0 +1,21 @@
+spring:
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+        highlight_sql: true
+        use_sql_comments: true
+logging:
+  level:
+    com.back: ${LOGGING_LEVEL_COM_BACK:DEBUG}
+    org.hibernate.orm.jdbc.bind: ${LOGGING_LEVEL_ORG_HIBERNATE_ORM_JDBC_BIND:TRACE}
+    org.hibernate.orm.jdbc.extract: ${LOGGING_LEVEL_ORG_HIBERNATE_ORM_JDBC_EXTRACT:TRACE}
+    org.springframework.transaction.interceptor: ${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_TRANSACTION_INTERCEPTOR:TRACE}
+custom:
+  cookie:
+    # 로컬은 HTTP이므로 Secure 쿠키를 사용할 수 없다.
+    secure: false
+    same-site: Lax
