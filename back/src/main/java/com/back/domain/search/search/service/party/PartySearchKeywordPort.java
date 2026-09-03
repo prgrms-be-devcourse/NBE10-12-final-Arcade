@@ -1,4 +1,4 @@
-package com.back.domain.search.search.service;
+package com.back.domain.search.search.service.party;
 
 public interface PartySearchKeywordPort {
 

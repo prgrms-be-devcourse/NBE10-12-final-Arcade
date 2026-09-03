@@ -1,9 +1,11 @@
-package com.back.domain.search.search.service;
+package com.back.domain.search.search.service.party;
 
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.search.search.entity.PartySearchKeyword;
 import com.back.domain.search.search.repository.PartySearchKeywordRepository;
+import com.back.domain.search.search.service.keyword.KeywordExtractionPort;
+import com.back.domain.search.search.service.keyword.KeywordNormalizationPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

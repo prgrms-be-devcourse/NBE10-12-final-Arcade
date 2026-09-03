@@ -15,7 +15,7 @@ import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.position.entity.Position;
-import com.back.domain.search.search.service.PartySearchKeywordPort;
+import com.back.domain.search.search.service.party.PartySearchKeywordPort;
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;

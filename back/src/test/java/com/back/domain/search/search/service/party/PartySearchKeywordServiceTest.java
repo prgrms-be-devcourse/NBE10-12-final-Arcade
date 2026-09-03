@@ -1,4 +1,4 @@
-package com.back.domain.search.search.service;
+package com.back.domain.search.search.service.party;
 
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;

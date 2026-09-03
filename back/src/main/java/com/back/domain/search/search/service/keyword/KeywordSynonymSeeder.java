@@ -1,4 +1,4 @@
-package com.back.domain.search.search.service;
+package com.back.domain.search.search.service.keyword;
 
 import com.back.domain.search.search.entity.KeywordSynonym;
 import com.back.domain.search.search.repository.KeywordSynonymRepository;
