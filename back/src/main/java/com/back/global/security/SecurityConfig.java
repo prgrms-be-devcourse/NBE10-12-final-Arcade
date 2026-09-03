@@ -1,5 +1,6 @@
 package com.back.global.security;
 
+import com.back.global.app.CustomConfigProperties;
 import com.back.global.rsData.RsData;
 import com.back.standard.util.Util;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class SecurityConfig {
     private final CustomOAuth2AuthorizationRequestResolver customOAuth2AuthorizationRequestResolver;
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuth2SocialLoginGuardFilter oAuth2SocialLoginGuardFilter;
+    private final CustomConfigProperties customConfigProperties;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) {
@@ -131,8 +133,7 @@ public class SecurityConfig {
     public UrlBasedCorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // 허용할 오리진 설정
-        configuration.setAllowedOrigins(List.of("https://cdpn.io", "http://localhost:3000"));
+        configuration.setAllowedOrigins(customConfigProperties.getCors().getAllowedOrigins());
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 
         // 자격 증명 허용 설정

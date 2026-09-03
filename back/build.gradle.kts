@@ -42,6 +42,10 @@ dependencies {
     // API 문서
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0")
 
+    // 모니터링 (헬스체크, Prometheus 지표)
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("io.micrometer:micrometer-registry-prometheus")
+
     // H2 DB
     implementation("org.springframework.boot:spring-boot-h2console")
     runtimeOnly("com.h2database:h2")

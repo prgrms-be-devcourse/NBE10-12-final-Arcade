@@ -13,6 +13,21 @@ import java.util.List;
 @Setter
 public class CustomConfigProperties {
     private List<NotProdMember> notProdMembers;
+    private Cookie cookie = new Cookie();
+    private Cors cors = new Cors();
+
+    @Getter
+    @Setter
+    public static class Cookie {
+        private boolean secure;
+        private String sameSite = "Strict";
+    }
+
+    @Getter
+    @Setter
+    public static class Cors {
+        private List<String> allowedOrigins = List.of();
+    }
 
     public record NotProdMember(
             String username,
