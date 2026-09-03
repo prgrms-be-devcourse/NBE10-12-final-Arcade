@@ -85,6 +85,7 @@ jobs:
   review:
     needs: context
     if: needs.context.outputs.run == 'true' && needs.context.outputs.same_repo == 'true'
+    timeout-minutes: 6
     concurrency:
       group: ${{ github.workflow }}-${{ needs.context.outputs.number }}
       cancel-in-progress: true
@@ -118,7 +119,8 @@ jobs:
         if: needs.context.outputs.mode == 'inline'
         uses: actions/checkout@v5
         with:
-          ref: ${{ needs.context.outputs.head_sha }}
+          # PR이 바꾼 스크립트를 실행하지 않고 기준 브랜치의 검증된 스크립트를 사용한다.
+          ref: ${{ needs.context.outputs.base_sha }}
           fetch-depth: 0
 
       - name: Get Filtered Diff
@@ -127,7 +129,7 @@ jobs:
           BASE_SHA: ${{ needs.context.outputs.base_sha }}
           HEAD_SHA: ${{ needs.context.outputs.head_sha }}
         run: |
-          git fetch --no-tags origin "$BASE_SHA"
+          git fetch --no-tags origin "$HEAD_SHA"
           git diff "$BASE_SHA...$HEAD_SHA" -- . \
             ':(exclude)*.lock' \
             ':(exclude)package-lock.json' \
@@ -197,12 +199,22 @@ jobs:
 
       - name: Install dependencies
         if: needs.context.outputs.mode == 'inline'
-        run: python -m pip install google-genai
+        run: python -m pip install google-genai==2.22.0
+
+      - name: Test review policy
+        if: needs.context.outputs.mode == 'inline'
+        run: python -m unittest discover -s .github/scripts -p 'test_*.py'
+
       - name: Run Gemini Review
         if: needs.context.outputs.mode == 'inline'
         env:
           MODEL_API_KEY: ${{ secrets.MODEL_API_KEY }}
-          MODELS: ${{ vars.MODEL_NAMES || 'gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash' }}
+          # 1그룹 무작위 → 인접 모델 → 2그룹 무작위 순으로 최대 3회 시도한다.
+          MODEL_GROUP_1: ${{ vars.MODEL_GROUP_1 || 'gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash' }}
+          MODEL_GROUP_2: ${{ vars.MODEL_GROUP_2 || 'gemini-3.5-flash-lite' }}
+          MODEL_TIMEOUT_MS: ${{ vars.MODEL_TIMEOUT_MS || '75000' }}
+          MAX_INPUT_CHARS: ${{ vars.MODEL_MAX_INPUT_CHARS || '120000' }}
+          MAX_OUTPUT_TOKENS: ${{ vars.MODEL_MAX_OUTPUT_TOKENS || '8192' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ needs.context.outputs.number }}
           REPO: ${{ github.repository }}
@@ -218,6 +230,7 @@ jobs:
         if: needs.context.outputs.mode == 'report'
         uses: actions/checkout@v5
         with:
+          ref: ${{ needs.context.outputs.base_sha }}
           sparse-checkout: .github/scripts
 
       - name: Render Report
