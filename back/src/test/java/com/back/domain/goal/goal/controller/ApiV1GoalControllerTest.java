@@ -77,7 +77,7 @@ public class ApiV1GoalControllerTest {
         Party saved = partyRepository.save(party);
 
         return goalRepository.save(new Project(
-                owner, null, saved.getId(), null, null, LocalDate.of(2026, 9, 1)
+                owner, null, saved.getId(), saved.getPartyName(), null, LocalDate.of(2026, 9, 1)
         ));
     }
 
