@@ -1,0 +1,154 @@
+# 애플리케이션 스택
+
+name: ${COMPOSE_PROJECT_NAME:-arcade-local}
+
+services:
+  redis:
+    image: redis:7.4.11-alpine
+    restart: unless-stopped
+    # 컨테이너를 지워도 리프레시 토큰이 남도록 AOF 를 켠다.
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--requirepass",
+        "${SPRING_DATA_REDIS_PASSWORD:?SPRING_DATA_REDIS_PASSWORD is required}",
+      ]
+    environment:
+      REDIS_PASSWORD: ${SPRING_DATA_REDIS_PASSWORD:?SPRING_DATA_REDIS_PASSWORD is required}
+    ports:
+      - "${PUBLISH_HOST:-127.0.0.1}:${REDIS_HOST_PORT:-6379}:6379"
+    volumes:
+      # 도커 관리 볼륨이 아니라 프로젝트 폴더에 둔다. .gitignore 의 /data/ 가 막는다.
+      # AOF 는 단일 파일이 아니라 appendonlydir/ 아래 base·incr·manifest 로 나뉜다.
+      - ${DATA_PATH:-./data}/redis:/data
+    healthcheck:
+      test: ["CMD-SHELL", 'redis-cli -a "$$REDIS_PASSWORD" ping | grep -q PONG']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # backend 의 local·prod 프로필은 application-compose.yaml 에 선언된
+  # SPRING_DATASOURCE_* 환경변수로 이 서비스에 연결된다.
+  postgres:
+    image: postgres:16.15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      # 로컬 전용. 초기화 속도만 빠르게 한다.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "${PUBLISH_HOST:-127.0.0.1}:${POSTGRES_HOST_PORT:-5432}:5432"
+    volumes:
+      - ${DATA_PATH:-./data}/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    image: arcade-backend:${IMAGE_TAG:-local}
+    build:
+      context: ./back
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:?SPRING_PROFILES_ACTIVE is required}
+      TZ: ${TZ:-Asia/Seoul}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError}
+
+      # application-compose.yaml 이 같은 키를 읽는다. 별칭을 두지 않는다.
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:?SPRING_DATASOURCE_URL is required}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:?SPRING_DATASOURCE_USERNAME is required}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:?SPRING_DATASOURCE_PASSWORD is required}
+      SPRING_DATASOURCE_DRIVERCLASSNAME: ${SPRING_DATASOURCE_DRIVERCLASSNAME:-org.postgresql.Driver}
+      SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE: ${SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE:-10}
+      SPRING_DATASOURCE_HIKARI_CONNECTIONTIMEOUT: ${SPRING_DATASOURCE_HIKARI_CONNECTIONTIMEOUT:-30000}
+      SPRING_DATA_REDIS_HOST: ${SPRING_DATA_REDIS_HOST:-redis}
+      SPRING_DATA_REDIS_PORT: ${SPRING_DATA_REDIS_PORT:-6379}
+      SPRING_DATA_REDIS_PASSWORD: ${SPRING_DATA_REDIS_PASSWORD:?SPRING_DATA_REDIS_PASSWORD is required}
+
+      SPRING__SECURITY__OAUTH2__CLIENT__REGISTRATION__GITHUB__CLIENT_ID: ${SPRING__SECURITY__OAUTH2__CLIENT__REGISTRATION__GITHUB__CLIENT_ID:?GitHub OAuth client ID is required}
+      SPRING__SECURITY__OAUTH2__CLIENT__REGISTRATION__GITHUB__CLIENT_SECRET: ${SPRING__SECURITY__OAUTH2__CLIENT__REGISTRATION__GITHUB__CLIENT_SECRET:?GitHub OAuth client secret is required}
+      CUSTOM__JWT__SECRET_KEY: ${CUSTOM__JWT__SECRET_KEY:?JWT secret key is required}
+      CUSTOM__FRONTEND__BASE_URL: ${PUBLIC_ORIGIN:?PUBLIC_ORIGIN is required}
+      CUSTOM__CORS__ALLOWED_ORIGINS: ${PUBLIC_ORIGIN:?PUBLIC_ORIGIN is required}
+      CUSTOM__ACCESS_TOKEN__EXPIRATION_SECONDS: ${CUSTOM__ACCESS_TOKEN__EXPIRATION_SECONDS:-900}
+      CUSTOM__GITHUB__APP__ID: ${CUSTOM__GITHUB__APP__ID:-}
+      CUSTOM__GITHUB__APP__SLUG: ${CUSTOM__GITHUB__APP__SLUG:-}
+      CUSTOM__GITHUB__APP__PRIVATE_KEY: ${CUSTOM__GITHUB__APP__PRIVATE_KEY:-}
+      CUSTOM__GITHUB__WEBHOOK__SECRET: ${CUSTOM__GITHUB__WEBHOOK__SECRET:-}
+
+      LOGGING_LEVEL_COM_BACK: ${LOGGING_LEVEL_COM_BACK:-INFO}
+      LOGGING_LEVEL_ORG_HIBERNATE_ORM_JDBC_BIND: ${LOGGING_LEVEL_ORG_HIBERNATE_ORM_JDBC_BIND:-OFF}
+      LOGGING_LEVEL_ORG_HIBERNATE_ORM_JDBC_EXTRACT: ${LOGGING_LEVEL_ORG_HIBERNATE_ORM_JDBC_EXTRACT:-OFF}
+      LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_TRANSACTION_INTERCEPTOR: ${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_TRANSACTION_INTERCEPTOR:-INFO}
+    ports:
+      - "${PUBLISH_HOST:-127.0.0.1}:${BACKEND_HOST_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    image: arcade-frontend:${IMAGE_TAG:-local}
+    build:
+      context: ./front
+      args:
+        # Dockerfile 이 PUBLIC_ORIGIN/api/v1 을 NEXT_PUBLIC_API_BASE_URL 로 조립한다.
+        # 외부 파이프라인에서 빌드할 때도 같은 build arg 하나만 넘긴다.
+        PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?PUBLIC_ORIGIN is required}
+        NEXT_PUBLIC_USE_MOCK: ${NEXT_PUBLIC_USE_MOCK:-false}
+    restart: unless-stopped
+    environment:
+      # NEXT_PUBLIC_ 이 아니라 런타임에 읽힌다. 컨테이너 안 SSR 전용 주소.
+      API_BASE_URL_INTERNAL: ${API_BASE_URL_INTERNAL:-http://backend:8080/api/v1}
+    ports:
+      - "${PUBLISH_HOST:-127.0.0.1}:${FRONTEND_HOST_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # 로컬 진입점. .env.local 의 COMPOSE_PROFILES=local 로 켠다.
+  caddy:
+    profiles: ["local"]
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      # 기본 :80 은 모든 호스트명을 받는다. crewon.localhost 같은 값을 줄 수 있다.
+      # 빈 문자열을 넣으면 Caddyfile 첫 줄이 전역 옵션 블록으로 파싱돼 기동에 실패한다.
+      SITE_ADDR: ${SITE_ADDR:-:80}
+    ports:
+      - "${PUBLISH_HOST:-127.0.0.1}:${HTTP_PORT:-80}:80"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+
+  # 배포용 진입점. .env.prod 의 COMPOSE_PROFILES=prod 로 켠다.
+  nginx:
+    profiles: ["prod"]
+    image: nginx:1.29-alpine
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+
+volumes:
+  caddy-data:
+  caddy-config:
