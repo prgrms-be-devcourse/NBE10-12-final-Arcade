@@ -14,7 +14,6 @@ const PROJECT_GOAL: GoalDetailResponse = {
   status: 'IN_PROGRESS',
   source: 'PLATFORM_VERIFIED',
   sourcePartyId: 10,
-  viewCount: 2064,
   detail: {
     // 전시 게시(PARTY_SHOWCASE) 전이라 title·result 는 아직 비어 있다
     positionType: 'BACK',
@@ -78,7 +77,6 @@ const CONTEST_GOAL: GoalDetailResponse = {
   status: 'ACHIEVED',
   source: 'SELF_REPORTED',
   sourcePartyId: null,
-  viewCount: 318,
   detail: {
     contestName: '2025 공공데이터 활용 공모전',
     isTeam: true,
@@ -118,7 +116,6 @@ const CHECKLIST_GOAL: GoalDetailResponse = {
   status: 'WANT',
   source: 'SELF_REPORTED',
   sourcePartyId: null,
-  viewCount: 12,
   detail: {
     title: '정보처리기사 취득',
     memo: '필기 2월, 실기 5월 목표. 실기는 SQL·알고리즘 파트를 먼저 정리하기.',

@@ -83,7 +83,6 @@ export interface GoalResponse {
   source: 'SELF_REPORTED' | 'PLATFORM_VERIFIED';
   sourcePartyId: number | null;
   partyAssembleToMemberId: number | null;
-  viewCount: number;
   detail: GoalDetailFields;
   createDate: string;
   modifyDate: string;
@@ -171,7 +170,6 @@ export interface GoalDetailResponse {
   status: GoalStatus;
   source: GoalSource;
   sourcePartyId: number | null;
-  viewCount: number;
   detail: GoalDetailFields;
   /** type 이 PROJECT 일 때만 온다 */
   project?: ProjectContextResponse;
@@ -324,7 +322,6 @@ export function toAchievement(goal: GoalResponse): Achievement {
     description: goal.detail.result ?? goal.detail.memo ?? '',
     tags: [],
     links: [],
-    viewCount: goal.viewCount,
     sourcePartyId: goal.sourcePartyId != null ? (String(goal.sourcePartyId) as ID) : undefined,
   };
 }
@@ -343,7 +340,6 @@ export async function createGoal(payload: CreateGoalPayload): Promise<Achievemen
       description: payload.detail.result ?? payload.detail.memo ?? '',
       tags: [],
       links: [],
-      viewCount: 0,
     });
   }
 

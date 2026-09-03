@@ -184,7 +184,6 @@ const ACHIEVEMENTS: Record<string, Achievement[]> = {
       description: '정산 자동화 API의 매칭 로직과 랭킹 API, Redis 캐시 레이어를 담당했어요.',
       tags: ['Spring Boot', 'Redis'],
       links: [{ label: 'GitHub', url: 'https://github.com/crewon/settlement-api' }],
-      viewCount: 2064,
     },
     {
       id: 'a2',
@@ -198,7 +197,6 @@ const ACHIEVEMENTS: Record<string, Achievement[]> = {
       description: '친환경 소비 리포트의 데이터 파이프라인과 전문 검색(FTS)을 구현했어요.',
       tags: ['PostgreSQL', 'FTS'],
       links: [],
-      viewCount: 1512,
     },
     {
       id: 'a3',
@@ -212,7 +210,6 @@ const ACHIEVEMENTS: Record<string, Achievement[]> = {
       description: '공공데이터 기반 정산 리포트 서비스로 우수상을 수상했습니다.',
       tags: ['공모전', '수상'],
       links: [],
-      viewCount: 830,
     },
     {
       id: 'a4',
@@ -225,7 +222,6 @@ const ACHIEVEMENTS: Record<string, Achievement[]> = {
       description: 'WebSocket 기반 실시간 알림 서비스를 혼자 만들었습니다.',
       tags: ['WebSocket'],
       links: [{ label: 'Blog', url: 'https://skyjeong.dev' }],
-      viewCount: 986,
     },
     {
       id: 'a5',
@@ -238,7 +234,6 @@ const ACHIEVEMENTS: Record<string, Achievement[]> = {
       description: '사내 배포 파이프라인을 개선하는 아이디어로 장려상을 받았습니다.',
       tags: ['해커톤'],
       links: [],
-      viewCount: 142,
     },
     {
       id: 'a6',
@@ -251,7 +246,6 @@ const ACHIEVEMENTS: Record<string, Achievement[]> = {
       description: '매주 토요일 2시간씩 기출 위주로 정리하고 있어요.',
       tags: ['자격증'],
       links: [],
-      viewCount: 0,
     },
     {
       id: 'a7',
@@ -264,7 +258,6 @@ const ACHIEVEMENTS: Record<string, Achievement[]> = {
       description: '인프라 설계를 제대로 이해하기 위해 준비할 예정입니다.',
       tags: ['자격증', 'AWS'],
       links: [],
-      viewCount: 0,
     },
     {
       id: 'a8',
@@ -277,7 +270,6 @@ const ACHIEVEMENTS: Record<string, Achievement[]> = {
       description: '파티 일정과 겹쳐 잠시 미뤄두었습니다.',
       tags: ['오픈소스'],
       links: [],
-      viewCount: 0,
     },
   ],
   dogyeong: [
@@ -293,7 +285,6 @@ const ACHIEVEMENTS: Record<string, Achievement[]> = {
       description: 'Kafka 기반 결제 재시도 큐를 설계하고 멱등키로 중복 결제를 막았습니다.',
       tags: ['Kafka', 'Spring Boot'],
       links: [],
-      viewCount: 1247,
     },
   ],
   seyoon: [
@@ -308,7 +299,6 @@ const ACHIEVEMENTS: Record<string, Achievement[]> = {
       description: '절차적 맵 생성과 턴제 전투를 직접 구현한 로그라이크입니다.',
       tags: ['Unity', 'C#'],
       links: [],
-      viewCount: 842,
     },
     {
       id: 'sy2',
@@ -321,7 +311,6 @@ const ACHIEVEMENTS: Record<string, Achievement[]> = {
       description: '개인 출품작으로 입선했습니다.',
       tags: ['게임'],
       links: [],
-      viewCount: 310,
     },
   ],
   minjae: [
@@ -336,7 +325,6 @@ const ACHIEVEMENTS: Record<string, Achievement[]> = {
       description: '주 2회 스터디를 운영하며 함께 풀고 있습니다.',
       tags: ['알고리즘'],
       links: [],
-      viewCount: 0,
     },
   ],
   jiwoo: [
@@ -352,7 +340,6 @@ const ACHIEVEMENTS: Record<string, Achievement[]> = {
       description: '예약 충돌 검증과 사장님용 관리 화면을 만들었습니다.',
       tags: ['Node.js', 'PostgreSQL'],
       links: [],
-      viewCount: 571,
     },
   ],
   somin: [
@@ -368,7 +355,6 @@ const ACHIEVEMENTS: Record<string, Achievement[]> = {
       description: '대시보드 레이아웃과 로그인 화면을 맡았습니다.',
       tags: ['React', 'Recharts'],
       links: [],
-      viewCount: 2064,
     },
   ],
   haram: [
@@ -383,7 +369,6 @@ const ACHIEVEMENTS: Record<string, Achievement[]> = {
       description: '배차 알고리즘 API를 구현했습니다.',
       tags: ['Spring Boot'],
       links: [],
-      viewCount: 420,
     },
     {
       id: 'hr2',
@@ -396,7 +381,6 @@ const ACHIEVEMENTS: Record<string, Achievement[]> = {
       description: '',
       tags: ['자격증'],
       links: [],
-      viewCount: 0,
     },
   ],
 };
