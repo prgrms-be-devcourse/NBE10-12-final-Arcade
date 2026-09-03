@@ -11,6 +11,7 @@ import com.back.domain.party.party.service.PartyService;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
@@ -139,6 +140,22 @@ public class ApiV1PartyController {
                 "파티 정보 수정 성공",
                 partyDto
         );
+    }
+
+    public record GithubRepositoryUpdateReqBody(@NotBlank String githubRepoUrl) { }
+
+    @PatchMapping("/{partyId}/github-repository")
+    public RsData<PartyDto> updateGithubRepository(
+            @PathVariable long partyId,
+            @Valid @RequestBody GithubRepositoryUpdateReqBody request
+    ) {
+        PartyDto partyDto = partyService.updateGithubRepository(
+                partyId,
+                rq.getActorFromDb(),
+                request.githubRepoUrl()
+        );
+
+        return new RsData<>("200-1", "GitHub 저장소 수정 성공", partyDto);
     }
 
     @DeleteMapping("/{partyId}")

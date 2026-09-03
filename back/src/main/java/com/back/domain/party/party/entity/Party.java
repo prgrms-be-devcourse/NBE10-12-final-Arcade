@@ -158,6 +158,11 @@ public class Party extends BaseEntity {
         this.deadline = deadline;
     }
 
+    /** 모집이 끝난 뒤에도 GitHub App 재연동을 위해 저장소 주소만 별도로 바꿀 수 있다. */
+    public void updateGithubRepoUrl(String githubRepoUrl) {
+        this.githubRepoUrl = githubRepoUrl;
+    }
+
     public Position findPosition(long positionId) {
         return positions.stream()
                 .filter(p -> p.getId() == positionId)

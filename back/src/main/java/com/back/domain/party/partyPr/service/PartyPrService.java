@@ -80,7 +80,9 @@ public class PartyPrService {
         return new GithubPullRequestSnapshot(
             requiredLong(pr.id(), "id"), requiredInt(pr.number(), "number"), requiredText(pr.title(), "title"),
             requiredText(pr.htmlUrl(), "html_url"), requiredText(pr.state(), "state"),
-            pr.user() == null ? null : pr.user().login(), pr.draft(), pr.merged() || pr.mergedAt() != null,
+            pr.user() == null ? null : pr.user().login(),
+            Boolean.TRUE.equals(pr.draft()),
+            Boolean.TRUE.equals(pr.merged()) || pr.mergedAt() != null,
             pr.base() == null ? null : pr.base().ref(), pr.head() == null ? null : pr.head().ref(),
             date(pr.createdAt()), date(pr.closedAt()), date(pr.mergedAt()), date(pr.updatedAt())
         );

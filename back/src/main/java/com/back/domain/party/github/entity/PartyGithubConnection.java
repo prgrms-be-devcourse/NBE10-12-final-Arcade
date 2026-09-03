@@ -11,12 +11,15 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.Index;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
 @Entity
+@Table(indexes = @Index(name = "idx_party_github_connection_installation_id", columnList = "installation_id"))
 @Getter
 @NoArgsConstructor
 /** Party와 GitHub repository를 OAuth credential으로 연결한 영속 상태다. */
@@ -29,7 +32,9 @@ public class PartyGithubConnection extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "credential_member_id", nullable = false)
     private Member credentialMember;
-    @Column(unique = true)
+    // GitHub App 설치 하나는 여러 저장소를 포함할 수 있으므로 Party마다 중복될 수 있다.
+    // 저장소 자체의 중복 연결은 아래 repositoryId의 unique 제약으로 막는다.
+    @Column
     private Long installationId;
     // 이름 변경에도 유지되는 GitHub repository.id. 현재 정책은 하나의 repository를 하나의 Party에만 연결한다.
     @Column(unique = true)
@@ -46,9 +51,11 @@ public class PartyGithubConnection extends BaseEntity {
     @Column(nullable = false)
     private PartyGithubConnectionStatus status;
 
-    public PartyGithubConnection(Party party) {
+    /** GitHub App 설치를 시작할 때도 repositoryFullName은 DB 필수값이므로 함께 저장한다. */
+    public PartyGithubConnection(Party party, String repositoryFullName) {
         this.party = party;
         this.credentialMember = party.getOwner();
+        this.repositoryFullName = repositoryFullName;
         this.status = PartyGithubConnectionStatus.PENDING;
     }
 

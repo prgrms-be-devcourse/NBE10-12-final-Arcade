@@ -162,6 +162,25 @@ public class PartyService {
         return new PartyDto(party);
     }
 
+    /**
+     * 진행 중 파티의 GitHub App 설치 직전에 저장소 주소만 바꾼다.
+     * 모집글 전체 수정은 RECRUITING 상태에서만 가능하지만, 저장소 재연동은 진행 중에도 필요하다.
+     */
+    @Transactional
+    public PartyDto updateGithubRepository(long partyId, Member actor, String githubRepoUrl) {
+        Party party = findByIdOrThrow(partyId);
+
+        if (!party.isOwnedBy(actor)) {
+            throw new ServiceException("403-1", "파티장만 GitHub 저장소를 수정할 수 있습니다.");
+        }
+        if (party.getStatus() == com.back.domain.party.position.entity.PartyStatus.COMPLETED) {
+            throw new ServiceException("409-1", "완료된 파티의 GitHub 저장소는 수정할 수 없습니다.");
+        }
+
+        party.updateGithubRepoUrl(githubRepoUrl.trim());
+        return new PartyDto(party);
+    }
+
     @Transactional
     public void delete(long partyId, Member actor) {
         Party party = findByIdOrThrow(partyId);

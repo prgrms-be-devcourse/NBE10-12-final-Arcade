@@ -11,8 +11,9 @@ public record GithubPullRequestResponse(
     String htmlUrl,
     String state,
     GithubUser user,
-    boolean draft,
-    boolean merged,
+    // GitHub가 일부 응답(특히 설치 직후 기존 PR 조회)에서 null을 내려보낼 수 있다.
+    Boolean draft,
+    Boolean merged,
     GithubBranch base,
     GithubBranch head,
     @JsonProperty("created_at")

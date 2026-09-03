@@ -51,6 +51,7 @@ public class ApiV1MemberProfileControllerTest {
                 .andExpect(jsonPath("$.data.nickname").isEmpty())
                 .andExpect(jsonPath("$.data.webpage").isEmpty())
                 .andExpect(jsonPath("$.data.profileImageUrl").isEmpty())
+                .andExpect(jsonPath("$.data.githubLinked").value(false))
                 .andExpect(jsonPath("$.data.positions").isEmpty())
                 .andExpect(jsonPath("$.data.techStacks").isEmpty());
     }
