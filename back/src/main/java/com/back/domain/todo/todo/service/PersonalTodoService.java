@@ -38,9 +38,6 @@ public class PersonalTodoService {
     /** 상세에 함께 내려주는 항목 첫 페이지 크기 */
     private static final int DETAIL_ITEM_SIZE = 20;
 
-    /** 어떤 id 와도 맞지 않는 값. `in ()` 을 피하려고 쓴다 */
-    private static final List<Long> NO_IDS = List.of(-1L);
-
     private final PersonalTodoRepository personalTodoRepository;
     private final PersonalTodoItemRepository personalTodoItemRepository;
     /**
@@ -70,13 +67,8 @@ public class PersonalTodoService {
             Boolean linked,
             Pageable pageable
     ) {
-        // 연결 여부로 거를 때만 성취 쪽을 읽는다
-        List<Long> linkedTodoIds = linked == null
-                ? NO_IDS
-                : idsForInClause(goalRepository.findLinkedPersonalTodoIds(owner.getId()));
-
-        Page<PersonalTodo> todos = personalTodoRepository.searchMyTodos(
-                owner, status, linked, linkedTodoIds, pageable);
+        // 연결 여부는 쿼리 안에서 exists 로 거른다 - id 목록을 메모리로 들고 오지 않는다
+        Page<PersonalTodo> todos = personalTodoRepository.searchMyTodos(owner, status, linked, pageable);
 
         Map<Long, TodoProgressDto> progressByTodoId = loadProgress(todos.getContent());
 
@@ -87,11 +79,6 @@ public class PersonalTodoService {
                     ? new PersonalTodoDto(todo, 0, 0)
                     : new PersonalTodoDto(todo, progress.totalCount(), progress.doneCount());
         });
-    }
-
-    /** `in ()` 은 DB 에 따라 문법 오류라, 비었을 때는 어떤 id 와도 맞지 않는 값을 넣는다 */
-    private List<Long> idsForInClause(List<Long> ids) {
-        return ids.isEmpty() ? NO_IDS : ids;
     }
 
     private Map<Long, TodoProgressDto> loadProgress(List<PersonalTodo> todos) {

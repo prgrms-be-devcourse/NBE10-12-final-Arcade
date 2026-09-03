@@ -40,8 +40,4 @@ public interface GoalRepository extends JpaRepository<Goal, Long>, GoalRepositor
     @Query("select c from PersonalChecklist c where c.personalTodo.id = :personalTodoId")
     Optional<PersonalChecklist> findChecklistByPersonalTodoId(@Param("personalTodoId") Long personalTodoId);
 
-    // 이 회원이 이미 성취에 연결해 둔 개인 TODO 들. TODO 목록의 linked 표시에 쓴다.
-    @Query("select c.personalTodo.id from PersonalChecklist c where c.owner.id = :ownerId and c.personalTodo is not null")
-    List<Long> findLinkedPersonalTodoIds(@Param("ownerId") long ownerId);
-
 }
