@@ -107,6 +107,7 @@ public class ApiV1MemberProfileControllerTest {
                                 {
                                   "nickname": "소개쓰는사람",
                                   "bio": "백엔드를 주로 합니다.",
+                                  "githubUsername": "haneul-dev",
                                   "position": "BACK",
                                   "techStacks": ["Java"],
                                   "careers": [
@@ -120,6 +121,7 @@ public class ApiV1MemberProfileControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.bio").value("백엔드를 주로 합니다."))
+                .andExpect(jsonPath("$.data.githubUsername").value("haneul-dev"))
                 .andExpect(jsonPath("$.data.careers", org.hamcrest.Matchers.hasSize(2)))
                 // 보낸 순서 그대로 온다
                 .andExpect(jsonPath("$.data.careers[0].role").value("백엔드 개발"))
@@ -263,6 +265,7 @@ public class ApiV1MemberProfileControllerTest {
                 null,
                 null,
                 null,
+                null,
                 com.back.domain.member.member.entity.PositionType.BACK,
                 java.util.List.of("Java"),
                 java.util.List.of(),
@@ -350,6 +353,7 @@ public class ApiV1MemberProfileControllerTest {
                                 {
                                   "nickname": "다 채운 사람",
                                   "bio": "소개글",
+                                  "githubUsername": "haneul-dev",
                                   "position": "BACK",
                                   "techStacks": ["Java", "Spring"],
                                   "careers": [{ "role": "백엔드 개발" }],
@@ -366,6 +370,7 @@ public class ApiV1MemberProfileControllerTest {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.bio").doesNotExist())
+                .andExpect(jsonPath("$.data.githubUsername").doesNotExist())
                 .andExpect(jsonPath("$.data.position").doesNotExist())
                 .andExpect(jsonPath("$.data.techStacks", org.hamcrest.Matchers.hasSize(0)))
                 .andExpect(jsonPath("$.data.careers", org.hamcrest.Matchers.hasSize(0)))

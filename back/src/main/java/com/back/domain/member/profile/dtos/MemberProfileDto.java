@@ -20,6 +20,8 @@ public record MemberProfileDto(
      */
     String githubAvatarUrl,
     String bio,
+    /** 직접 적은 GitHub 사용자명. 커밋 작성자 매칭에 쓴다. OAuth 연동 여부는 githubLinked 로 따로 본다 */
+    String githubUsername,
     /** GitHub 계정 연동 여부만 공개한다. provider 식별자·이메일은 응답에 포함하지 않는다. */
     boolean githubLinked,
     /** 대표 포지션 하나. 고르지 않았으면 null */
@@ -38,6 +40,7 @@ public record MemberProfileDto(
                 profile.getProfileImageUrl(),
                 profile.getMember().getProfileImgUrl(),
                 profile.getBio(),
+                profile.getGithubUsername(),
                 profile.getMember().getGithubProviderUserId() != null
                         && !profile.getMember().getGithubProviderUserId().isBlank(),
                 profile.getPosition(),
