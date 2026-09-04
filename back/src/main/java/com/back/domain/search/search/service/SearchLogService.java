@@ -5,6 +5,7 @@ import com.back.domain.search.search.entity.SearchLog;
 import com.back.domain.search.search.repository.SearchLogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -13,7 +14,7 @@ public class SearchLogService {
 
     private final SearchLogRepository searchLogRepository;
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void log(Member actor, String keyword) {
         if (actor == null) {
             return;

@@ -39,7 +39,7 @@ public class KeywordSynonymSeeder implements CommandLineRunner {
             Map.entry("java", "자바"),
             Map.entry("c++", "cpp"),
             Map.entry("swift", "스위프트"),
-            Map.entry("golang", "Go"),
+            Map.entry("golang", "go"),
             Map.entry("rust", "러스트"),
             Map.entry("dart", "다트"),
 
@@ -63,7 +63,7 @@ public class KeywordSynonymSeeder implements CommandLineRunner {
             Map.entry("nestjs", "네스트"),
             Map.entry("node", "노드"),
             Map.entry("nodejs", "노드"),
-            Map.entry("fastapi", "패스트API"),
+            Map.entry("fastapi", "패스트api"),
             Map.entry("laravel", "라라벨"),
             Map.entry("rails", "레일즈"),
 
@@ -91,7 +91,7 @@ public class KeywordSynonymSeeder implements CommandLineRunner {
             Map.entry("github", "깃허브"),
             Map.entry("gitlab", "깃랩"),
 
-            Map.entry("인공지능", "AI"),
+            Map.entry("인공지능", "ai"),
             Map.entry("machinelearning", "머신러닝"),
             Map.entry("deeplearning", "딥러닝"),
             Map.entry("dl", "딥러닝"),

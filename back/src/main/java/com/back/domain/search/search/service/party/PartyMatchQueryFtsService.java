@@ -23,7 +23,7 @@ public class PartyMatchQueryFtsService implements PartyMatchQueryPort {
     @Override
     public Page<Long> findMatchingPartyIds(List<String> keywords, Pageable pageable) {
         String tsQuery = keywords.stream()
-                .map(keyword -> "'" + keyword.replace("'", "''") + "'")
+                .map(keyword -> "'" + keyword.replace("\\", "\\\\").replace("'", "''") + "'")
                 .collect(Collectors.joining(" | "));
 
         return partySearchKeywordRepository.searchPartyIdsByKeywords(tsQuery, PartyStatus.RECRUITING.name(), pageable);
