@@ -13,10 +13,12 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -406,5 +408,54 @@ public class ApiV1MemberProfileControllerTest {
                         .content("{}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.resultCode").value("401-1"));
+    }
+
+    @Test
+    @DisplayName("프로필 이미지 업로드: 저장한 이미지의 URL을 반환한다")
+    @WithUserDetails("user1@test.com")
+    void uploadProfileImage() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "avatar.png", MediaType.IMAGE_PNG_VALUE, "fake-png".getBytes());
+
+        mvc.perform(multipart("/api/v1/members/me/image").file(file))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.resultCode").value("201-1"))
+                .andExpect(jsonPath("$.msg").value("프로필 이미지 업로드 성공"))
+                .andExpect(jsonPath("$.data.profileImageUrl").value(
+                        org.hamcrest.Matchers.matchesPattern("^/uploads/profile/[0-9a-f-]{36}\\.png$")));
+    }
+
+    @Test
+    @DisplayName("프로필 이미지 업로드: 이미지가 아니면 400-1")
+    @WithUserDetails("user1@test.com")
+    void uploadProfileImageWithWrongType() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "resume.pdf", MediaType.APPLICATION_PDF_VALUE, "not-an-image".getBytes());
+
+        mvc.perform(multipart("/api/v1/members/me/image").file(file))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-1"));
+    }
+
+    @Test
+    @DisplayName("프로필 이미지 업로드: 빈 파일이면 400-1")
+    @WithUserDetails("user1@test.com")
+    void uploadEmptyProfileImage() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "avatar.png", MediaType.IMAGE_PNG_VALUE, new byte[0]);
+
+        mvc.perform(multipart("/api/v1/members/me/image").file(file))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-1"));
+    }
+
+    @Test
+    @DisplayName("프로필 이미지 업로드: 미로그인이면 401")
+    void uploadProfileImageWithoutLogin() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "avatar.png", MediaType.IMAGE_PNG_VALUE, "fake-png".getBytes());
+
+        mvc.perform(multipart("/api/v1/members/me/image").file(file))
+                .andExpect(status().isUnauthorized());
     }
 }

@@ -7,12 +7,15 @@ import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.profile.entity.MemberProfile;
 import com.back.domain.member.profile.repository.MemberProfileRepository;
+import com.back.global.app.CustomConfigProperties;
 import com.back.global.exception.ServiceException;
+import com.back.global.storage.FileStorage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.core.NestedExceptionUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Locale;
@@ -22,7 +25,13 @@ import java.util.Locale;
 @Transactional(readOnly = true)
 public class MemberProfileService {
 
+    private static final String PROFILE_IMAGE_DIRECTORY = "profile";
+    private static final List<String> ALLOWED_IMAGE_TYPES =
+            List.of("image/jpeg", "image/png", "image/gif", "image/webp");
+
     private final MemberProfileRepository memberProfileRepository;
+    private final FileStorage fileStorage;
+    private final CustomConfigProperties customConfigProperties;
 
     @Transactional
     public MemberProfileDto me(Member actor) {
@@ -58,6 +67,30 @@ public class MemberProfileService {
         }
 
         return new MemberProfileDto(profile);
+    }
+
+    /** 저장만 하고 URL 을 돌려준다. 프로필에 반영하는 건 수정 요청의 몫이다. */
+    public String uploadProfileImage(MultipartFile file) {
+        validateImage(file);
+
+        return fileStorage.upload(file, PROFILE_IMAGE_DIRECTORY);
+    }
+
+    private void validateImage(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new ServiceException("400-1", "이미지 파일이 비어 있습니다.");
+        }
+
+        if (!ALLOWED_IMAGE_TYPES.contains(file.getContentType())) {
+            throw new ServiceException("400-1", "jpeg, png, gif, webp 이미지만 올릴 수 있습니다.");
+        }
+
+        long maxBytes = customConfigProperties.getStorage().getMaxFileSize().toBytes();
+
+        if (file.getSize() > maxBytes) {
+            throw new ServiceException("400-1",
+                    "이미지는 %dMB 까지 올릴 수 있습니다.".formatted(maxBytes / 1024 / 1024));
+        }
     }
 
     private boolean isNicknameDuplicate(DataIntegrityViolationException e) {

@@ -4,6 +4,7 @@ import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.profile.dtos.CareerCommand;
 import com.back.domain.member.profile.dtos.LinkCommand;
 import com.back.domain.member.profile.dtos.MemberProfileDto;
+리import com.back.domain.member.profile.dtos.ProfileImageDto;
 import com.back.domain.member.profile.service.MemberProfileService;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
@@ -13,11 +14,15 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -111,6 +116,28 @@ public class ApiV1MemberProfileController {
         );
     }
 
+    @PostMapping(value = "/me/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(
+            summary = "프로필 이미지 업로드",
+            description = """
+                    이미지를 저장하고 그 URL 을 돌려준다. 프로필에 반영되지는 않으니,
+                    화면은 받은 profileImageUrl 을 수정 요청(PATCH /me)의 같은 이름 필드에 실어 보내야 한다.
+                    이미지를 바꾸지 않는 수정이라면 이 요청 없이 PATCH 만 보내면 된다.
 
+                    jpeg, png, gif, webp 만 받고 5MB 까지다.
 
+                    예외
+                    - 400-1 : 파일이 비었거나, 허용하지 않는 형식이거나, 5MB 초과
+                    - 401-1 : 미로그인
+                    """
+    )
+    public RsData<ProfileImageDto> uploadProfileImage(
+            @RequestPart("file") MultipartFile file
+    ) {
+        return new RsData<>(
+                "201-1",
+                "프로필 이미지 업로드 성공",
+                new ProfileImageDto(memberProfileService.uploadProfileImage(file))
+        );
+    }
 }
