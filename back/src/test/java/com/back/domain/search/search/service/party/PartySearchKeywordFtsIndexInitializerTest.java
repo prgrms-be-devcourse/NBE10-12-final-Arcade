@@ -11,8 +11,6 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 @ActiveProfiles("prod")
@@ -38,11 +36,12 @@ class PartySearchKeywordFtsIndexInitializerTest {
 
     @Test
     void createsGinIndexOnStartup() {
-        List<String> indexNames = jdbcTemplate.queryForList(
-                "SELECT indexname FROM pg_indexes WHERE tablename = 'party_search_keyword'",
+        String indexDef = jdbcTemplate.queryForObject(
+                "SELECT indexdef FROM pg_indexes WHERE indexname = 'party_search_keyword_fts_idx'",
                 String.class
         );
 
-        assertThat(indexNames).contains("party_search_keyword_fts_idx");
+        assertThat(indexDef).containsIgnoringCase("USING gin")
+                .contains("to_tsvector('simple'::regconfig, keywords)");
     }
 }
