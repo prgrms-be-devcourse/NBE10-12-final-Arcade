@@ -51,6 +51,17 @@ interface PartyListItemResponse {
   positions: PositionResponse[];
 }
 
+/** PartySearchResultDto */
+interface PartySearchResponse {
+  query: string;
+  matchedKeywords: string[];
+  content: PartyListItemResponse[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
 /** PartyDto — 상세. 목록보다 필드가 많다 */
 interface PartyResponse extends Omit<PartyListItemResponse, 'ownerName'> {
   ownerId: number;
@@ -296,6 +307,29 @@ const ddayValue = (dday: string) => {
  */
 export async function fetchRecommendedParties(): Promise<(Party & { why: string })[]> {
   return mockResponse(MOCK_RECOMMENDED_PARTIES);
+}
+
+/** GET /api/v1/parties/search — 형태소 분석 기반 유사 파티 검색 (keyword 필터와 별개) */
+export async function fetchPartySearch(
+  query: string,
+  options: { page?: number; size?: number } = {},
+): Promise<Party[]> {
+  const q = query.trim();
+  if (!q) return [];
+
+  if (USE_MOCK) {
+    return mockResponse(MOCK_PARTIES.filter((party) => party.title.includes(q)));
+  }
+
+  try {
+    const result = await http.get<PartySearchResponse>('/parties/search', {
+      query: { q, page: options.page ?? 0, size: options.size ?? 20 },
+    });
+    return result.content.map(toParty);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 400) return [];
+    throw error;
+  }
 }
 
 /** GET /api/v1/parties/{partyId} */
