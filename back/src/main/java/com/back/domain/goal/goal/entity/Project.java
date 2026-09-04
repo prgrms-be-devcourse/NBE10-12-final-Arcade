@@ -81,4 +81,10 @@ public class Project extends Goal {
     public void linkShowcase(PartyShowcase partyShowcase) {
         this.partyShowcase = partyShowcase;
     }
+
+    // PROJECT는 완료(ACHIEVED)만으로는 부족하고 파티장이 실제로 전시글을 게시해서 partyShowcase가 연결돼 있어야 전시된 것으로 본다.
+    @Override
+    public boolean isExhibited() {
+        return super.isExhibited() && this.partyShowcase != null;
+    }
 }

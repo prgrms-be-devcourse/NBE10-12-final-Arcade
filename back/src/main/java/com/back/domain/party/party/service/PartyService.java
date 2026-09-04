@@ -13,10 +13,13 @@ import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.entity.PartySortOption;
 import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
+import com.back.domain.party.party.event.PartySearchIndexRequestedEvent;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.position.entity.Position;
+import com.back.domain.search.search.service.party.PartySearchKeywordPort;
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -39,6 +42,8 @@ public class PartyService {
     private final LikeInteractionPort likeInteractionPort;
     private final BookmarkInteractionPort bookmarkInteractionPort;
     private final ContestLookupPort contestLookupPort;
+    private final PartySearchKeywordPort partySearchKeywordPort;
+    private final ApplicationEventPublisher eventPublisher;
 
     public record PositionCreateSpec(
         PositionType type,
@@ -98,7 +103,10 @@ public class PartyService {
             party.addPosition(new Position(spec.type(), spec.capacity()))
         );
 
-        return new PartyDto(partyRepository.save(party));
+        Party savedParty = partyRepository.save(party);
+        eventPublisher.publishEvent(new PartySearchIndexRequestedEvent(savedParty.getId()));
+
+        return new PartyDto(savedParty);
     }
 
     public record PositionCapacityUpdateSpec(
@@ -137,6 +145,8 @@ public class PartyService {
             throw new ServiceException("400-1", "등록된 대회가 없으면 대회명을 입력해야 합니다.");
         }
 
+        String previousTitle = party.getTitle();
+
         party.update(
                 partyName,
                 title,
@@ -157,6 +167,10 @@ public class PartyService {
             }
             party.findPosition(spec.positionId()).changeCapacity(spec.capacity());
         });
+        }
+
+        if (!previousTitle.equals(title)) {
+            eventPublisher.publishEvent(new PartySearchIndexRequestedEvent(partyId));
         }
 
         return new PartyDto(party);
@@ -241,6 +255,7 @@ public class PartyService {
     // delete()만 부르면 좋아요/북마크 삭제가 별도 트랜잭션으로 빠져 원자성이 깨질 수 있어서
     @Transactional
     public void deletePartyAndInteractions(long partyId, Member actor) {
+        partySearchKeywordPort.deleteKeywordParty(partyId);
         delete(partyId, actor);
         likeInteractionPort.deleteAllLikesForTarget(TargetType.PARTY, partyId);
         bookmarkInteractionPort.deleteAllBookmarksForTarget(TargetType.PARTY, partyId);

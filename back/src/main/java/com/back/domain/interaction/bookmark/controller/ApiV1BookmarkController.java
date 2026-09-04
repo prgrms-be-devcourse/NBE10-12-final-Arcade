@@ -63,4 +63,22 @@ public class ApiV1BookmarkController {
 
         return new RsData<>("204-1", "파티 북마크 취소 성공", null);
     }
+
+    @PostMapping("/api/v1/goals/{goal-id}/bookmarks")
+    public RsData<BookmarkDto> bookmarkGoal(
+            @PathVariable("goal-id") long goalId
+    ) {
+        BookmarkDto dto = bookmarkService.bookmarkGoal(goalId, rq.getActorFromDb());
+
+        return new RsData<>("201-1", "전시 성취 북마크 성공", dto);
+    }
+
+    @DeleteMapping("/api/v1/goals/{goal-id}/bookmarks")
+    public RsData<Void> unbookmarkGoal(
+            @PathVariable("goal-id") long goalId
+    ) {
+        bookmarkService.unbookmarkGoal(goalId, rq.getActorFromDb());
+
+        return new RsData<>("204-1", "전시 성취 북마크 취소 성공", null);
+    }
 }

@@ -102,7 +102,7 @@ public class ApiV1ContestController {
             @NotBlank
             @Size(min = 5, max = 25)
             String title,
-            @Size(min = 10, max = 20000)
+            @Size(max = 20000)
             String description,
             @NotNull
             LocalDate applicationPeriodStart,

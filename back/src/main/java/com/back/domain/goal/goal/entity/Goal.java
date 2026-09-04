@@ -37,7 +37,7 @@ public abstract class Goal extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", nullable = false)
     private Member owner;
-    
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, updatable = false)
     private GoalType type;
@@ -63,6 +63,12 @@ public abstract class Goal extends BaseEntity {
     @Column(name = "source_party_id")
     private Long sourcePartyId;
 
+    // 전시 목록의 좋아요 수
+    // SELF_REPORTED는 Party가 없어 여기 직접 캐싱한다 Party와 동일한 패턴(원자적 UPDATE)으로 increaseLikeCount/decreaseLikeCount가 갱신한다.
+    @Column(nullable = false)
+    private int likeCount;
+
+
     public Goal(
             Member owner,
             GoalType type,
@@ -77,6 +83,7 @@ public abstract class Goal extends BaseEntity {
         this.source = source;
         this.partyAssembleToMemberId = partyAssembleToMemberId;
         this.sourcePartyId = sourcePartyId;
+        this.likeCount = 0;
     }
 
     public boolean isOwnedBy(Member member) {
@@ -85,6 +92,13 @@ public abstract class Goal extends BaseEntity {
 
     public boolean isPlatformVerified() {
         return this.source == GoalSource.PLATFORM_VERIFIED;
+    }
+
+    // 전시(좋아요/북마크 대상)로 노출 가능한지 - 전시관 목록에 뜨는 조건과 동일해야 함
+    // 목록에 없는 성취에 좋아요를 걸 수 있으면 좋아요가 어디에도 안 보이는 유령 데이터가 된ek
+    // PROJECT는 파티장이 전시글을 게시했는지(partyShowcase 연결 여부)가 추가로 필요해서 하위 타입에서 재정의
+    public boolean isExhibited() {
+        return this.status == GoalStatus.ACHIEVED;
     }
 
     // 수정·삭제만 소유자로 제한한다. 조회는 누구나 볼 수 있다(기획서 9.4).
