@@ -59,8 +59,7 @@ public class PartySearchService {
                 .map(partyById::get)
                 .filter(Objects::nonNull)
                 .toList();
-        long missing = ids.size() - parties.size();
-        Page<Party> matched = new PageImpl<>(parties, pageable, matchedIds.getTotalElements() - missing);
+        Page<Party> matched = new PageImpl<>(parties, pageable, matchedIds.getTotalElements());
 
         Page<PartyListItemDto> dtoPage = matched.map(PartyListItemDto::new);
         return new PartySearchResultDto(query, expanded, dtoPage);

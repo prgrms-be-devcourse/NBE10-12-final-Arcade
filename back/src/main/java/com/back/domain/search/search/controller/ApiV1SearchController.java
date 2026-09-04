@@ -44,7 +44,7 @@ public class ApiV1SearchController {
             @Parameter(description = "검색어")
             @RequestParam(required = false) @NotBlank @Size(max = 25) String q,
             @Parameter(description = "0부터 시작하는 페이지 번호")
-            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "0") @Min(0) @Max(100_000) int page,
             @Parameter(description = "페이지 크기")
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
     ) {

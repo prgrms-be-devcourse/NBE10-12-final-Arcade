@@ -46,7 +46,6 @@ public class KeywordSynonymSeeder implements CommandLineRunner {
             Map.entry("react", "리액트"),
             Map.entry("vue", "뷰"),
             Map.entry("vuejs", "뷰"),
-            Map.entry("next", "넥스트"),
             Map.entry("nextjs", "넥스트"),
             Map.entry("angular", "앵귤러"),
             Map.entry("svelte", "스벨트"),
