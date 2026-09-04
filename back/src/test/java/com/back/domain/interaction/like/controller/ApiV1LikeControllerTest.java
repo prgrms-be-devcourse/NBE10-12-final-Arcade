@@ -4,6 +4,10 @@ import com.back.domain.contest.contest.dtos.ContestResponseDto;
 import com.back.domain.contest.contest.entity.ContestFormat;
 import com.back.domain.contest.contest.entity.ContestTag;
 import com.back.domain.contest.contest.service.ContestService;
+import com.back.domain.goal.goal.entity.GoalStatus;
+import com.back.domain.goal.goal.entity.PersonalChecklist;
+import com.back.domain.goal.goal.entity.Project;
+import com.back.domain.goal.goal.repository.GoalRepository;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.member.repository.MemberRepository;
@@ -12,6 +16,8 @@ import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.position.entity.Position;
+import com.back.domain.party.showcase.entity.PartyShowcase;
+import com.back.domain.party.showcase.repository.PartyShowcaseRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,6 +54,12 @@ public class ApiV1LikeControllerTest {
 
     @Autowired
     private ContestService contestService;
+
+    @Autowired
+    private GoalRepository goalRepository;
+
+    @Autowired
+    private PartyShowcaseRepository partyShowcaseRepository;
 
     private long saveContest() {
         Member admin = memberRepository.findByEmail("admin").orElseThrow();
@@ -87,6 +99,55 @@ public class ApiV1LikeControllerTest {
         party.addPosition(new Position(PositionType.BACK, 2));
 
         return partyRepository.save(party);
+    }
+
+    // 자기신고 성취 - 완료(ACHIEVED) 상태라 전시 가능
+    private long saveAchievedGoal(String ownerEmail) {
+        Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
+        PersonalChecklist checklist = new PersonalChecklist(
+                owner, GoalStatus.ACHIEVED, "자격증 취득", "메모", LocalDate.now()
+        );
+        return goalRepository.save(checklist).getId();
+    }
+
+    // 자기신고 성취 - 아직 진행 중이라 전시 불가
+    private long saveInProgressGoal(String ownerEmail) {
+        Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
+        PersonalChecklist checklist = new PersonalChecklist(
+                owner, GoalStatus.IN_PROGRESS, "자격증 취득", "메모", LocalDate.now()
+        );
+        return goalRepository.save(checklist).getId();
+    }
+
+    // PROJECT 성취 - 완료됐지만 파티장이 아직 전시글을 게시하지 않아 전시 불가
+    private long saveUnpublishedProjectGoal(String ownerEmail, long partyAssembleToMemberId) {
+        Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
+        Party party = saveParty(ownerEmail);
+
+        Project project = new Project(
+                owner, partyAssembleToMemberId, party.getId(), "정산 자동화 API", PositionType.BACK, LocalDate.now()
+        );
+        project.complete(LocalDate.now());
+
+        return goalRepository.save(project).getId();
+    }
+
+    // PROJECT 성취 - 완료 + 파티장이 전시글까지 게시해서 전시 가능
+    private long savePublishedProjectGoal(String ownerEmail, long partyAssembleToMemberId) {
+        Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
+        Party party = saveParty(ownerEmail);
+
+        PartyShowcase showcase = new PartyShowcase(party);
+        showcase.publish("정산 자동화 API", "설명");
+        partyShowcaseRepository.save(showcase);
+
+        Project project = new Project(
+                owner, partyAssembleToMemberId, party.getId(), "정산 자동화 API", PositionType.BACK, LocalDate.now()
+        );
+        project.complete(LocalDate.now());
+        project.linkShowcase(showcase);
+
+        return goalRepository.save(project).getId();
     }
 
     @Test
@@ -263,6 +324,140 @@ public class ApiV1LikeControllerTest {
                 .andExpect(status().isNoContent());
 
         mvc.perform(post("/api/v1/contests/" + contestId + "/likes"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.likeCount").value(1));
+    }
+
+    @Test
+    @DisplayName("성취 좋아요: 201-1과 liked=true, likeCount 증가를 반환한다 (자기신고, 완료 상태)")
+    @WithUserDetails("user1@test.com")
+    void likeGoal() throws Exception {
+        long goalId = saveAchievedGoal("user2@test.com");
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/goals/" + goalId + "/likes"));
+
+        resultActions.andExpect(status().isCreated())
+                .andExpect(jsonPath("$.resultCode").value("201-1"))
+                .andExpect(jsonPath("$.data.targetType").value("GOAL"))
+                .andExpect(jsonPath("$.data.targetId").value(goalId))
+                .andExpect(jsonPath("$.data.liked").value(true))
+                .andExpect(jsonPath("$.data.likeCount").value(1));
+    }
+
+    @Test
+    @DisplayName("성취 좋아요: 아직 진행 중(전시 불가)인 성취면 404-1이다")
+    @WithUserDetails("user1@test.com")
+    void likeGoalNotExhibitedInProgress() throws Exception {
+        long goalId = saveInProgressGoal("user2@test.com");
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/goals/" + goalId + "/likes"));
+
+        resultActions.andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.resultCode").value("404-1"));
+    }
+
+    @Test
+    @DisplayName("성취 좋아요: PROJECT 타입은 완료돼도 전시글이 게시 전이면 404-1이다")
+    @WithUserDetails("user1@test.com")
+    void likeGoalProjectNotPublished() throws Exception {
+        long goalId = saveUnpublishedProjectGoal("user2@test.com", 101L);
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/goals/" + goalId + "/likes"));
+
+        resultActions.andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.resultCode").value("404-1"));
+    }
+
+    @Test
+    @DisplayName("성취 좋아요: PROJECT 타입도 전시글이 게시되면 좋아요 가능하다")
+    @WithUserDetails("user1@test.com")
+    void likeGoalProjectPublished() throws Exception {
+        long goalId = savePublishedProjectGoal("user2@test.com", 102L);
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/goals/" + goalId + "/likes"));
+
+        resultActions.andExpect(status().isCreated())
+                .andExpect(jsonPath("$.resultCode").value("201-1"));
+    }
+
+    @Test
+    @DisplayName("성취 좋아요: 존재하지 않는 성취면 404-1이다")
+    @WithUserDetails("user1@test.com")
+    void likeGoalNotFound() throws Exception {
+        ResultActions resultActions = mvc.perform(post("/api/v1/goals/999999/likes"));
+
+        resultActions.andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.resultCode").value("404-1"));
+    }
+
+    @Test
+    @DisplayName("성취 좋아요: 이미 좋아요한 성취에 재요청하면 409-1이다")
+    @WithUserDetails("user1@test.com")
+    void likeGoalTwice() throws Exception {
+        long goalId = saveAchievedGoal("user2@test.com");
+
+        mvc.perform(post("/api/v1/goals/" + goalId + "/likes"))
+                .andExpect(status().isCreated());
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/goals/" + goalId + "/likes"));
+
+        resultActions.andExpect(status().isConflict())
+                .andExpect(jsonPath("$.resultCode").value("409-1"));
+    }
+
+    @Test
+    @DisplayName("성취 좋아요: 로그인하지 않았으면 401-1이다")
+    void likeGoalWithoutLogin() throws Exception {
+        long goalId = saveAchievedGoal("user2@test.com");
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/goals/" + goalId + "/likes"));
+
+        resultActions.andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.resultCode").value("401-1"));
+    }
+
+    @Test
+    @DisplayName("성취 좋아요 취소: 204-1")
+    @WithUserDetails("user1@test.com")
+    void unlikeGoal() throws Exception {
+        long goalId = saveAchievedGoal("user2@test.com");
+
+        mvc.perform(post("/api/v1/goals/" + goalId + "/likes"))
+                .andExpect(status().isCreated());
+
+        ResultActions resultActions = mvc.perform(delete("/api/v1/goals/" + goalId + "/likes"));
+
+        resultActions.andExpect(status().isNoContent())
+                .andExpect(jsonPath("$.resultCode").value("204-1"))
+                .andExpect(jsonPath("$.data").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("성취 좋아요 취소: 좋아요하지 않은 성취를 취소하면 409-1이다")
+    @WithUserDetails("user1@test.com")
+    void unlikeGoalWithoutLiking() throws Exception {
+        long goalId = saveAchievedGoal("user2@test.com");
+
+        ResultActions resultActions = mvc.perform(delete("/api/v1/goals/" + goalId + "/likes"));
+
+        resultActions.andExpect(status().isConflict())
+                .andExpect(jsonPath("$.resultCode").value("409-1"));
+    }
+
+    @Test
+    @DisplayName("성취 좋아요: 좋아요→취소→재좋아요를 반복해도 likeCount가 1↔0으로 정확히 오간다")
+    @WithUserDetails("user1@test.com")
+    void likeGoalToggleCycleKeepsCountConsistent() throws Exception {
+        long goalId = saveAchievedGoal("user2@test.com");
+
+        mvc.perform(post("/api/v1/goals/" + goalId + "/likes"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.likeCount").value(1));
+
+        mvc.perform(delete("/api/v1/goals/" + goalId + "/likes"))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(post("/api/v1/goals/" + goalId + "/likes"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.likeCount").value(1));
     }

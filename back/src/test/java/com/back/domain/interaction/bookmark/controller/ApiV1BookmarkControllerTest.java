@@ -4,6 +4,10 @@ import com.back.domain.contest.contest.dtos.ContestResponseDto;
 import com.back.domain.contest.contest.entity.ContestFormat;
 import com.back.domain.contest.contest.entity.ContestTag;
 import com.back.domain.contest.contest.service.ContestService;
+import com.back.domain.goal.goal.entity.GoalStatus;
+import com.back.domain.goal.goal.entity.PersonalChecklist;
+import com.back.domain.goal.goal.entity.Project;
+import com.back.domain.goal.goal.repository.GoalRepository;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.member.repository.MemberRepository;
@@ -12,6 +16,8 @@ import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.position.entity.Position;
+import com.back.domain.party.showcase.entity.PartyShowcase;
+import com.back.domain.party.showcase.repository.PartyShowcaseRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,6 +54,12 @@ public class ApiV1BookmarkControllerTest {
 
     @Autowired
     private PartyRepository partyRepository;
+
+    @Autowired
+    private GoalRepository goalRepository;
+
+    @Autowired
+    private PartyShowcaseRepository partyShowcaseRepository;
 
     private long saveContest() {
         Member admin = memberRepository.findByEmail("admin").orElseThrow();
@@ -301,6 +313,210 @@ public class ApiV1BookmarkControllerTest {
                 .andExpect(status().isNoContent());
 
         mvc.perform(post("/api/v1/parties/" + partyId + "/bookmarks"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.bookmarked").value(true));
+    }
+
+    // 자기신고 성취 - 완료(ACHIEVED) 상태라 전시 가능
+    private long saveAchievedGoal(String ownerEmail) {
+        Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
+        PersonalChecklist checklist = new PersonalChecklist(
+                owner, GoalStatus.ACHIEVED, "자격증 취득", "메모", LocalDate.now()
+        );
+        return goalRepository.save(checklist).getId();
+    }
+
+    // 자기신고 성취 - 아직 진행 중이라 전시 불가
+    private long saveInProgressGoal(String ownerEmail) {
+        Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
+        PersonalChecklist checklist = new PersonalChecklist(
+                owner, GoalStatus.IN_PROGRESS, "자격증 취득", "메모", LocalDate.now()
+        );
+        return goalRepository.save(checklist).getId();
+    }
+
+    private Party savePartyForGoal(String ownerEmail) {
+        Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
+
+        Party party = new Party(
+                owner,
+                "오락실 팀",
+                "오락실 공모전 팀원 모집",
+                "설명",
+                null,
+                null,
+                null,
+                TopicType.PROJECT,
+                PartyTag.WEB,
+                null,
+                1,
+                LocalDateTime.now().plusDays(7)
+        );
+        party.addPosition(new Position(PositionType.BACK, 2));
+
+        return partyRepository.save(party);
+    }
+
+    // PROJECT 성취 - 완료됐지만 파티장이 아직 전시글을 게시하지 않아 전시 불가
+    private long saveUnpublishedProjectGoal(String ownerEmail, long partyAssembleToMemberId) {
+        Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
+        Party party = savePartyForGoal(ownerEmail);
+
+        Project project = new Project(
+                owner, partyAssembleToMemberId, party.getId(), "정산 자동화 API", PositionType.BACK, LocalDate.now()
+        );
+        project.complete(LocalDate.now());
+
+        return goalRepository.save(project).getId();
+    }
+
+    // PROJECT 성취 - 완료 + 파티장이 전시글까지 게시해서 전시 가능
+    private long savePublishedProjectGoal(String ownerEmail, long partyAssembleToMemberId) {
+        Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
+        Party party = savePartyForGoal(ownerEmail);
+
+        PartyShowcase showcase = new PartyShowcase(party);
+        showcase.publish("정산 자동화 API", "설명");
+        partyShowcaseRepository.save(showcase);
+
+        Project project = new Project(
+                owner, partyAssembleToMemberId, party.getId(), "정산 자동화 API", PositionType.BACK, LocalDate.now()
+        );
+        project.complete(LocalDate.now());
+        project.linkShowcase(showcase);
+
+        return goalRepository.save(project).getId();
+    }
+
+    @Test
+    @DisplayName("성취 북마크: 201-1과 bookmarked=true를 반환한다 (자기신고, 완료 상태)")
+    @WithUserDetails("user1@test.com")
+    void bookmarkGoal() throws Exception {
+        long goalId = saveAchievedGoal("user2@test.com");
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/goals/" + goalId + "/bookmarks"));
+
+        resultActions.andExpect(status().isCreated())
+                .andExpect(jsonPath("$.resultCode").value("201-1"))
+                .andExpect(jsonPath("$.data.targetType").value("GOAL"))
+                .andExpect(jsonPath("$.data.targetId").value(goalId))
+                .andExpect(jsonPath("$.data.bookmarked").value(true));
+    }
+
+    @Test
+    @DisplayName("성취 북마크: 아직 진행 중(전시 불가)인 성취면 404-1이다")
+    @WithUserDetails("user1@test.com")
+    void bookmarkGoalNotExhibitedInProgress() throws Exception {
+        long goalId = saveInProgressGoal("user2@test.com");
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/goals/" + goalId + "/bookmarks"));
+
+        resultActions.andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.resultCode").value("404-1"));
+    }
+
+    @Test
+    @DisplayName("성취 북마크: PROJECT 타입은 완료돼도 전시글이 게시 전이면 404-1이다")
+    @WithUserDetails("user1@test.com")
+    void bookmarkGoalProjectNotPublished() throws Exception {
+        long goalId = saveUnpublishedProjectGoal("user2@test.com", 201L);
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/goals/" + goalId + "/bookmarks"));
+
+        resultActions.andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.resultCode").value("404-1"));
+    }
+
+    @Test
+    @DisplayName("성취 북마크: PROJECT 타입도 전시글이 게시되면 북마크 가능하다")
+    @WithUserDetails("user1@test.com")
+    void bookmarkGoalProjectPublished() throws Exception {
+        long goalId = savePublishedProjectGoal("user2@test.com", 202L);
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/goals/" + goalId + "/bookmarks"));
+
+        resultActions.andExpect(status().isCreated())
+                .andExpect(jsonPath("$.resultCode").value("201-1"));
+    }
+
+    @Test
+    @DisplayName("성취 북마크: 존재하지 않는 성취면 404-1이다")
+    @WithUserDetails("user1@test.com")
+    void bookmarkGoalNotFound() throws Exception {
+        ResultActions resultActions = mvc.perform(post("/api/v1/goals/999999/bookmarks"));
+
+        resultActions.andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.resultCode").value("404-1"));
+    }
+
+    @Test
+    @DisplayName("성취 북마크: 이미 북마크한 성취에 재요청하면 409-1이다")
+    @WithUserDetails("user1@test.com")
+    void bookmarkGoalTwice() throws Exception {
+        long goalId = saveAchievedGoal("user2@test.com");
+
+        mvc.perform(post("/api/v1/goals/" + goalId + "/bookmarks"))
+                .andExpect(status().isCreated());
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/goals/" + goalId + "/bookmarks"));
+
+        resultActions.andExpect(status().isConflict())
+                .andExpect(jsonPath("$.resultCode").value("409-1"));
+    }
+
+    @Test
+    @DisplayName("성취 북마크: 로그인하지 않았으면 401-1이다")
+    void bookmarkGoalWithoutLogin() throws Exception {
+        long goalId = saveAchievedGoal("user2@test.com");
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/goals/" + goalId + "/bookmarks"));
+
+        resultActions.andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.resultCode").value("401-1"));
+    }
+
+    @Test
+    @DisplayName("성취 북마크 취소: 204-1")
+    @WithUserDetails("user1@test.com")
+    void unbookmarkGoal() throws Exception {
+        long goalId = saveAchievedGoal("user2@test.com");
+
+        mvc.perform(post("/api/v1/goals/" + goalId + "/bookmarks"))
+                .andExpect(status().isCreated());
+
+        ResultActions resultActions = mvc.perform(delete("/api/v1/goals/" + goalId + "/bookmarks"));
+
+        resultActions.andExpect(status().isNoContent())
+                .andExpect(jsonPath("$.resultCode").value("204-1"))
+                .andExpect(jsonPath("$.data").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("성취 북마크 취소: 북마크하지 않은 성취를 취소하면 409-1이다")
+    @WithUserDetails("user1@test.com")
+    void unbookmarkGoalWithoutBookmarking() throws Exception {
+        long goalId = saveAchievedGoal("user2@test.com");
+
+        ResultActions resultActions = mvc.perform(delete("/api/v1/goals/" + goalId + "/bookmarks"));
+
+        resultActions.andExpect(status().isConflict())
+                .andExpect(jsonPath("$.resultCode").value("409-1"));
+    }
+
+    @Test
+    @DisplayName("성취 북마크: 북마크→취소→재북마크를 반복해도 매번 정상 토글된다")
+    @WithUserDetails("user1@test.com")
+    void bookmarkGoalToggleCycle() throws Exception {
+        long goalId = saveAchievedGoal("user2@test.com");
+
+        mvc.perform(post("/api/v1/goals/" + goalId + "/bookmarks"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.bookmarked").value(true));
+
+        mvc.perform(delete("/api/v1/goals/" + goalId + "/bookmarks"))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(post("/api/v1/goals/" + goalId + "/bookmarks"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.bookmarked").value(true));
     }
