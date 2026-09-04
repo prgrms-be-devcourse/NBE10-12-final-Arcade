@@ -40,6 +40,7 @@ class PartyMatchQueryFtsServiceTsqueryEscapingTest {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("spring.datasource.driver-class-name", POSTGRES::getDriverClassName);
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "update");
+        registry.add("custom.notification.redis-pubsub.enabled", () -> "false");
     }
 
     @Autowired
