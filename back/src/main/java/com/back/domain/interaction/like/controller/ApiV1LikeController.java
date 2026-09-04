@@ -107,4 +107,48 @@ public class ApiV1LikeController {
                 null
         );
     }
+
+    @PostMapping("/api/v1/goals/{goal-id}/likes")
+    public RsData<LikeDto> likeGoal(
+            @PathVariable("goal-id") long goalId
+    ) {
+        Member actor = rq.getActorFromDb();
+
+        if (!likeService.goalExists(goalId)) {
+            throw new ServiceException("404-1", "존재하지 않는 성취입니다.");
+        }
+        if (likeService.isLiked(actor, TargetType.GOAL, goalId)) {
+            throw new ServiceException("409-1", "이미 좋아요한 성취입니다.");
+        }
+
+        LikeDto dto = likeService.likeGoal(goalId, actor);
+
+        return new RsData<>(
+                "201-1",
+                "좋아요 성공",
+                dto
+        );
+    }
+
+    @DeleteMapping("/api/v1/goals/{goal-id}/likes")
+    public RsData<Void> unlikeGoal(
+            @PathVariable("goal-id") long goalId
+    ) {
+        Member actor = rq.getActorFromDb();
+
+        if (!likeService.goalExists(goalId)) {
+            throw new ServiceException("404-1", "존재하지 않는 성취입니다.");
+        }
+        if (!likeService.isLiked(actor, TargetType.GOAL, goalId)) {
+            throw new ServiceException("409-1", "좋아요하지 않은 성취입니다.");
+        }
+
+        likeService.unlikeGoal(goalId, actor);
+
+        return new RsData<>(
+                "204-1",
+                "좋아요 취소 성공",
+                null
+        );
+    }
 }
