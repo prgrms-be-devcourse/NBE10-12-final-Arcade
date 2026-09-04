@@ -7,17 +7,17 @@ import java.util.List;
 
 public record PartySearchResultDto(
         String query,
-        List<String> extractedKeywords,
+        List<String> matchedKeywords,
         List<PartyListItemDto> content,
         int page,
         int size,
         long totalElements,
         int totalPages
 ) {
-    public PartySearchResultDto(String query, List<String> extractedKeywords, Page<PartyListItemDto> page) {
+    public PartySearchResultDto(String query, List<String> matchedKeywords, Page<PartyListItemDto> page) {
         this(
                 query,
-                extractedKeywords,
+                matchedKeywords,
                 page.getContent(),
                 page.getNumber(),
                 page.getSize(),

@@ -52,7 +52,7 @@ class ApiV1SearchControllerTest {
         mvc.perform(get("/api/v1/parties/search").param("q", "backend"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.resultCode").value("200-1"))
-                .andExpect(jsonPath("$.data.extractedKeywords").isArray())
+                .andExpect(jsonPath("$.data.matchedKeywords").isArray())
                 .andExpect(jsonPath("$.data.content[0].id").value(party.getId()));
     }
 
