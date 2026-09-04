@@ -1,12 +1,12 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { type FormEvent, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/icons/Icon';
 import { PartyCard } from '@/components/party/PartyCard';
 import { SelectField } from '@/components/ui/Field';
 import { DDay, Tag } from '@/components/ui/Tag';
-import { comparePartiesBy } from '@/lib/api';
+import { comparePartiesBy, fetchPartySearch } from '@/lib/api';
 import {
   PARTY_FIELDS,
   POSITION_LABELS,
@@ -28,28 +28,56 @@ interface PartyBoardProps {
   keywords: string;
 }
 
-/**
- * 파티 게시판 (검색 · 유형 · 분야 · 정렬).
- * 목 데이터에서는 클라이언트에서 필터링하지만,
- * 실제 API가 붙으면 fetchParties(query) 로 그대로 넘기면 된다.
- */
+/** 파티 게시판 (검색 · 유형 · 분야 · 정렬). */
 export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) {
-  const [search, setSearch] = useState('');
+  const [draft, setDraft] = useState('');
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<Party[] | null>(null);
+  const [searching, setSearching] = useState(false);
   const [topicType, setTopicType] = useState<TopicType | '전체'>('전체');
   const [position, setPosition] = useState<PositionType | '전체'>('전체');
   const [subCategory, setSubCategory] = useState('전체');
   const [sort, setSort] = useState<'empty' | 'dday' | 'like'>('empty');
+  const searchSeq = useRef(0);
+
+  const runSearch = async (raw: string) => {
+    const next = raw.trim();
+    setQuery(next);
+
+    if (!next) {
+      searchSeq.current += 1;
+      setResults(null);
+      setSearching(false);
+      return;
+    }
+
+    const seq = (searchSeq.current += 1);
+    setSearching(true);
+    try {
+      const found = await fetchPartySearch(next, { size: 100 });
+      if (seq === searchSeq.current) setResults(found);
+    } catch {
+      if (seq === searchSeq.current) setResults([]);
+    } finally {
+      if (seq === searchSeq.current) setSearching(false);
+    }
+  };
+
+  const handleSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void runSearch(draft);
+  };
 
   const visible = useMemo(() => {
-    const filtered = parties.filter(
+    const base = query ? (results ?? []) : parties;
+    const filtered = base.filter(
       (party) =>
-        (!search || party.title.includes(search)) &&
         (topicType === '전체' || party.topicType === topicType) &&
         (subCategory === '전체' || party.subCategory === subCategory) &&
         (position === '전체' || party.positions.some((slot) => slot.type === position)),
     );
     return [...filtered].sort(comparePartiesBy(sort));
-  }, [parties, search, topicType, subCategory, position, sort]);
+  }, [parties, results, query, topicType, subCategory, position, sort]);
 
   return (
     <>
@@ -80,15 +108,22 @@ export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) 
       </section>
 
       <div className="party-toolbar">
-        <div className="search-field">
-          <Icon name="i-search" className="search-icon" />
+        <form className="search-field" role="search" onSubmit={handleSearch}>
+          <button type="submit" className="search-icon" aria-label="검색">
+            <Icon name="i-search" />
+          </button>
           <input
             type="text"
-            placeholder="파티 제목으로 검색"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            placeholder="파티 검색"
+            maxLength={25}
+            value={draft}
+            onChange={(event) => {
+              const next = event.target.value;
+              setDraft(next);
+              if (next === '') void runSearch('');
+            }}
           />
-        </div>
+        </form>
         <SelectField
           className="select-field"
           value={topicType}
@@ -147,7 +182,13 @@ export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) 
           <PartyCard key={party.id} party={party} />
         ))}
       </div>
-      {visible.length === 0 ? <p className="notif-empty">조건에 맞는 파티가 없어요.</p> : null}
+      {searching ? (
+        <p className="notif-empty">검색 중…</p>
+      ) : visible.length === 0 ? (
+        <p className="notif-empty">
+          {query ? `'${query}' 검색 결과가 없어요.` : '조건에 맞는 파티가 없어요.'}
+        </p>
+      ) : null}
     </>
   );
 }
