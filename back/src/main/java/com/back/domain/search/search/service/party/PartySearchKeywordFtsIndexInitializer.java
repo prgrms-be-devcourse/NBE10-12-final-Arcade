@@ -19,11 +19,15 @@ public class PartySearchKeywordFtsIndexInitializer implements CommandLineRunner 
     @Override
     @Transactional
     public void run(String... args) {
-        jdbcTemplate.execute("""
-                CREATE INDEX IF NOT EXISTS party_search_keyword_fts_idx
-                ON party_search_keyword
-                USING GIN (to_tsvector('simple', keywords))
-                """);
-        log.info("party_search_keyword FTS GIN 인덱스 확인 완료");
+        try {
+            jdbcTemplate.execute("""
+                    CREATE INDEX IF NOT EXISTS party_search_keyword_fts_idx
+                    ON party_search_keyword
+                    USING GIN (to_tsvector('simple', keywords))
+                    """);
+            log.info("party_search_keyword FTS GIN 인덱스 확인 완료");
+        } catch (Exception e) {
+            log.warn("party_search_keyword FTS GIN 인덱스 생성에 실패했습니다. 인덱스 없이도 검색은 동작합니다.", e);
+        }
     }
 }
