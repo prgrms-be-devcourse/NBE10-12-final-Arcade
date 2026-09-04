@@ -10,3 +10,6 @@ custom:
     same-site: Strict
   cors:
     allowed-origins: http://localhost:3000
+  notification:
+    redis-pubsub:
+      enabled: false
