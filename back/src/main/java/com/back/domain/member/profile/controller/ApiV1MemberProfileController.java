@@ -4,7 +4,7 @@ import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.profile.dtos.CareerCommand;
 import com.back.domain.member.profile.dtos.LinkCommand;
 import com.back.domain.member.profile.dtos.MemberProfileDto;
-리import com.back.domain.member.profile.dtos.ProfileImageDto;
+import com.back.domain.member.profile.dtos.ProfileImageDto;
 import com.back.domain.member.profile.service.MemberProfileService;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
