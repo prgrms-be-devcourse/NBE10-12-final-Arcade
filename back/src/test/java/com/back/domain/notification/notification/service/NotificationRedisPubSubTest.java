@@ -2,8 +2,9 @@ package com.back.domain.notification.notification.service;
 
 import com.back.domain.notification.notification.dtos.NotificationDto;
 import com.back.domain.notification.notification.entity.NotificationType;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.back.standard.util.Util;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -11,9 +12,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.connection.DefaultMessage;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import tools.jackson.databind.ObjectMapper;
 
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -31,13 +32,18 @@ class NotificationRedisPubSubTest {
     @Mock
     private NotificationRedisPublisher notificationRedisPublisher;
 
-    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    @BeforeEach
+    void setUpJsonAdapter() {
+        Util.json.objectMapper = objectMapper;
+    }
 
     @Test
     @DisplayName("Redis 발행: 알림 생성 이벤트를 notification.created 채널에 JSON으로 발행한다")
     void publish() throws Exception {
         NotificationCreatedEvent event = event();
-        NotificationRedisPublisher publisher = new NotificationRedisPublisher(redisTemplate, objectMapper);
+        NotificationRedisPublisher publisher = new NotificationRedisPublisher(redisTemplate);
 
         publisher.publish(event);
 
@@ -50,7 +56,7 @@ class NotificationRedisPubSubTest {
     @DisplayName("Redis 수신: 수신한 알림 이벤트를 해당 회원의 로컬 SSE 연결에 전달한다")
     void subscribe() throws Exception {
         NotificationCreatedEvent event = event();
-        NotificationRedisSubscriber subscriber = new NotificationRedisSubscriber(objectMapper, notificationSseService);
+        NotificationRedisSubscriber subscriber = new NotificationRedisSubscriber(notificationSseService);
         DefaultMessage message = new DefaultMessage(
                 NotificationRedisPublisher.CHANNEL.getBytes(StandardCharsets.UTF_8),
                 objectMapper.writeValueAsBytes(event)
@@ -75,7 +81,7 @@ class NotificationRedisPubSubTest {
     private NotificationCreatedEvent event() {
         return new NotificationCreatedEvent(
                 1L,
-                new NotificationDto(2L, NotificationType.PARTY_APPLICATION_APPROVED, "승인되었습니다.", false, LocalDateTime.of(2026, 9, 4, 9, 0))
+                new NotificationDto(2L, NotificationType.PARTY_APPLICATION_APPROVED, "승인되었습니다.", false, null)
         );
     }
 }
