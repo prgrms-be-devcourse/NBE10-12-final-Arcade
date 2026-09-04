@@ -27,7 +27,7 @@ public class MemberProfileService {
 
     private static final String PROFILE_IMAGE_DIRECTORY = "profile";
     private static final List<String> ALLOWED_IMAGE_TYPES =
-            List.of("image/jpeg", "image/png", "image/gif", "image/webp");
+            List.of("image/jpeg", "image/png");
 
     private final MemberProfileRepository memberProfileRepository;
     private final FileStorage fileStorage;
@@ -82,7 +82,7 @@ public class MemberProfileService {
         }
 
         if (!ALLOWED_IMAGE_TYPES.contains(file.getContentType())) {
-            throw new ServiceException("400-1", "jpeg, png, gif, webp 이미지만 올릴 수 있습니다.");
+            throw new ServiceException("400-1", "jpg, png 이미지만 올릴 수 있습니다.");
         }
 
         long maxBytes = customConfigProperties.getStorage().getMaxFileSize().toBytes();

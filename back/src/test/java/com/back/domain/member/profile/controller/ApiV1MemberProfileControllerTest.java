@@ -438,6 +438,18 @@ public class ApiV1MemberProfileControllerTest {
     }
 
     @Test
+    @DisplayName("프로필 이미지 업로드: 화면이 막는 gif 는 서버도 막는다")
+    @WithUserDetails("user1@test.com")
+    void uploadProfileImageWithGif() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "avatar.gif", MediaType.IMAGE_GIF_VALUE, "fake-gif".getBytes());
+
+        mvc.perform(multipart("/api/v1/members/me/image").file(file))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-1"));
+    }
+
+    @Test
     @DisplayName("프로필 이미지 업로드: 빈 파일이면 400-1")
     @WithUserDetails("user1@test.com")
     void uploadEmptyProfileImage() throws Exception {

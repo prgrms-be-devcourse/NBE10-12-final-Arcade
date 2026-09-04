@@ -124,7 +124,7 @@ public class ApiV1MemberProfileController {
                     화면은 받은 profileImageUrl 을 수정 요청(PATCH /me)의 같은 이름 필드에 실어 보내야 한다.
                     이미지를 바꾸지 않는 수정이라면 이 요청 없이 PATCH 만 보내면 된다.
 
-                    jpeg, png, gif, webp 만 받고 5MB 까지다.
+                    jpg, png 만 받고 5MB 까지다. 화면의 업로드 컴포넌트와 같은 기준이다.
 
                     예외
                     - 400-1 : 파일이 비었거나, 허용하지 않는 형식이거나, 5MB 초과
