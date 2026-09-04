@@ -83,4 +83,15 @@ class PartyMatchQueryFtsServiceTsqueryEscapingTest {
 
         assertThat(result.getContent()).contains(party.getId());
     }
+
+    @Test
+    void doesNotSubstringMatchUnrelatedLongerLexeme() {
+        Party party = createParty("substring", "자바스크립트 스터디");
+
+        Page<Long> result = partyMatchQueryFtsService.findMatchingPartyIds(
+                List.of("자바"), PageRequest.of(0, 10)
+        );
+
+        assertThat(result.getContent()).doesNotContain(party.getId());
+    }
 }
