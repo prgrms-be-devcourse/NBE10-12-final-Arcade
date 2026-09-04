@@ -84,7 +84,7 @@ public class MemberProfile extends BaseEntity {
     public MemberProfile(Member member, String nickname, String webPage, PositionType position, List<String> techStacks) {
         this.member = member;
         this.nickname = nickname;
-        this.webPage = webPage;
+        this.webPage = ProfileUrl.normalize(webPage);
         this.position = position;
         techStacks.stream()
                 .filter(Objects::nonNull)
@@ -104,7 +104,7 @@ public class MemberProfile extends BaseEntity {
             List<LinkCommand> links
     ) {
         this.nickname = nickname;
-        this.webPage = webpage;
+        this.webPage = ProfileUrl.normalize(webpage);
         this.bio = bio;
         this.githubUsername = githubUsername;
         this.profileImageUrl = profileImageUrl;
