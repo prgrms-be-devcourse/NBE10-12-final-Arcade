@@ -9,6 +9,7 @@ import com.back.domain.notification.notification.entity.NotificationType;
 import com.back.domain.notification.notification.repository.NotificationRepository;
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -26,6 +27,7 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class NotificationService {
     private final NotificationRepository notificationRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 알림을 발행하는 도메인 서비스가 공통으로 사용하는 생성 진입점이다.
@@ -33,7 +35,9 @@ public class NotificationService {
      */
     @Transactional
     public Notification create(Member member, NotificationType type, String content) {
-        return notificationRepository.save(new Notification(member, type, content));
+        Notification notification = notificationRepository.save(new Notification(member, type, content));
+        eventPublisher.publishEvent(new NotificationCreatedEvent(member.getId(), new NotificationDto(notification)));
+        return notification;
     }
 
     public NotificationPageDto getList(Member member, Boolean isRead, int page, int size) {
