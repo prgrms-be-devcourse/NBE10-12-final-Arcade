@@ -50,6 +50,15 @@ public class PartyMember extends BaseEntity {
         this.status = PartyMemberStatus.PENDING;
     }
 
+    // 파티장은 지원 절차를 거치지 않는다. 처음부터 확정 멤버라야
+    // 모집 마감 시 확정 명단(PartyAssembleToMember)과 성취 자동생성에 포함된다.
+    public static PartyMember owner(Party party, Member owner, Position position) {
+        PartyMember partyMember = new PartyMember(party, owner, position, null);
+        partyMember.status = PartyMemberStatus.APPROVED;
+
+        return partyMember;
+    }
+
     public void approve() {
         if (this.status != PartyMemberStatus.PENDING) {
             throw new ServiceException("409-1", "이미 처리된 지원입니다.");
