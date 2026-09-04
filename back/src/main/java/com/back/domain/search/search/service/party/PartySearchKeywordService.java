@@ -8,6 +8,7 @@ import com.back.domain.search.search.service.keyword.KeywordExtractionPort;
 import com.back.domain.search.search.service.keyword.KeywordNormalizationPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -22,13 +23,13 @@ public class PartySearchKeywordService implements PartySearchKeywordPort {
     private final PartyRepository partyRepository;
 
     @Override
-    @Transactional
-    public void keywordParty(long partyId, String text) {
-        List<String> keywords = keywordExtractionPort.extract(text);
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void keywordParty(long partyId) {
+        Party party = partyRepository.findByIdForUpdate(partyId).orElseThrow();
+
+        List<String> keywords = keywordExtractionPort.extract(party.getTitle());
         List<String> normalized = keywordNormalizationPort.normalize(keywords);
         String joined = String.join(" ", normalized);
-
-        Party party = partyRepository.findByIdForUpdate(partyId).orElseThrow();
 
         partySearchKeywordRepository.findByParty_Id(partyId).ifPresentOrElse(
                 existing -> existing.updateKeywords(joined),

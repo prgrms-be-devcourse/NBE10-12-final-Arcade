@@ -13,11 +13,13 @@ import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.entity.PartySortOption;
 import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
+import com.back.domain.party.party.event.PartySearchIndexRequestedEvent;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.position.entity.Position;
 import com.back.domain.search.search.service.party.PartySearchKeywordPort;
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -41,6 +43,7 @@ public class PartyService {
     private final BookmarkInteractionPort bookmarkInteractionPort;
     private final ContestLookupPort contestLookupPort;
     private final PartySearchKeywordPort partySearchKeywordPort;
+    private final ApplicationEventPublisher eventPublisher;
 
     public record PositionCreateSpec(
         PositionType type,
@@ -101,7 +104,7 @@ public class PartyService {
         );
 
         Party savedParty = partyRepository.save(party);
-        partySearchKeywordPort.keywordParty(savedParty.getId(), title);
+        eventPublisher.publishEvent(new PartySearchIndexRequestedEvent(savedParty.getId()));
 
         return new PartyDto(savedParty);
     }
@@ -167,7 +170,7 @@ public class PartyService {
         }
 
         if (!previousTitle.equals(title)) {
-            partySearchKeywordPort.keywordParty(partyId, title);
+            eventPublisher.publishEvent(new PartySearchIndexRequestedEvent(partyId));
         }
 
         return new PartyDto(party);

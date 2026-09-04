@@ -68,12 +68,11 @@ class PartySearchKeywordServiceConcurrencyTest {
         AtomicInteger failures = new AtomicInteger();
 
         for (int i = 0; i < threadCount; i++) {
-            int idx = i;
             executor.submit(() -> {
                 ready.countDown();
                 try {
                     start.await();
-                    partySearchKeywordPort.keywordParty(party.getId(), "동시성 테스트 " + idx);
+                    partySearchKeywordPort.keywordParty(party.getId());
                 } catch (Exception e) {
                     failures.incrementAndGet();
                 }
