@@ -1,0 +1,23 @@
+# 모니터링 스택 진입점.
+
+:80 {
+	@grafana host grafana.localhost
+	handle @grafana {
+		reverse_proxy grafana:3000
+	}
+
+	@prometheus host prometheus.localhost
+	handle @prometheus {
+		reverse_proxy prometheus:9090
+	}
+
+	@cadvisor host cadvisor.localhost
+	handle @cadvisor {
+		reverse_proxy cadvisor:8080
+	}
+
+	# 호스트명을 안 붙이고 들어오면 Grafana 로 보낸다.
+	handle {
+		reverse_proxy grafana:3000
+	}
+}
