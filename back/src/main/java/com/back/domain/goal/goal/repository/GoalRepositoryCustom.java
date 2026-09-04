@@ -5,6 +5,9 @@ import com.back.domain.goal.goal.entity.GoalSource;
 import com.back.domain.goal.goal.entity.GoalStatus;
 import com.back.domain.goal.goal.entity.GoalType;
 import com.back.domain.member.member.entity.Member;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import java.util.List;
 
 public interface GoalRepositoryCustom {
@@ -27,4 +30,14 @@ public interface GoalRepositoryCustom {
             Integer year,
             String keyword
     );
+
+    Page<Goal> searchShowcaseGoals(
+            GoalType type,
+            ShowcaseSort sort,
+            Pageable pageable
+    );
+
+    enum ShowcaseSort {
+        POPULAR, LATEST
+    }
 }

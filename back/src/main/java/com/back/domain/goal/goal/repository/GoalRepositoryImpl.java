@@ -10,11 +10,15 @@ import com.back.domain.goal.goal.entity.QPersonalContest;
 import com.back.domain.goal.goal.entity.QProject;
 import com.back.domain.member.member.entity.Member;
 import com.querydsl.core.BooleanBuilder;
+import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 
@@ -109,5 +113,35 @@ public class GoalRepositoryImpl implements GoalRepositoryCustom {
                 .or(contest.result.containsIgnoreCase(trimmed))
                 .or(checklist.title.containsIgnoreCase(trimmed))
                 .or(checklist.memo.containsIgnoreCase(trimmed));
+    }
+
+    @Override
+    public Page<Goal> searchShowcaseGoals(GoalType type, ShowcaseSort sort, Pageable pageable) {
+        BooleanBuilder where = new BooleanBuilder()
+                .and(goal.status.eq(GoalStatus.ACHIEVED))
+                .and(eqType(type))
+                .and(project.partyShowcase.isNotNull().or(goal.type.ne(GoalType.PROJECT)));
+
+        List<Goal> content = withSubTypes(queryFactory.selectFrom(goal))
+                .where(where)
+                .orderBy(orderBy(sort))
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+
+        Long total = queryFactory.select(goal.count())
+                .from(goal)
+                .leftJoin(project).on(project.id.eq(goal.id))
+                .where(where)
+                .fetchOne();
+
+        return new PageImpl<>(content, pageable, total != null ? total : 0L);
+    }
+
+    private OrderSpecifier<?>[] orderBy(ShowcaseSort sort) {
+        if (sort == ShowcaseSort.POPULAR) {
+            return new OrderSpecifier<?>[]{goal.likeCount.desc(), goal.id.desc()};
+        }
+        return new OrderSpecifier<?>[]{goal.createDate.desc(), goal.id.desc()};
     }
 }
