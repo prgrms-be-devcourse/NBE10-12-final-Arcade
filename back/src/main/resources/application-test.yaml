@@ -13,3 +13,6 @@ custom:
   notification:
     redis-pubsub:
       enabled: false
+  storage:
+    local:
+      path: build/test-uploads

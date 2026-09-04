@@ -1,6 +1,10 @@
 server:
   forward-headers-strategy: native
 spring:
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
   config:
     import: optional:file:.env[.properties]
   application:
@@ -55,6 +59,21 @@ custom:
       privateKey: ${CUSTOM__GITHUB__APP__PRIVATE_KEY:}
     webhook:
       secret: ${CUSTOM__GITHUB__WEBHOOK__SECRET:}
+  storage:
+    # local = 서버 디스크. MinIO 없이 개발할 때 쓴다. s3 = S3/MinIO.
+    type: ${CUSTOM__STORAGE__TYPE:local}
+    max-file-size: 5MB
+    local:
+      path: ${CUSTOM__STORAGE__LOCAL__PATH:.uploads}
+      url-prefix: /uploads
+    s3:
+      endpoint: ${CUSTOM__STORAGE__S3__ENDPOINT:http://localhost:9000}
+      region: ${CUSTOM__STORAGE__S3__REGION:us-east-1}
+      bucket: ${CUSTOM__STORAGE__S3__BUCKET:arcade}
+      access-key: ${CUSTOM__STORAGE__S3__ACCESS_KEY:}
+      secret-key: ${CUSTOM__STORAGE__S3__SECRET_KEY:}
+      public-url-prefix: ${CUSTOM__STORAGE__S3__PUBLIC_URL_PREFIX:}
+      path-style-access: ${CUSTOM__STORAGE__S3__PATH_STYLE_ACCESS:true}
   notProdMembers:
     - username: KAKAO__4707664779
       apiKey: kakao__1
