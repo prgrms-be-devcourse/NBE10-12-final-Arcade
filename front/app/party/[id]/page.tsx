@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Icon } from '@/components/icons/Icon';
 import { ApplyPanel } from '@/components/party/ApplyPanel';
 import { DetailActions } from '@/components/ui/DetailActions';
@@ -9,7 +10,12 @@ import { LeaderRow } from '@/components/ui/Avatar';
 import { Tag, TagRow } from '@/components/ui/Tag';
 import { fetchContest, fetchParty } from '@/lib/api';
 import { MOCK_CURRENT_USER_ID } from '@/lib/mock';
-import { CONTEST_FORMAT_LABELS, POSITION_LABELS, TOPIC_TYPE_LABELS } from '@/lib/constants';
+import {
+  CONTEST_FORMAT_LABELS,
+  PARTY_STATUS_LABELS,
+  POSITION_LABELS,
+  TOPIC_TYPE_LABELS,
+} from '@/lib/constants';
 
 export default async function PartyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -41,6 +47,9 @@ export default async function PartyDetailPage({ params }: { params: Promise<{ id
                     <Tag>{CONTEST_FORMAT_LABELS[party.contestFormat]}</Tag>
                   ) : null}
                   <Tag>{party.subCategory}</Tag>
+                  <Tag accent={party.status !== 'RECRUITING'}>
+                    {PARTY_STATUS_LABELS[party.status]}
+                  </Tag>
                 </TagRow>
                 <div className="detail-header-right">
                   <DetailActions
@@ -95,7 +104,7 @@ export default async function PartyDetailPage({ params }: { params: Promise<{ id
                           : '';
                     return (
                       <div
-                        key={position.type}
+                        key={`${position.type}-${index}`}
                         className={['position-row', state].filter(Boolean).join(' ')}
                       >
                         <div>
@@ -149,8 +158,29 @@ export default async function PartyDetailPage({ params }: { params: Promise<{ id
                 <p className="leader-stat-line">완료 파티 3 · 수상 2 · 자동기록 성취 5</p>
               </SideCard>
 
-              <ApplyPanel party={party} />
-              <LeaderTools party={party} />
+              {party.status === 'RECRUITING' ? (
+                <>
+                  <ApplyPanel party={party} />
+                  <LeaderTools party={party} />
+                </>
+              ) : party.status === 'IN_PROGRESS' ? (
+                <SideCard title="파티 진행 중">
+                  <p className="apply-note">
+                    모집이 완료되어 팀 공간에서 GitHub 저장소와 Pull Request 진행 기록을 관리할 수 있어요.
+                  </p>
+                  <Link
+                    className="btn btn-primary"
+                    style={{ display: 'block', marginTop: '0.875rem', textAlign: 'center' }}
+                    href={`/party/${party.id}/team`}
+                  >
+                    팀 공간으로 이동
+                  </Link>
+                </SideCard>
+              ) : (
+                <SideCard title="완료된 파티">
+                  <p className="apply-note">모집과 팀 활동이 모두 종료된 파티입니다.</p>
+                </SideCard>
+              )}
             </>
           }
         />

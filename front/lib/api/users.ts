@@ -20,10 +20,12 @@ function fallbackProfile(id: string): UserProfile {
 export interface MemberProfileResponse {
   id: number;
   email: string;
-  name: string;
+  /** 소셜 로그인으로 생성된 회원은 이름을 아직 설정하지 않아 null일 수 있다. */
+  name: string | null;
   nickname: string | null;
   webpage: string | null;
   profileImageUrl: string | null;
+  githubLinked: boolean;
   /** 서버는 BACK/FRONT/UIUX/PM 4종을 모두 내려줄 수 있다 */
   positions: string[];
   techStacks: string[];
@@ -50,7 +52,9 @@ export function toUserProfile(
   dto: MemberProfileResponse,
   memberRole: MemberRole = 'MEMBER',
 ): UserProfile {
-  const displayName = dto.nickname ?? dto.name;
+  // 소셜 로그인 신규 회원은 nickname과 name이 모두 비어 있을 수 있다.
+  // 로그인 판별 과정에서 예외가 나지 않도록 표시명 기본값을 둔다.
+  const displayName = dto.nickname?.trim() || dto.name?.trim() || '크루온 사용자';
 
   return {
     id: String(dto.id),
@@ -60,6 +64,7 @@ export function toUserProfile(
     // UserSummary.role 은 계정 권한이 아니라 화면에 보여주는 대표 포지션 문구다
     role: dto.positions[0] ?? '',
     memberRole,
+    githubLinked: dto.githubLinked,
     githubUsername: undefined,
     bio: '',
     position: toPositionType(dto.positions[0]),

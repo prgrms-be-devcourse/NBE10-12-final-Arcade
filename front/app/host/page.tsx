@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { Icon } from '@/components/icons/Icon';
-import { Footer } from '@/components/layout/Footer';
 import { Block, DetailGrid, SideCard } from '@/components/ui/Block';
 import { LinkButton } from '@/components/ui/Button';
 import { StatusPill } from '@/components/ui/Tag';
@@ -185,7 +184,6 @@ export default async function HostMyPage() {
           />
         </div>
 
-        <Footer contained={false} />
       </div>
     </main>
   );

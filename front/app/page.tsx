@@ -3,7 +3,6 @@ import { HeroSlider } from '@/components/home/HeroSlider';
 import { ContestCard } from '@/components/contest/ContestCard';
 import { ProjectCard } from '@/components/exhibition/ProjectCard';
 import { RankCard } from '@/components/party/RankCard';
-import { Footer } from '@/components/layout/Footer';
 import { SectionHead } from '@/components/ui/SectionHead';
 import {
   fetchHeroSlides,
@@ -65,7 +64,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <Footer />
     </main>
   );
 }

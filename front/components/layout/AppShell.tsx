@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import { useReveal } from '@/lib/hooks/useReveal';
 import { Header } from './Header';
+import { Footer } from './Footer';
 import { MobileNav } from './MobileNav';
 
 /** 로그인 · 회원가입 화면에서는 네비게이션을 숨긴다 (목업의 AUTH_VIEWS) */
@@ -18,6 +19,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="page">
       {hideNav ? null : <Header />}
       {children}
+      {hideNav ? null : <Footer />}
       {hideNav ? null : <MobileNav />}
       {/*
         채팅 도크는 팀 논의 전까지 숨겨둔다.

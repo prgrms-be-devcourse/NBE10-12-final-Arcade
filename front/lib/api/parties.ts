@@ -161,6 +161,8 @@ function toPartyDetail(dto: PartyResponse): PartyDetail {
     contestId: dto.targetContestId != null ? String(dto.targetContestId) : undefined,
     contestName: dto.contestName ?? undefined,
     contestLinkUrl: dto.contestLinkUrl ?? undefined,
+    githubRepoUrl: dto.githubRepoUrl ?? undefined,
+    checklistRequiredApprovals: dto.checklistRequiredApprovals,
     schedule: '',
     meetingType: '',
     members: [],

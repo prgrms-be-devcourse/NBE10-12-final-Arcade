@@ -1,6 +1,6 @@
 import type { ChecklistItem, ThreadComment, TeamCommit, TeamSpace } from '@/lib/types';
 import { MOCK_TEAM_COMMITS, MOCK_TEAM_REPOSITORY, MOCK_TEAM_SPACE } from '@/lib/mock';
-import { http, mockResponse } from './client';
+import { USE_MOCK as USE_API_MOCK, http, mockResponse } from './client';
 
 /**
  * 백엔드에 대응 엔드포인트가 아직 없는 모듈이다.
@@ -137,8 +137,8 @@ export async function deleteCommitComment(
   return http.delete<void>(`/teams/${partyId}/commits/${commitId}/comments/${commentId}`);
 }
 
-/** POST /teams/{partyId}/finish — 파티 진행 완료 */
+/** POST /parties/{partyId}/complete — 파티 진행 완료 */
 export async function finishParty(partyId: string): Promise<void> {
-  if (USE_MOCK) return mockResponse(undefined as void);
-  return http.post<void>(`/teams/${partyId}/finish`);
+  if (USE_API_MOCK) return mockResponse(undefined as void);
+  return http.post<void>(`/parties/${partyId}/complete`);
 }

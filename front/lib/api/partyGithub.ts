@@ -62,6 +62,16 @@ export interface GithubAppInstallUrl {
   state: string;
 }
 
+/** PATCH /api/v1/parties/{partyId}/github-repository — 파티장만 저장소 주소를 변경한다. */
+export async function updatePartyGithubRepository(
+  partyId: string,
+  githubRepoUrl: string,
+): Promise<void> {
+  if (USE_MOCK) return;
+
+  await http.patch(`/parties/${partyId}/github-repository`, { githubRepoUrl });
+}
+
 interface PartyPrResponse extends Omit<PartyPullRequest, 'id' | 'updatedAt'> {
   id: number;
   githubUpdatedAt: string;

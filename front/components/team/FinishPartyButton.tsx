@@ -18,7 +18,7 @@ export function FinishPartyButton({ partyId }: { partyId: string }) {
         className="btn btn-primary"
         disabled={done}
         onClick={async () => {
-          await finishParty(partyId);
+      await finishParty(partyId);
           setDone(true);
         }}
       >
