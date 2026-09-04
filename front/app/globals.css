@@ -1551,6 +1551,17 @@ button.party-mini:hover{border-color:var(--accent);}
 .gh-status[data-status="INSTALLATION_REQUIRED"],
 .gh-status[data-status="ERROR"]{color:var(--gold);}
 .gh-status-detail{margin-top:0.25rem;font-size:.74rem;color:var(--text-dim);line-height:1.5;}
+.github-install-guide{
+  margin-top:0.875rem;padding:0.75rem;border:0.125rem solid var(--accent-soft);
+  background:rgba(49,233,210,.05);font-size:.76rem;color:var(--text-muted);line-height:1.55;
+}
+.github-install-guide-title{font-weight:800;color:var(--accent);}
+.github-install-guide-repository{
+  margin-top:0.25rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-family:var(--font-mono,monospace);font-size:.72rem;color:var(--text);
+}
+.github-install-guide ol{margin:0.625rem 0 0;padding-left:1.125rem;}
+.github-install-guide li+li{margin-top:0.25rem;}
 
 /* 블록 제목 아래 안내문 + 우측 버튼 한 줄 (성취 리스트 등) */
 .block-head-row{display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:1rem;}

@@ -2,8 +2,14 @@
 
 import { useState } from 'react';
 import { Icon } from '@/components/icons/Icon';
+import { TextField } from '@/components/ui/Field';
 import { ApiError } from '@/lib/api';
-import { startPartyGithubInstall, type PartyGithubConnection, type PartyGithubStatus } from '@/lib/api';
+import {
+  startPartyGithubInstall,
+  updatePartyGithubRepository,
+  type PartyGithubConnection,
+  type PartyGithubStatus,
+} from '@/lib/api';
 
 const STATUS_TEXT: Record<PartyGithubStatus, string> = {
   PENDING: '아직 저장소를 연결하지 않았어요.',
@@ -20,7 +26,7 @@ const STATUS_TEXT: Record<PartyGithubStatus, string> = {
  */
 const ERROR_TEXT: Record<string, string> = {
   GITHUB_REPOSITORY_URL_INVALID:
-    '파티에 등록된 GitHub 저장소 주소가 없어요. 파티 수정에서 저장소 주소를 먼저 넣어주세요.',
+    'GitHub 저장소 주소를 확인해 주세요. https://github.com/owner/repository 형식이어야 해요.',
   GITHUB_APP_INSTALL_STATE_INVALID: '설치 요청이 만료됐어요. 다시 시도해 주세요.',
   GITHUB_APP_INSTALLATION_UNAVAILABLE: 'GitHub App 설치가 해제된 것 같아요. 다시 연결해 주세요.',
   GITHUB_APP_REPOSITORY_REMOVED: '설치 대상에서 저장소가 빠졌어요. 저장소를 다시 포함해 주세요.',
@@ -48,16 +54,30 @@ export function GithubConnectionCard({
 }) {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
+  const [repositoryInput, setRepositoryInput] = useState(
+    fallbackRepository ?? connection?.repositoryFullName ?? '',
+  );
 
   const repository = connection?.repositoryFullName ?? fallbackRepository ?? '';
   const repositoryUrl = repository.startsWith('http')
     ? repository
     : `https://github.com/${repository}`;
+  const selectedRepository = repositoryInput.trim() || '연결할 저장소';
+  // 아직 연결 레코드가 없거나, 서버가 재설치를 요구하는 상태면 설치를 시작할 수 있다.
+  const showInstallButton = !connection || NEEDS_INSTALL.includes(connection.status);
 
   const install = async () => {
+    const githubRepoUrl = repositoryInput.trim();
+    if (!githubRepoUrl) {
+      setError('연결할 GitHub 저장소 주소를 입력해 주세요.');
+      return;
+    }
+
     setStarting(true);
     setError('');
     try {
+      // 진행 중 파티도 설치 직전에 저장소를 바꿀 수 있다. 서버가 파티장 권한을 확인한다.
+      await updatePartyGithubRepository(partyId, githubRepoUrl);
       // 설치가 끝나면 서버 setup 콜백이 이 경로로 되돌려 보낸다
       const { installationUrl } = await startPartyGithubInstall(partyId, `/party/${partyId}/team`);
       window.location.href = installationUrl;
@@ -100,22 +120,51 @@ export function GithubConnectionCard({
             </p>
           ) : null}
 
-          {NEEDS_INSTALL.includes(connection.status) ? (
-            <div className="side-card-action">
-              <button type="button" className="btn btn-ghost" disabled={starting} onClick={install}>
-                <Icon name="i-external" />
-                {starting ? '설치 화면으로 이동 중…' : 'GitHub App 연결하기'}
-              </button>
-            </div>
-          ) : null}
-
-          {error ? <p className="form-error">{error}</p> : null}
         </>
       ) : (
         <p className="gh-status">
-          연결 상태를 불러오지 못했어요. 로그인했는지 확인해 주세요.
+          아직 GitHub App이 연결되지 않았어요.
         </p>
       )}
+
+      {showInstallButton ? (
+        <>
+          <div className="form-group" style={{ marginTop: '0.875rem' }}>
+            <label className="form-label" htmlFor={`githubRepository-${partyId}`}>
+              GitHub 저장소 주소
+            </label>
+            <TextField
+              id={`githubRepository-${partyId}`}
+              type="url"
+              inputMode="url"
+              placeholder="https://github.com/owner/repository"
+              value={repositoryInput}
+              onChange={(event) => setRepositoryInput(event.target.value)}
+              disabled={starting}
+            />
+            <p className="form-hint">이 파티에서 사용할 저장소 하나만 연결합니다.</p>
+          </div>
+          <div className="github-install-guide" aria-live="polite">
+            <p className="github-install-guide-title">저장소 단위로 연결하기</p>
+            <p className="github-install-guide-repository">{selectedRepository}</p>
+            <ol>
+              <li>GitHub에서 이 저장소를 소유한 개인 계정 또는 조직을 선택하세요.</li>
+              <li>
+                <b>Only select repositories</b>를 선택하세요.
+              </li>
+              <li>목록에서 위 저장소를 선택한 뒤 설치를 완료하세요.</li>
+            </ol>
+          </div>
+          <div className="side-card-action">
+            <button type="button" className="btn btn-ghost" disabled={starting} onClick={install}>
+              <Icon name="i-external" />
+              {starting ? 'GitHub로 이동 중…' : 'GitHub에서 저장소 선택하기'}
+            </button>
+          </div>
+        </>
+      ) : null}
+
+      {error ? <p className="form-error">{error}</p> : null}
     </>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { applyToParty } from '@/lib/api';
+import { useCurrentUser } from '@/lib/hooks/useCurrentUser';
 import { DDay, Tag } from '@/components/ui/Tag';
 import { TextAreaField } from '@/components/ui/Field';
 import { POSITION_LABELS } from '@/lib/constants';
@@ -11,6 +12,7 @@ const MESSAGE_MAX = 50;
 
 /** 파티 상세 사이드바의 지원 패널 */
 export function ApplyPanel({ party }: { party: PartyDetail }) {
+  const me = useCurrentUser();
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<PositionType | null>(null);
   const [message, setMessage] = useState('');
@@ -20,6 +22,11 @@ export function ApplyPanel({ party }: { party: PartyDetail }) {
   const openPositions = party.positions.filter(
     (position) => position.capacity > 0 && position.filledCount < position.capacity,
   );
+
+  // 로그인 사용자 정보를 확인하기 전에는 지원 UI를 그리지 않는다. 작성자 본인의 파티에서
+  // 지원 탭이 잠깐 보였다가 사라지는 현상을 방지한다.
+  const isPartyOwner = me?.profile.id === party.leader.id;
+  if (me === undefined || isPartyOwner || party.status !== 'RECRUITING') return null;
 
   const submit = async () => {
     if (!position) return;
@@ -45,9 +52,9 @@ export function ApplyPanel({ party }: { party: PartyDetail }) {
       </p>
       <div className="apply-positions">
         {openPositions.length > 0 ? (
-          openPositions.map((slot) => (
+          openPositions.map((slot, index) => (
             <button
-              key={slot.type}
+              key={`${slot.type}-${index}`}
               type="button"
               className={
                 position === slot.type ? 'apply-position-chip is-active' : 'apply-position-chip'

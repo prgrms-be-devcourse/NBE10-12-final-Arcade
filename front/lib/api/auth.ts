@@ -34,7 +34,7 @@ interface SignupResponse {
 /** 로그인 직후 화면이 쓰는 최소 정보를 /members/me 로 채운다 */
 async function loadAuthUser(role: MemberRole): Promise<AuthUser> {
   const profile = await http.get<MemberProfileResponse>("/members/me");
-  const displayName = profile.nickname ?? profile.name;
+  const displayName = profile.nickname?.trim() || profile.name?.trim() || "크루온 사용자";
 
   return {
     id: String(profile.id),

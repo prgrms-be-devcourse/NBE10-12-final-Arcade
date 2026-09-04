@@ -120,6 +120,8 @@ export interface BadgeItem {
 }
 
 export interface UserProfile extends UserSummary {
+  /** GitHub OAuth 계정 연동 여부. 연동 버튼 노출 여부에만 사용한다. */
+  githubLinked?: boolean;
   /** GitHub 사용자명 — 팀 스페이스의 커밋 작성자를 회원과 연결하는 데 쓴다 */
   githubUsername?: string;
   /**
@@ -187,6 +189,10 @@ export interface Party {
 
 export interface PartyDetail extends Party {
   description: string;
+  /** 파티 등록 시 입력한 GitHub 저장소 주소 */
+  githubRepoUrl?: string;
+  /** 커밋 동료 승인 정족수 */
+  checklistRequiredApprovals?: number;
   schedule: string;
   meetingType: string;
   members: UserSummary[];

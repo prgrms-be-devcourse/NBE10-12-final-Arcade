@@ -8,10 +8,18 @@ interface ProfileCardProps {
   onEdit?: () => void;
   /** 비밀번호 변경 — 프로필 수정과 별개로 즉시 반영되는 동작이라 버튼을 따로 둔다 */
   onChangePassword?: () => void;
+  /** GitHub OAuth로 계정을 연동한다 */
+  onConnectGithub?: () => void;
   months?: number;
 }
 
-export function ProfileCard({ profile, onEdit, onChangePassword, months = 10 }: ProfileCardProps) {
+export function ProfileCard({
+  profile,
+  onEdit,
+  onChangePassword,
+  onConnectGithub,
+  months = 10,
+}: ProfileCardProps) {
   return (
     <section className="profile-card">
       <Avatar initial={profile.initial} avatarUrl={profile.avatarUrl} />
@@ -35,8 +43,14 @@ export function ProfileCard({ profile, onEdit, onChangePassword, months = 10 }: 
           </span>
         </div>
       </div>
-      {onEdit || onChangePassword ? (
+      {onEdit || onChangePassword || onConnectGithub ? (
         <div className="profile-actions">
+          {onConnectGithub ? (
+            <button type="button" className="btn btn-ghost profile-edit-btn" onClick={onConnectGithub}>
+              <Icon name="i-github" viewBox="0 0 16 16" />
+              GitHub 연동
+            </button>
+          ) : null}
           {onEdit ? (
             <button type="button" className="btn btn-ghost profile-edit-btn" onClick={onEdit}>
               <Icon name="i-pencil" />

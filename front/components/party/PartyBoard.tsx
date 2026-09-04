@@ -68,8 +68,8 @@ export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) 
               <h4>{party.title}</h4>
               <p className="reco-why">{party.why}</p>
               <div className="position-slots">
-                {party.positions.slice(0, 1).map((slot) => (
-                  <span key={slot.type} className="slot-chip">
+                {party.positions.slice(0, 1).map((slot, index) => (
+                  <span key={`${slot.type}-${index}`} className="slot-chip">
                     {POSITION_LABELS[slot.type]} {slot.filledCount}/{slot.capacity}
                   </span>
                 ))}

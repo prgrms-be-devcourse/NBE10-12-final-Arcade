@@ -19,7 +19,7 @@ import { useCurrentUser } from '@/lib/hooks/useCurrentUser';
  * 로그아웃은 확인을 한 번 거치고, 요청이 실패해도 메인으로는 보낸다.
  * 로그인된 화면에 그대로 남아 있는 편이 더 위험하기 때문이다.
  *
- * 로그인하지 않았으면 아바타 대신 로그인 버튼이 나온다.
+ * 로그인하지 않았으면 로그인 버튼을, 로그인했으면 로그아웃 버튼과 프로필 메뉴를 보여 준다.
  */
 export function UserMenu() {
   const me = useCurrentUser();
@@ -84,45 +84,47 @@ export function UserMenu() {
   const initial = me.profile.initial;
 
   return (
-    <div className="user-wrap" ref={wrapRef}>
+    <>
       <button
         type="button"
-        className={open ? 'user-chip is-open' : 'user-chip'}
-        aria-label={`${name} 메뉴`}
-        aria-haspopup="menu"
-        aria-expanded={open}
+        className="icon-btn"
+        aria-label="로그아웃"
+        onClick={runLogout}
         disabled={pending}
-        onClick={(event) => {
-          event.stopPropagation();
-          setOpen((value) => !value);
-        }}
       >
-        <span className="mono">{initial}</span>
+        <Icon name="i-logout" />
       </button>
+      <div className="user-wrap" ref={wrapRef}>
+        <button
+          type="button"
+          className={open ? 'user-chip is-open' : 'user-chip'}
+          aria-label={`${name} 메뉴`}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          disabled={pending}
+          onClick={(event) => {
+            event.stopPropagation();
+            setOpen((value) => !value);
+          }}
+        >
+          <span className="mono">{initial}</span>
+        </button>
 
-      {open ? (
-        <div className="user-menu" role="menu">
-          <div className="user-menu-head">
-            <span className="mono">{initial}</span>
-            <span className="uname">{name}</span>
+        {open ? (
+          <div className="user-menu" role="menu">
+            <div className="user-menu-head">
+              <span className="mono">{initial}</span>
+              <span className="uname">{name}</span>
+            </div>
+            <button type="button" className="user-menu-item" role="menuitem" onClick={goMypage}>
+              <Icon name="i-joystick" />
+              마이페이지
+            </button>
           </div>
-          <button type="button" className="user-menu-item" role="menuitem" onClick={goMypage}>
-            <Icon name="i-joystick" />
-            마이페이지
-          </button>
-          <button
-            type="button"
-            className="user-menu-item is-danger"
-            role="menuitem"
-            onClick={runLogout}
-          >
-            <Icon name="i-logout" />
-            로그아웃
-          </button>
-        </div>
-      ) : null}
+        ) : null}
 
-      {dialog}
-    </div>
+        {dialog}
+      </div>
+    </>
   );
 }

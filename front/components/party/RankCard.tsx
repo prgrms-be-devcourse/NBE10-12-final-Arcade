@@ -24,8 +24,8 @@ export function RankCard({ party, rank }: { party: Party; rank: 1 | 2 | 3 }) {
       </TagRow>
 
       <TagRow>
-        {party.positions.map((position) => (
-          <Tag key={position.type}>
+        {party.positions.map((position, index) => (
+          <Tag key={`${position.type}-${index}`}>
             {POSITION_LABELS[position.type]} {position.capacity}
           </Tag>
         ))}
