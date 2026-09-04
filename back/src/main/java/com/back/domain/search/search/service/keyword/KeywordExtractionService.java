@@ -30,7 +30,7 @@ public class KeywordExtractionService implements KeywordExtractionPort {
     private static final String USER_DICTIONARY_PATH = "nori/user-dictionary.txt";
 
     private static final Set<POS.Tag> KEYWORD_TAGS = EnumSet.of(
-            POS.Tag.NNG, POS.Tag.NNP, POS.Tag.NNB, POS.Tag.NNBC,
+            POS.Tag.NNG, POS.Tag.NNP,
             POS.Tag.SL, POS.Tag.SH, POS.Tag.SN
     );
 

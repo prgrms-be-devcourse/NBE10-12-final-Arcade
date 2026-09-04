@@ -22,4 +22,12 @@ class KeywordExtractionServiceTest {
         assertThat(extractor.extract("")).isEmpty();
         assertThat(extractor.extract(null)).isEmpty();
     }
+
+    @Test
+    void excludesBoundNounsLikeCountUnits() {
+        List<String> keywords = extractor.extract("팀원 3명 구하는 프로젝트");
+
+        assertThat(keywords).doesNotContain("명");
+        assertThat(keywords).contains("팀원", "프로젝트");
+    }
 }

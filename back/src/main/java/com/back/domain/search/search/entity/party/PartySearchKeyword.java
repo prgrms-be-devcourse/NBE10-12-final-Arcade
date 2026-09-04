@@ -2,6 +2,7 @@ package com.back.domain.search.search.entity.party;
 
 import com.back.domain.party.party.entity.Party;
 import com.back.global.jpa.entity.BaseEntity;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
@@ -18,6 +19,7 @@ public class PartySearchKeyword extends BaseEntity {
     @JoinColumn(name = "party_id", nullable = false, unique = true)
     private Party party;
 
+    @Column(columnDefinition = "TEXT")
     private String keywords;
 
     public PartySearchKeyword(Party party, String keywords) {
