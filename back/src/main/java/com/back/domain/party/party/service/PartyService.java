@@ -7,6 +7,10 @@ import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.interaction.like.service.LikeInteractionPort;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
+import com.back.domain.member.profile.entity.MemberProfile;
+import com.back.domain.member.profile.repository.MemberProfileRepository;
+import com.back.domain.party.application.entity.PartyMember;
+import com.back.domain.party.application.repository.PartyMemberRepository;
 import com.back.domain.party.party.dtos.PartyDto;
 import com.back.domain.party.party.dtos.PartyListItemDto;
 import com.back.domain.party.party.entity.Party;
@@ -44,6 +48,8 @@ public class PartyService {
     private final ContestLookupPort contestLookupPort;
     private final PartySearchKeywordPort partySearchKeywordPort;
     private final ApplicationEventPublisher eventPublisher;
+    private final MemberProfileRepository memberProfileRepository;
+    private final PartyMemberRepository partyMemberRepository;
 
     public record PositionCreateSpec(
         PositionType type,
@@ -103,10 +109,35 @@ public class PartyService {
             party.addPosition(new Position(spec.type(), spec.capacity()))
         );
 
+        Position ownerPosition = seatForOwner(party, owner);
+
         Party savedParty = partyRepository.save(party);
+        partyMemberRepository.save(PartyMember.owner(savedParty, owner, ownerPosition));
+
         eventPublisher.publishEvent(new PartySearchIndexRequestedEvent(savedParty.getId()));
 
         return new PartyDto(savedParty);
+    }
+
+    /**
+     * 파티장이 앉을 자리를 고른다. 파티장은 모집 대상이 아니라 정원(filledCount)은 건드리지 않는다.
+     * 같은 포지션을 모집 중이면 그 자리를 가리키고, 아니면 모집하지 않는 자리(정원 0)를 만들어 붙인다.
+     */
+    private Position seatForOwner(Party party, Member owner) {
+        PositionType ownerType = memberProfileRepository.findByMember(owner)
+                .map(MemberProfile::getPosition)
+                .orElseThrow(() -> new ServiceException(
+                        "400-4", "프로필에 대표 포지션을 먼저 설정해야 파티를 만들 수 있습니다."));
+
+        return party.getPositions().stream()
+                .filter(position -> position.getType() == ownerType)
+                .findFirst()
+                .orElseGet(() -> {
+                    Position seat = new Position(ownerType, 0);
+                    party.addPosition(seat);
+
+                    return seat;
+                });
     }
 
     public record PositionCapacityUpdateSpec(
@@ -203,6 +234,10 @@ public class PartyService {
             throw new ServiceException("403-1", "본인이 만든 파티만 삭제할 수 있습니다.");
         }
         party.checkDeletable();
+
+        // 파티장·지원자가 position 을 참조하고 있어, 파티(와 position)보다 먼저 지워야 한다
+        partyMemberRepository.deleteAllByParty(party);
+        partyMemberRepository.flush();
 
         partyRepository.delete(party);
     }
