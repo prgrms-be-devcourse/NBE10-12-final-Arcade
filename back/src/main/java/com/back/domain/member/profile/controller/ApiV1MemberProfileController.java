@@ -1,6 +1,10 @@
 package com.back.domain.member.profile.controller;
 
+import com.back.domain.member.member.entity.PositionType;
+import com.back.domain.member.profile.dtos.CareerCommand;
+import com.back.domain.member.profile.dtos.LinkCommand;
 import com.back.domain.member.profile.dtos.MemberProfileDto;
+import com.back.domain.member.profile.dtos.ProfileImageDto;
 import com.back.domain.member.profile.service.MemberProfileService;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
@@ -10,11 +14,15 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -50,20 +58,39 @@ public class ApiV1MemberProfileController {
             @NotNull String nickname,
             String webpage,
             String profileImageUrl,
-            @NotNull List<@NotBlank String> positions,
-            @NotNull List<@NotBlank String> techStacks
+            String bio,
+            String githubUsername,
+            PositionType position,
+            List<@NotBlank String> techStacks,
+            List<CareerCommand> careers,
+            List<LinkCommand> links
     ) {
     }
+
 
     @PatchMapping("/me")
     @Operation(
             summary = "내 프로필 수정",
             description = """
-                    로그인한 회원의 닉네임, 웹페이지, 프로필 이미지, 희망 포지션과 기술 스택을 수정한다.
-                    positions와 techStacks는 빈 값이 아닌 문자열 목록으로 전달해야 한다.
+                    로그인한 회원의 닉네임, 웹페이지, 프로필 이미지, 소개,
+                    희망 포지션, 기술 스택, 경력, 링크를 수정한다.
+                    nickname 외에는 모두 선택이고, 보낸 값이 곧 저장될 값이다 -
+                    생략하면 그 항목이 비워진다. 화면이 폼 전체를 보내오는 것을 전제로 한 규칙이다.
+
+                    position은 대표 포지션 하나이고 BACK/FRONT/UIUX/PM 중 하나다.
+                    techStacks의 원소는 빈 문자열이면 400-1이다.
+
+                    careers·links는 보낸 목록이 곧 저장될 목록이다 - 생략하거나 빈 배열을 보내면 전부 지운다.
+                    role(경력) 또는 label·url(링크)이 비어 있는 항목은 무시한다.
+
+                    profileImageUrl은 직접 올린 이미지만 담는다. 조회 응답은 이 값과 githubAvatarUrl을
+                    합치지 않고 그대로 내려주니, 화면이 profileImageUrl ?? githubAvatarUrl로 고르면 된다.
+                    githubAvatarUrl을 수정 요청에 실으면 아바타 주소가 '직접 올린 것'으로 굳어
+                    GitHub에서 바꿔도 반영되지 않으니 넣지 말 것.
 
                     예외
-                    - 400-1 : nickname·positions·techStacks 누락 또는 목록 원소가 빈 문자열
+                    - 400-1 : nickname 누락 또는 techStacks 원소가 빈 문자열
+                    - 400-2 : position이 정의된 값이 아님
                     - 401-1 : 미로그인
                     - 409-1 : 이미 사용 중인 닉네임
                     """
@@ -79,10 +106,38 @@ public class ApiV1MemberProfileController {
                         request.nickname,
                         request.webpage,
                         request.profileImageUrl,
-                        request.positions,
-                        request.techStacks
+                        request.bio,
+                        request.githubUsername,
+                        request.position,
+                        request.techStacks,
+                        request.careers,
+                        request.links
                 )
         );
     }
 
+    @PostMapping(value = "/me/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(
+            summary = "프로필 이미지 업로드",
+            description = """
+                    이미지를 저장하고 그 URL 을 돌려준다. 프로필에 반영되지는 않으니,
+                    화면은 받은 profileImageUrl 을 수정 요청(PATCH /me)의 같은 이름 필드에 실어 보내야 한다.
+                    이미지를 바꾸지 않는 수정이라면 이 요청 없이 PATCH 만 보내면 된다.
+
+                    jpg, png 만 받고 5MB 까지다. 화면의 업로드 컴포넌트와 같은 기준이다.
+
+                    예외
+                    - 400-1 : 파일이 비었거나, 허용하지 않는 형식이거나, 5MB 초과
+                    - 401-1 : 미로그인
+                    """
+    )
+    public RsData<ProfileImageDto> uploadProfileImage(
+            @RequestPart("file") MultipartFile file
+    ) {
+        return new RsData<>(
+                "201-1",
+                "프로필 이미지 업로드 성공",
+                new ProfileImageDto(memberProfileService.uploadProfileImage(file))
+        );
+    }
 }

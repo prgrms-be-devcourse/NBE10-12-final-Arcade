@@ -54,6 +54,9 @@ dependencies {
     runtimeOnly("com.h2database:h2")
     runtimeOnly("org.postgresql:postgresql")
 
+    // S3 호환 파일 저장소 (S3, MinIO)
+    implementation("software.amazon.awssdk:s3:2.31.78")
+
     // Querydsl (동적 쿼리)
     implementation("com.querydsl:querydsl-jpa::jakarta")
     annotationProcessor("com.querydsl:querydsl-apt::jakarta")
