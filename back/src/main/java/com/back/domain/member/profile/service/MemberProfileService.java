@@ -1,5 +1,7 @@
 package com.back.domain.member.profile.service;
 
+import com.back.domain.member.profile.dtos.CareerCommand;
+import com.back.domain.member.profile.dtos.LinkCommand;
 import com.back.domain.member.profile.dtos.MemberProfileDto;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.profile.entity.MemberProfile;
@@ -34,12 +36,15 @@ public class MemberProfileService {
     @Transactional
     public MemberProfileDto modifyProfile(
             Member actor, String nickname, String webpage, String profileImageUrl,
-            List<String> positions, List<String> techStacks) {
+            String bio,
+            List<String> positions, List<String> techStacks,
+            List<CareerCommand> careers, List<LinkCommand> links) {
 
         MemberProfile profile = memberProfileRepository.findByMember(actor)
                 .orElseGet(() -> memberProfileRepository.save(new MemberProfile(actor)));
 
-        profile.modify(nickname, webpage, profileImageUrl, positions, techStacks);
+        profile.modify(nickname, webpage, profileImageUrl, bio,
+                positions, techStacks, careers, links);
 
         try {
             memberProfileRepository.saveAndFlush(profile);

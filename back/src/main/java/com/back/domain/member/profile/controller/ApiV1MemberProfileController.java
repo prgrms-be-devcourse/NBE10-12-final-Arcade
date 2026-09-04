@@ -1,5 +1,7 @@
 package com.back.domain.member.profile.controller;
 
+import com.back.domain.member.profile.dtos.CareerCommand;
+import com.back.domain.member.profile.dtos.LinkCommand;
 import com.back.domain.member.profile.dtos.MemberProfileDto;
 import com.back.domain.member.profile.service.MemberProfileService;
 import com.back.global.rq.Rq;
@@ -50,17 +52,30 @@ public class ApiV1MemberProfileController {
             @NotNull String nickname,
             String webpage,
             String profileImageUrl,
+            String bio,
             @NotNull List<@NotBlank String> positions,
-            @NotNull List<@NotBlank String> techStacks
+            @NotNull List<@NotBlank String> techStacks,
+            List<CareerCommand> careers,
+            List<LinkCommand> links
     ) {
     }
+
 
     @PatchMapping("/me")
     @Operation(
             summary = "내 프로필 수정",
             description = """
-                    로그인한 회원의 닉네임, 웹페이지, 프로필 이미지, 희망 포지션과 기술 스택을 수정한다.
+                    로그인한 회원의 닉네임, 웹페이지, 프로필 이미지, 소개,
+                    희망 포지션, 기술 스택, 경력, 링크를 수정한다.
                     positions와 techStacks는 빈 값이 아닌 문자열 목록으로 전달해야 한다.
+
+                    careers·links는 보낸 목록이 곧 저장될 목록이다 - 생략하거나 빈 배열을 보내면 전부 지운다.
+                    role(경력) 또는 label·url(링크)이 비어 있는 항목은 무시한다.
+
+                    profileImageUrl은 직접 올린 이미지만 담는다. 조회 응답은 이 값과 githubAvatarUrl을
+                    합치지 않고 그대로 내려주니, 화면이 profileImageUrl ?? githubAvatarUrl로 고르면 된다.
+                    githubAvatarUrl을 수정 요청에 실으면 아바타 주소가 '직접 올린 것'으로 굳어
+                    GitHub에서 바꿔도 반영되지 않으니 넣지 말 것.
 
                     예외
                     - 400-1 : nickname·positions·techStacks 누락 또는 목록 원소가 빈 문자열
@@ -79,10 +94,15 @@ public class ApiV1MemberProfileController {
                         request.nickname,
                         request.webpage,
                         request.profileImageUrl,
+                        request.bio,
                         request.positions,
-                        request.techStacks
+                        request.techStacks,
+                        request.careers,
+                        request.links
                 )
         );
     }
+
+
 
 }
