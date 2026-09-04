@@ -14,6 +14,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -45,9 +46,9 @@ public class ApiV1PartyController {
     ) { }
 
     public record PartyCreateReqBody(
-        @NotNull String partyName,
-        @NotNull String title,
-        String description,
+        @NotBlank @Size(max = 10) String partyName,
+        @NotBlank @Size(max = 20) String title,
+        @Size(max = 20000) String description,
         Long targetContestId,
         String contestTitle,
         String contestLinkUrl,
@@ -95,9 +96,9 @@ public class ApiV1PartyController {
     ) { }
 
     public record PartyUpdateReqBody(
-            @NotNull String partyName,
-            @NotNull String title,
-            String description,
+            @NotBlank @Size(max = 10) String partyName,
+            @NotBlank @Size(max = 20) String title,
+            @Size(max = 20000) String description,
             Long targetContestId,
             String contestTitle,
             String contestLinkUrl,
