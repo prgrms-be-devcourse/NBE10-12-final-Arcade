@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: arcade
+    type: file
+    allowUiUpdates: false
+    disableDeletion: true
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/dashboards
+      foldersFromFilesStructure: false
