@@ -3,6 +3,7 @@ package com.back.domain.notification.notification.controller;
 import com.back.domain.notification.notification.dtos.NotificationPageDto;
 import com.back.domain.notification.notification.dtos.NotificationReadResponse;
 import com.back.domain.notification.notification.service.NotificationService;
+import com.back.domain.notification.notification.service.NotificationSseService;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.validation.annotation.Validated;
 
 import java.util.List;
@@ -33,7 +35,17 @@ import java.util.List;
 @Tag(name = "ApiV1NotificationController", description = "알림 컨트롤러")
 public class ApiV1NotificationController {
     private final NotificationService notificationService;
+    private final NotificationSseService notificationSseService;
     private final Rq rq;
+
+    @GetMapping(value = "/subscribe", produces = "text/event-stream")
+    @Operation(
+            summary = "실시간 알림 구독",
+            description = "로그인한 회원의 새 알림을 SSE 이벤트로 수신한다. 새 알림은 event: notification, data: NotificationDto 형식으로 전달된다."
+    )
+    public SseEmitter subscribe() {
+        return notificationSseService.subscribe(rq.getActorFromDb().getId());
+    }
 
     @GetMapping()
     @Operation(
