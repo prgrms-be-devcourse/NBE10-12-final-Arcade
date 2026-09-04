@@ -1,5 +1,6 @@
 package com.back.domain.member.profile.controller;
 
+import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.profile.dtos.CareerCommand;
 import com.back.domain.member.profile.dtos.LinkCommand;
 import com.back.domain.member.profile.dtos.MemberProfileDto;
@@ -53,8 +54,8 @@ public class ApiV1MemberProfileController {
             String webpage,
             String profileImageUrl,
             String bio,
-            @NotNull List<@NotBlank String> positions,
-            @NotNull List<@NotBlank String> techStacks,
+            PositionType position,
+            List<@NotBlank String> techStacks,
             List<CareerCommand> careers,
             List<LinkCommand> links
     ) {
@@ -67,7 +68,11 @@ public class ApiV1MemberProfileController {
             description = """
                     로그인한 회원의 닉네임, 웹페이지, 프로필 이미지, 소개,
                     희망 포지션, 기술 스택, 경력, 링크를 수정한다.
-                    positions와 techStacks는 빈 값이 아닌 문자열 목록으로 전달해야 한다.
+                    nickname 외에는 모두 선택이고, 보낸 값이 곧 저장될 값이다 -
+                    생략하면 그 항목이 비워진다. 화면이 폼 전체를 보내오는 것을 전제로 한 규칙이다.
+
+                    position은 대표 포지션 하나이고 BACK/FRONT/UIUX/PM 중 하나다.
+                    techStacks의 원소는 빈 문자열이면 400-1이다.
 
                     careers·links는 보낸 목록이 곧 저장될 목록이다 - 생략하거나 빈 배열을 보내면 전부 지운다.
                     role(경력) 또는 label·url(링크)이 비어 있는 항목은 무시한다.
@@ -78,7 +83,8 @@ public class ApiV1MemberProfileController {
                     GitHub에서 바꿔도 반영되지 않으니 넣지 말 것.
 
                     예외
-                    - 400-1 : nickname·positions·techStacks 누락 또는 목록 원소가 빈 문자열
+                    - 400-1 : nickname 누락 또는 techStacks 원소가 빈 문자열
+                    - 400-2 : position이 정의된 값이 아님
                     - 401-1 : 미로그인
                     - 409-1 : 이미 사용 중인 닉네임
                     """
@@ -95,7 +101,7 @@ public class ApiV1MemberProfileController {
                         request.webpage,
                         request.profileImageUrl,
                         request.bio,
-                        request.positions,
+                        request.position,
                         request.techStacks,
                         request.careers,
                         request.links

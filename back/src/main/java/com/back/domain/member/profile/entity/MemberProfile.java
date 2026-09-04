@@ -8,6 +8,8 @@ import com.back.global.jpa.entity.BaseEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
@@ -51,11 +53,9 @@ public class MemberProfile extends BaseEntity {
      */
     private String profileImageUrl;
 
-    // 지원자 목록처럼 프로필을 여러 건 읽는 화면이 붙으면 컬렉션마다 N+1 이 난다.
-    // 배치로 묶으면 프로필 N 개를 읽어도 컬렉션당 쿼리 하나로 끝난다.
-    @BatchSize(size = 100)
-    @OneToMany(mappedBy = "memberProfile", cascade = CascadeType.ALL, orphanRemoval = true)
-    private final List<MemberProfilePosition> positions = new ArrayList<>();
+    // 대표 포지션 하나다. 화면도 select 로 하나만 고르게 돼 있어 목록으로 둘 이유가 없다.
+    @Enumerated(EnumType.STRING)
+    private PositionType position;
 
     @BatchSize(size = 100)
     @OneToMany(mappedBy = "memberProfile", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -79,13 +79,11 @@ public class MemberProfile extends BaseEntity {
         this.webPage = null;
     }
 
-    public MemberProfile(Member member, String nickname, String webPage, List<String> positionTypes, List<String> techStacks) {
+    public MemberProfile(Member member, String nickname, String webPage, PositionType position, List<String> techStacks) {
         this.member = member;
         this.nickname = nickname;
         this.webPage = webPage;
-        toValidPositionTypes(positionTypes).forEach(positionType ->
-                this.positions.add(new MemberProfilePosition(this, positionType))
-        );
+        this.position = position;
         techStacks.stream()
                 .filter(Objects::nonNull)
                 .forEach(techStack -> this.techStacks.add(new MemberProfileTechStack(this, techStack)));
@@ -97,7 +95,7 @@ public class MemberProfile extends BaseEntity {
             String webpage,
             String profileImageUrl,
             String bio,
-            List<String> positions,
+            PositionType position,
             List<String> techStacks,
             List<CareerCommand> careers,
             List<LinkCommand> links
@@ -107,34 +105,18 @@ public class MemberProfile extends BaseEntity {
         this.bio = bio;
         this.profileImageUrl = profileImageUrl;
 
-        replacePositions(positions);
+        this.position = position;
         replaceTechStacks(techStacks);
         replaceCareers(careers);
         replaceLinks(links);
     }
 
-    /**
-     * 포지션은 값(enum)으로 어느 행인지 알 수 있어, 없어진 것만 지우고 새 것만 넣는다.
-     * 정의되지 않은 문자열은 조용히 버린다.
-     */
-    private void replacePositions(List<String> positions) {
-        Set<PositionType> requested = toValidPositionTypes(positions);
-
-        // orphanRemoval 에 의해 요청에서 빠진 항목만 삭제된다.
-        this.positions.removeIf(position -> !requested.contains(position.getPositionType()));
-
-        Set<PositionType> existing = this.positions.stream()
-                .map(MemberProfilePosition::getPositionType)
-                .collect(Collectors.toSet());
-
-        requested.stream()
-                .filter(position -> !existing.contains(position))
-                .forEach(position -> this.positions.add(new MemberProfilePosition(this, position)));
-    }
 
     /** 기술 스택도 값으로 비교한다. 중복은 LinkedHashSet 이 걸러낸다. */
     private void replaceTechStacks(List<String> techStacks) {
-        Set<String> requested = techStacks.stream()
+        Set<String> requested = techStacks == null
+                ? Set.of()
+                : techStacks.stream()
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
@@ -174,16 +156,4 @@ public class MemberProfile extends BaseEntity {
         return value != null && !value.isBlank();
     }
 
-    private Set<PositionType> toValidPositionTypes(List<String> positionTypes) {
-        return positionTypes.stream()
-                .filter(Objects::nonNull)
-                .flatMap(positionType -> {
-                    try {
-                        return Stream.of(PositionType.valueOf(positionType));
-                    } catch (IllegalArgumentException e) {
-                        return Stream.empty();
-                    }
-                })
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-    }
 }

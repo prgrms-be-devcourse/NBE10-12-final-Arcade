@@ -4,6 +4,7 @@ import com.back.domain.member.profile.dtos.CareerCommand;
 import com.back.domain.member.profile.dtos.LinkCommand;
 import com.back.domain.member.profile.dtos.MemberProfileDto;
 import com.back.domain.member.member.entity.Member;
+import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.profile.entity.MemberProfile;
 import com.back.domain.member.profile.repository.MemberProfileRepository;
 import com.back.global.exception.ServiceException;
@@ -37,14 +38,14 @@ public class MemberProfileService {
     public MemberProfileDto modifyProfile(
             Member actor, String nickname, String webpage, String profileImageUrl,
             String bio,
-            List<String> positions, List<String> techStacks,
+            PositionType position, List<String> techStacks,
             List<CareerCommand> careers, List<LinkCommand> links) {
 
         MemberProfile profile = memberProfileRepository.findByMember(actor)
                 .orElseGet(() -> memberProfileRepository.save(new MemberProfile(actor)));
 
         profile.modify(nickname, webpage, profileImageUrl, bio,
-                positions, techStacks, careers, links);
+                position, techStacks, careers, links);
 
         try {
             memberProfileRepository.saveAndFlush(profile);

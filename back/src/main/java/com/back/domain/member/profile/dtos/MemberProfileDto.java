@@ -1,6 +1,7 @@
 package com.back.domain.member.profile.dtos;
 
 import com.back.domain.member.member.entity.Member;
+import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.profile.entity.MemberProfile;
 
 import java.util.List;
@@ -21,7 +22,8 @@ public record MemberProfileDto(
     String bio,
     /** GitHub 계정 연동 여부만 공개한다. provider 식별자·이메일은 응답에 포함하지 않는다. */
     boolean githubLinked,
-    List<String> positions,
+    /** 대표 포지션 하나. 고르지 않았으면 null */
+    PositionType position,
     List<String> techStacks,
     List<CareerDto> careers,
     List<ProfileLinkDto> links
@@ -38,10 +40,7 @@ public record MemberProfileDto(
                 profile.getBio(),
                 profile.getMember().getGithubProviderUserId() != null
                         && !profile.getMember().getGithubProviderUserId().isBlank(),
-                profile.getPositions()
-                        .stream()
-                        .map(it -> it.getPositionType().name())
-                        .toList(),
+                profile.getPosition(),
                 profile.getTechStacks()
                         .stream()
                         .map(it -> it.getTechStack())
