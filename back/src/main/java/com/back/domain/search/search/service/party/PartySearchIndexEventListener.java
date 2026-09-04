@@ -3,7 +3,6 @@ package com.back.domain.search.search.service.party;
 import com.back.domain.party.party.event.PartySearchIndexRequestedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -15,7 +14,6 @@ public class PartySearchIndexEventListener {
 
     private final PartySearchKeywordPort partySearchKeywordPort;
 
-    @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleIndexRequested(PartySearchIndexRequestedEvent event) {
         try {
