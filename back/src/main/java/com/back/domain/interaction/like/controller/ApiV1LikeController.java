@@ -125,7 +125,7 @@ public class ApiV1LikeController {
 
         return new RsData<>(
                 "201-1",
-                "좋아요 성공",
+                "전시 성취 좋아요 성공",
                 dto
         );
     }
@@ -147,7 +147,7 @@ public class ApiV1LikeController {
 
         return new RsData<>(
                 "204-1",
-                "좋아요 취소 성공",
+                "전시 성취 좋아요 취소 성공",
                 null
         );
     }
