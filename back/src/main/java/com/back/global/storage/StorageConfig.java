@@ -7,13 +7,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.S3Configuration;
 
-import java.net.URI;
 import java.nio.file.Path;
 
 @Configuration
@@ -44,22 +39,10 @@ public class StorageConfig {
         };
     }
 
+    /** S3Client 는 프로파일별로 다르다. DevS3Config(MinIO) / ProdS3Config(실제 S3). */
     @Bean
     @ConditionalOnProperty(name = "custom.storage.type", havingValue = "s3")
-    FileStorage s3FileStorage() {
-        CustomConfigProperties.Storage.S3 properties = customConfigProperties.getStorage().getS3();
-
-        S3Client s3Client = S3Client.builder()
-                .endpointOverride(URI.create(properties.getEndpoint()))
-                .region(Region.of(properties.getRegion()))
-                .credentialsProvider(StaticCredentialsProvider.create(
-                        AwsBasicCredentials.create(properties.getAccessKey(), properties.getSecretKey())))
-                // MinIO 는 버킷을 서브도메인이 아니라 경로로 받는다.
-                .serviceConfiguration(S3Configuration.builder()
-                        .pathStyleAccessEnabled(properties.isPathStyleAccess())
-                        .build())
-                .build();
-
-        return new S3FileStorage(s3Client, properties);
+    FileStorage s3FileStorage(S3Client s3Client) {
+        return new S3FileStorage(s3Client, customConfigProperties.getStorage().getS3());
     }
 }

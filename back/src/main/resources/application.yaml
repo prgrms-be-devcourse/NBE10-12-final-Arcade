@@ -70,8 +70,8 @@ custom:
       endpoint: ${CUSTOM__STORAGE__S3__ENDPOINT:http://localhost:9000}
       region: ${CUSTOM__STORAGE__S3__REGION:us-east-1}
       bucket: ${CUSTOM__STORAGE__S3__BUCKET:arcade}
-      access-key: ${CUSTOM__STORAGE__S3__ACCESS_KEY:}
-      secret-key: ${CUSTOM__STORAGE__S3__SECRET_KEY:}
+      access-key: ${CUSTOM__STORAGE__S3__ACCESS_KEY:arcade}
+      secret-key: ${CUSTOM__STORAGE__S3__SECRET_KEY:arcade123}
       public-url-prefix: ${CUSTOM__STORAGE__S3__PUBLIC_URL_PREFIX:}
       path-style-access: ${CUSTOM__STORAGE__S3__PATH_STYLE_ACCESS:true}
   notProdMembers:

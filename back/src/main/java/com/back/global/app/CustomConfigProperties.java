@@ -69,6 +69,7 @@ public class CustomConfigProperties {
             private String secretKey;
             /** 비우면 endpoint/bucket 으로 만든다. */
             private String publicUrlPrefix;
+            /** MinIO 는 버킷을 서브도메인이 아니라 경로로 받는다. */
             private boolean pathStyleAccess = true;
         }
     }
