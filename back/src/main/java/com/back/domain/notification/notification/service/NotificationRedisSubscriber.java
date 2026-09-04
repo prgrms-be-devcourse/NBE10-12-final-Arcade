@@ -1,11 +1,11 @@
 package com.back.domain.notification.notification.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.connection.MessageListener;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 
@@ -18,11 +18,7 @@ public class NotificationRedisSubscriber implements MessageListener {
 
     @Override
     public void onMessage(Message message, byte[] pattern) {
-        try {
-            NotificationCreatedEvent event = objectMapper.readValue(message.getBody(), NotificationCreatedEvent.class);
-            notificationSseService.send(event.memberId(), event.notification());
-        } catch (IOException exception) {
-            log.error("Failed to deserialize notification Redis message", exception);
-        }
+        NotificationCreatedEvent event = objectMapper.readValue(message.getBody(), NotificationCreatedEvent.class);
+        notificationSseService.send(event.memberId(), event.notification());
     }
 }
