@@ -645,7 +645,9 @@ button.party-mini:hover{border-color:var(--accent);}
 
 .party-toolbar{display:flex;flex-wrap:wrap;gap:0.75rem;margin-top:1.625rem;}
 .search-field{position:relative;flex:1 1 16.25rem;min-width:13.75rem;}
-.search-field .search-icon{position:absolute;left:0.875rem;top:50%;transform:translateY(-50%);width:1rem;height:1rem;color:var(--text-dim);pointer-events:none;}
+.search-field .search-icon{position:absolute;left:0.75rem;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;width:1.5rem;height:1.5rem;padding:0;border:0;background:none;color:var(--text-dim);}
+.search-field .search-icon svg{width:1rem;height:1rem;}
+.search-field .search-icon:hover{color:var(--text);}
 .search-field input{
   width:100%;padding:0.75rem 0.875rem 0.75rem 2.5rem;border:0.125rem solid var(--border-strong);background:var(--surface-2);
   color:var(--text);font-family:var(--font-body);font-size:.9rem;border-radius:var(--radius-input);
