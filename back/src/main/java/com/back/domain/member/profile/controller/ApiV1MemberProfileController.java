@@ -140,4 +140,36 @@ public class ApiV1MemberProfileController {
                 new ProfileImageDto(memberProfileService.uploadProfileImage(file))
         );
     }
+
+    public record ModifyPositionReqBody(
+            @NotNull PositionType position
+    ) {
+    }
+
+    @PatchMapping("/me/position")
+    @Operation(
+            summary = "대표 포지션만 수정",
+            description = """
+                    대표 포지션 하나만 바꾼다. 나머지 항목은 건드리지 않는다.
+                    프로필이 없으면 만들어서 저장한다.
+
+                    GitHub 로 처음 가입하면 닉네임이 없어 PATCH /me 를 쓸 수 없다(nickname 필수).
+                    가입 직후 포지션을 고르게 하는 화면은 이 API 를 쓴다.
+                    포지션을 골랐는지는 조회 응답의 position 이 null 인지로 판단하면 된다.
+
+                    예외
+                    - 400-1 : position 누락
+                    - 400-2 : position 이 정의된 값이 아님
+                    - 401-1 : 미로그인
+                    """
+    )
+    public RsData<MemberProfileDto> modifyPosition(
+            @Valid @RequestBody ModifyPositionReqBody request
+    ) {
+        return new RsData<>(
+                "200-1",
+                "대표 포지션 수정 성공",
+                memberProfileService.modifyPosition(rq.getActorFromDb(), request.position)
+        );
+    }
 }
