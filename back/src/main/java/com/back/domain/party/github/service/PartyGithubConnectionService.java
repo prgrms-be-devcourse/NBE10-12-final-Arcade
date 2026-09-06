@@ -30,6 +30,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import com.back.global.github.client.dtos.GithubInstallationSnapshot;
+import com.back.global.github.client.dtos.GithubPullRequestResponse;
+import java.util.List;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.client.RestClientResponseException;
@@ -44,6 +50,7 @@ import java.util.Locale;
 @Transactional(readOnly = true)
 public class PartyGithubConnectionService {
 
+    private final PlatformTransactionManager transactionManager;
     private final PartyRepository partyRepository;
     private final PartyMemberRepository partyMemberRepository;
     private final PartyGithubConnectionRepository connectionRepository;
@@ -122,13 +129,21 @@ public class PartyGithubConnectionService {
     }
 
     /** 전역 설치 완료 callback은 inventory만 동기화하고 Party binding은 만들지 않는다. */
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void completeGlobalInstall(String state, long installationId) {
-        GithubAppGlobalInstallState installState = globalInstallStateRepository.findByState(state)
+        new TransactionTemplate(transactionManager).executeWithoutResult(ignored -> globalState(state));
+        GithubInstallationSnapshot snapshot = githubAppClient.getInstallationSnapshot(installationId);
+        new TransactionTemplate(transactionManager).executeWithoutResult(ignored -> {
+            GithubAppGlobalInstallState installState = globalState(state);
+            installationInventoryService.applySnapshot(snapshot);
+            installState.consume();
+        });
+    }
+
+    private GithubAppGlobalInstallState globalState(String state) {
+        return globalInstallStateRepository.findByState(state)
                 .filter(GithubAppGlobalInstallState::isUsable)
                 .orElseThrow(() -> new ServiceException("400-22", "GITHUB_APP_GLOBAL_INSTALL_STATE_INVALID"));
-        installationInventoryService.syncInstallation(installationId);
-        installState.consume();
     }
 
     public boolean isGlobalInstallState(String state) {
@@ -147,8 +162,40 @@ public class PartyGithubConnectionService {
                 "선택한 GitHub 저장소가 GitHub App 설치 범위에 없습니다.");
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public InstallCompletion completeInstall(String state, long installationId) {
+        InstallPreparation preparation = new TransactionTemplate(transactionManager).execute(ignored -> {
+            GithubAppInstallState installState = installStateRepository.findByState(state).filter(GithubAppInstallState::isUsable)
+                    .orElseThrow(() -> new ServiceException("400-22", "GITHUB_APP_INSTALL_STATE_INVALID"));
+            return new InstallPreparation(installState.getParty().getId(), repositoryFullName(installState.getParty().getGithubRepoUrl()));
+        });
+        GithubInstallationSnapshot snapshot;
+        GithubAppClient.Repository repository;
+        List<GithubPullRequestResponse> pullRequests;
+        try {
+            snapshot = githubAppClient.getInstallationSnapshot(installationId);
+            String token = githubAppClient.createInstallationToken(installationId);
+            repository = githubAppClient.findRepository(token, preparation.repository());
+            pullRequests = githubAppClient.getAllPullRequests(token, repository.fullName());
+        } catch (RuntimeException e) {
+            // 외부 조회 단계의 실패도 기존 설치 실패 상태로 기록하되 원래 예외를 유지한다.
+            try {
+                if (e instanceof RestClientResponseException response
+                        && (response.getStatusCode().value() == 401 || response.getStatusCode().value() == 404)) {
+                    connectionFailureService.markInstallationRequired(preparation.partyId(),
+                            "GITHUB_APP_INSTALLATION_UNAVAILABLE", "GitHub App 설치를 다시 확인해주세요.");
+                } else connectionFailureService.markError(preparation.partyId(), "GITHUB_APP_ERROR", e.getMessage());
+            } catch (RuntimeException ignored) { }
+            throw e;
+        }
+        return new TransactionTemplate(transactionManager).execute(ignored ->
+                completeInstallWithSnapshot(state, installationId, preparation.repository(), snapshot, repository, pullRequests));
+    }
+
+    private record InstallPreparation(long partyId, String repository) {}
+
+    private InstallCompletion completeInstallWithSnapshot(String state, long installationId, String requestedRepository,
+            GithubInstallationSnapshot snapshot, GithubAppClient.Repository repository, List<GithubPullRequestResponse> pullRequests) {
         GithubAppInstallState installState =
                 installStateRepository
                         .findByState(state)
@@ -161,6 +208,9 @@ public class PartyGithubConnectionService {
 
         Party party = installState.getParty();
         String expectedRepository = repositoryFullName(party.getGithubRepoUrl());
+        if (!expectedRepository.equals(requestedRepository)) {
+            throw new ServiceException("409-20", "GITHUB_INSTALLATION_REPOSITORY_CHANGED");
+        }
         PartyGithubConnection connection =
                 connectionRepository
                         .findByPartyId(party.getId())
@@ -170,10 +220,6 @@ public class PartyGithubConnectionService {
         connection.startSync();
 
         try {
-            String token = githubAppClient
-                    .createInstallationToken(installationId);
-            GithubAppClient.Repository repository =
-                    githubAppClient.findRepository(token, expectedRepository);
             connectionRepository.findByRepositoryId(repository.id())
                     .filter(other ->
                             !other.getParty().getId().equals(party.getId()))
@@ -189,16 +235,9 @@ public class PartyGithubConnectionService {
                     repository.fullName());
 
             // Party가 지정한 한 레포뿐 아니라 installation 전체 선택 범위를 inventory에 보관한다.
-            installationInventoryService.syncInstallation(installationId);
+            installationInventoryService.applySnapshot(snapshot);
 
-            partyPrService.syncExistingPullRequests(
-                    party,
-                    githubAppClient
-                            .getAllPullRequests(
-                                    token,
-                                    repository.fullName()
-                            )
-            );
+            partyPrService.syncExistingPullRequests(party, pullRequests);
 
             connection.activate();
             installState.consume();

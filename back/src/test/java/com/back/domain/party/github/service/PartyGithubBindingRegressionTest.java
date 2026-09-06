@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -29,7 +30,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -40,13 +41,17 @@ class PartyGithubBindingRegressionTest {
     @Autowired PartyRepository parties;
     @Autowired MemberRepository members;
     @Autowired GithubAppInstallationRepository installations;
-    @Autowired GithubInstallationRepositoryRepository repositories;
+    @MockitoSpyBean GithubInstallationRepositoryRepository repositories;
     @Autowired PartyGithubBindingRepository bindingRepository;
     @Autowired PartyGithubBindingAuditRepository audits;
     @Autowired PlatformTransactionManager transactionManager;
+    @Autowired jakarta.persistence.EntityManager entityManager;
     @MockitoBean GithubAppUserAuthorizationService authorization;
     @MockitoBean GithubAppUserRepositoryAccessService access;
     @MockitoBean GithubAppClient github;
+    @MockitoBean com.back.global.github.service.GithubWebhookVerifier webhookVerifier;
+    @Autowired com.back.global.github.service.GithubWebhookService webhooks;
+    @Autowired com.back.global.github.repository.GithubWebhookDeliveryRepository deliveries;
     private static final AtomicLong IDS = new AtomicLong(900000);
 
     private Fixture current;
@@ -63,7 +68,7 @@ class PartyGithubBindingRegressionTest {
             audits.deleteAll(audits.findAll().stream().filter(a -> a.getParty().getId().equals(f.party.getId())).toList());
             bindingRepository.deleteAll(bindingRepository.findAll().stream()
                     .filter(b -> b.getParty().getId().equals(f.party.getId())).toList());
-            repositories.deleteAll(List.of(f.first, f.second));
+            repositories.deleteAll(repositories.findAllByInstallationInstallationId(f.installation.getInstallationId()));
             installations.deleteById(f.installation.getId());
             parties.deleteById(f.party.getId());
         });
@@ -201,6 +206,97 @@ class PartyGithubBindingRegressionTest {
             assertThat(repositories.findAccessibleRepositories(f.installation.getInstallationId(),
                     List.of(f.first.getRepositoryId()), GithubInstallationRepositoryStatus.AVAILABLE)).isEmpty();
         });
+    }
+
+    @Test
+    void inventoryFetchesOutsideTransactionAndReadsExistingRepositoriesOnce() {
+        Fixture f = fixture();
+        long addedId = IDS.incrementAndGet();
+        new TransactionTemplate(transactionManager).executeWithoutResult(ignored ->
+                repositories.findById(f.first.getId()).orElseThrow().remove());
+        when(github.getInstallationSnapshot(anyLong())).thenCallRealMethod();
+        when(github.getInstallation(anyLong())).thenAnswer(ignored -> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            return new GithubAppClient.Installation(f.installation.getInstallationId(), 123L, "renamed-org", "Organization");
+        });
+        when(github.createInstallationToken(anyLong())).thenAnswer(ignored -> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            return "token";
+        });
+        when(github.getAllInstallationRepositories(anyString())).thenAnswer(ignored -> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            return List.of(new GithubAppClient.Repository(f.first.getRepositoryId(), "org/renamed"),
+                    new GithubAppClient.Repository(addedId, "org/added"));
+        });
+        clearInvocations(repositories);
+        inventory.syncInstallation(f.installation.getInstallationId());
+        verify(repositories, times(1)).findAllByInstallationInstallationId(f.installation.getInstallationId());
+        verify(repositories, never()).findByInstallationInstallationIdAndRepositoryId(any(), any());
+        var all = repositories.findAllByInstallationInstallationId(f.installation.getInstallationId());
+        assertThat(all).hasSize(3);
+        assertThat(all).filteredOn(r -> r.getRepositoryId().equals(f.first.getRepositoryId()))
+                .allSatisfy(r -> {
+                    assertThat(r.getFullName()).isEqualTo("org/renamed");
+                    assertThat(r.getStatus()).isEqualTo(GithubInstallationRepositoryStatus.AVAILABLE);
+                });
+        assertThat(all).filteredOn(r -> r.getRepositoryId().equals(f.second.getRepositoryId()))
+                .allSatisfy(r -> assertThat(r.getStatus()).isEqualTo(GithubInstallationRepositoryStatus.REMOVED));
+    }
+
+    @Test
+    void inventoryApiFailureDoesNotPartiallyUpdateDatabase() {
+        Fixture f = fixture();
+        when(github.getInstallationSnapshot(anyLong())).thenCallRealMethod();
+        when(github.getInstallation(anyLong())).thenReturn(new GithubAppClient.Installation(
+                f.installation.getInstallationId(), 123L, "should-not-be-saved", "Organization"));
+        when(github.getAllInstallationRepositories(anyString())).thenThrow(new IllegalStateException("GitHub unavailable"));
+        assertThatThrownBy(() -> inventory.syncInstallation(f.installation.getInstallationId()))
+                .hasMessage("GitHub unavailable");
+        assertThat(installations.findByInstallationId(f.installation.getInstallationId()).orElseThrow().getAccountLogin()).isEqualTo("org");
+        assertThat(repositories.findAllByInstallationInstallationId(f.installation.getInstallationId()))
+                .allSatisfy(r -> assertThat(r.getStatus()).isEqualTo(GithubInstallationRepositoryStatus.AVAILABLE));
+    }
+
+    @Test
+    void emptyInventoryRemovesEveryExistingRepository() {
+        Fixture f = fixture();
+        when(github.getInstallationSnapshot(anyLong())).thenReturn(new com.back.global.github.client.dtos.GithubInstallationSnapshot(
+                new GithubAppClient.Installation(f.installation.getInstallationId(), 123L, "org", "Organization"), List.of()));
+        inventory.syncInstallation(f.installation.getInstallationId());
+        assertThat(repositories.findAllByInstallationInstallationId(f.installation.getInstallationId()))
+                .hasSize(2).allSatisfy(r -> assertThat(r.getStatus()).isEqualTo(GithubInstallationRepositoryStatus.REMOVED));
+    }
+
+    @Test
+    void webhookFetchFailureCanBeRetriedAndDuplicateDeliveryIsSkipped() {
+        Fixture f = fixture();
+        String deliveryId = java.util.UUID.randomUUID().toString();
+        byte[] body = ("{\"action\":\"created\",\"installation\":{\"id\":"
+                + f.installation.getInstallationId() + "}}").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        when(github.getInstallationSnapshot(anyLong())).thenAnswer(ignored -> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            throw new IllegalStateException("GitHub unavailable");
+        });
+        assertThatThrownBy(() -> webhooks.receive("installation", "signature", deliveryId, body))
+                .hasMessage("GitHub unavailable");
+        assertThat(deliveries.existsByDeliveryId(deliveryId)).isFalse();
+        doAnswer(ignored -> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            return new com.back.global.github.client.dtos.GithubInstallationSnapshot(
+                    new GithubAppClient.Installation(f.installation.getInstallationId(), 123L, "org", "Organization"), List.of());
+        }).when(github).getInstallationSnapshot(anyLong());
+        try {
+            webhooks.receive("installation", "signature", deliveryId, body);
+            assertThat(deliveries.existsByDeliveryId(deliveryId)).isTrue();
+            assertThat(repositories.findAllByInstallationInstallationId(f.installation.getInstallationId()))
+                    .allSatisfy(r -> assertThat(r.getStatus()).isEqualTo(GithubInstallationRepositoryStatus.REMOVED));
+            webhooks.receive("installation", "signature", deliveryId, body);
+            verify(github, times(2)).getInstallationSnapshot(f.installation.getInstallationId());
+        } finally {
+            new TransactionTemplate(transactionManager).executeWithoutResult(ignored -> entityManager
+                    .createQuery("delete from GithubWebhookDelivery d where d.deliveryId = :deliveryId")
+                    .setParameter("deliveryId", deliveryId).executeUpdate());
+        }
     }
 
     private record Fixture(Member owner, Party party, GithubAppInstallation installation,

@@ -1,5 +1,7 @@
 package com.back.global.github.client;
 
+import com.back.global.github.client.dtos.GithubInstallationSnapshot;
+
 import com.back.global.github.client.dtos.GithubPullRequestResponse;
 import com.back.global.exception.ServiceException;
 import io.jsonwebtoken.Jwts;
@@ -212,6 +214,13 @@ public class GithubAppClient {
         }
 
         return result;
+    }
+
+    public GithubInstallationSnapshot getInstallationSnapshot(long installationId) {
+        Installation installation = getInstallation(installationId);
+        String token = createInstallationToken(installationId);
+        return new GithubInstallationSnapshot(
+                installation, getAllInstallationRepositories(token));
     }
 
     public record Repository(long id, String fullName) {}

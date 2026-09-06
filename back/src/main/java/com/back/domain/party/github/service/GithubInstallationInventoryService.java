@@ -13,8 +13,13 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import com.back.global.github.client.dtos.GithubInstallationSnapshot;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /** GitHub App installation 및 선택 레포 목록의 서버 inventory를 GitHub 원본과 일치시킨다. */
 @Service
@@ -24,17 +29,25 @@ public class GithubInstallationInventoryService {
     private final GithubAppInstallationRepository installationRepository;
     private final GithubInstallationRepositoryRepository repositoryRepository;
     private final GithubAppClient githubAppClient;
+    private final PlatformTransactionManager transactionManager;
 
     @EventListener
     @Transactional
     public void sync(GithubInstallationSyncRequestedEvent event) {
-        syncInstallation(event.installationId());
+        applySnapshot(event.snapshot());
     }
 
-    /** 설치 callback에서도 사용한다. GitHub App JWT가 실제 installation을 확인하므로 직접 설치에도 안전하다. */
-    @Transactional
+    /** 호출자는 외부 조회 전에 DB 트랜잭션을 끝내야 한다. */
+    @Transactional(propagation = Propagation.NEVER)
     public void syncInstallation(long installationId) {
-        GithubAppClient.Installation remote = githubAppClient.getInstallation(installationId);
+        GithubInstallationSnapshot snapshot = githubAppClient.getInstallationSnapshot(installationId);
+        new TransactionTemplate(transactionManager).executeWithoutResult(ignored -> applySnapshot(snapshot));
+    }
+
+    @Transactional
+    public void applySnapshot(GithubInstallationSnapshot snapshot) {
+        GithubAppClient.Installation remote = snapshot.installation();
+        long installationId = remote.id();
         GithubAppInstallation installation = installationRepository.findByInstallationId(installationId)
                 .map(existing -> {
                     existing.refreshAccount(remote.accountGithubId(), remote.accountLogin(), remote.accountType());
@@ -43,20 +56,16 @@ public class GithubInstallationInventoryService {
                 .orElseGet(() -> installationRepository.save(new GithubAppInstallation(
                         remote.id(), remote.accountGithubId(), remote.accountLogin(), remote.accountType(), null)));
 
-        String token = githubAppClient.createInstallationToken(installationId);
-        Set<Long> selectedIds = new HashSet<>();
-        for (GithubAppClient.Repository remoteRepository : githubAppClient.getAllInstallationRepositories(token)) {
-            selectedIds.add(remoteRepository.id());
-            repositoryRepository.findByInstallationInstallationIdAndRepositoryId(installationId, remoteRepository.id())
-                    .ifPresentOrElse(
-                            existing -> existing.refresh(remoteRepository.fullName()),
-                            () -> repositoryRepository.save(new GithubInstallationRepository(
-                                    installation, remoteRepository.id(), remoteRepository.fullName())));
+        Map<Long, GithubInstallationRepository> existingById = repositoryRepository
+                .findAllByInstallationInstallationId(installationId).stream()
+                .collect(Collectors.toMap(GithubInstallationRepository::getRepositoryId, Function.identity()));
+        for (GithubAppClient.Repository remoteRepository : snapshot.repositories()) {
+            GithubInstallationRepository existing = existingById.remove(remoteRepository.id());
+            if (existing != null) existing.refresh(remoteRepository.fullName());
+            else repositoryRepository.save(new GithubInstallationRepository(
+                    installation, remoteRepository.id(), remoteRepository.fullName()));
         }
-
-        repositoryRepository.findAllByInstallationInstallationId(installationId).stream()
-                .filter(repository -> !selectedIds.contains(repository.getRepositoryId()))
-                .forEach(GithubInstallationRepository::remove);
+        existingById.values().forEach(GithubInstallationRepository::remove);
     }
 
     @EventListener

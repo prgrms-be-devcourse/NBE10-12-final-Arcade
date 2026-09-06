@@ -55,14 +55,13 @@ public class PartyGithubBindingService {
     private final PartyPrService partyPrService;
     private final PartyGithubConnectionService connectionService;
 
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public List<GithubConnectableRepositoryDto> getConnectableRepositories(long partyId, Member actor) {
-        Party party = party(partyId);
-        ensureOwner(party, actor);
+        new TransactionTemplate(transactionManager).executeWithoutResult(ignored -> ensureOwner(party(partyId), actor));
         return getConnectableRepositories(actor);
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public List<GithubConnectableRepositoryDto> getConnectableRepositories(Member actor) {
         String token = userAuthorizationService.validAccessToken(actor);
         List<GithubAppUserRepositoryAccessService.AccessibleRepository> accessibleRepositories =
