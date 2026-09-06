@@ -24,9 +24,13 @@ public class AuthService {
             String githubProviderUserId) {
 
         Member member = memberRepository.findByGithubProviderUserId(githubProviderUserId).orElse(null);
+        if (member == null) {
+            Long githubUserId = githubUserId(githubProviderUserId);
+            member = githubUserId == null ? null : memberRepository.findByGithubUserId(githubUserId).orElse(null);
+        }
 
         if (member != null) {
-
+            setGithubSocial(member, githubProviderUserId, email);
             modify(member, profileImgUrl);
             return new RsData<>("200-1", "회원 정보가 수정되었습니다.", member);
 
@@ -41,7 +45,7 @@ public class AuthService {
             return new RsData<>("201-1", "회원가입이 완료되었습니다.", member);
         }
 
-        member.setGithubSocial(githubProviderUserId, email);
+        setGithubSocial(member, githubProviderUserId, email);
 
         return new RsData<>("200-1", "Github 소셜 로그인 연동이 완료되었습니다.", member);
     }
@@ -58,12 +62,17 @@ public class AuthService {
         if (linkedMember != null && !Objects.equals(linkedMember.getId(), managedActor.getId())) {
             throw new ServiceException("409-1", "이미 다른 계정에 연결된 GitHub 계정입니다.");
         }
+        Long githubUserId = githubUserId(githubProviderUserId);
+        Member appLinkedMember = githubUserId == null ? null : memberRepository.findByGithubUserId(githubUserId).orElse(null);
+        if (appLinkedMember != null && !Objects.equals(appLinkedMember.getId(), managedActor.getId())) {
+            throw new ServiceException("409-1", "이미 다른 계정에 GitHub App 인증으로 연결된 GitHub 계정입니다.");
+        }
 
         if (managedActor.getGithubProviderUserId() != null && !managedActor.getGithubProviderUserId().isBlank()) {
             throw new ServiceException("400-1", "현재 계정에는 이미 GitHub 계정이 연결되어 있습니다.");
         }
 
-        managedActor.setGithubSocial(githubProviderUserId, githubEmail);
+        setGithubSocial(managedActor, githubProviderUserId, githubEmail);
         managedActor.setProfileImgUrl(profileImgUrl);
 
         return managedActor;
@@ -83,5 +92,24 @@ public class AuthService {
         newMember.setGithubSocial(githubProviderUserId, email);
 
         return memberRepository.save(newMember);
+    }
+
+    private void setGithubSocial(Member member, String githubProviderUserId, String githubEmail) {
+        try {
+            member.setGithubSocial(githubProviderUserId, githubEmail);
+        } catch (IllegalArgumentException e) {
+            throw new ServiceException("403-1", "GITHUB_SOCIAL_ACCOUNT_MISMATCH");
+        }
+    }
+
+    private Long githubUserId(String githubProviderUserId) {
+        if (githubProviderUserId == null) return null;
+        String value = githubProviderUserId.startsWith("GITHUB__")
+                ? githubProviderUserId.substring("GITHUB__".length()) : githubProviderUserId;
+        try {
+            return Long.valueOf(value);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 }

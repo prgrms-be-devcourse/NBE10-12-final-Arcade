@@ -38,6 +38,9 @@ public class Member extends BaseEntity {
     private Role role = Role.MEMBER;
     @Column(unique = true)
     private String githubProviderUserId = null;
+    /** GitHub가 부여한 불변 numeric user id. PR 작성자 및 GitHub App user token의 계정 대조에 사용한다. */
+    @Column(unique = true)
+    private Long githubUserId = null;
     private String githubEmail = null;
 
     /** JWT 인증 정보를 담는 비영속 임시 회원 객체용 생성자다. */
@@ -55,8 +58,36 @@ public class Member extends BaseEntity {
     }
 
     public void setGithubSocial(String githubProviderUserId, String githubEmail) {
+        Long socialGithubUserId = numericGithubUserId(githubProviderUserId);
+        if (this.githubUserId != null && socialGithubUserId != null && !this.githubUserId.equals(socialGithubUserId)) {
+            throw new IllegalArgumentException("이미 연결된 GitHub App 인증 계정과 다른 GitHub 소셜 계정입니다.");
+        }
         this.githubProviderUserId = githubProviderUserId;
         this.githubEmail = githubEmail;
+        this.githubUserId = socialGithubUserId;
+    }
+
+    /**
+     * GitHub App 사용자 인증으로 확인한 불변 GitHub ID를 연결한다.
+     * 소셜 계정이 이미 연결돼 있으면 같은 계정인지 검증하고, 없으면 App 인증을 최초 연결로 사용한다.
+     */
+    public void linkGithubAppUserId(long githubUserId) {
+        Long knownId = this.githubUserId == null ? numericGithubUserId(this.githubProviderUserId) : this.githubUserId;
+        if (knownId != null && knownId != githubUserId) {
+            throw new IllegalArgumentException("연결된 GitHub 계정과 GitHub App 인증 계정이 일치하지 않습니다.");
+        }
+        this.githubUserId = githubUserId;
+    }
+
+    private Long numericGithubUserId(String providerUserId) {
+        if (providerUserId == null) return null;
+        String value = providerUserId.startsWith("GITHUB__")
+                ? providerUserId.substring("GITHUB__".length()) : providerUserId;
+        try {
+            return Long.valueOf(value);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 
     public void modifyApiKey(String apiKey) {
