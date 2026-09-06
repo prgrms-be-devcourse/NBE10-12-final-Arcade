@@ -11,12 +11,13 @@ import com.back.global.github.client.GithubAppClient;
 import com.back.global.github.event.GithubInstallationRepositoryRemovedEvent;
 import com.back.global.github.event.GithubInstallationUnavailableEvent;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
@@ -48,7 +49,27 @@ class PartyGithubBindingRegressionTest {
     @MockitoBean GithubAppClient github;
     private static final AtomicLong IDS = new AtomicLong(900000);
 
+    private Fixture current;
     private Fixture fixture() {
+        current = new TransactionTemplate(transactionManager).execute(ignored -> createFixture());
+        return current;
+    }
+
+    @AfterEach
+    void cleanup() {
+        if (current == null) return;
+        Fixture f = current;
+        new TransactionTemplate(transactionManager).executeWithoutResult(ignored -> {
+            audits.deleteAll(audits.findAll().stream().filter(a -> a.getParty().getId().equals(f.party.getId())).toList());
+            bindingRepository.deleteAll(bindingRepository.findAll().stream()
+                    .filter(b -> b.getParty().getId().equals(f.party.getId())).toList());
+            repositories.deleteAll(List.of(f.first, f.second));
+            installations.deleteById(f.installation.getId());
+            parties.deleteById(f.party.getId());
+        });
+    }
+
+    private Fixture createFixture() {
         Member owner = members.findByEmail("user1@test.com").orElseThrow();
         Party party = parties.save(new Party(owner, "연결 테스트", "테스트", "설명", null, null, null,
                 TopicType.PROJECT, PartyTag.WEB, null, 1, LocalDateTime.now().plusDays(7)));
@@ -66,7 +87,6 @@ class PartyGithubBindingRegressionTest {
     }
 
     @Test
-    @Transactional
     void repeatedDisconnectReturnsLatestHistory() {
         Fixture f = fixture();
         bindings.connect(f.party.getId(), f.first.getId(), f.owner);
@@ -79,7 +99,6 @@ class PartyGithubBindingRegressionTest {
     }
 
     @Test
-    @Transactional
     void removedRepositoryRequiresInstallationAndCanRecover() {
         Fixture f = fixture();
         bindings.connect(f.party.getId(), f.first.getId(), f.owner);
@@ -88,12 +107,12 @@ class PartyGithubBindingRegressionTest {
         var status = connections.getStatus(f.party.getId(), f.owner);
         assertThat(status.status()).isEqualTo("INSTALLATION_REQUIRED");
         assertThat(status.lastErrorCode()).isEqualTo("GITHUB_APP_REPOSITORY_REMOVED");
-        f.first.refresh("org/first");
+        new TransactionTemplate(transactionManager).executeWithoutResult(ignored ->
+                repositories.findById(f.first.getId()).orElseThrow().refresh("org/first"));
         assertThat(connections.getStatus(f.party.getId(), f.owner).status()).isEqualTo("ACTIVE");
     }
 
     @Test
-    @Transactional
     void suspendedAndDeletedInstallationAreNotActive() {
         Fixture f = fixture();
         bindings.connect(f.party.getId(), f.first.getId(), f.owner);
@@ -110,28 +129,27 @@ class PartyGithubBindingRegressionTest {
     @Test
     void concurrentConnectionsToDifferentRepositoriesAllowOnlyOneBinding() throws Exception {
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
-        Fixture f = tx.execute(ignored -> fixture());
+        Fixture f = fixture();
         CountDownLatch firstSync = new CountDownLatch(1);
         CountDownLatch releaseFirst = new CountDownLatch(1);
-        CountDownLatch secondStarted = new CountDownLatch(1);
+        java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
         when(github.createInstallationToken(anyLong())).thenAnswer(ignored -> {
-            firstSync.countDown();
-            if (!releaseFirst.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("sync timeout");
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            if (calls.incrementAndGet() == 1) {
+                firstSync.countDown();
+                if (!releaseFirst.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("sync timeout");
+            }
             return "installation-token";
         });
         ExecutorService executor = Executors.newFixedThreadPool(2);
         try {
             Future<?> first = executor.submit(() -> bindings.connect(f.party.getId(), f.first.getId(), f.owner));
             assertThat(firstSync.await(5, TimeUnit.SECONDS)).isTrue();
-            Future<?> second = executor.submit(() -> {
-                secondStarted.countDown();
-                return bindings.connect(f.party.getId(), f.second.getId(), f.owner);
-            });
-            assertThat(secondStarted.await(5, TimeUnit.SECONDS)).isTrue();
-            assertThatThrownBy(() -> second.get(200, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+            Future<?> second = executor.submit(() -> bindings.connect(f.party.getId(), f.second.getId(), f.owner));
+            // 첫 요청의 외부 API가 지연돼도 두 번째 요청은 DB 잠금을 기다리지 않는다.
+            second.get(5, TimeUnit.SECONDS);
             releaseFirst.countDown();
-            first.get(5, TimeUnit.SECONDS);
-            assertThatThrownBy(() -> second.get(5, TimeUnit.SECONDS))
+            assertThatThrownBy(() -> first.get(5, TimeUnit.SECONDS))
                     .isInstanceOf(ExecutionException.class)
                     .hasCauseInstanceOf(ServiceException.class)
                     .hasRootCauseMessage("409-20 : PARTY_GITHUB_REPOSITORY_ALREADY_CONNECTED");
@@ -141,16 +159,48 @@ class PartyGithubBindingRegressionTest {
             releaseFirst.countDown();
             executor.shutdownNow();
             assertThat(executor.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
-            tx.executeWithoutResult(ignored -> {
-                audits.deleteAll(audits.findAll().stream()
-                        .filter(audit -> audit.getParty().getId().equals(f.party.getId())).toList());
-                bindingRepository.deleteAll(bindingRepository.findAll().stream()
-                        .filter(binding -> binding.getParty().getId().equals(f.party.getId())).toList());
-                repositories.deleteAll(List.of(f.first, f.second));
-                installations.deleteById(f.installation.getId());
-                parties.deleteById(f.party.getId());
-            });
+
         }
+    }
+
+    @Test
+    void githubFailureDoesNotLeaveBinding() {
+        Fixture f = fixture();
+        when(github.getAllPullRequests(anyString(), anyString())).thenAnswer(ignored -> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            throw new IllegalStateException("GitHub unavailable");
+        });
+        assertThatThrownBy(() -> bindings.connect(f.party.getId(), f.first.getId(), f.owner))
+                .hasMessage("GitHub unavailable");
+        assertThat(connections.getStatus(f.party.getId(), f.owner).status()).isEqualTo("NOT_CONNECTED");
+    }
+
+    @Test
+    void repositoryRemovedDuringGithubCallCannotBeConnected() {
+        Fixture f = fixture();
+        when(github.getAllPullRequests(anyString(), anyString())).thenAnswer(ignored -> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            inventory.markRepositoryRemoved(new GithubInstallationRepositoryRemovedEvent(
+                    f.installation.getInstallationId(), f.first.getRepositoryId()));
+            return List.of();
+        });
+        assertThatThrownBy(() -> bindings.connect(f.party.getId(), f.first.getId(), f.owner))
+                .hasMessage("409-20 : GITHUB_INSTALLATION_REPOSITORY_UNAVAILABLE");
+    }
+
+    @Test
+    void repositoryQueryRestrictsInstallationIdsRepositoryIdsAndStatus() {
+        Fixture f = fixture();
+        new TransactionTemplate(transactionManager).executeWithoutResult(ignored -> {
+            assertThat(repositories.findAccessibleRepositories(f.installation.getInstallationId(),
+                    List.of(f.first.getRepositoryId()), GithubInstallationRepositoryStatus.AVAILABLE))
+                    .extracting(GithubInstallationRepository::getId).containsExactly(f.first.getId());
+            assertThat(repositories.findAccessibleRepositories(-1, List.of(f.first.getRepositoryId()),
+                    GithubInstallationRepositoryStatus.AVAILABLE)).isEmpty();
+            repositories.findById(f.first.getId()).orElseThrow().remove();
+            assertThat(repositories.findAccessibleRepositories(f.installation.getInstallationId(),
+                    List.of(f.first.getRepositoryId()), GithubInstallationRepositoryStatus.AVAILABLE)).isEmpty();
+        });
     }
 
     private record Fixture(Member owner, Party party, GithubAppInstallation installation,
