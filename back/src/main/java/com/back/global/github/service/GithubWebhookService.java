@@ -3,6 +3,7 @@ package com.back.global.github.service;
 import com.back.global.github.client.dtos.GithubPullRequestWebhookPayload;
 import com.back.global.github.entity.GithubWebhookDelivery;
 import com.back.global.github.event.GithubInstallationRepositoryRemovedEvent;
+import com.back.global.github.event.GithubInstallationSyncRequestedEvent;
 import com.back.global.github.event.GithubInstallationUnavailableEvent;
 import com.back.global.github.event.GithubPullRequestReceivedEvent;
 import com.back.global.github.repository.GithubWebhookDeliveryRepository;
@@ -43,12 +44,21 @@ public class GithubWebhookService {
         long installationId = requiredInstallationId(payload);
         String action = payload.path("action").asText();
         if ("deleted".equals(action) || "suspend".equals(action)) {
-            eventPublisher.publishEvent(new GithubInstallationUnavailableEvent(installationId));
+            eventPublisher.publishEvent(new GithubInstallationUnavailableEvent(installationId, "deleted".equals(action)));
+            return;
+        }
+        if ("created".equals(action) || "unsuspend".equals(action) || "new_permissions_accepted".equals(action)) {
+            eventPublisher.publishEvent(new GithubInstallationSyncRequestedEvent(installationId));
         }
     }
 
     private void handleInstallationRepositories(JsonNode payload) {
         long installationId = requiredInstallationId(payload);
+        JsonNode added = payload.path("repositories_added");
+        if (added.isArray() && !added.isEmpty()) {
+            // 추가 레포의 이름 변경·기존 remove 복구까지 한 번에 맞추기 위해 전체 inventory를 동기화한다.
+            eventPublisher.publishEvent(new GithubInstallationSyncRequestedEvent(installationId));
+        }
         JsonNode removed = payload.path("repositories_removed");
         if (!removed.isArray()) return;
         for (JsonNode repository : removed) {
