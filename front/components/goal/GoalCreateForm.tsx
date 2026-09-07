@@ -65,7 +65,8 @@ export function GoalCreateForm() {
   useEffect(() => {
     if (isContest) return;
     let alive = true;
-    fetchTodos()
+    // 이미 다른 성취에 연결된 TODO 를 고르면 서버가 409 로 거절한다. 후보에서 아예 뺀다
+    fetchTodos({ linked: false, size: 100 })
       .then((rows) => {
         if (alive) setTodos(rows);
       })

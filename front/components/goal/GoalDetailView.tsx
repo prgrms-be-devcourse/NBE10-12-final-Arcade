@@ -238,8 +238,21 @@ function ProjectSection({ goal, isOwner }: { goal: GoalDetailResponse; isOwner: 
                 '등록된 저장소 없음'
               ),
             ],
+            [
+              '전시',
+              // 파티장이 전시글을 게시했을 때만 서버가 showcaseTitle 을 채운다
+              project.showcaseTitle ? (
+                <Link href={`/exhibition/${project.partyId}`}>{project.showcaseTitle} →</Link>
+              ) : (
+                '아직 게시되지 않음'
+              ),
+            ],
           ]}
         />
+
+        {project.showcaseDescription ? (
+          <p className="detail-desc">{project.showcaseDescription}</p>
+        ) : null}
 
         {detail.result ? <p className="detail-desc">{detail.result}</p> : null}
       </Block>

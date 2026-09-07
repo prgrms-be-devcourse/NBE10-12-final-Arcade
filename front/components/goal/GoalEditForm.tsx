@@ -1,12 +1,12 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/icons/Icon';
 import { FormActions, FormGroup, FormRow, TextAreaField, TextField } from '@/components/ui/Field';
 import { RadioChipGroup } from '@/components/ui/RadioChipGroup';
 import { Button } from '@/components/ui/Button';
-import { ApiError } from '@/lib/api';
+import { ApiError, fetchSoloSpace, fetchTodos } from '@/lib/api';
 import {
   evidenceFilesOf,
   formatFileSize,
@@ -14,8 +14,13 @@ import {
   type GoalDetailResponse,
   type UpdateGoalPayload,
 } from '@/lib/api/goals';
-import { GOAL_STATUS_LABELS, GOAL_STATUS_TRANSITIONS, GOAL_TYPE_LABELS } from '@/lib/constants';
-import type { GoalStatus } from '@/lib/types';
+import {
+  GOAL_STATUS_LABELS,
+  GOAL_STATUS_TRANSITIONS,
+  GOAL_TYPE_LABELS,
+  todoCategoryLabel,
+} from '@/lib/constants';
+import type { GoalStatus, TodoItem } from '@/lib/types';
 
 const TEAM_OPTIONS = ['팀 참가', '개인 참가'] as const;
 
@@ -120,11 +125,77 @@ export function GoalEditForm({ goal }: { goal: GoalDetailResponse }) {
   const [memo, setMemo] = useState(detail.memo ?? '');
   const [targetDate, setTargetDate] = useState(dateValue(detail.targetDate));
 
+  /*
+   * 연결할 개인 TODO.
+   *
+   * 진실은 todoId 다 - 목록을 아직 못 읽었거나 목록에 없더라도 id 만 유지되면 연결이 살아 있다.
+   * 화면 카드는 목록에서 찾아 그린다. 서버는 todoId 를 빼고 보내면 연결을 끊는다(GoalService.linkTodo).
+   */
+  const [todoId, setTodoId] = useState<number | null>(detail.todoId ?? null);
+  const [todos, setTodos] = useState<TodoItem[]>([]);
+  const [todosLoaded, setTodosLoaded] = useState(false);
+  const [todoKeyword, setTodoKeyword] = useState('');
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const isContest = goal.type === 'CONTEST';
+
+  /*
+   * 고를 수 있는 후보는 '아직 연결되지 않은 TODO' 다 - 남의 성취에 붙은 걸 고르면 서버가 409 로 막는다.
+   * 다만 지금 이 성취에 연결된 TODO 는 그 목록에 없으므로(이미 연결돼 있으니) 따로 읽어 얹는다.
+   * 그래야 수정 화면을 열었을 때 기존 연결이 카드로 보인다.
+   */
+  useEffect(() => {
+    if (isContest) return;
+    let alive = true;
+    const linkedId = detail.todoId ?? null;
+
+    Promise.all([
+      fetchTodos({ linked: false, size: 100 }),
+      linkedId != null ? fetchSoloSpace(String(linkedId)).catch(() => null) : Promise.resolve(null),
+    ])
+      .then(([rows, linked]) => {
+        if (!alive) return;
+        setTodos(
+          linked
+            ? [
+                {
+                  id: linked.id,
+                  title: linked.title,
+                  category: linked.type,
+                  createdAt: linked.createdAt,
+                  status: 'IN_PROGRESS' as GoalStatus,
+                  totalCount: linked.totalCount,
+                  doneCount: linked.doneCount,
+                },
+                ...rows,
+              ]
+            : rows,
+        );
+      })
+      .catch(() => {
+        if (alive) setTodos([]);
+      })
+      .finally(() => {
+        if (alive) setTodosLoaded(true);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [isContest, detail.todoId]);
+
+  const pickedTodo = todos.find((todo) => Number(todo.id) === todoId) ?? null;
+
+  const todoResults = useMemo(() => {
+    const keyword = todoKeyword.trim().toLowerCase();
+    const rows = keyword
+      ? todos.filter((todo) => todo.title.toLowerCase().includes(keyword))
+      : todos;
+    return rows.slice(0, 8);
+  }, [todos, todoKeyword]);
 
   const addFiles = (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -210,6 +281,8 @@ export function GoalEditForm({ goal }: { goal: GoalDetailResponse }) {
             title: title.trim(),
             memo: trimmed(memo),
             targetDate: trimmed(targetDate),
+            // 화면에 붙어 있는 연결이 곧 저장될 연결이다. 해제했으면 null 이 가서 끊긴다
+            todoId,
           },
     };
 
@@ -370,6 +443,72 @@ export function GoalEditForm({ goal }: { goal: GoalDetailResponse }) {
         </>
       ) : (
         <>
+          <FormGroup
+            label="연결할 개인 TODO"
+            hint="연결하면 그 할 일 목록이 성취의 진행 과정으로 남아요. 해제하면 진행 과정도 함께 사라집니다."
+          >
+            {!todosLoaded ? (
+              <p className="form-hint">개인 TODO를 불러오는 중이에요.</p>
+            ) : pickedTodo ? (
+              <div className="picked-card">
+                <span className="picker-poster">{todoCategoryLabel(pickedTodo.category)}</span>
+                <span className="picker-meta">
+                  <span className="pname">{pickedTodo.title}</span>
+                  <span className="psub">
+                    {pickedTodo.createdAt} 생성 · 할 일 {pickedTodo.doneCount}/{pickedTodo.totalCount}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  className="picked-clear"
+                  onClick={() => {
+                    setTodoId(null);
+                    setTodoKeyword('');
+                  }}
+                >
+                  연결 해제
+                </button>
+              </div>
+            ) : (
+              <div className="picker">
+                <div className="contest-link-field">
+                  <TextField
+                    placeholder="TODO 제목으로 검색 (예: 정보처리기사)"
+                    autoComplete="off"
+                    value={todoKeyword}
+                    onChange={(event) => setTodoKeyword(event.target.value)}
+                  />
+                </div>
+                {todoResults.length > 0 ? (
+                  <div className="picker-results">
+                    {todoResults.map((todo) => (
+                      <button
+                        key={todo.id}
+                        type="button"
+                        className="picker-item"
+                        onClick={() => setTodoId(Number(todo.id))}
+                      >
+                        <span className="picker-poster">{todoCategoryLabel(todo.category)}</span>
+                        <span className="picker-meta">
+                          <span className="pname">{todo.title}</span>
+                          <span className="psub">
+                            {todo.createdAt} 생성 · 할 일 {todo.doneCount}/{todo.totalCount}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="form-hint">
+                    {todoKeyword.trim()
+                      ? '검색 결과가 없어요.'
+                      : '연결할 수 있는 개인 TODO가 없어요. 마이페이지에서 먼저 만들어 주세요.'}
+                  </p>
+                )}
+              </div>
+            )}
+          </FormGroup>
+
           <FormGroup label="목표 제목" htmlFor="goalTitle" required error={errors.title}>
             <TextField
               id="goalTitle"

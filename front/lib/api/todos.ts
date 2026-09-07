@@ -11,6 +11,9 @@ export interface SoloSpaceData {
   type: string;
   createdAt: string;
   memo: string;
+  /** 항목 수 · 완료 수. 성취 수정 화면의 연결 카드가 진행률로 쓴다 */
+  totalCount: number;
+  doneCount: number;
   checklist: ChecklistItem[];
 }
 
@@ -74,12 +77,24 @@ function toChecklistItem(item: PersonalTodoItemResponse): ChecklistItem {
   };
 }
 
-/** GET /todos/me */
-export async function fetchTodos(): Promise<TodoItem[]> {
+/**
+ * GET /todos/me — 내 개인 TODO 목록.
+ *
+ * linked=false 를 주면 아직 성취에 연결되지 않은 것만 온다. 성취 등록·수정 화면의 TODO 선택은
+ * 이미 연결된 것을 고르면 서버가 409 로 거절하므로 이 필터를 써야 한다.
+ *
+ * size 기본값은 20 이다. 선택 목록처럼 전부 필요한 곳은 최대치(100)를 준다.
+ */
+export async function fetchTodos(options?: {
+  linked?: boolean;
+  size?: number;
+}): Promise<TodoItem[]> {
   if (USE_MOCK) return mockResponse(MOCK_TODOS);
 
   // 서버가 Page 로 감싸 내려주므로 content 만 꺼낸다
-  const page = await http.get<{ content: PersonalTodoResponse[] }>('/todos/me');
+  const page = await http.get<{ content: PersonalTodoResponse[] }>('/todos/me', {
+    query: { linked: options?.linked, size: options?.size },
+  });
   return page.content.map(toTodoItem);
 }
 
@@ -117,7 +132,13 @@ export async function createTodo(payload: {
 export async function fetchSoloSpace(id: string): Promise<SoloSpaceData> {
   if (USE_MOCK) {
     const found = MOCK_SOLO_SPACES[id];
-    if (found) return mockResponse(found);
+    if (found) {
+      return mockResponse({
+        ...found,
+        totalCount: found.checklist.length,
+        doneCount: found.checklist.filter((item) => item.state === 'done').length,
+      });
+    }
     // 알 수 없는 id 는 빈 목록으로 돌려준다 (다른 항목 내용을 잘못 보여주지 않도록)
     return mockResponse({
       id,
@@ -125,6 +146,8 @@ export async function fetchSoloSpace(id: string): Promise<SoloSpaceData> {
       type: '기타',
       createdAt: '방금 생성',
       memo: '',
+      totalCount: 0,
+      doneCount: 0,
       checklist: [],
     });
   }
@@ -135,6 +158,8 @@ export async function fetchSoloSpace(id: string): Promise<SoloSpaceData> {
     type: todoCategoryLabel(dto.category),
     createdAt: toDateText(dto.createDate),
     memo: dto.memo ?? '',
+    totalCount: dto.totalCount,
+    doneCount: dto.doneCount,
     checklist: dto.items.map(toChecklistItem),
   };
 }

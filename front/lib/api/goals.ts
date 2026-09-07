@@ -46,7 +46,7 @@ export interface GoalDetailFields {
   /** CONTEST */
   isTeam?: boolean;
   awardDate?: string;
-  /** 외부 대회 원본 페이지 주소. [서버 미지원] PersonalContest 에 아직 컬럼이 없다 */
+  /** 외부 대회 원본 페이지 주소 */
   contestUrl?: string;
   targetContestId?: number;
   /**
@@ -66,10 +66,7 @@ export interface GoalDetailFields {
   /** CHECKLIST */
   memo?: string;
   targetDate?: string;
-  /**
-   * 연결된 개인 TODO의 id. 항목까지 보려면 상세 응답의 todo 블록을 쓴다.
-   * [서버 미지원] PersonalChecklist 에 FK 는 있지만 응답에 아직 담기지 않는다.
-   */
+  /** 연결된 개인 TODO의 id. 항목까지 보려면 상세 응답의 todo 블록을 쓴다 */
   todoId?: number | null;
 }
 
@@ -126,6 +123,10 @@ export interface ProjectContextResponse {
   /** 이 파티에서 맡은 포지션. 파티장은 지원 절차가 없어 값이 없다 */
   myPositionType?: GoalPositionType;
   partyOwner: boolean;
+  /** 전시 게시글 제목. 파티장이 게시하기 전이면 응답에서 빠진다 */
+  showcaseTitle?: string;
+  /** 전시 게시글 본문. 게시 전이면 응답에서 빠진다 */
+  showcaseDescription?: string;
   /** 본인 성취를 볼 때만 채워진다. 남의 성취에서는 빈 배열 */
   pullRequests: PartyPrResponse[];
 }
@@ -145,7 +146,7 @@ export interface TodoItemResponse {
  * CHECKLIST 성취에 연결된 개인 TODO (백엔드 TodoContextDto).
  *
  * 개인 TODO 자체는 비공개지만, 성취에 연결한 것을 공개 의사표시로 보고 남의 성취에서도 보여준다.
- * [서버 미지원] PersonalChecklist 에 FK 는 있지만 상세 응답에 이 블록이 아직 없다.
+ * 다만 여기서 개인 TODO 페이지로 이동시키면 안 된다 - 그 화면은 소유자 전용이라 403 이 난다.
  */
 export interface TodoContextResponse {
   todoId: number;
@@ -206,7 +207,6 @@ export interface GoalDetailPayload {
   /**
    * 외부 대회 원본 페이지 주소. 비울 땐 null.
    * 자기신고 대회 성취는 크루온에 없는 외부 대회를 기록하는 것이라 링크를 직접 받는다.
-   * [서버 미지원] PersonalContest 에 컬럼이, GoalDetailReqBody 에 필드가 아직 없다.
    */
   contestUrl?: string | null;
   /**
@@ -227,10 +227,7 @@ export interface GoalDetailPayload {
   memo?: string;
   /** yyyy-MM-dd */
   targetDate?: string;
-  /**
-   * 연결할 개인 TODO. 그 TODO의 할 일 목록이 성취의 진행 과정으로 붙는다. 끊을 땐 null.
-   * [서버 미지원] PersonalChecklist 에 FK 는 있지만 GoalDetailReqBody 에 필드가 아직 없다.
-   */
+  /** 연결할 개인 TODO. 그 TODO의 할 일 목록이 성취의 진행 과정으로 붙는다. 끊을 땐 null. */
   todoId?: number | null;
 }
 
@@ -417,7 +414,6 @@ export async function fetchGoalDetail(goalId: string | number): Promise<GoalDeta
  * DELETE /api/v1/goals/{goalId} — 성취 삭제.
  *
  * 자기신고 성취만 지울 수 있다. 자동기록 성취는 서버가 409-1 로 막는다.
- * 서버 구현은 아직 붙지 않았고(작업표 8번), 화면 쪽 흐름만 먼저 맞춰 둔다.
  */
 export async function deleteGoal(goalId: string | number): Promise<void> {
   if (USE_MOCK) return mockResponse(undefined as void);
@@ -436,7 +432,6 @@ export type UpdateGoalPayload = Pick<CreateGoalPayload, 'status' | 'detail'>;
  * PATCH /api/v1/goals/{goalId} — 성취 수정.
  *
  * 자기신고 성취만 고칠 수 있다. 자동기록 성취는 서버가 409-1 로 막는다.
- * 서버 구현은 아직 붙지 않았고(작업표 7번), 화면 쪽 흐름만 먼저 맞춰 둔다.
  */
 export async function updateGoal(
   goalId: string | number,
