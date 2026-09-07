@@ -63,4 +63,14 @@ public class PartyMember extends BaseEntity {
         }
         this.status = PartyMemberStatus.REJECTED;
     }
+
+    // 이미 승인된 파티원을 다시 REJECTED로 되돌린다. 파티 삭제는 승인된 파티원이 하나도 없어야
+    // 가능한데(실제 팀 소속 관계라 그냥 지워버릴 수 없음), 그러려면 먼저 이 메서드로 승인을 하나씩
+    // 취소해서 승인 인원을 0으로 만들어야 한다.
+    public void cancelApproval() {
+        if (this.status != PartyMemberStatus.APPROVED) {
+            throw new ServiceException("409-1", "승인된 지원 건만 취소할 수 있습니다.");
+        }
+        this.status = PartyMemberStatus.REJECTED;
+    }
 }

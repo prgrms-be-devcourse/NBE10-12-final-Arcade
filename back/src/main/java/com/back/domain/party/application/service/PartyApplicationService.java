@@ -60,7 +60,6 @@ public class PartyApplicationService {
                 .toList();
     }
 
-
     // 요청으로 받을 수 있는 값을 승인/거절 둘로만 제한하기 위한 전용 enum.
     // PartyMemberStatus를 그대로 쓰면 클라이언트가 PENDING도 요청값으로 보낼 수 있게 되는데,
     // "지원 상태를 PENDING으로 바꿔달라"는 요청 자체가 의미가 없어서 API 계약에서부터 차단한다.
@@ -103,5 +102,24 @@ public class PartyApplicationService {
     private Party findPartyOrThrow(long partyId) {
         return partyRepository.findById(partyId)
                 .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 파티입니다."));
+    }
+
+    // 이미 승인된 파티원의 승인을 취소한다
+    // 파티 삭제는 승인된 파티원이 하나도 없어야 가능해서 삭제 전에 파티장이 승인된 사람들을 이걸로 하나씩 정리해야 한다.
+    @Transactional
+    public PartyApplicationDto cancelApproval(long partyId, long applicationId, Member actor) {
+        Party party = findPartyOrThrow(partyId);
+
+        if (!party.isOwnedBy(actor)) {
+            throw new ServiceException("403-1", "파티장만 처리할 수 있습니다.");
+        }
+
+        PartyMember partyMember = partyMemberRepository.findByIdAndParty(applicationId, party)
+                .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 지원 내역입니다."));
+
+        partyMember.cancelApproval();
+        partyMember.getPosition().freeOneSeat();
+
+        return new PartyApplicationDto(partyMember);
     }
 }
