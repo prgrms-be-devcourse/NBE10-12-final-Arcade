@@ -47,7 +47,6 @@ export function LoginForm() {
         <SocialButtons
           suffix="계속하기"
           hidden={memberType === '주최측'}
-          onSuccess={() => router.push('/')}
         />
         {memberType === '주최측' ? (
           <p className="social-locked-note">

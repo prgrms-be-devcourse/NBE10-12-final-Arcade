@@ -90,6 +90,11 @@ public class MemberProfile extends BaseEntity {
     }
 
     /** 경력·링크는 넘어온 목록이 곧 저장될 목록이다. 빈 목록을 보내면 전부 지운다. */
+    /** 가입 직후 포지션만 고르는 흐름용. modify 는 폼 전체를 교체하므로 여기 쓸 수 없다. */
+    public void changePosition(PositionType position) {
+        this.position = position;
+    }
+
     public void modify(
             String nickname,
             String webpage,

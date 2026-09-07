@@ -118,7 +118,6 @@ export function SignupForm() {
           <SocialButtons
             suffix="시작하기"
             hidden={memberType === '주최측'}
-            onSuccess={() => router.push('/')}
           />
           {memberType === '주최측' ? (
             <p className="social-locked-note">

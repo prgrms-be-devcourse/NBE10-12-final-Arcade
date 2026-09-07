@@ -86,24 +86,20 @@ export async function login(
 export async function socialLogin(
   provider: "github",
   redirectUrl?: string,
-): Promise<AuthUser | void> {
+): Promise<void> {
+  const targetRedirectUrl = redirectUrl ?? `${window.location.origin}/`;
+
   if (USE_MOCK) {
-    const profile = MOCK_PROFILES.haneul;
-    return mockResponse({
-      id: profile.id,
-      name: profile.name,
-      email: `${provider}@crewon.dev`,
-      initial: profile.initial,
-      role: "MEMBER" as const,
-    });
+    await mockResponse(undefined);
+    window.location.assign(targetRedirectUrl);
+    return;
   }
 
   // OAuth2 진입점은 /api/v1 아래가 아니라 서버 루트에 있다
   const origin = API_BASE_URL.replace(/\/api\/v\d+\/?$/, "");
-  const targetRedirectUrl = redirectUrl ?? `${window.location.origin}/`;
   const target = `${origin}/oauth2/authorization/${provider}?redirectUrl=${encodeURIComponent(targetRedirectUrl)}`;
 
-  window.location.href = target;
+  window.location.assign(target);
 }
 
 /**
