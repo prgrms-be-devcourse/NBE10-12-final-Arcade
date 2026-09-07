@@ -13,10 +13,12 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -52,12 +54,12 @@ public class ApiV1MemberProfileControllerTest {
                 .andExpect(jsonPath("$.data.webpage").isEmpty())
                 .andExpect(jsonPath("$.data.profileImageUrl").isEmpty())
                 .andExpect(jsonPath("$.data.githubLinked").value(false))
-                .andExpect(jsonPath("$.data.positions").isEmpty())
+                .andExpect(jsonPath("$.data.position").doesNotExist())
                 .andExpect(jsonPath("$.data.techStacks").isEmpty());
     }
 
     @Test
-    @DisplayName("내 정보 수정: positions와 techStacks의 변경분을 반영한다")
+    @DisplayName("내 정보 수정: position과 techStacks의 변경분을 반영한다")
     @WithUserDetails("user1@test.com")
     void modifyProfile() throws Exception {
         mvc.perform(patch("/api/v1/members/me")
@@ -67,7 +69,7 @@ public class ApiV1MemberProfileControllerTest {
                                   "nickname": "첫 닉네임",
                                   "webpage": "https://before.example.com",
                                   "profileImageUrl": "before.png",
-                                  "positions": ["BACK", "FRONT"],
+                                  "position": "BACK",
                                   "techStacks": ["Java", "Spring"]
                                 }
                                 """))
@@ -80,7 +82,7 @@ public class ApiV1MemberProfileControllerTest {
                                   "nickname": "새 닉네임",
                                   "webpage": "https://after.example.com",
                                   "profileImageUrl": "after.png",
-                                  "positions": ["BACK", "PM"],
+                                  "position": "PM",
                                   "techStacks": ["Java", "Kotlin"]
                                 }
                                 """))
@@ -90,14 +92,169 @@ public class ApiV1MemberProfileControllerTest {
                 .andExpect(jsonPath("$.data.nickname").value("새 닉네임"))
                 .andExpect(jsonPath("$.data.webpage").value("https://after.example.com"))
                 .andExpect(jsonPath("$.data.profileImageUrl").value("after.png"))
-                .andExpect(jsonPath("$.data.positions").value(org.hamcrest.Matchers.contains(
-                        "BACK",
-                        "PM"
-                )))
+                .andExpect(jsonPath("$.data.position").value("PM"))
                 .andExpect(jsonPath("$.data.techStacks").value(org.hamcrest.Matchers.contains(
                         "Java",
                         "Kotlin"
                 )));
+    }
+
+    @Test
+    @DisplayName("내 정보 수정: 소개·경력·링크가 저장된다")
+    @WithUserDetails("user1@test.com")
+    void modifyProfileWithBioCareersAndLinks() throws Exception {
+        mvc.perform(patch("/api/v1/members/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "소개쓰는사람",
+                                  "bio": "백엔드를 주로 합니다.",
+                                  "githubUsername": "haneul-dev",
+                                  "position": "BACK",
+                                  "techStacks": ["Java"],
+                                  "careers": [
+                                    { "startDate": "2024-03-01", "endDate": null, "role": "백엔드 개발", "org": "오락실", "description": "결제 모듈" },
+                                    { "startDate": "2023-01-01", "endDate": "2024-02-28", "role": "인턴", "org": "크루온", "description": null }
+                                  ],
+                                  "links": [
+                                    { "label": "GitHub", "url": "https://github.com/haneul-dev" }
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.bio").value("백엔드를 주로 합니다."))
+                .andExpect(jsonPath("$.data.githubUsername").value("haneul-dev"))
+                .andExpect(jsonPath("$.data.careers", org.hamcrest.Matchers.hasSize(2)))
+                // 보낸 순서 그대로 온다
+                .andExpect(jsonPath("$.data.careers[0].role").value("백엔드 개발"))
+                // endDate 를 안 보내면 재직중이라 응답에서 빠진다(NON_NULL)
+                .andExpect(jsonPath("$.data.careers[0].endDate").doesNotExist())
+                .andExpect(jsonPath("$.data.careers[0].org").value("오락실"))
+                .andExpect(jsonPath("$.data.careers[1].role").value("인턴"))
+                .andExpect(jsonPath("$.data.careers[1].endDate").value("2024-02-28"))
+                .andExpect(jsonPath("$.data.links", org.hamcrest.Matchers.hasSize(1)))
+                .andExpect(jsonPath("$.data.links[0].label").value("GitHub"));
+    }
+
+    @Test
+    @DisplayName("내 정보 수정: 경력·링크는 보낸 목록이 곧 저장될 목록이라 빈 배열을 보내면 지워진다")
+    @WithUserDetails("user1@test.com")
+    void modifyProfileReplacesCareersAndLinks() throws Exception {
+        mvc.perform(patch("/api/v1/members/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "경력있는사람",
+                                  "position": "BACK",
+                                  "techStacks": ["Java"],
+                                  "careers": [{ "role": "백엔드 개발", "org": "오락실" }],
+                                  "links": [{ "label": "GitHub", "url": "https://github.com/x" }]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.careers", org.hamcrest.Matchers.hasSize(1)));
+
+        mvc.perform(patch("/api/v1/members/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "경력있는사람",
+                                  "position": "BACK",
+                                  "techStacks": ["Java"],
+                                  "careers": [],
+                                  "links": []
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.careers", org.hamcrest.Matchers.hasSize(0)))
+                .andExpect(jsonPath("$.data.links", org.hamcrest.Matchers.hasSize(0)));
+    }
+
+    @Test
+    @DisplayName("내 정보 수정: 제목 없는 경력과 주소 없는 링크는 저장하지 않는다")
+    @WithUserDetails("user1@test.com")
+    void modifyProfileSkipsIncompleteRows() throws Exception {
+        mvc.perform(patch("/api/v1/members/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "빈칸있는사람",
+                                  "position": "BACK",
+                                  "techStacks": ["Java"],
+                                  "careers": [
+                                    { "startDate": "2024-03-01", "role": "  ", "org": "오락실" },
+                                    { "role": "제대로 적은 경력" }
+                                  ],
+                                  "links": [
+                                    { "label": "블로그", "url": "" },
+                                    { "label": "GitHub", "url": "https://github.com/x" }
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.careers", org.hamcrest.Matchers.hasSize(1)))
+                .andExpect(jsonPath("$.data.careers[0].role").value("제대로 적은 경력"))
+                .andExpect(jsonPath("$.data.links", org.hamcrest.Matchers.hasSize(1)))
+                .andExpect(jsonPath("$.data.links[0].label").value("GitHub"));
+    }
+
+    @Test
+    @DisplayName("내 정보 수정: careers·links 를 생략해도 400 이 아니다")
+    @WithUserDetails("user1@test.com")
+    void modifyProfileWithoutCareersAndLinks() throws Exception {
+        mvc.perform(patch("/api/v1/members/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "생략하는사람",
+                                  "position": "BACK",
+                                  "techStacks": ["Java"]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.careers", org.hamcrest.Matchers.hasSize(0)))
+                .andExpect(jsonPath("$.data.links", org.hamcrest.Matchers.hasSize(0)));
+    }
+
+    @Test
+    @DisplayName("내 정보 수정: 직접 올린 이미지와 GitHub 아바타를 합치지 않고 따로 내려준다")
+    @WithUserDetails("user1@test.com")
+    void keepsUploadedImageAndGithubAvatarSeparate() throws Exception {
+        // OAuth 로그인이 채워두는 값을 흉내낸다
+        memberRepository.findByEmail("user1@test.com").orElseThrow()
+                .setProfileImgUrl("https://avatars.githubusercontent.com/u/1");
+
+        // 아직 직접 올린 게 없으면 그 자리는 비고, 아바타만 온다
+        mvc.perform(patch("/api/v1/members/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "이미지없는사람",
+                                  "profileImageUrl": null,
+                                  "position": "BACK",
+                                  "techStacks": ["Java"]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.profileImageUrl").doesNotExist())
+                .andExpect(jsonPath("$.data.githubAvatarUrl")
+                        .value("https://avatars.githubusercontent.com/u/1"));
+
+        // 직접 올리면 둘이 각각 온다 - 서버가 합치지 않으므로 아바타가 덮이지 않는다
+        mvc.perform(patch("/api/v1/members/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "이미지올린사람",
+                                  "profileImageUrl": "https://storage.example.com/me.png",
+                                  "position": "BACK",
+                                  "techStacks": ["Java"]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.profileImageUrl").value("https://storage.example.com/me.png"))
+                .andExpect(jsonPath("$.data.githubAvatarUrl")
+                        .value("https://avatars.githubusercontent.com/u/1"));
     }
 
     @Test
@@ -109,8 +266,12 @@ public class ApiV1MemberProfileControllerTest {
                 "중복 닉네임",
                 null,
                 null,
-                java.util.List.of("BACK"),
-                java.util.List.of("Java")
+                null,
+                null,
+                com.back.domain.member.member.entity.PositionType.BACK,
+                java.util.List.of("Java"),
+                java.util.List.of(),
+                java.util.List.of()
         );
 
         mvc.perform(patch("/api/v1/members/me")
@@ -118,7 +279,7 @@ public class ApiV1MemberProfileControllerTest {
                         .content("""
                                 {
                                   "nickname": "중복 닉네임",
-                                  "positions": ["BACK"],
+                                  "position": "BACK",
                                   "techStacks": ["Java"]
                                 }
                                 """))
@@ -139,44 +300,95 @@ public class ApiV1MemberProfileControllerTest {
     }
 
     @Test
-    @DisplayName("내 정보 수정: 유효하지 않은 직군은 저장하지 않는다")
+    @DisplayName("내 정보 수정: 정의되지 않은 직군이면 400-2 이다 (본문 파싱 실패)")
     @WithUserDetails("user1@test.com")
-    void modifyProfileIgnoresInvalidPosition() throws Exception {
+    void modifyProfileWithUnknownPosition() throws Exception {
         mvc.perform(patch("/api/v1/members/me")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
                                   "nickname": "유효하지 않은 직군 테스트",
-                                  "positions": ["BACK", "adbc"],
+                                  "position": "adbc",
+                                  "techStacks": ["Java"]
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-2"));
+    }
+
+    @Test
+    @DisplayName("내 정보 수정: position 을 생략하면 비운다")
+    @WithUserDetails("user1@test.com")
+    void modifyProfileClearsPositionWhenOmitted() throws Exception {
+        mvc.perform(patch("/api/v1/members/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "직군 있는 사람",
+                                  "position": "BACK",
                                   "techStacks": ["Java"]
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.positions").value(org.hamcrest.Matchers.contains("BACK")));
+                .andExpect(jsonPath("$.data.position").value("BACK"));
+
+        mvc.perform(patch("/api/v1/members/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "직군 없는 사람",
+                                  "techStacks": ["Java"]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                // @JsonInclude(NON_NULL) 이라 비면 필드 자체가 빠진다
+                .andExpect(jsonPath("$.data.position").doesNotExist());
     }
 
     @Test
-    @DisplayName("내 정보 수정: positions 또는 techStacks의 null 요소는 400-1을 반환한다")
+    @DisplayName("내 정보 수정: 닉네임 말고 다 생략하면 나머지가 비워진다 (보낸 값이 곧 저장될 값)")
+    @WithUserDetails("user1@test.com")
+    void modifyProfileClearsOmittedFields() throws Exception {
+        mvc.perform(patch("/api/v1/members/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "nickname": "다 채운 사람",
+                                  "bio": "소개글",
+                                  "githubUsername": "haneul-dev",
+                                  "position": "BACK",
+                                  "techStacks": ["Java", "Spring"],
+                                  "careers": [{ "role": "백엔드 개발" }],
+                                  "links": [{ "label": "GitHub", "url": "https://github.com/x" }]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.techStacks", org.hamcrest.Matchers.hasSize(2)));
+
+        mvc.perform(patch("/api/v1/members/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "nickname": "다 비운 사람" }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.bio").doesNotExist())
+                .andExpect(jsonPath("$.data.githubUsername").doesNotExist())
+                .andExpect(jsonPath("$.data.position").doesNotExist())
+                .andExpect(jsonPath("$.data.techStacks", org.hamcrest.Matchers.hasSize(0)))
+                .andExpect(jsonPath("$.data.careers", org.hamcrest.Matchers.hasSize(0)))
+                .andExpect(jsonPath("$.data.links", org.hamcrest.Matchers.hasSize(0)));
+    }
+
+    @Test
+    @DisplayName("내 정보 수정: techStacks 의 null 요소는 400-1을 반환한다")
     @WithUserDetails("user1@test.com")
     void modifyProfileWithNullCollectionElement() throws Exception {
         mvc.perform(patch("/api/v1/members/me")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "nickname": "직군 null 테스트",
-                                  "positions": ["BACK", null],
-                                  "techStacks": ["Java"]
-                                }
-                                """))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.resultCode").value("400-1"));
-
-        mvc.perform(patch("/api/v1/members/me")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
                                   "nickname": "기술 null 테스트",
-                                  "positions": ["BACK"],
+                                  "position": "BACK",
                                   "techStacks": ["Java", null]
                                 }
                                 """))
@@ -196,5 +408,66 @@ public class ApiV1MemberProfileControllerTest {
                         .content("{}"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.resultCode").value("401-1"));
+    }
+
+    @Test
+    @DisplayName("프로필 이미지 업로드: 저장한 이미지의 URL을 반환한다")
+    @WithUserDetails("user1@test.com")
+    void uploadProfileImage() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "avatar.png", MediaType.IMAGE_PNG_VALUE, "fake-png".getBytes());
+
+        mvc.perform(multipart("/api/v1/members/me/image").file(file))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.resultCode").value("201-1"))
+                .andExpect(jsonPath("$.msg").value("프로필 이미지 업로드 성공"))
+                .andExpect(jsonPath("$.data.profileImageUrl").value(
+                        org.hamcrest.Matchers.matchesPattern("^/uploads/profile/[0-9a-f-]{36}\\.png$")));
+    }
+
+    @Test
+    @DisplayName("프로필 이미지 업로드: 이미지가 아니면 400-1")
+    @WithUserDetails("user1@test.com")
+    void uploadProfileImageWithWrongType() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "resume.pdf", MediaType.APPLICATION_PDF_VALUE, "not-an-image".getBytes());
+
+        mvc.perform(multipart("/api/v1/members/me/image").file(file))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-1"));
+    }
+
+    @Test
+    @DisplayName("프로필 이미지 업로드: 화면이 막는 gif 는 서버도 막는다")
+    @WithUserDetails("user1@test.com")
+    void uploadProfileImageWithGif() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "avatar.gif", MediaType.IMAGE_GIF_VALUE, "fake-gif".getBytes());
+
+        mvc.perform(multipart("/api/v1/members/me/image").file(file))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-1"));
+    }
+
+    @Test
+    @DisplayName("프로필 이미지 업로드: 빈 파일이면 400-1")
+    @WithUserDetails("user1@test.com")
+    void uploadEmptyProfileImage() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "avatar.png", MediaType.IMAGE_PNG_VALUE, new byte[0]);
+
+        mvc.perform(multipart("/api/v1/members/me/image").file(file))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-1"));
+    }
+
+    @Test
+    @DisplayName("프로필 이미지 업로드: 미로그인이면 401")
+    void uploadProfileImageWithoutLogin() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "avatar.png", MediaType.IMAGE_PNG_VALUE, "fake-png".getBytes());
+
+        mvc.perform(multipart("/api/v1/members/me/image").file(file))
+                .andExpect(status().isUnauthorized());
     }
 }
