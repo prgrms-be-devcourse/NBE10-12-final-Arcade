@@ -1,10 +1,6 @@
 package com.back.domain.party.application.controller;
 
 import com.back.RedisTestContainerConfig;
-import com.back.domain.contest.contest.entity.Contest;
-import com.back.domain.contest.contest.entity.ContestFormat;
-import com.back.domain.contest.contest.entity.ContestTag;
-import com.back.domain.contest.contest.repository.ContestRepository;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.member.repository.MemberRepository;
@@ -26,7 +22,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -52,36 +47,34 @@ public class ApiV1MyApplicationControllerTest {
     @Autowired
     private PartyMemberRepository partyMemberRepository;
 
-    @Autowired
-    private ContestRepository contestRepository;
-
     @Test
-    @DisplayName("내 지원 현황: 대기 중인 지원만 최신순으로, 파티·포지션과 함께 내려준다")
+    @DisplayName("내 지원 현황: 대기 중인 지원만 나온다 - 승인·거절된 건은 빠진다")
     @WithUserDetails("user1@test.com")
     void getMyApplications() throws Exception {
         Member actor = memberRepository.findByEmail("user1@test.com").orElseThrow();
         Member owner = memberRepository.findByEmail("user2@test.com").orElseThrow();
 
-        Contest contest = contestRepository.save(new Contest(
-                owner.getId(), "AI 해커톤", ContestFormat.HACKATHON, ContestTag.AI,
-                LocalDate.now(), LocalDate.now().plusDays(30)));
-
-        // 등록 대회와 연결된 파티 - contestTag 가 채워져야 한다
-        Party linked = partyRepository.save(newParty(owner, contest));
+        Party first = partyRepository.save(newParty(owner, "먼저 지원한 파티"));
         partyMemberRepository.save(new PartyMember(
-                linked, actor, linked.getPositions().getFirst(), "지원합니다"));
+                first, actor, first.getPositions().getFirst(), "지원합니다"));
 
-        // 대회 연결이 없는 파티 - contestTag 는 null 이어야 한다
-        Party unlinked = partyRepository.save(newParty(owner, null));
+        Party second = partyRepository.save(newParty(owner, "나중에 지원한 파티"));
         partyMemberRepository.save(new PartyMember(
-                unlinked, actor, unlinked.getPositions().getFirst(), null));
+                second, actor, second.getPositions().getFirst(), null));
 
         // 거절된 지원 - 목록에 나오면 안 된다
-        Party rejectedParty = partyRepository.save(newParty(owner, null));
+        Party rejectedParty = partyRepository.save(newParty(owner, "거절된 파티"));
         PartyMember rejected = new PartyMember(
                 rejectedParty, actor, rejectedParty.getPositions().getFirst(), null);
         rejected.reject();
         partyMemberRepository.save(rejected);
+
+        // 승인돼서 이미 내 파티가 된 건 - 이것도 나오면 안 된다
+        Party approvedParty = partyRepository.save(newParty(owner, "승인된 파티"));
+        PartyMember approved = new PartyMember(
+                approvedParty, actor, approvedParty.getPositions().getFirst(), null);
+        approved.approve();
+        partyMemberRepository.save(approved);
 
         mvc.perform(get("/api/v1/members/me/applications"))
                 .andExpect(status().isOk())
@@ -91,19 +84,13 @@ public class ApiV1MyApplicationControllerTest {
                 .andExpect(jsonPath("$.data.page").value(0))
                 .andExpect(jsonPath("$.data.size").value(20))
                 .andExpect(jsonPath("$.data.hasNext").value(false))
-                // 최신순이라 나중에 지원한 unlinked 가 먼저다
-                .andExpect(jsonPath("$.data.content[0].party.id").value(unlinked.getId()))
-                .andExpect(jsonPath("$.data.content[0].party.contestTag").isEmpty())
-                .andExpect(jsonPath("$.data.content[1].party.id").value(linked.getId()))
-                .andExpect(jsonPath("$.data.content[1].party.name").value("파티"))
-                .andExpect(jsonPath("$.data.content[1].party.ownerId").value(owner.getId()))
-                .andExpect(jsonPath("$.data.content[1].party.topicType").value("CONTEST"))
-                .andExpect(jsonPath("$.data.content[1].party.contestTag").value("AI"))
-                .andExpect(jsonPath("$.data.content[1].party.status").value("RECRUITING"))
-                .andExpect(jsonPath("$.data.content[1].position.name").value("BACK"))
-                .andExpect(jsonPath("$.data.content[1].position.capacity").value(2))
-                .andExpect(jsonPath("$.data.content[1].state").value("PENDING"))
-                .andExpect(jsonPath("$.data.content[1].createDate").exists());
+                // 최신순이라 나중에 지원한 쪽이 먼저다
+                .andExpect(jsonPath("$.data.content[0].party.id").value(second.getId()))
+                .andExpect(jsonPath("$.data.content[0].party.name").value("나중에 지원한 파티"))
+                .andExpect(jsonPath("$.data.content[1].party.id").value(first.getId()))
+                .andExpect(jsonPath("$.data.content[1].party.name").value("먼저 지원한 파티"))
+                .andExpect(jsonPath("$.data.content[1].position").value("BACK"))
+                .andExpect(jsonPath("$.data.content[1].state").value("PENDING"));
     }
 
     @Test
@@ -114,7 +101,7 @@ public class ApiV1MyApplicationControllerTest {
         Member owner = memberRepository.findByEmail("user2@test.com").orElseThrow();
 
         for (int i = 0; i < 2; i++) {
-            Party party = partyRepository.save(newParty(owner, null));
+            Party party = partyRepository.save(newParty(owner, "파티"));
             partyMemberRepository.save(new PartyMember(
                     party, actor, party.getPositions().getFirst(), null));
         }
@@ -138,17 +125,20 @@ public class ApiV1MyApplicationControllerTest {
         Member owner = memberRepository.findByEmail("user2@test.com").orElseThrow();
         Member stranger = memberRepository.findByEmail("user3@test.com").orElseThrow();
 
-        Party party = partyRepository.save(newParty(owner, null));
+        // 같은 파티에 나는 BACK, 남은 FRONT 로 지원한다.
+        // 남의 행을 집어오면 position 이 FRONT 로 나와서 걸린다.
+        Party party = partyRepository.save(newParty(owner, "파티"));
         partyMemberRepository.save(new PartyMember(
-                party, actor, party.getPositions().getFirst(), "내 지원"));
+                party, actor, findPosition(party, PositionType.BACK), "내 지원"));
         partyMemberRepository.save(new PartyMember(
-                party, stranger, party.getPositions().getFirst(), "남의 지원"));
+                party, stranger, findPosition(party, PositionType.FRONT), "남의 지원"));
 
         mvc.perform(get("/api/v1/members/me/applications"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content.length()").value(1))
-                .andExpect(jsonPath("$.data.content[0].applicationId").value(
-                        partyMemberRepository.findByPartyAndMember(party, actor).orElseThrow().getId()));
+                .andExpect(jsonPath("$.data.content[0].party.id").value(party.getId()))
+                .andExpect(jsonPath("$.data.content[0].position").value("BACK"))
+                .andExpect(jsonPath("$.data.content[0].state").value("PENDING"));
     }
 
     @Test
@@ -168,13 +158,21 @@ public class ApiV1MyApplicationControllerTest {
                 .andExpect(jsonPath("$.resultCode").value("400-1"));
     }
 
-    private Party newParty(Member owner, Contest contest) {
+    private Party newParty(Member owner, String partyName) {
         Party party = new Party(
-                owner, "파티", "제목", "설명", contest, null, null,
-                TopicType.CONTEST, PartyTag.WEB, null, 1,
+                owner, partyName, "제목", "설명", null, null, null,
+                TopicType.PROJECT, PartyTag.WEB, null, 1,
                 LocalDateTime.now().plusDays(7));
         party.addPosition(new Position(PositionType.BACK, 2));
+        party.addPosition(new Position(PositionType.FRONT, 2));
 
         return party;
+    }
+
+    private Position findPosition(Party party, PositionType type) {
+        return party.getPositions().stream()
+                .filter(position -> position.getType() == type)
+                .findFirst()
+                .orElseThrow();
     }
 }
