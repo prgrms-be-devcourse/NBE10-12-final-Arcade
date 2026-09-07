@@ -3,6 +3,8 @@ spring:
     show-sql: false
     hibernate:
       # 운영 스키마는 애플리케이션이 변경하지 않는다.
+      # 예외: PartySearchKeywordFtsIndexInitializer가 검색 성능용 GIN 인덱스를 best-effort로 생성한다
+      # (테이블/컬럼 자체는 여전히 건드리지 않고, 실패해도 부팅을 막지 않는다).
       ddl-auto: validate
     properties:
       hibernate:
