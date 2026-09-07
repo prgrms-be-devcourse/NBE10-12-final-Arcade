@@ -60,9 +60,9 @@ public class ApiV1SearchController {
         PartySearchResultDto result = partySearchService.search(
                 rq.getActorFromDb(),
                 q,
-                partyTag == null ? null : partyTag.name(),
-                topicType == null ? null : topicType.name(),
-                positionType == null ? null : positionType.name(),
+                partyTag,
+                topicType,
+                positionType,
                 PageRequest.of(page, size)
         );
 

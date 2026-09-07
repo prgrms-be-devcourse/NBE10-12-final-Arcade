@@ -92,7 +92,7 @@ class PartyMatchQueryLikeServicePostgresCaseTest {
         partySearchKeywordRepository.save(new PartySearchKeyword(appParty, "백엔드 스터디"));
 
         Page<Long> result = partyMatchQueryLikeService.findMatchingPartyIds(
-                List.of("백엔드"), PartyTag.APP.name(), null, null, PageRequest.of(0, 10)
+                List.of("백엔드"), PartyTag.APP, null, null, PageRequest.of(0, 10)
         );
 
         assertThat(result.getContent())
@@ -115,7 +115,7 @@ class PartyMatchQueryLikeServicePostgresCaseTest {
         partySearchKeywordRepository.save(new PartySearchKeyword(contestParty, "백엔드 스터디"));
 
         Page<Long> result = partyMatchQueryLikeService.findMatchingPartyIds(
-                List.of("백엔드"), null, TopicType.CONTEST.name(), null, PageRequest.of(0, 10)
+                List.of("백엔드"), null, TopicType.CONTEST, null, PageRequest.of(0, 10)
         );
 
         assertThat(result.getContent())
@@ -143,7 +143,7 @@ class PartyMatchQueryLikeServicePostgresCaseTest {
         partySearchKeywordRepository.save(new PartySearchKeyword(frontParty, "백엔드 스터디"));
 
         Page<Long> result = partyMatchQueryLikeService.findMatchingPartyIds(
-                List.of("백엔드"), null, null, PositionType.FRONT.name(), PageRequest.of(0, 10)
+                List.of("백엔드"), null, null, PositionType.FRONT, PageRequest.of(0, 10)
         );
 
         assertThat(result.getContent())
