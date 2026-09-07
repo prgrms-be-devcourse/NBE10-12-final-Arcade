@@ -1,5 +1,7 @@
 package com.back.domain.party.party.repository;
 
+import java.time.LocalDateTime;
+import com.back.domain.activity.activity.dtos.MemberActivityAt;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.entity.PartyTag;
@@ -71,6 +73,14 @@ public interface PartyRepository extends JpaRepository<Party, Long>,PartyContest
 
     @Query("select p from Party p join fetch p.owner where p.id in :ids")
     List<Party> findAllByIdIn(@Param("ids") List<Long> ids);
+
+    // ACTIVITY_LOG 백필용. 엔티티가 아니라 (회원, 시각)만 읽는다.
+    @Query("""
+            select new com.back.domain.activity.activity.dtos.MemberActivityAt(p.owner.id, p.createDate)
+            from Party p
+            where p.createDate >= :from
+            """)
+    List<MemberActivityAt> findActivityAtSince(@Param("from") LocalDateTime from);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from Party p where p.id = :id")

@@ -1,5 +1,7 @@
 package com.back.domain.interaction.bookmark.repository;
 
+import java.time.LocalDateTime;
+import com.back.domain.activity.activity.dtos.MemberActivityAt;
 import com.back.domain.interaction.bookmark.entity.Bookmark;
 import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.member.member.entity.Member;
@@ -36,4 +38,13 @@ public interface BookmarkRepository extends JpaRepository<Bookmark, Long> {
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("delete from Bookmark b where b.targetType = :targetType and b.targetId = :targetId")
     void deleteAllByTargetTypeAndTargetId(@Param("targetType") TargetType targetType, @Param("targetId") long targetId);
+
+    // ACTIVITY_LOG 백필용. 파티 대상 북마크만 활동으로 센다(기획서 2.9).
+    @Query("""
+            select new com.back.domain.activity.activity.dtos.MemberActivityAt(b.member.id, b.createDate)
+            from Bookmark b
+            where b.targetType = :targetType and b.createDate >= :from
+            """)
+    List<MemberActivityAt> findActivityAtSince(
+            @Param("targetType") TargetType targetType, @Param("from") LocalDateTime from);
 }
