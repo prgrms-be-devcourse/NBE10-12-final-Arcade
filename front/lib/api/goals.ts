@@ -359,13 +359,14 @@ export interface MyGoalsQuery {
   status?: GoalStatus;
   type?: GoalType;
   source?: GoalSource;
+  year?: number;
 }
 
 /**
  * GET /api/v1/goals/me — 내 성취 목록 (최신순).
  *
  * 본인 것만 돌려주므로 소유자 조건을 따로 넘기지 않는다.
- * status·type·source 필터는 모두 선택이고, 넘기지 않으면 조건 없이 전부 온다.
+ * status·type·source·year 필터는 모두 선택이고, 넘기지 않으면 조건 없이 전부 온다.
  *
  * 페이지 파라미터는 보내지 않는다 — 서버가 목록 전체를 한 번에 돌려준다.
  */
@@ -377,6 +378,7 @@ export async function fetchMyGoals(query: MyGoalsQuery = {}): Promise<Achievemen
       status: query.status,
       type: query.type,
       source: query.source,
+      year: query.year,
     },
   });
 
