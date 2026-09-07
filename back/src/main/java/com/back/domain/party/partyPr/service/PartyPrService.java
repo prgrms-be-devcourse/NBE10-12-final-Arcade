@@ -110,28 +110,10 @@ public class PartyPrService {
     }
 
     public PartyPrByMemberDto getByPartyIdAndMemberId(long partyId, long memberId, Member actor) {
-        Party party = party(partyId);
-        ensureReadable(party, actor);
-
-        Member member = party.getOwner().getId() == memberId
-                ? party.getOwner()
-                : partyMemberRepository.findByPartyAndMemberIdAndStatus(
-                        party, memberId, PartyMemberStatus.APPROVED
-                ).map(partyMember -> partyMember.getMember())
-                .orElseThrow(() -> new ServiceException(
-                        "404-2", "파티장 또는 승인된 파티원을 찾을 수 없습니다."
-                ));
-
-        List<PartyPrDto> pullRequests = member.getGithubUserId() == null
-                ? List.of()
-                : partyPrRepository
-                        .findAllByPartyIdAndAuthorGithubUserIdOrderByGithubUpdatedAtDesc(
-                                partyId, member.getGithubUserId()
-                        ).stream()
-                        .map(PartyPrDto::new)
-                        .toList();
-
-        return PartyPrByMemberDto.member(member, party.isOwnedBy(member), pullRequests);
+        return getByPartyIdGroupedByMember(partyId, actor).stream()
+                .filter(group -> group.memberId() != null && group.memberId() == memberId)
+                .findFirst()
+                .orElseThrow(() -> new ServiceException("404-2", "파티장 또는 승인된 파티원을 찾을 수 없습니다."));
     }
 
     public List<PartyPrDto> getMyPullRequests(Member actor) {
