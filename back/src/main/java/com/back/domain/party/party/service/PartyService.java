@@ -238,19 +238,23 @@ public class PartyService {
             PartySortOption sortOption,
             Pageable pageable
     ) {
+        // PartyRepository의 JPQL에서 :keyword가 "is null" 비교와 "like concat" 비교
+        // 두 맥락에 동시에 쓰이는데 PostgreSQL은 이 경우 파라미터 타입을 못 정해서
+        // could not determine data type of parameter 에러를 던진다(H2는 통과해서 로컬에는안 드러남)
+        // null을 빈 문자열로 정규화하면 파라미터가 항상 String 맥락으로만 쓰여서 이 문제가 사라지고 LIKE '%%'는 모든 행에 매치되니 키워드 없음 의미도 그대로 유지된다
+        String normalizedKeyword = keyword == null ? "" : keyword;
+
         Page<Party> parties = switch (sortOption) {
             case DEADLINE -> partyRepository.search(
-                    keyword, partyTag, positionType,
+                    normalizedKeyword, partyTag, positionType,
                     PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("deadline").ascending())
             );
             case POPULAR -> partyRepository.search(
-                    keyword, partyTag, positionType,
+                    normalizedKeyword, partyTag, positionType,
                     PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("likeCount").descending())
             );
-            // 빈자리 합산은 집계값이라 Sort로 표현이 안 되므로, 정렬이 쿼리 안에 이미 박혀있는
-            // searchOrderByVacancy를 쓰고 Pageable은 반드시 unsorted로 넘긴다
             case VACANCY -> partyRepository.searchOrderByVacancy(
-                    keyword, partyTag, positionType,
+                    normalizedKeyword, partyTag, positionType,
                     PageRequest.of(pageable.getPageNumber(), pageable.getPageSize())
             );
         };
