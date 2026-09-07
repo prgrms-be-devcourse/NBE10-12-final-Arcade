@@ -88,6 +88,12 @@ public class BookmarkService implements BookmarkInteractionPort {
     }
 
     private Map<Long, Object> partyCards(List<Long> partyIds) {
+        // 두 조회 다 @Query 라 빈 목록이어도 그대로 실행된다. 북마크함은 타입 3종을 항상 다 부르므로
+        // 대개 2종이 비어 있어, 여기서 끊지 않으면 매 요청 헛도는 쿼리가 생긴다.
+        if (partyIds.isEmpty()) {
+            return Map.of();
+        }
+
         Map<Long, Long> applicantCounts = partyMemberRepository.countApplicantsByPartyIds(partyIds);
 
         return partyRepository.findAllByIdIn(partyIds).stream()
@@ -97,6 +103,10 @@ public class BookmarkService implements BookmarkInteractionPort {
     }
 
     private Map<Long, Object> contestCards(List<Long> contestIds) {
+        if (contestIds.isEmpty()) {
+            return Map.of();
+        }
+
         // 접수기간이 지난 대회는 ContestPost 가 지워질 수 있다 - 그때는 null 을 넘겨 archived 카드로 조립된다.
         Map<Long, ContestPost> posts = contestPostRepository.findAllByContestIdIn(contestIds).stream()
                 .collect(Collectors.toMap(post -> post.getContest().getId(), post -> post));
@@ -108,6 +118,8 @@ public class BookmarkService implements BookmarkInteractionPort {
     }
 
     private Map<Long, Object> goalCards(List<Long> goalIds) {
+        // 여기는 빈 목록 가드가 필요 없다 - findAllById 는 Spring Data 가 비어 있으면
+        // 쿼리 없이 emptyList 를 돌려준다(SimpleJpaRepository.findAllById).
         return goalRepository.findAllById(goalIds).stream()
                 .filter(Goal::isExhibited)
                 .collect(Collectors.toMap(Goal::getId, showcaseService::toDto));
