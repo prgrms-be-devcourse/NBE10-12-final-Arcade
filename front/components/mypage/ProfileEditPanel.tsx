@@ -42,6 +42,9 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
   const [links, setLinks] = useState<ProfileLink[]>(profile.links);
   const [saving, setSaving] = useState(false);
 
+  const patchCareer = (id: string, patch: Partial<CareerItem>) =>
+    setCareers((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+
   const save = async () => {
     setSaving(true);
     setSaveError(null);
@@ -169,39 +172,55 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
 
       <EditorBlock
         title="경력"
-        hint="회사 · 역할 / 기간 / 한 줄 설명"
+        hint="역할을 비우면 저장되지 않아요. 종료일을 비우면 재직중으로 표시됩니다."
         addLabel="경력 추가"
         onAdd={() =>
           setCareers((prev) => [
             ...prev,
-            { id: `career-${Date.now()}`, period: '', title: '', org: '', description: '' },
+            {
+              id: `career-${Date.now()}`,
+              period: '',
+              title: '',
+              org: '',
+              description: '',
+              startDate: '',
+              endDate: '',
+            },
           ])
         }
       >
         {careers.map((career) => (
           <div key={career.id} className="editor-row">
-            <TextField
-              placeholder="회사 · 역할"
-              value={career.org}
-              onChange={(event) =>
-                setCareers((prev) =>
-                  prev.map((item) =>
-                    item.id === career.id ? { ...item, org: event.target.value } : item,
-                  ),
-                )
-              }
-            />
-            <TextField
-              placeholder="기간"
-              value={career.period}
-              onChange={(event) =>
-                setCareers((prev) =>
-                  prev.map((item) =>
-                    item.id === career.id ? { ...item, period: event.target.value } : item,
-                  ),
-                )
-              }
-            />
+            <div className="editor-row-main cols-2">
+              <TextField
+                placeholder="회사"
+                value={career.org}
+                onChange={(event) => patchCareer(career.id, { org: event.target.value })}
+              />
+              <TextField
+                placeholder="역할 (예: 백엔드 엔지니어)"
+                value={career.title}
+                onChange={(event) => patchCareer(career.id, { title: event.target.value })}
+              />
+              <TextField
+                type="date"
+                aria-label="시작일"
+                value={career.startDate ?? ''}
+                onChange={(event) => patchCareer(career.id, { startDate: event.target.value })}
+              />
+              <TextField
+                type="date"
+                aria-label="종료일 (비우면 재직중)"
+                value={career.endDate ?? ''}
+                onChange={(event) => patchCareer(career.id, { endDate: event.target.value })}
+              />
+              <TextField
+                className="span-all"
+                placeholder="한 줄 설명 (선택)"
+                value={career.description}
+                onChange={(event) => patchCareer(career.id, { description: event.target.value })}
+              />
+            </div>
             <button
               type="button"
               className="editor-del"

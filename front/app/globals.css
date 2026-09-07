@@ -1506,6 +1506,7 @@ button.party-mini:hover{border-color:var(--accent);}
 .editor-row-main{flex:1;min-width:0;display:grid;gap:0.5rem;}
 .editor-row-main.cols-2{grid-template-columns:1fr 1fr;}
 .editor-row-main.cols-3{grid-template-columns:1.4fr 1fr 1fr;}
+.editor-row-main .span-all{grid-column:1 / -1;}
 @media (max-width:47.5rem){.editor-row-main.cols-2,.editor-row-main.cols-3{grid-template-columns:1fr;}}
 .editor-row input,.editor-row select{
   padding:0.5625rem 0.6875rem;border:0.125rem solid var(--border-strong);background:var(--surface-2);

@@ -143,11 +143,12 @@ export async function signup(
     password,
   });
 
+  // 서버는 대표 포지션 하나를 position 으로 받는다. positions 배열은 지금 계약에 없다.
   await http.patch<MemberProfileResponse>("/members/me", {
     nickname: payload.nickname,
     webpage: null,
     profileImageUrl: null,
-    positions: [payload.position],
+    position: payload.position,
     techStacks: [],
   });
 

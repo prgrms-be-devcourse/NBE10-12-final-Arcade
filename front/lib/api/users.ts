@@ -28,24 +28,52 @@ export interface MemberProfileResponse {
   /** GitHub 이 준 아바타. 서버가 profileImageUrl 과 합치지 않고 따로 내려준다 */
   githubAvatarUrl: string | null;
   githubLinked: boolean;
-  /** 서버는 BACK/FRONT/UIUX/PM 4종을 모두 내려줄 수 있다 */
-  positions: string[];
+  bio: string | null;
+  /** 직접 적은 GitHub 사용자명. OAuth 연동 여부는 githubLinked 로 따로 본다 */
+  githubUsername: string | null;
+  /** 대표 포지션 하나. 고르지 않았으면 null */
+  position: string | null;
   techStacks: string[];
+  careers: MemberCareerResponse[];
+  links: MemberLinkResponse[];
+}
+
+export interface MemberCareerResponse {
+  id: number;
+  /** yyyy-MM-dd. 없을 수 있다 */
+  startDate: string | null;
+  /** null 이면 재직중 */
+  endDate: string | null;
+  role: string | null;
+  org: string | null;
+  description: string | null;
+}
+
+export interface MemberLinkResponse {
+  id: number;
+  label: string;
+  url: string;
 }
 
 /**
  * 서버가 주는 포지션 문자열을 화면 타입으로 좁힌다.
- * 화면 PositionType 은 이번 스코프에서 BACK/FRONT 만 쓰기로 해(lib/types.ts) UIUX·PM 이 빠져 있다.
+ * 화면 PositionType 은 BACK/FRONT 만 쓰기로 해(lib/types.ts) 서버의 UIUX·PM 은 BACK 으로 떨어진다.
  */
-function toPositionType(value: string | undefined): PositionType {
+function toPositionType(value: string | null | undefined): PositionType {
   return value === 'FRONT' ? 'FRONT' : 'BACK';
+}
+
+/** 시작·종료일로 화면에 보여줄 기간 문구를 만든다. 종료일이 없으면 재직중이다. */
+function toPeriod(startDate: string | null, endDate: string | null): string {
+  const format = (value: string) => value.slice(0, 7).replace('-', '.');
+  if (!startDate) return endDate ? `~ ${format(endDate)}` : '';
+  return `${format(startDate)} ~ ${endDate ? format(endDate) : '재직중'}`;
 }
 
 /**
  * 백엔드 MemberProfileDto 를 화면 UserProfile 로 옮긴다.
  *
  * 백엔드에 아직 없어서 비워 두는 값:
- * - bio, careers, links      : 프로필 확장 필드 미구현
  * - stats, streakDays, badges: 마이페이지 요약 API(기획서 9.11) 미구현
  * - achievements             : 프로필 응답에 없다. GET /goals/me 로 따로 읽어 마이페이지에서 합친다
  * - memberRole               : GET /members/me 응답에 role 이 없다. 로그인 응답에서 받아 덮어쓴다.
@@ -66,19 +94,31 @@ export function toUserProfile(
     avatarUrl: dto.profileImageUrl ?? dto.githubAvatarUrl ?? undefined,
     uploadedImageUrl: dto.profileImageUrl ?? undefined,
     // UserSummary.role 은 계정 권한이 아니라 화면에 보여주는 대표 포지션 문구다
-    role: dto.positions[0] ?? '',
+    role: dto.position ?? '',
     memberRole,
     githubLinked: dto.githubLinked,
-    githubUsername: undefined,
-    bio: '',
-    position: toPositionType(dto.positions[0]),
+    githubUsername: dto.githubUsername ?? undefined,
+    bio: dto.bio ?? '',
+    position: toPositionType(dto.position),
     skills: dto.techStacks,
     stats: { completedParties: 0, awards: 0, exhibitions: 0, approvalRate: 0 },
     streakDays: 0,
     badges: [],
     achievements: [],
-    careers: [],
-    links: [],
+    careers: dto.careers.map((career) => ({
+      id: String(career.id),
+      period: toPeriod(career.startDate, career.endDate),
+      title: career.role ?? '',
+      org: career.org ?? '',
+      description: career.description ?? '',
+      startDate: career.startDate ?? undefined,
+      endDate: career.endDate ?? undefined,
+    })),
+    links: dto.links.map((link) => ({
+      id: String(link.id),
+      label: link.label,
+      url: link.url,
+    })),
   };
 }
 
@@ -151,8 +191,8 @@ export interface ProfileUpdatePayload {
 /**
  * PATCH /api/v1/members/me
  *
- * 서버가 받는 값은 nickname·webpage·profileImageUrl·positions·techStacks 뿐이다.
- * bio·githubUsername·careers·links 는 저장되지 않는다 (백엔드 필드 미구현).
+ * 보낸 값이 곧 저장될 값이다 - 생략한 항목은 서버에서 비워진다. 그래서 폼 전체를 항상 실어 보낸다.
+ * careers 는 role 이, links 는 label·url 이 비어 있으면 서버가 그 항목을 버린다.
  * 성취는 이 화면에서 다루지 않는다 - 등록·수정은 /goals 화면이 담당한다.
  */
 export async function updateMyProfile(payload: ProfileUpdatePayload): Promise<UserProfile> {
@@ -176,8 +216,18 @@ export async function updateMyProfile(payload: ProfileUpdatePayload): Promise<Us
     nickname: payload.nickname,
     webpage: null,
     profileImageUrl: payload.profileImageUrl ?? null,
-    positions: [payload.position],
+    bio: payload.bio,
+    githubUsername: payload.githubUsername ?? null,
+    position: payload.position,
     techStacks: payload.skills,
+    careers: payload.careers.map((career) => ({
+      startDate: career.startDate || null,
+      endDate: career.endDate || null,
+      role: career.title,
+      org: career.org,
+      description: career.description,
+    })),
+    links: payload.links.map((link) => ({ label: link.label, url: link.url })),
   });
   return toUserProfile(updated);
 }

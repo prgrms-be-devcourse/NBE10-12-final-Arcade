@@ -100,10 +100,16 @@ export interface Achievement {
 
 export interface CareerItem {
   id: ID;
+  /** 화면 표시용 기간 문구. startDate·endDate 로 조립한 값이라 편집 대상이 아니다 */
   period: string;
+  /** 역할. 서버 role 이다 — 비어 있으면 서버가 그 경력을 저장하지 않는다 */
   title: string;
   org: string;
   description: string;
+  /** yyyy-MM-dd. 서버가 LocalDate 로 받는다 */
+  startDate?: string;
+  /** yyyy-MM-dd. 비우면 재직중으로 본다 */
+  endDate?: string;
 }
 
 export interface ProfileLink {
