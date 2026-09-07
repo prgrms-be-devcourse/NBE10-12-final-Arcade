@@ -23,11 +23,6 @@ import java.time.LocalDateTime;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
-/**
- * party_name/title LIKE 검색에서 keyword가 null일 때 Postgres가
- * "operator does not exist: character varying ~~ bytea"로 죽던 버그의 회귀 테스트.
- * H2는 이 오류를 재현하지 않아 반드시 실제 Postgres(Testcontainers)로 검증한다.
- */
 @ActiveProfiles("test")
 @SpringBootTest
 @Testcontainers
