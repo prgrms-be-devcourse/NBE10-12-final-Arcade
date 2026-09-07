@@ -154,6 +154,54 @@ public class ApiV1PartyPrController {
         }
     }
 
+    @GetMapping(value = "/parties/{partyId}/pull-requests/grouped-by-member/stream", produces = "text/event-stream")
+    public SseEmitter streamPullRequestsGroupedByMember(
+            @PathVariable long partyId,
+            HttpServletResponse response) {
+        try {
+            List<PartyPrByMemberDto> snapshot =
+                    partyPrService.getByPartyIdGroupedByMember(partyId, rq.getActorFromDb());
+            return partyPrSseService.subscribeGrouped(partyId, snapshot);
+        } catch (ServiceException exception) {
+            return rejectedStream(response, exception);
+        }
+    }
+
+    @GetMapping(value = "/parties/{partyId}/pull-requests/members/me/stream", produces = "text/event-stream")
+    public SseEmitter streamMyPullRequestsInParty(
+            @PathVariable long partyId,
+            HttpServletResponse response) {
+        try {
+            var actor = rq.getActor();
+            PartyPrByMemberDto snapshot =
+                    partyPrService.getByPartyIdAndMemberId(partyId, actor.getId(), actor);
+            return partyPrSseService.subscribeMember(partyId, snapshot.githubUserId(), snapshot);
+        } catch (ServiceException exception) {
+            return rejectedStream(response, exception);
+        }
+    }
+
+    @GetMapping(value = "/parties/{partyId}/pull-requests/members/{memberId:\\d+}/stream", produces = "text/event-stream")
+    public SseEmitter streamPullRequestsByMember(
+            @PathVariable long partyId,
+            @PathVariable long memberId,
+            HttpServletResponse response) {
+        try {
+            PartyPrByMemberDto snapshot = partyPrService.getByPartyIdAndMemberId(
+                    partyId, memberId, rq.getActorFromDb());
+            return partyPrSseService.subscribeMember(partyId, snapshot.githubUserId(), snapshot);
+        } catch (ServiceException exception) {
+            return rejectedStream(response, exception);
+        }
+    }
+
+    private SseEmitter rejectedStream(HttpServletResponse response, ServiceException exception) {
+        response.setStatus(exception.getRsData().statusCode());
+        SseEmitter emitter = new SseEmitter(0L);
+        emitter.complete();
+        return emitter;
+    }
+
     @GetMapping("/pull-requests/me")
     public RsData<List<PartyPrDto>> getMyPullRequests() {
         return new RsData<>("200-1", "내 GitHub PR 목록 조회 성공",
