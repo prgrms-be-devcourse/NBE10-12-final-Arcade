@@ -18,7 +18,7 @@ import java.util.Optional;
 public interface PartyRepository extends JpaRepository<Party, Long>,PartyContestLookupPort{
     @Query("""
         select p from Party p
-        where (:keyword is null or p.partyName like concat('%', :keyword, '%') or p.title like concat('%', :keyword, '%'))
+        where (:keyword is null or p.partyName like concat('%', cast(:keyword as string), '%') or p.title like concat('%', cast(:keyword as string), '%'))
           and (:partyTag is null or p.partyTag = :partyTag)
           and (:positionType is null or exists (
               select 1 from Position pos where pos.party = p and pos.type = :positionType
@@ -37,7 +37,7 @@ public interface PartyRepository extends JpaRepository<Party, Long>,PartyContest
             value = """
             select p from Party p
             left join p.positions pos
-            where (:keyword is null or p.partyName like concat('%', :keyword, '%') or p.title like concat('%', :keyword, '%'))
+            where (:keyword is null or p.partyName like concat('%', cast(:keyword as string), '%') or p.title like concat('%', cast(:keyword as string), '%'))
               and (:partyTag is null or p.partyTag = :partyTag)
               and (:positionType is null or exists (
                   select 1 from Position pos2 where pos2.party = p and pos2.type = :positionType
@@ -47,7 +47,7 @@ public interface PartyRepository extends JpaRepository<Party, Long>,PartyContest
             """,
             countQuery = """
             select count(p) from Party p
-            where (:keyword is null or p.partyName like concat('%', :keyword, '%') or p.title like concat('%', :keyword, '%'))
+            where (:keyword is null or p.partyName like concat('%', cast(:keyword as string), '%') or p.title like concat('%', cast(:keyword as string), '%'))
               and (:partyTag is null or p.partyTag = :partyTag)
               and (:positionType is null or exists (
                   select 1 from Position pos2 where pos2.party = p and pos2.type = :positionType
