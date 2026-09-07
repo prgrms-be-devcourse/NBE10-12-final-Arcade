@@ -88,8 +88,20 @@ function toPullRequest(dto: PartyPrResponse): PartyPullRequest {
  * 팀 스페이스 경로에는 아직 목 슬러그('paybridge')가 들어올 수 있는데, 그대로 요청하면
  * 400 이 난다. 숫자가 아니면 서버를 부르지 않는다.
  */
-function isServerPartyId(partyId: string): boolean {
+export function isServerPartyId(partyId: string): boolean {
   return /^\d+$/.test(partyId);
+}
+
+/**
+ * SSE 로 받은 PR 을 화면 타입으로 옮긴다. 목록 조회와 같은 매퍼를 써서 두 경로가 어긋나지 않게 한다.
+ * 서버는 stream 에서 `snapshot`(목록)과 `pull-request`(한 건)를 보낸다.
+ */
+export function parsePartyPullRequests(json: string): PartyPullRequest[] {
+  return (JSON.parse(json) as PartyPrResponse[]).map(toPullRequest);
+}
+
+export function parsePartyPullRequest(json: string): PartyPullRequest {
+  return toPullRequest(JSON.parse(json) as PartyPrResponse);
 }
 
 /** GET /api/v1/parties/{partyId}/github-connection — 연결 상태 */

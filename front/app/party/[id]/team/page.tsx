@@ -84,7 +84,7 @@ export default async function TeamSpacePage({ params }: { params: Promise<{ id: 
                 title="진행 기록 · Pull Request"
                 description="연결된 GitHub 저장소의 PR을 웹훅으로 받아 쌓아둔 목록이에요. 파티가 끝나면 이 기록이 참여자 성취의 근거가 됩니다."
               >
-                <PullRequestList pullRequests={pullRequests} />
+                <PullRequestList partyId={id} pullRequests={pullRequests} />
               </Block>
 
               <Block title="진행 기록 · 커밋">

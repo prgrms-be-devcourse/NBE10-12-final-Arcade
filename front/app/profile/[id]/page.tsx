@@ -32,7 +32,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
           </div>
         )}
 
-        <HeroStats streakDays={profile.streakDays} badges={profile.badges} />
+        <HeroStats streakDays={profile.streakDays} />
 
         <Block>
           <div className="history-panel">
