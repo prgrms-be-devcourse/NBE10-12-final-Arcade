@@ -70,8 +70,31 @@ class PartyMatchQueryLikeServicePostgresCaseTest {
 
         List<String> normalized = keywordNormalizationPort.normalize(keywordExtractionPort.extract("인공지능"));
 
-        Page<Long> result = partyMatchQueryLikeService.findMatchingPartyIds(normalized, PageRequest.of(0, 10));
+        Page<Long> result = partyMatchQueryLikeService.findMatchingPartyIds(normalized, null, null, null, PageRequest.of(0, 10));
 
         assertThat(result.getContent()).contains(party.getId());
+    }
+
+    @Test
+    void filtersByPartyTagOnRealPostgres() {
+        Member owner = memberRepository.save(new Member("like-tag-owner@test.com", "pw", "owner", null));
+        Party webParty = partyRepository.save(new Party(
+                owner, "파티명W", "백엔드 스터디W", null, null, "외부 대회", "https://example.com",
+                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7)
+        ));
+        Party appParty = partyRepository.save(new Party(
+                owner, "파티명A", "백엔드 스터디A", null, null, "외부 대회", "https://example.com",
+                TopicType.STUDY, PartyTag.APP, null, 0, LocalDateTime.now().plusDays(7)
+        ));
+        partySearchKeywordRepository.save(new PartySearchKeyword(webParty, "백엔드 스터디"));
+        partySearchKeywordRepository.save(new PartySearchKeyword(appParty, "백엔드 스터디"));
+
+        Page<Long> result = partyMatchQueryLikeService.findMatchingPartyIds(
+                List.of("백엔드"), PartyTag.APP.name(), null, null, PageRequest.of(0, 10)
+        );
+
+        assertThat(result.getContent())
+                .contains(appParty.getId())
+                .doesNotContain(webParty.getId());
     }
 }

@@ -68,7 +68,7 @@ class PartySearchServiceNPlusOneTest {
         statistics.clear();
 
         Page<Long> matchedIds = partyMatchQueryLikeService.findMatchingPartyIds(
-                List.of("오너엔플러스원테스트"), PageRequest.of(0, 10)
+                List.of("오너엔플러스원테스트"), null, null, null, PageRequest.of(0, 10)
         );
         List<Party> parties = partyRepository.findAllByIdIn(matchedIds.getContent());
         List<PartyListItemDto> dtos = parties.stream().map(PartyListItemDto::new).toList();

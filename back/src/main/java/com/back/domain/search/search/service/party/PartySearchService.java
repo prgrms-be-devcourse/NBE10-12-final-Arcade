@@ -37,7 +37,14 @@ public class PartySearchService {
     private final PartyRepository partyRepository;
     private final SearchLogService searchLogService;
 
-    public PartySearchResultDto search(Member actor, String query, Pageable pageable) {
+    public PartySearchResultDto search(
+            Member actor,
+            String query,
+            String partyTag,
+            String topicType,
+            String positionType,
+            Pageable pageable
+    ) {
         List<String> extracted = keywordExtractionPort.extract(query);
         if (extracted.isEmpty()) {
             throw new ServiceException("400-4", "검색어가 너무 짧습니다.");
@@ -51,7 +58,7 @@ public class PartySearchService {
             log.warn("검색 기록 저장에 실패했습니다.", e);
         }
 
-        Page<Long> matchedIds = partyMatchQueryPort.findMatchingPartyIds(expanded, pageable);
+        Page<Long> matchedIds = partyMatchQueryPort.findMatchingPartyIds(expanded, partyTag, topicType, positionType, pageable);
         List<Long> ids = matchedIds.getContent();
         Map<Long, Party> partyById = partyRepository.findAllByIdIn(ids).stream()
                 .collect(Collectors.toMap(Party::getId, Function.identity()));

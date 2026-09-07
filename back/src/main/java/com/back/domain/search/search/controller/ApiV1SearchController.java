@@ -1,5 +1,8 @@
 package com.back.domain.search.search.controller;
 
+import com.back.domain.member.member.entity.PositionType;
+import com.back.domain.party.party.entity.PartyTag;
+import com.back.domain.party.party.entity.TopicType;
 import com.back.domain.search.search.dtos.PartySearchResultDto;
 import com.back.domain.search.search.service.party.PartySearchService;
 import com.back.global.rq.Rq;
@@ -43,6 +46,12 @@ public class ApiV1SearchController {
     public RsData<PartySearchResultDto> search(
             @Parameter(description = "검색어")
             @RequestParam(required = false) @NotBlank @Size(max = 25) String q,
+            @Parameter(description = "분야 필터")
+            @RequestParam(required = false) PartyTag partyTag,
+            @Parameter(description = "유형 필터")
+            @RequestParam(required = false) TopicType topicType,
+            @Parameter(description = "포지션 필터")
+            @RequestParam(required = false) PositionType positionType,
             @Parameter(description = "0부터 시작하는 페이지 번호")
             @RequestParam(defaultValue = "0") @Min(0) @Max(100_000) int page,
             @Parameter(description = "페이지 크기")
@@ -51,6 +60,9 @@ public class ApiV1SearchController {
         PartySearchResultDto result = partySearchService.search(
                 rq.getActorFromDb(),
                 q,
+                partyTag == null ? null : partyTag.name(),
+                topicType == null ? null : topicType.name(),
+                positionType == null ? null : positionType.name(),
                 PageRequest.of(page, size)
         );
 

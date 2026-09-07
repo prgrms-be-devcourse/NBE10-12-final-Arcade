@@ -21,11 +21,24 @@ public class PartyMatchQueryFtsService implements PartyMatchQueryPort {
     private final PartySearchKeywordRepository partySearchKeywordRepository;
 
     @Override
-    public Page<Long> findMatchingPartyIds(List<String> keywords, Pageable pageable) {
+    public Page<Long> findMatchingPartyIds(
+            List<String> keywords,
+            String partyTag,
+            String topicType,
+            String positionType,
+            Pageable pageable
+    ) {
         String tsQuery = keywords.stream()
                 .map(keyword -> "'" + keyword.replace("\\", "\\\\").replace("'", "''") + "'")
                 .collect(Collectors.joining(" | "));
 
-        return partySearchKeywordRepository.searchPartyIdsByKeywords(tsQuery, PartyStatus.RECRUITING.name(), pageable);
+        return partySearchKeywordRepository.searchPartyIdsByKeywords(
+                tsQuery,
+                PartyStatus.RECRUITING.name(),
+                partyTag,
+                topicType,
+                positionType,
+                pageable
+        );
     }
 }

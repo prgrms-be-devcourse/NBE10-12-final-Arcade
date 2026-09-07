@@ -1,8 +1,13 @@
 package com.back.domain.search.search.service.party;
 
+import com.back.domain.member.member.entity.PositionType;
+import com.back.domain.party.party.entity.PartyTag;
+import com.back.domain.party.party.entity.TopicType;
 import com.back.domain.party.position.entity.PartyStatus;
+import com.back.domain.party.position.entity.Position;
 import com.back.domain.search.search.entity.party.PartySearchKeyword;
 import com.back.domain.search.search.repository.party.PartySearchKeywordRepository;
+import jakarta.persistence.criteria.Subquery;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.domain.Page;
@@ -22,8 +27,19 @@ public class PartyMatchQueryLikeService implements PartyMatchQueryPort {
     private final PartySearchKeywordRepository partySearchKeywordRepository;
 
     @Override
-    public Page<Long> findMatchingPartyIds(List<String> keywords, Pageable pageable) {
-        Specification<PartySearchKeyword> spec = matchesAnyKeyword(keywords).and(isRecruiting()).and(orderByPartyIdDesc());
+    public Page<Long> findMatchingPartyIds(
+            List<String> keywords,
+            String partyTag,
+            String topicType,
+            String positionType,
+            Pageable pageable
+    ) {
+        Specification<PartySearchKeyword> spec = matchesAnyKeyword(keywords)
+                .and(isRecruiting())
+                .and(hasPartyTag(partyTag))
+                .and(hasTopicType(topicType))
+                .and(hasPositionType(positionType))
+                .and(orderByPartyIdDesc());
 
         return partySearchKeywordRepository.findAll(spec, pageable)
                 .map(psk -> psk.getParty().getId());
@@ -47,6 +63,36 @@ public class PartyMatchQueryLikeService implements PartyMatchQueryPort {
 
     private Specification<PartySearchKeyword> isRecruiting() {
         return (root, query, cb) -> cb.equal(root.get("party").get("status"), PartyStatus.RECRUITING);
+    }
+
+    private Specification<PartySearchKeyword> hasPartyTag(String partyTag) {
+        if (partyTag == null) {
+            return (root, query, cb) -> cb.conjunction();
+        }
+        return (root, query, cb) -> cb.equal(root.get("party").get("partyTag"), PartyTag.valueOf(partyTag));
+    }
+
+    private Specification<PartySearchKeyword> hasTopicType(String topicType) {
+        if (topicType == null) {
+            return (root, query, cb) -> cb.conjunction();
+        }
+        return (root, query, cb) -> cb.equal(root.get("party").get("topicType"), TopicType.valueOf(topicType));
+    }
+
+    private Specification<PartySearchKeyword> hasPositionType(String positionType) {
+        if (positionType == null) {
+            return (root, query, cb) -> cb.conjunction();
+        }
+        return (root, query, cb) -> {
+            Subquery<Long> subquery = query.subquery(Long.class);
+            var positionRoot = subquery.from(Position.class);
+            subquery.select(cb.literal(1L))
+                    .where(
+                            cb.equal(positionRoot.get("party"), root.get("party")),
+                            cb.equal(positionRoot.get("type"), PositionType.valueOf(positionType))
+                    );
+            return cb.exists(subquery);
+        };
     }
 
     private Specification<PartySearchKeyword> orderByPartyIdDesc() {

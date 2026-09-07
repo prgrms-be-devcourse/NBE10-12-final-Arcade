@@ -63,7 +63,7 @@ class PartySearchServiceSearchLogPostgresTest {
         ));
         partySearchKeywordRepository.save(new PartySearchKeyword(party, "백엔드 스터디"));
 
-        partySearchService.search(actor, "백엔드", PageRequest.of(0, 10));
+        partySearchService.search(actor, "백엔드", null, null, null, PageRequest.of(0, 10));
 
         assertThat(searchLogRepository.findAll())
                 .anyMatch(log -> log.getKeyword().equals("백엔드"));

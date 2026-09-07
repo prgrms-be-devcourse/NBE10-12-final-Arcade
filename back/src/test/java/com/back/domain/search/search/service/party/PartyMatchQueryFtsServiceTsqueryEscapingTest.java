@@ -52,10 +52,14 @@ class PartyMatchQueryFtsServiceTsqueryEscapingTest {
     private MemberRepository memberRepository;
 
     private Party createParty(String suffix, String keywords) {
+        return createParty(suffix, keywords, PartyTag.WEB);
+    }
+
+    private Party createParty(String suffix, String keywords, PartyTag partyTag) {
         Member owner = memberRepository.save(new Member("fts-escape-" + suffix + "@test.com", "pw", "owner" + suffix, null));
         Party party = partyRepository.save(new Party(
                 owner, "파티명" + suffix, "제목" + suffix, null, null, "외부 대회", "https://example.com",
-                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7)
+                TopicType.STUDY, partyTag, null, 0, LocalDateTime.now().plusDays(7)
         ));
         partySearchKeywordRepository.save(new PartySearchKeyword(party, keywords));
         return party;
@@ -64,7 +68,7 @@ class PartyMatchQueryFtsServiceTsqueryEscapingTest {
     @Test
     void doesNotThrowOnKeywordsContainingTsqueryOperatorCharacters() {
         Page<Long> result = partyMatchQueryFtsService.findMatchingPartyIds(
-                List.of("<script>", "a b", "a:b", "&", "|", "foo\\", "foo\\bar"), PageRequest.of(0, 10)
+                List.of("<script>", "a b", "a:b", "&", "|", "foo\\", "foo\\bar"), null, null, null, PageRequest.of(0, 10)
         );
 
         assertThat(result.getContent()).isEmpty();
@@ -75,7 +79,7 @@ class PartyMatchQueryFtsServiceTsqueryEscapingTest {
         Party party = createParty("normal", "백엔드 스터디");
 
         Page<Long> result = partyMatchQueryFtsService.findMatchingPartyIds(
-                List.of("백엔드"), PageRequest.of(0, 10)
+                List.of("백엔드"), null, null, null, PageRequest.of(0, 10)
         );
 
         assertThat(result.getContent()).contains(party.getId());
@@ -86,9 +90,23 @@ class PartyMatchQueryFtsServiceTsqueryEscapingTest {
         Party party = createParty("substring", "자바스크립트 스터디");
 
         Page<Long> result = partyMatchQueryFtsService.findMatchingPartyIds(
-                List.of("자바"), PageRequest.of(0, 10)
+                List.of("자바"), null, null, null, PageRequest.of(0, 10)
         );
 
         assertThat(result.getContent()).doesNotContain(party.getId());
+    }
+
+    @Test
+    void filtersByPartyTagOnRealPostgres() {
+        Party webParty = createParty("tag-web", "백엔드 스터디", PartyTag.WEB);
+        Party appParty = createParty("tag-app", "백엔드 스터디", PartyTag.APP);
+
+        Page<Long> result = partyMatchQueryFtsService.findMatchingPartyIds(
+                List.of("백엔드"), PartyTag.APP.name(), null, null, PageRequest.of(0, 10)
+        );
+
+        assertThat(result.getContent())
+                .contains(appParty.getId())
+                .doesNotContain(webParty.getId());
     }
 }
