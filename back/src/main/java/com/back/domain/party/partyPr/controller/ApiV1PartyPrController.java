@@ -45,7 +45,8 @@ public class ApiV1PartyPrController {
     private String frontendBaseUrl;
 
     @GetMapping("/parties/{partyId}/github-connection")
-    public RsData<PartyGithubConnectionDto> getGithubConnection(@PathVariable long partyId) {
+    public RsData<PartyGithubConnectionDto> getGithubConnection(
+            @PathVariable long partyId) {
         return new RsData<>("200-1", "GitHub 연결 상태 조회 성공", githubConnectionService.getStatus(partyId, rq.getActorFromDb()));
     }
 
@@ -82,7 +83,8 @@ public class ApiV1PartyPrController {
         return URI.create(baseUrl).resolve("github-app/installed");
     }
 
-    private URI redirectUri(PartyGithubConnectionService.InstallCompletion completion) {
+    private URI redirectUri(
+            PartyGithubConnectionService.InstallCompletion completion) {
         String redirectPath = completion.redirectPath() == null
                 ? "/parties/" + completion.partyId()
                 : completion.redirectPath();
@@ -92,7 +94,8 @@ public class ApiV1PartyPrController {
     }
 
     @GetMapping("/parties/{partyId}/pull-requests")
-    public RsData<List<PartyPrDto>> getPullRequests(@PathVariable long partyId) {
+    public RsData<List<PartyPrDto>> getPullRequests(
+            @PathVariable long partyId) {
         return new RsData<>(
                 "200-1",
                 "PR 목록 조회 성공",
@@ -101,7 +104,8 @@ public class ApiV1PartyPrController {
     }
 
     @GetMapping("/parties/{partyId}/pull-requests/grouped-by-member")
-    public RsData<List<PartyPrByMemberDto>> getPullRequestsGroupedByMember(@PathVariable long partyId) {
+    public RsData<List<PartyPrByMemberDto>> getPullRequestsGroupedByMember(
+            @PathVariable long partyId) {
         return new RsData<>(
                 "200-1",
                 "담당자별 PR 목록 조회 성공",
@@ -109,7 +113,18 @@ public class ApiV1PartyPrController {
         );
     }
 
-    @GetMapping("/parties/{partyId}/pull-requests/members/{memberId}")
+    @GetMapping("/parties/{partyId}/pull-requests/members/me")
+    public RsData<PartyPrByMemberDto> getMyPullRequestsInParty(
+            @PathVariable long partyId) {
+        var actor = rq.getActor();
+        return new RsData<>(
+                "200-1",
+                "파티 내 PR 목록 조회 성공",
+                partyPrService.getByPartyIdAndMemberId(partyId, actor.getId(), actor)
+        );
+    }
+
+    @GetMapping("/parties/{partyId}/pull-requests/members/{memberId:\\d+}")
     public RsData<PartyPrByMemberDto> getPullRequestsByMember(
             @PathVariable long partyId,
             @PathVariable long memberId
@@ -122,7 +137,9 @@ public class ApiV1PartyPrController {
     }
 
     @GetMapping(value = "/parties/{partyId}/pull-requests/stream", produces = "text/event-stream")
-    public SseEmitter streamPullRequests(@PathVariable long partyId, HttpServletResponse response) {
+    public SseEmitter streamPullRequests(
+            @PathVariable long partyId,
+            HttpServletResponse response) {
         // snapshot 조회에서 Party 권한을 먼저 검증하고, 같은 snapshot을 첫 SSE 이벤트로 전달한다.
         try {
             List<PartyPrDto> snapshot = partyPrService.getByPartyId(partyId, rq.getActorFromDb());
