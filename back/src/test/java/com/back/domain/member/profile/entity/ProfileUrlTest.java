@@ -20,13 +20,13 @@ class ProfileUrlTest {
     }
 
     private void saveLink(String url) {
-        profile().modify("닉네임", null, null, null, null, null, null, null,
+        profile().modify("닉네임", null, null, null, null, null, null,
                 List.of(new LinkCommand("깃허브", url)));
     }
 
     private String savedUrl(String url) {
         MemberProfile profile = profile();
-        profile.modify("닉네임", null, null, null, null, null, null, null,
+        profile.modify("닉네임", null, null, null, null, null, null,
                 List.of(new LinkCommand("깃허브", url)));
 
         return profile.getLinks().getFirst().getUrl();
@@ -53,7 +53,7 @@ class ProfileUrlTest {
     @DisplayName("webpage 도 같은 규칙이라 javascript 스킴을 거부한다")
     @ValueSource(strings = {"javascript://%0aalert(1)", "javascript:alert(1)", "data:text/html,x"})
     void rejectsNonHttpSchemeOnWebpage(String url) {
-        assertThatThrownBy(() -> profile().modify("닉네임", url, null, null, null, null, null, null, null))
+        assertThatThrownBy(() -> profile().modify("닉네임", url, null, null, null, null, null, null))
                 .isInstanceOf(ServiceException.class)
                 .hasMessageContaining("http 또는 https");
     }

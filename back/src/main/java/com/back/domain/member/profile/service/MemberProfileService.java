@@ -46,14 +46,14 @@ public class MemberProfileService {
     @Transactional
     public MemberProfileDto modifyProfile(
             Member actor, String nickname, String webpage, String profileImageUrl,
-            String bio, String githubUsername,
+            String bio,
             PositionType position, List<String> techStacks,
             List<CareerCommand> careers, List<LinkCommand> links) {
 
         MemberProfile profile = memberProfileRepository.findByMember(actor)
                 .orElseGet(() -> memberProfileRepository.save(new MemberProfile(actor)));
 
-        profile.modify(nickname, webpage, profileImageUrl, bio, githubUsername,
+        profile.modify(nickname, webpage, profileImageUrl, bio,
                 position, techStacks, careers, links);
 
         try {
