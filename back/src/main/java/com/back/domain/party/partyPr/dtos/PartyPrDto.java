@@ -11,6 +11,7 @@ public record PartyPrDto(
     String title,
     String htmlUrl,
     String state,
+    Long authorGithubUserId,
     String authorLogin,
     boolean draft,
     boolean merged,
@@ -24,7 +25,7 @@ public record PartyPrDto(
     public PartyPrDto(PartyPr partyPr) {
         this(
             partyPr.getId(), partyPr.getGithubPrId(), partyPr.getNumber(), partyPr.getTitle(),
-            partyPr.getHtmlUrl(), partyPr.getState(), partyPr.getAuthorLogin(), partyPr.isDraft(),
+            partyPr.getHtmlUrl(), partyPr.getState(), partyPr.getAuthorGithubUserId(), partyPr.getAuthorLogin(), partyPr.isDraft(),
             partyPr.isMerged(), partyPr.getBaseBranch(), partyPr.getHeadBranch(), partyPr.getOpenedAt(),
             partyPr.getClosedAt(), partyPr.getMergedAt(), partyPr.getGithubUpdatedAt()
         );

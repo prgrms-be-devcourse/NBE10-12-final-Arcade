@@ -41,6 +41,8 @@ public class PartyPr extends BaseEntity {
     private String state;
 
     private String authorLogin;
+    /** GitHub login은 변경될 수 있으므로 회원의 "내 PR" 매칭은 이 numeric id로 수행한다. */
+    private Long authorGithubUserId;
     private boolean draft;
     private boolean merged;
     private String baseBranch;
@@ -61,6 +63,7 @@ public class PartyPr extends BaseEntity {
         this.title = data.title();
         this.htmlUrl = data.htmlUrl();
         this.state = data.state();
+        this.authorGithubUserId = data.authorGithubUserId();
         this.authorLogin = data.authorLogin();
         this.draft = data.draft();
         this.merged = data.merged();
