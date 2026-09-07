@@ -445,6 +445,20 @@ public class ApiV1MemberProfileControllerTest {
     }
 
     @Test
+    @DisplayName("프로필 이미지 업로드: Content-Type 이 없어도 500 이 아니라 400-1")
+    @WithUserDetails("user1@test.com")
+    void uploadProfileImageWithoutContentType() throws Exception {
+        // Content-Type 헤더를 안 붙인 파트다. getContentType() 이 null 로 오는데,
+        // List.of() 목록에 그대로 contains 하면 NPE 로 500 이 난다.
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "avatar.png", null, "fake-png".getBytes());
+
+        mvc.perform(multipart("/api/v1/members/me/image").file(file))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-1"));
+    }
+
+    @Test
     @DisplayName("프로필 이미지 업로드: 빈 파일이면 400-1")
     @WithUserDetails("user1@test.com")
     void uploadEmptyProfileImage() throws Exception {
