@@ -4,8 +4,11 @@ import com.back.domain.member.member.entity.Member;
 import com.back.domain.party.application.entity.PartyMember;
 import com.back.domain.party.application.entity.PartyMemberStatus;
 import com.back.domain.party.party.entity.Party;
+import com.back.domain.party.position.entity.PartyStatus;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -33,4 +36,17 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
     // 여러 파티의 파티원을 한 번에 조회 - TOP3처럼 파티가 여러 개일 때 파티마다 쿼리 날리는 걸 방지
     @EntityGraph(attributePaths = {"member"})
     List<PartyMember> findAllByPartyIn(List<Party> parties);
+
+    // 마이페이지 요약의 '완료한 파티' 수.
+    @Query("""
+            select count(pm) from PartyMember pm
+            where pm.member = :member
+              and pm.status = :status
+              and pm.party.status = :partyStatus
+            """)
+    long countByMemberAndStatusAndPartyStatus(
+            @Param("member") Member member,
+            @Param("status") PartyMemberStatus status,
+            @Param("partyStatus") PartyStatus partyStatus
+    );
 }

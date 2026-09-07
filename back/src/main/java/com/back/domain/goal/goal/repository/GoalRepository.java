@@ -1,8 +1,10 @@
 package com.back.domain.goal.goal.repository;
 
 import com.back.domain.goal.goal.entity.Goal;
+import com.back.domain.goal.goal.entity.GoalStatus;
 import com.back.domain.goal.goal.entity.GoalType;
 import com.back.domain.goal.goal.entity.PersonalChecklist;
+import com.back.domain.member.member.entity.Member;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -51,5 +53,13 @@ public interface GoalRepository extends JpaRepository<Goal, Long>, GoalRepositor
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("update Goal g set g.likeCount = case when g.likeCount > 0 then g.likeCount - 1 else 0 end where g.id = :id")
     void decreaseLikeCount(@Param("id") long id);
+
+    // 마이페이지 요약의 '수상' 건수. idx_goal_owner를 탄다.
+    @Query("select count(g) from Goal g where g.owner = :owner and g.type = :type and g.status = :status")
+    long countByOwnerAndTypeAndStatus(
+            @Param("owner") Member owner,
+            @Param("type") GoalType type,
+            @Param("status") GoalStatus status
+    );
 
 }

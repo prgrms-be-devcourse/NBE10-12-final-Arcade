@@ -4,8 +4,10 @@ import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.profile.dtos.CareerCommand;
 import com.back.domain.member.profile.dtos.LinkCommand;
 import com.back.domain.member.profile.dtos.MemberProfileDto;
+import com.back.domain.member.profile.dtos.MemberSummaryDto;
 import com.back.domain.member.profile.dtos.ProfileImageDto;
 import com.back.domain.member.profile.service.MemberProfileService;
+import com.back.domain.member.profile.service.MemberSummaryService;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,6 +35,7 @@ import java.util.List;
 public class ApiV1MemberProfileController {
 
     private final MemberProfileService memberProfileService;
+    private final MemberSummaryService memberSummaryService;
     private final Rq rq;
 
     @GetMapping("/me")
@@ -51,6 +54,32 @@ public class ApiV1MemberProfileController {
                 "200-1",
                 "내 정보 조회 성공",
                 memberProfileService.me(rq.getActorFromDb())
+        );
+    }
+
+    @GetMapping("/me/summary")
+    @Operation(
+            summary = "내 활동 요약 조회",
+            description = """
+                    마이페이지 '활동 스코어' 카드가 쓰는 집계값을 돌려준다.
+                    프로필 조회(GET /me)와 나눠 둔 것은 그쪽이 세션 확인용이라 거의 모든 화면이 부르고,
+                    수정(PATCH /me)도 같은 응답을 돌려주기 때문이다. 섞으면 프로필을 읽고 쓸 때마다 집계가 함께 돈다.
+
+                    - completedParties : 승인된 파티원으로 속한 파티 중 COMPLETED 인 건
+                    - awards           : 달성한 CONTEST 성취 건수
+                    - exhibitions      : 승인된 파티원으로 속한 파티 중 전시가 게시된 건
+                    - streakDays       : 일자별 활동 기록 도메인이 없어 아직 0 고정
+                    - badges           : 배지 도메인이 없어 아직 빈 배열
+
+                    예외
+                    - 401-1 : 미로그인
+                    """
+    )
+    public RsData<MemberSummaryDto> summary() {
+        return new RsData<>(
+                "200-1",
+                "내 활동 요약 조회 성공",
+                memberSummaryService.summary(rq.getActorFromDb())
         );
     }
 

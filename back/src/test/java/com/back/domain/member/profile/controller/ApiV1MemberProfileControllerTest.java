@@ -1,8 +1,22 @@
 package com.back.domain.member.profile.controller;
 
 import com.back.RedisTestContainerConfig;
+import com.back.domain.goal.goal.entity.GoalStatus;
+import com.back.domain.goal.goal.entity.PersonalContest;
+import com.back.domain.goal.goal.repository.GoalRepository;
+import com.back.domain.member.member.entity.Member;
+import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.member.repository.MemberRepository;
 import com.back.domain.member.profile.service.MemberProfileService;
+import com.back.domain.party.application.entity.PartyMember;
+import com.back.domain.party.application.repository.PartyMemberRepository;
+import com.back.domain.party.party.entity.Party;
+import com.back.domain.party.party.entity.PartyTag;
+import com.back.domain.party.party.entity.TopicType;
+import com.back.domain.party.party.repository.PartyRepository;
+import com.back.domain.party.position.entity.Position;
+import com.back.domain.party.showcase.entity.PartyShowcase;
+import com.back.domain.party.showcase.repository.PartyShowcaseRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +30,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -38,6 +55,97 @@ public class ApiV1MemberProfileControllerTest {
 
     @Autowired
     private MemberProfileService memberProfileService;
+
+    @Autowired
+    private PartyRepository partyRepository;
+
+    @Autowired
+    private PartyMemberRepository partyMemberRepository;
+
+    @Autowired
+    private PartyShowcaseRepository partyShowcaseRepository;
+
+    @Autowired
+    private GoalRepository goalRepository;
+
+    @Test
+    @DisplayName("내 활동 요약: 활동이 없으면 전부 0 이다")
+    @WithUserDetails("user1@test.com")
+    void summaryWithoutActivity() throws Exception {
+        mvc.perform(get("/api/v1/members/me/summary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resultCode").value("200-1"))
+                .andExpect(jsonPath("$.data.completedParties").value(0))
+                .andExpect(jsonPath("$.data.awards").value(0))
+                .andExpect(jsonPath("$.data.exhibitions").value(0))
+                .andExpect(jsonPath("$.data.streakDays").value(0))
+                .andExpect(jsonPath("$.data.badges").isEmpty());
+    }
+
+    @Test
+    @DisplayName("내 활동 요약: 승인된 완료 파티만 세고, 거절되거나 진행 중인 건은 빼고 센다")
+    @WithUserDetails("user1@test.com")
+    void summary() throws Exception {
+        Member actor = memberRepository.findByEmail("user1@test.com").orElseThrow();
+        Member owner = memberRepository.findByEmail("user2@test.com").orElseThrow();
+
+        // 승인 + 완료 + 전시 게시 -> completedParties 1, exhibitions 1
+        Party completed = partyRepository.save(completedParty(owner));
+        partyMemberRepository.save(partyMember(completed, actor, true));
+        PartyShowcase showcase = new PartyShowcase(completed);
+        showcase.publish("전시 제목", "설명");
+        partyShowcaseRepository.save(showcase);
+
+        // 완료됐지만 거절당한 파티 - 상태 조건이 빠지면 여기서 수가 늘어난다
+        Party rejected = partyRepository.save(completedParty(owner));
+        partyMemberRepository.save(partyMember(rejected, actor, false));
+        PartyShowcase rejectedShowcase = new PartyShowcase(rejected);
+        rejectedShowcase.publish("남의 전시", "설명");
+        partyShowcaseRepository.save(rejectedShowcase);
+
+        // 승인됐지만 아직 모집중인 파티 - 파티 상태 조건이 빠지면 여기서 수가 늘어난다
+        Party recruiting = partyRepository.save(newParty(owner));
+        partyMemberRepository.save(partyMember(recruiting, actor, true));
+
+        goalRepository.save(new PersonalContest(
+                actor, GoalStatus.ACHIEVED, "공모전 대상", false, "대상", LocalDate.now(), null));
+        // 아직 달성 전인 수상 - 상태 조건이 빠지면 여기서 수가 늘어난다
+        goalRepository.save(new PersonalContest(
+                actor, GoalStatus.WANT, "지원 예정 공모전", false, null, null, null));
+
+        mvc.perform(get("/api/v1/members/me/summary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.completedParties").value(1))
+                .andExpect(jsonPath("$.data.awards").value(1))
+                .andExpect(jsonPath("$.data.exhibitions").value(1));
+    }
+
+    private Party completedParty(Member owner) {
+        Party party = newParty(owner);
+        party.closeRecruiting();
+        party.complete();
+
+        return party;
+    }
+
+    private Party newParty(Member owner) {
+        Party party = new Party(
+                owner, "파티", "제목", "설명", null, null, null,
+                TopicType.PROJECT, PartyTag.WEB, null, 1,
+                LocalDateTime.now().plusDays(7));
+        party.addPosition(new Position(PositionType.BACK, 3));
+
+        return party;
+    }
+
+    private PartyMember partyMember(Party party, Member member, boolean approved) {
+        PartyMember partyMember = new PartyMember(party, member, party.getPositions().getFirst(), null);
+
+        if (approved) partyMember.approve();
+        else partyMember.reject();
+
+        return partyMember;
+    }
 
     @Test
     @DisplayName("내 정보 조회: 로그인한 회원의 개인정보를 반환한다")
