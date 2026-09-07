@@ -3,6 +3,7 @@ package com.back.domain.interaction.like.service;
 import com.back.domain.contest.contest.entity.ContestPost;
 import com.back.domain.contest.contest.repository.ContestPostRepository;
 import com.back.domain.goal.goal.entity.Goal;
+import com.back.domain.goal.goal.entity.Project;
 import com.back.domain.goal.goal.repository.GoalRepository;
 import com.back.domain.interaction.like.dtos.LikeDto;
 import com.back.domain.interaction.like.entity.LikeAction;
@@ -100,15 +101,30 @@ public class LikeService implements LikeInteractionPort {
     @Transactional
     public LikeDto likeGoal(long goalId, Member member) {
         likeActionRepository.save(new LikeAction(member, TargetType.GOAL, goalId));
-        goalRepository.increaseLikeCount(goalId);
 
-        int updatedLikeCount = goalRepository.findById(goalId).orElseThrow().getLikeCount();
+        Goal goal = goalRepository.findById(goalId).orElseThrow();
+        int updatedLikeCount;
+        if (goal instanceof Project) {
+            long partyId = goal.getSourcePartyId();
+            partyRepository.increaseLikeCount(partyId);
+            updatedLikeCount = partyRepository.findById(partyId).orElseThrow().getLikeCount();
+        } else {
+            goalRepository.increaseLikeCount(goalId);
+            updatedLikeCount = goalRepository.findById(goalId).orElseThrow().getLikeCount();
+        }
+
         return new LikeDto(TargetType.GOAL, goalId, true, updatedLikeCount);
     }
 
     @Transactional
     public void unlikeGoal(long goalId, Member member) {
         likeActionRepository.deleteByMemberAndTargetTypeAndTargetId(member, TargetType.GOAL, goalId);
-        goalRepository.decreaseLikeCount(goalId);
+
+        Goal goal = goalRepository.findById(goalId).orElseThrow();
+        if (goal instanceof Project) {
+            partyRepository.decreaseLikeCount(goal.getSourcePartyId());
+        } else {
+            goalRepository.decreaseLikeCount(goalId);
+        }
     }
 }

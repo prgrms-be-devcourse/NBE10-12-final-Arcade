@@ -364,6 +364,53 @@ public class ApiV1PartyControllerTest {
                 .andExpect(jsonPath("$.resultCode").value("403-1"));
     }
 
+    @Test
+    @DisplayName("파티 삭제: 승인된 파티원이 있으면 409-3이다")
+    @WithUserDetails("user1@test.com")
+    void deleteBlockedWhenApprovedMemberExists() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 2);
+        saveApprovedMember(party, "user2@test.com");
+
+        ResultActions resultActions = mvc.perform(delete("/api/v1/parties/" + party.getId()));
+
+        resultActions.andExpect(status().isConflict())
+                .andExpect(jsonPath("$.resultCode").value("409-3"))
+                .andExpect(jsonPath("$.msg").value("승인된 파티원이 있는 파티는 삭제할 수 없습니다. 먼저 승인을 취소해주세요."));
+    }
+
+    @Test
+    @DisplayName("파티 삭제: 승인을 전부 취소하면 삭제할 수 있다")
+    @WithUserDetails("user1@test.com")
+    void deleteSucceedsAfterCancellingAllApprovals() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 2);
+        PartyMember approved = saveApprovedMember(party, "user2@test.com");
+
+        mvc.perform(post(
+                "/api/v1/parties/" + party.getId() + "/applications/" + approved.getId() + "/cancel-approval"
+        )).andExpect(status().isOk());
+
+        ResultActions resultActions = mvc.perform(delete("/api/v1/parties/" + party.getId()));
+
+        resultActions.andExpect(status().isNoContent())
+                .andExpect(jsonPath("$.resultCode").value("204-1"));
+    }
+
+    @Test
+    @DisplayName("파티 삭제: PENDING 지원 기록만 있으면 승인자 체크에 걸리지 않고 삭제된다")
+    @WithUserDetails("user1@test.com")
+    void deleteSucceedsWithOnlyPendingApplications() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 2);
+
+        Member applicant = memberRepository.findByEmail("user2@test.com").orElseThrow();
+        Position position = party.getPositions().get(0);
+        partyMemberRepository.save(new PartyMember(party, applicant, position, "잘 하겠습니다"));
+
+        ResultActions resultActions = mvc.perform(delete("/api/v1/parties/" + party.getId()));
+
+        resultActions.andExpect(status().isNoContent())
+                .andExpect(jsonPath("$.resultCode").value("204-1"));
+    }
+
     private Party savePartyOwnedBy(
             String ownerEmail,
             String partyName,
@@ -391,6 +438,17 @@ public class ApiV1PartyControllerTest {
         party.addPosition(new Position(positionType, capacity));
 
         return partyRepository.save(party);
+    }
+
+    private PartyMember saveApprovedMember(Party party, String applicantEmail) {
+        Member applicant = memberRepository.findByEmail(applicantEmail).orElseThrow();
+        Position position = party.getPositions().get(0);
+
+        PartyMember partyMember = new PartyMember(party, applicant, position, "잘 하겠습니다");
+        partyMember.approve();
+        position.fillOneSeat();
+
+        return partyMemberRepository.save(partyMember);
     }
 
     @Test

@@ -60,6 +60,13 @@ public class Position extends BaseEntity {
         this.filledCount++;
     }
 
+    // 승인 취소 시 호출. fillOneSeat()의 반대 - 자리를 다시 비운다.
+    public void freeOneSeat() {
+        if (this.filledCount > 0) {
+            this.filledCount--;
+        }
+    }
+
     // 정원은 늘리는 수정만 허용 - 이미 승인된 인원보다 작게 줄일 수 없음
     public void changeCapacity(int newCapacity) {
         if (newCapacity < this.filledCount) {

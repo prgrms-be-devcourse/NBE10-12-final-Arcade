@@ -12,6 +12,7 @@ public record GithubPullRequestSnapshot(
     String title,
     String htmlUrl,
     String state,
+    Long authorGithubUserId,
     String authorLogin,
     boolean draft,
     boolean merged,

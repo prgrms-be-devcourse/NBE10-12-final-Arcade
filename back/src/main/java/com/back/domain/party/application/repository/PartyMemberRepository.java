@@ -15,6 +15,14 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
 
     boolean existsByPartyAndMemberAndStatus(Party party, Member member, PartyMemberStatus status);
 
+    // 파티 삭제 전 "승인된 파티원이 하나도 없어야 하는지" 확인할 때 쓴다.
+    boolean existsByPartyAndStatus(Party party, PartyMemberStatus status);
+
+    // 위와 같지만 특정 회원(파티장)은 뺀다.
+    // ARC-97 이후 파티장도 APPROVED 로 들어가는데, 파티장 자신은 '지켜야 할 팀원'이 아니다.
+    boolean existsByPartyAndStatusAndMemberNot(Party party, PartyMemberStatus status, Member member);
+
+
     Optional<PartyMember> findByIdAndParty(long id, Party party);
 
     // 특정 회원이 그 파티에서 맡은 포지션을 찾을 때 쓴다. 파티 전체를 읽어 메모리에서 거르지 않기 위함.

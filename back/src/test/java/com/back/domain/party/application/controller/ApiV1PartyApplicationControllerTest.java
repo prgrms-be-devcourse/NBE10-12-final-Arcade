@@ -1,6 +1,8 @@
 package com.back.domain.party.application.controller;
 
 import com.back.domain.member.member.entity.Member;
+import com.back.domain.notification.notification.entity.NotificationType;
+import com.back.domain.notification.notification.repository.NotificationRepository;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.member.repository.MemberRepository;
 import com.back.domain.party.application.entity.PartyMember;
@@ -12,6 +14,7 @@ import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.position.entity.PartyStatus;
 import com.back.domain.party.position.entity.Position;
 import com.back.domain.party.position.repository.PositionRepository;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +23,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.transaction.TestTransaction;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -42,6 +46,9 @@ public class ApiV1PartyApplicationControllerTest {
 
     @Autowired
     private MockMvc mvc;
+
+    @Autowired
+    private NotificationRepository notificationRepository;
 
     @Autowired
     private MemberRepository memberRepository;
@@ -99,6 +106,29 @@ public class ApiV1PartyApplicationControllerTest {
 
         resultActions.andExpect(status().isCreated())
                 .andExpect(jsonPath("$.resultCode").value("201-1"));
+
+        assertThat(notificationRepository.findAll().stream().filter(n ->
+                n.getMember().getId().equals(party.getOwner().getId())
+                        && n.getType() == NotificationType.PARTY_APPLICATION_RECEIVED
+                        && n.getContent().equals("오락실 팀 파티에 새로운 지원자가 있습니다.")).count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("파티 지원 트랜잭션이 롤백되면 알림도 저장되지 않는다")
+    @WithUserDetails("user1@test.com")
+    void rollbackApplicationNotification() throws Exception {
+        long notificationCount = notificationRepository.count();
+        Party party = saveParty("user2@test.com");
+        mvc.perform(post("/api/v1/parties/" + party.getId() + "/applications")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(applyRequestJson(party.getPositions().get(0).getId(), null)))
+                .andExpect(status().isCreated());
+        assertThat(notificationRepository.count()).isEqualTo(notificationCount + 1);
+
+        TestTransaction.flagForRollback();
+        TestTransaction.end();
+
+        assertThat(notificationRepository.count()).isEqualTo(notificationCount);
     }
 
     @Test
@@ -240,6 +270,10 @@ public class ApiV1PartyApplicationControllerTest {
 
         Position updatedPosition = positionRepository.findById(position.getId()).orElseThrow();
         assertThat(updatedPosition.getFilledCount()).isEqualTo(1);
+        assertThat(notificationRepository.findAll().stream().filter(n ->
+                n.getMember().getId().equals(applicant.getId())
+                        && n.getType() == NotificationType.PARTY_APPLICATION_APPROVED
+                        && n.getContent().equals("오락실 팀 파티 참여 신청이 승인되었습니다.")).count()).isEqualTo(1);
     }
 
     @Test
@@ -319,6 +353,7 @@ public class ApiV1PartyApplicationControllerTest {
         PartyMember pendingMember = partyMemberRepository.save(
                 new PartyMember(party, secondApplicant, position, null));
 
+        long notificationCount = notificationRepository.count();
         ResultActions resultActions = mvc.perform(patch(
                 "/api/v1/parties/" + party.getId() + "/applications/" + pendingMember.getId())
                 .contentType(MediaType.APPLICATION_JSON)
@@ -326,6 +361,7 @@ public class ApiV1PartyApplicationControllerTest {
 
         resultActions.andExpect(status().isConflict())
                 .andExpect(jsonPath("$.resultCode").value("409-2"));
+        assertThat(notificationRepository.count()).isEqualTo(notificationCount);
     }
 
     @Test
@@ -359,5 +395,116 @@ public class ApiV1PartyApplicationControllerTest {
 
         resultActions.andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.resultCode").value("404-1"));
+    }
+
+    private PartyMember saveApprovedMember(Party party, String applicantEmail) {
+        Member applicant = memberRepository.findByEmail(applicantEmail).orElseThrow();
+        Position position = party.getPositions().get(0);
+
+        PartyMember partyMember = new PartyMember(party, applicant, position, "잘 하겠습니다");
+        partyMember.approve();
+        position.fillOneSeat();
+
+        return partyMemberRepository.save(partyMember);
+    }
+
+    private PartyMember savePendingMember(Party party, String applicantEmail) {
+        Member applicant = memberRepository.findByEmail(applicantEmail).orElseThrow();
+        Position position = party.getPositions().get(0);
+
+        PartyMember partyMember = new PartyMember(party, applicant, position, "잘 하겠습니다");
+
+        return partyMemberRepository.save(partyMember);
+    }
+
+    @Test
+    @DisplayName("승인 취소: 200-1과 함께 상태가 REJECTED로 바뀌고 정원 자리가 반환된다")
+    @WithUserDetails("user1@test.com")
+    void cancelApproval() throws Exception {
+        Party party = saveParty("user1@test.com");
+        PartyMember approved = saveApprovedMember(party, "user2@test.com");
+        Position position = party.getPositions().get(0);
+
+        ResultActions resultActions = mvc.perform(post(
+                "/api/v1/parties/" + party.getId() + "/applications/" + approved.getId() + "/cancel-approval"
+        ));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.resultCode").value("200-1"))
+                .andExpect(jsonPath("$.msg").value("승인 취소 성공"))
+                .andExpect(jsonPath("$.data.status").value("REJECTED"));
+
+        Assertions.assertThat(position.getFilledCount()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("승인 취소: PENDING 건에 요청하면 409-1이다")
+    @WithUserDetails("user1@test.com")
+    void cancelApprovalOnPending() throws Exception {
+        Party party = saveParty("user1@test.com");
+        PartyMember pending = savePendingMember(party, "user2@test.com");
+
+        ResultActions resultActions = mvc.perform(post(
+                "/api/v1/parties/" + party.getId() + "/applications/" + pending.getId() + "/cancel-approval"
+        ));
+
+        resultActions.andExpect(status().isConflict())
+                .andExpect(jsonPath("$.resultCode").value("409-1"))
+                .andExpect(jsonPath("$.msg").value("승인된 지원 건만 취소할 수 있습니다."));
+    }
+
+    @Test
+    @DisplayName("승인 취소: 파티장이 아니면 403-1이다")
+    @WithUserDetails("user2@test.com")
+    void cancelApprovalAsNonOwner() throws Exception {
+        Party party = saveParty("user1@test.com");
+        PartyMember approved = saveApprovedMember(party, "user2@test.com");
+
+        ResultActions resultActions = mvc.perform(post(
+                "/api/v1/parties/" + party.getId() + "/applications/" + approved.getId() + "/cancel-approval"
+        ));
+
+        resultActions.andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.resultCode").value("403-1"));
+    }
+
+    @Test
+    @DisplayName("승인 취소: 존재하지 않는 지원 내역이면 404-1이다")
+    @WithUserDetails("user1@test.com")
+    void cancelApprovalNotFound() throws Exception {
+        Party party = saveParty("user1@test.com");
+
+        ResultActions resultActions = mvc.perform(post(
+                "/api/v1/parties/" + party.getId() + "/applications/999999/cancel-approval"
+        ));
+
+        resultActions.andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.resultCode").value("404-1"));
+    }
+
+    @Test
+    @DisplayName("승인 취소: 존재하지 않는 파티면 404-1이다")
+    @WithUserDetails("user1@test.com")
+    void cancelApprovalPartyNotFound() throws Exception {
+        ResultActions resultActions = mvc.perform(post(
+                "/api/v1/parties/999999/applications/1/cancel-approval"
+        ));
+
+        resultActions.andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.resultCode").value("404-1"));
+    }
+
+    @Test
+    @DisplayName("승인 취소: 로그인하지 않았으면 401-1이다")
+    void cancelApprovalWithoutLogin() throws Exception {
+        Party party = saveParty("user1@test.com");
+        PartyMember approved = saveApprovedMember(party, "user2@test.com");
+
+        ResultActions resultActions = mvc.perform(post(
+                "/api/v1/parties/" + party.getId() + "/applications/" + approved.getId() + "/cancel-approval"
+        ));
+
+        resultActions.andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.resultCode").value("401-1"));
     }
 }
