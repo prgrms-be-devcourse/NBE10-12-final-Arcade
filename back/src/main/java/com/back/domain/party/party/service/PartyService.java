@@ -116,9 +116,9 @@ public class PartyService {
         Position ownerPosition = seatForOwner(party, owner);
 
         Party savedParty = partyRepository.save(party);
-        activityLogService.record(owner);
         partyMemberRepository.save(PartyMember.owner(savedParty, owner, ownerPosition));
 
+        activityLogService.record(owner);
         eventPublisher.publishEvent(new PartySearchIndexRequestedEvent(savedParty.getId()));
 
         return new PartyDto(savedParty);
