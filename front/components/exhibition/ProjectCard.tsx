@@ -13,8 +13,14 @@ interface ProjectCardProps {
 
 /** 전시관 프로젝트 카드 */
 export function ProjectCard({ project, rank, showLeader = true }: ProjectCardProps) {
-  // 전시 항목은 모두 성취(Goal)다. GET /goals/{id} 가 PROJECT·CONTEST·CHECKLIST 를 모두 처리한다.
-  const href = `/goals/${project.id}`;
+  /*
+   * 전시 상세는 두 갈래다.
+   * - PROJECT : 파티에 종속이라 파티 전시 상세로 (GET /parties/{partyId}/showcase)
+   * - 그 외   : 개인 성취라 파티가 없다. 성취 상세로 (GET /goals/{goalId})
+   */
+  const href = project.sourcePartyId
+    ? `/exhibition/${project.sourcePartyId}`
+    : `/goals/${project.id}`;
 
   return (
     <article className="project-card">

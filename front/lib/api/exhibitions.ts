@@ -94,12 +94,90 @@ export async function fetchExhibitions(
   return page.content.map(toExhibitionProject);
 }
 
-/** GET /exhibitions/{id} */
+/** 서버 PartyShowcaseDto — 파티 전시 초안·게시 응답 */
+interface PartyShowcaseResponse {
+  partyId: number;
+  partyName: string;
+  ownerName: string;
+  memberNames: string[];
+  githubRepoUrl: string | null;
+  title: string | null;
+  description: string | null;
+  published: boolean;
+  publishedAt: string | null;
+  viewCount: number;
+  likeCount: number;
+}
+
+/** 이름만 아는 참여자. id 가 없으면 프로필 링크·쪽지 버튼을 걸 수 없다. */
+const nameOnlyUser = (name: string) => ({
+  id: '',
+  name,
+  initial: name.charAt(0) || 'C',
+  role: '',
+});
+
+/**
+ * 서버 전시 상세에 없어서 비워 두는 값:
+ * - skills, coverImageUrl : PartyShowcaseDto 에 기술스택·이미지가 없다 (요청서 ⑥)
+ * - comments              : 댓글 API 가 없다 (요청서 ⑦) - 화면에서도 숨긴다
+ * - members[].id          : 참여자는 이름 목록으로만 온다
+ */
+function toExhibitionDetail(dto: PartyShowcaseResponse): ExhibitionDetail {
+  const description = dto.description ?? '';
+
+  return {
+    id: String(dto.partyId),
+    title: dto.title ?? dto.partyName,
+    summary: description,
+    partyName: dto.partyName,
+    role: 'BACK',
+    category: GOAL_TYPE_LABELS.PROJECT,
+    // 파티 전시는 크루온 활동으로 만들어진 기록이다
+    source: 'PLATFORM_VERIFIED',
+    skills: [],
+    viewCount: dto.viewCount,
+    likeCount: dto.likeCount,
+    sourcePartyId: String(dto.partyId),
+    leader: nameOnlyUser(dto.ownerName),
+    thumbnailLabel: GOAL_TYPE_LABELS.PROJECT,
+    description,
+    members: dto.memberNames.map(nameOnlyUser),
+    links: dto.githubRepoUrl ? [{ id: 'github', label: 'GitHub', url: dto.githubRepoUrl }] : [],
+    period: dto.publishedAt ? `${dto.publishedAt.slice(0, 10).replace(/-/g, '.')} 게시` : '',
+    comments: [],
+  };
+}
+
+/**
+ * GET /api/v1/parties/{partyId}/showcase — 파티 전시 상세.
+ *
+ * 전시는 파티에 종속이라 id 는 goal id 가 아니라 **partyId** 다.
+ * 게시 전 초안은 파티원만 볼 수 있고, 게시된 뒤에는 누구나 볼 수 있다.
+ */
 export async function fetchExhibition(id: string): Promise<ExhibitionDetail> {
-  if (USE_MOCK) {
+  if (USE_API_MOCK) {
     return mockResponse(MOCK_EXHIBITION_DETAILS[id] ?? MOCK_EXHIBITION_DETAILS['settlement-api']);
   }
-  return http.get<ExhibitionDetail>(`/exhibitions/${id}`);
+  return toExhibitionDetail(await http.get<PartyShowcaseResponse>(`/parties/${id}/showcase`));
+}
+
+/**
+ * POST /api/v1/parties/{partyId}/showcase — 전시 게시.
+ *
+ * 파티장만 부를 수 있다(403). 이미 게시된 파티에 다시 부르면 제목·설명이 갱신된다 —
+ * 서버가 기존 PartyShowcase 를 찾아 다시 publish 하므로 등록과 수정이 같은 호출이다.
+ */
+export async function publishPartyShowcase(
+  partyId: string,
+  payload: { title: string; description: string },
+): Promise<ExhibitionDetail> {
+  if (USE_API_MOCK) {
+    return mockResponse(MOCK_EXHIBITION_DETAILS['settlement-api']);
+  }
+  return toExhibitionDetail(
+    await http.post<PartyShowcaseResponse>(`/parties/${partyId}/showcase`, payload),
+  );
 }
 
 /**

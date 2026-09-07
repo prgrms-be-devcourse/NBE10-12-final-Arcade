@@ -1,5 +1,4 @@
 import { Icon } from '@/components/icons/Icon';
-import { CommentSection } from '@/components/exhibition/CommentSection';
 import { ExhibitionActions } from '@/components/exhibition/ExhibitionActions';
 import { DetailActions } from '@/components/ui/DetailActions';
 import { SendMessageButton } from '@/components/message/SendMessageButton';
@@ -9,7 +8,7 @@ import { LeaderRow } from '@/components/ui/Avatar';
 import { ChipRow, SkillChip, Tag, TagRow } from '@/components/ui/Tag';
 import { fetchExhibition, fetchExhibitionCommits } from '@/lib/api';
 import { GOAL_SOURCE_LABELS } from '@/lib/constants';
-import { MOCK_CURRENT_USER_ID, MOCK_USER_SUMMARIES } from '@/lib/mock';
+import { MOCK_CURRENT_USER_ID } from '@/lib/mock';
 
 export default async function ExhibitionDetailPage({
   params,
@@ -30,7 +29,6 @@ export default async function ExhibitionDetailPage({
       }[]
     >,
   ]);
-  const currentUser = MOCK_USER_SUMMARIES[MOCK_CURRENT_USER_ID];
   const githubUrl = project.links.find((link) => link.label === 'GitHub')?.url;
 
   return (
@@ -55,8 +53,8 @@ export default async function ExhibitionDetailPage({
                   </span>
                   {/* 좋아요 · 북마크는 대회 상세와 같은 공용 컴포넌트를 쓴다 */}
                   <DetailActions
-                    target="exhibition"
-                    id={project.id}
+                    target="party"
+                    id={project.sourcePartyId ?? project.id}
                     likeCount={project.likeCount}
                     likedByMe={project.likedByMe}
                     bookmarkedByMe={project.bookmarkedByMe}
@@ -80,7 +78,6 @@ export default async function ExhibitionDetailPage({
 
               <ExhibitionActions
                 exhibitionId={project.id}
-                exhibitionTitle={project.title}
                 owner={project.leader}
                 githubUrl={githubUrl}
               />
@@ -116,21 +113,22 @@ export default async function ExhibitionDetailPage({
                 </Block>
               ) : null}
 
-              <CommentSection
-                exhibitionId={project.id}
-                comments={project.comments}
-                currentUserName={currentUser.name}
-              />
+              {/*
+                댓글은 서버에 대응 API 가 없어 숨겨 뒀다 (docs/마이페이지-요약API_백엔드_요청.md ⑦).
+                저장되지 않는 입력창을 남기면 사용자가 쓴 댓글이 조용히 사라진다.
+                API 가 생기면 CommentSection import 와 함께 이 블록을 되살리면 된다.
+              */}
             </>
           }
           side={
             <SideCard title="참여 팀원">
               {project.members.map((member) => (
-                <div key={member.id} className="member-contact-row">
-                  <LeaderRow user={member} href={`/profile/${member.id}`} card />
-                  {member.id === MOCK_CURRENT_USER_ID ? null : (
+                <div key={member.id || member.name} className="member-contact-row">
+                  {/* 서버 전시 상세는 참여자를 이름 목록으로만 준다 - id 가 없으면 링크를 걸지 않는다 */}
+                  <LeaderRow user={member} href={member.id ? `/profile/${member.id}` : undefined} card />
+                  {member.id && member.id !== MOCK_CURRENT_USER_ID ? (
                     <SendMessageButton recipient={member} variant="icon" />
-                  )}
+                  ) : null}
                 </div>
               ))}
               <p className="leader-stat-line">진행 기간 {project.period}</p>

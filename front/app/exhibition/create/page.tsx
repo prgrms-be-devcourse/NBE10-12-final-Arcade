@@ -5,9 +5,10 @@ import { SectionHead } from '@/components/ui/SectionHead';
 export default async function ExhibitionCreatePage({
   searchParams,
 }: {
-  searchParams: Promise<{ edit?: string }>;
+  searchParams: Promise<{ partyId?: string }>;
 }) {
-  const { edit } = await searchParams;
+  // 전시는 파티 단위로 게시한다. 팀 스페이스의 '전시 게시' 버튼이 partyId 를 달고 보낸다.
+  const { partyId } = await searchParams;
 
   return (
     <main>
@@ -15,18 +16,11 @@ export default async function ExhibitionCreatePage({
         <BackLink href="/exhibition" label="전시관으로" />
 
         <SectionHead
-          title={edit ? '전시 수정' : '전시 등록'}
-          description="완료한 프로젝트를 전시관에 공개해요. 파티에서 완료한 프로젝트는 체크리스트 스냅샷이 자동으로 따라옵니다."
+          title="전시 게시"
+          description="완료한 파티를 전시관에 공개해요. 참여 팀원과 GitHub 저장소는 파티 정보에서 따라옵니다."
         />
 
-        {edit ? (
-          <div className="form-mode-banner">
-            이미 공개된 전시를 수정하고 있어요. 자동기록된 체크리스트 스냅샷과 참여 팀원 정보는
-            수정할 수 없습니다.
-          </div>
-        ) : null}
-
-        <ExhibitionCreateForm editId={edit} />
+        <ExhibitionCreateForm partyId={partyId} />
       </div>
     </main>
   );
