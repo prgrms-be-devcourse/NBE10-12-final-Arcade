@@ -11,7 +11,6 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -42,7 +41,7 @@ public class ActivityLogService {
         activityLogRepository.findByMemberAndActivityDate(actor, today)
                 .ifPresentOrElse(
                         ActivityLog::increase,
-                        () -> activityLogRepository.save(new ActivityLog(actor, today)));
+                        () -> activityLogRepository.save(new ActivityLog(actor, today, 1)));
     }
 
     public Summary summary(Member actor) {
@@ -50,7 +49,7 @@ public class ActivityLogService {
         Map<LocalDate, Integer> countByDate = activityLogRepository
                 .findAllByMemberAndActivityDateGreaterThanEqual(actor, today.minusDays(STREAK_LOOKBACK_DAYS))
                 .stream()
-                .collect(Collectors.toMap(ActivityLog::getActivityDate, ActivityLog::getCount, Integer::sum));
+                .collect(Collectors.toMap(ActivityLog::getActivityDate, ActivityLog::getCount));
 
         return new Summary(streakDays(countByDate, today), heatmap(countByDate, today));
     }

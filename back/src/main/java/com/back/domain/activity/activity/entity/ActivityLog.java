@@ -38,12 +38,6 @@ public class ActivityLog extends BaseEntity {
     @Column(nullable = false)
     private int count;
 
-    public ActivityLog(Member member, LocalDate activityDate) {
-        this.member = member;
-        this.activityDate = activityDate;
-        this.count = 1;
-    }
-
     public ActivityLog(Member member, LocalDate activityDate, int count) {
         this.member = member;
         this.activityDate = activityDate;

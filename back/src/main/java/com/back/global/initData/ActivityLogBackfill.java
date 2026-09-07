@@ -2,27 +2,22 @@ package com.back.global.initData;
 
 import com.back.domain.activity.activity.entity.ActivityLog;
 import com.back.domain.activity.activity.repository.ActivityLogRepository;
-import com.back.domain.activity.activity.service.ActivityLogService;
 import com.back.domain.interaction.bookmark.repository.BookmarkRepository;
 import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.interaction.like.repository.LikeActionRepository;
-import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
 import com.back.domain.party.application.repository.PartyMemberRepository;
 import com.back.domain.party.party.repository.PartyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,13 +34,10 @@ import java.util.Map;
  * 한 번만 돌면 되므로 ACTIVITY_LOG 가 비어 있을 때만 동작한다.
  */
 @Slf4j
-@Configuration
+@Component
+@Order(2)
 @RequiredArgsConstructor
-public class ActivityLogBackfill {
-
-    @Autowired
-    @Lazy
-    private ActivityLogBackfill self;
+public class ActivityLogBackfill implements ApplicationRunner {
 
     private final ActivityLogRepository activityLogRepository;
     private final MemberRepository memberRepository;
@@ -54,52 +46,47 @@ public class ActivityLogBackfill {
     private final LikeActionRepository likeActionRepository;
     private final BookmarkRepository bookmarkRepository;
 
-    @Bean
-    @Order(2)
-    ApplicationRunner activityLogBackfillRunner() {
-        return args -> self.backfill();
-    }
-
+    @Override
     @Transactional
-    public void backfill() {
+    public void run(ApplicationArguments args) {
         if (activityLogRepository.existsBy()) {
             return;
         }
 
-        List<MemberActivity> activities = new ArrayList<>();
+        Map<Long, Map<LocalDate, Integer>> counts = new HashMap<>();
+
         partyRepository.findAll().forEach(party ->
-                activities.add(new MemberActivity(party.getOwner().getId(), party.getCreateDate())));
+                add(counts, party.getOwner().getId(), party.getCreateDate()));
         partyMemberRepository.findAll().forEach(partyMember ->
-                activities.add(new MemberActivity(partyMember.getMember().getId(), partyMember.getCreateDate())));
+                add(counts, partyMember.getMember().getId(), partyMember.getCreateDate()));
         likeActionRepository.findAll().stream()
                 .filter(like -> like.getTargetType() == TargetType.PARTY)
-                .forEach(like -> activities.add(new MemberActivity(like.getMember().getId(), like.getCreateDate())));
+                .forEach(like -> add(counts, like.getMember().getId(), like.getCreateDate()));
         bookmarkRepository.findAll().stream()
                 .filter(bookmark -> bookmark.getTargetType() == TargetType.PARTY)
-                .forEach(bookmark -> activities.add(
-                        new MemberActivity(bookmark.getMember().getId(), bookmark.getCreateDate())));
+                .forEach(bookmark -> add(counts, bookmark.getMember().getId(), bookmark.getCreateDate()));
 
-        Map<Long, Map<LocalDate, Integer>> countByMemberAndDate = new HashMap<>();
-        activities.stream()
-                .filter(activity -> activity.at() != null)
-                .forEach(activity -> countByMemberAndDate
-                        .computeIfAbsent(activity.memberId(), id -> new HashMap<>())
-                        .merge(activity.at().atZone(ActivityLogService.ZONE).toLocalDate(), 1, Integer::sum));
-
-        Map<Long, Member> members = memberRepository.findAllById(countByMemberAndDate.keySet()).stream()
-                .collect(java.util.stream.Collectors.toMap(Member::getId, member -> member));
-
-        List<ActivityLog> logs = countByMemberAndDate.entrySet().stream()
-                .filter(entry -> members.containsKey(entry.getKey()))
-                .flatMap(entry -> entry.getValue().entrySet().stream()
-                        .map(day -> new ActivityLog(members.get(entry.getKey()), day.getKey(), day.getValue())))
+        // 회원은 FK 만 채우면 되므로 실제로 읽지 않고 프록시를 쓴다.
+        // id 를 파티·지원·좋아요·북마크 행에서 뽑았으니 가리키는 회원이 없을 수 없다.
+        List<ActivityLog> logs = counts.entrySet().stream()
+                .flatMap(member -> member.getValue().entrySet().stream()
+                        .map(day -> new ActivityLog(
+                                memberRepository.getReferenceById(member.getKey()),
+                                day.getKey(),
+                                day.getValue())))
                 .toList();
 
         activityLogRepository.saveAll(logs);
 
-        log.info("ACTIVITY_LOG 백필 완료 - 회원 {}명, {}행", countByMemberAndDate.size(), logs.size());
+        log.info("ACTIVITY_LOG 백필 완료 - 회원 {}명, {}행", counts.size(), logs.size());
     }
 
-    private record MemberActivity(Long memberId, LocalDateTime at) {
+    private static void add(Map<Long, Map<LocalDate, Integer>> counts, Long memberId, LocalDateTime at) {
+        if (at == null) {
+            return;
+        }
+
+        counts.computeIfAbsent(memberId, id -> new HashMap<>())
+                .merge(at.toLocalDate(), 1, Integer::sum);
     }
 }
