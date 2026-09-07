@@ -2,11 +2,16 @@
 
 import { useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
-import { FormGroup, Options, SelectField, TextAreaField, TextField } from '@/components/ui/Field';
+import { FormGroup, SelectField, TextAreaField, TextField } from '@/components/ui/Field';
 import { createTodo } from '@/lib/api';
+import { TODO_CATEGORY_LABELS } from '@/lib/constants';
 import type { TodoItem } from '@/lib/types';
 
-const TODO_CATEGORIES = ['학습', '사이드', '루틴', '기록', '기타'] as const;
+/**
+ * 서버 TodoCategory 값을 그대로 보낸다 - 한글 문구를 보내면 400-2 로 거절당한다.
+ * 화면에는 라벨을 보여주므로 Options 헬퍼(값=문구) 대신 직접 그린다.
+ */
+const TODO_CATEGORIES = Object.keys(TODO_CATEGORY_LABELS);
 
 interface TodoCreateModalProps {
   open: boolean;
@@ -71,7 +76,11 @@ export function TodoCreateModal({ open, onClose, onCreated }: TodoCreateModalPro
 
       <FormGroup label="유형">
         <SelectField value={category} onChange={(event) => setCategory(event.target.value)}>
-          <Options values={TODO_CATEGORIES} />
+          {TODO_CATEGORIES.map((value) => (
+            <option key={value} value={value}>
+              {TODO_CATEGORY_LABELS[value]}
+            </option>
+          ))}
         </SelectField>
       </FormGroup>
 
