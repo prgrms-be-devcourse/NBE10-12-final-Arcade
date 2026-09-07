@@ -1,9 +1,10 @@
 package com.back.domain.notification.notification.controller;
 
-import com.back.domain.notification.notification.dtos.NotificationPageDto;
 import com.back.domain.notification.notification.dtos.NotificationReadResponse;
 import com.back.domain.notification.notification.service.NotificationService;
 import com.back.domain.notification.notification.service.NotificationSseService;
+import com.back.domain.notification.notification.dtos.NotificationDto;
+import com.back.global.dto.PageDto;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
 import io.swagger.v3.oas.annotations.Operation;
@@ -60,7 +61,7 @@ public class ApiV1NotificationController {
                     - 401-1 : 미로그인
                     """
     )
-    public RsData<NotificationPageDto> get(
+    public RsData<PageDto<NotificationDto>> get(
             @Parameter(description = "읽음 여부 필터. 생략 시 전체 조회")
             @RequestParam(required = false) Boolean isRead,
             @Parameter(description = "0부터 시작하는 페이지 번호")
