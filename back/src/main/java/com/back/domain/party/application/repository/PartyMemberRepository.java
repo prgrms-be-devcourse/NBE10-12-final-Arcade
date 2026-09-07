@@ -40,8 +40,12 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
     @EntityGraph(attributePaths = {"member", "position"})
     List<PartyMember> findAllByParty(Party party);
 
-    // 파티를 지우기 전에 먼저 지운다. 안 그러면 position 을 참조하는 FK 때문에 삭제가 실패한다.
-    void deleteAllByParty(Party party);
+    @EntityGraph(attributePaths = {"member"})
+    Optional<PartyMember> findByPartyAndMemberIdAndStatus(
+            Party party,
+            long memberId,
+            PartyMemberStatus status
+    );
 
     // 여러 파티의 파티원을 한 번에 조회 - TOP3처럼 파티가 여러 개일 때 파티마다 쿼리 날리는 걸 방지
     @EntityGraph(attributePaths = {"member"})
