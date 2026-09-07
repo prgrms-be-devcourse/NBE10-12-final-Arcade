@@ -1,6 +1,8 @@
 package com.back.domain.party.application.controller;
 
 import com.back.domain.member.member.entity.Member;
+import com.back.domain.notification.notification.entity.NotificationType;
+import com.back.domain.notification.notification.repository.NotificationRepository;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.member.repository.MemberRepository;
 import com.back.domain.party.application.entity.PartyMember;
@@ -20,6 +22,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.transaction.TestTransaction;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -42,6 +45,9 @@ public class ApiV1PartyApplicationControllerTest {
 
     @Autowired
     private MockMvc mvc;
+
+    @Autowired
+    private NotificationRepository notificationRepository;
 
     @Autowired
     private MemberRepository memberRepository;
@@ -99,6 +105,29 @@ public class ApiV1PartyApplicationControllerTest {
 
         resultActions.andExpect(status().isCreated())
                 .andExpect(jsonPath("$.resultCode").value("201-1"));
+
+        assertThat(notificationRepository.findAll().stream().filter(n ->
+                n.getMember().getId().equals(party.getOwner().getId())
+                        && n.getType() == NotificationType.PARTY_APPLICATION_RECEIVED
+                        && n.getContent().equals("오락실 팀 파티에 새로운 지원자가 있습니다.")).count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("파티 지원 트랜잭션이 롤백되면 알림도 저장되지 않는다")
+    @WithUserDetails("user1@test.com")
+    void rollbackApplicationNotification() throws Exception {
+        long notificationCount = notificationRepository.count();
+        Party party = saveParty("user2@test.com");
+        mvc.perform(post("/api/v1/parties/" + party.getId() + "/applications")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(applyRequestJson(party.getPositions().get(0).getId(), null)))
+                .andExpect(status().isCreated());
+        assertThat(notificationRepository.count()).isEqualTo(notificationCount + 1);
+
+        TestTransaction.flagForRollback();
+        TestTransaction.end();
+
+        assertThat(notificationRepository.count()).isEqualTo(notificationCount);
     }
 
     @Test
@@ -240,6 +269,10 @@ public class ApiV1PartyApplicationControllerTest {
 
         Position updatedPosition = positionRepository.findById(position.getId()).orElseThrow();
         assertThat(updatedPosition.getFilledCount()).isEqualTo(1);
+        assertThat(notificationRepository.findAll().stream().filter(n ->
+                n.getMember().getId().equals(applicant.getId())
+                        && n.getType() == NotificationType.PARTY_APPLICATION_APPROVED
+                        && n.getContent().equals("오락실 팀 파티 참여 신청이 승인되었습니다.")).count()).isEqualTo(1);
     }
 
     @Test
@@ -319,6 +352,7 @@ public class ApiV1PartyApplicationControllerTest {
         PartyMember pendingMember = partyMemberRepository.save(
                 new PartyMember(party, secondApplicant, position, null));
 
+        long notificationCount = notificationRepository.count();
         ResultActions resultActions = mvc.perform(patch(
                 "/api/v1/parties/" + party.getId() + "/applications/" + pendingMember.getId())
                 .contentType(MediaType.APPLICATION_JSON)
@@ -326,6 +360,7 @@ public class ApiV1PartyApplicationControllerTest {
 
         resultActions.andExpect(status().isConflict())
                 .andExpect(jsonPath("$.resultCode").value("409-2"));
+        assertThat(notificationRepository.count()).isEqualTo(notificationCount);
     }
 
     @Test
