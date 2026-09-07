@@ -1,6 +1,7 @@
 package com.back.domain.party.partyPr.controller;
 
 import com.back.domain.party.partyPr.dtos.PartyPrDto;
+import com.back.domain.party.partyPr.dtos.PartyPrByMemberDto;
 import com.back.domain.party.partyPr.service.PartyPrService;
 import com.back.domain.party.github.service.PartyGithubConnectionService;
 import com.back.domain.party.github.service.GithubInstallationInventoryService;
@@ -96,6 +97,27 @@ public class ApiV1PartyPrController {
                 "200-1",
                 "PR 목록 조회 성공",
                 partyPrService.getByPartyId(partyId, rq.getActorFromDb())
+        );
+    }
+
+    @GetMapping("/parties/{partyId}/pull-requests/grouped-by-member")
+    public RsData<List<PartyPrByMemberDto>> getPullRequestsGroupedByMember(@PathVariable long partyId) {
+        return new RsData<>(
+                "200-1",
+                "담당자별 PR 목록 조회 성공",
+                partyPrService.getByPartyIdGroupedByMember(partyId, rq.getActorFromDb())
+        );
+    }
+
+    @GetMapping("/parties/{partyId}/pull-requests/members/{memberId}")
+    public RsData<PartyPrByMemberDto> getPullRequestsByMember(
+            @PathVariable long partyId,
+            @PathVariable long memberId
+    ) {
+        return new RsData<>(
+                "200-1",
+                "파티원 PR 목록 조회 성공",
+                partyPrService.getByPartyIdAndMemberId(partyId, memberId, rq.getActorFromDb())
         );
     }
 

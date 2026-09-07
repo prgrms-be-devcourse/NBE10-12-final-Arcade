@@ -13,6 +13,7 @@ import com.back.global.github.event.GithubPullRequestReceivedEvent;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.partyPr.dtos.PartyPrDto;
+import com.back.domain.party.partyPr.dtos.PartyPrByMemberDto;
 import com.back.domain.party.partyPr.entity.PartyPr;
 import com.back.domain.party.partyPr.model.GithubPullRequestSnapshot;
 import com.back.domain.party.partyPr.repository.PartyPrRepository;
@@ -27,6 +28,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -50,6 +55,65 @@ public class PartyPrService {
         ensureReadable(party, actor);
         return partyPrRepository.findAllByPartyIdOrderByGithubUpdatedAtDesc(partyId)
             .stream().map(PartyPrDto::new).toList();
+    }
+
+    /**
+     * 파티장과 승인된 파티원을 먼저 응답에 포함하고, 불변 GitHub user id로 PR 작성자를 연결한다.
+     * 파티원과 연결되지 않은 작성자의 PR도 외부 작성자 그룹으로 보존한다.
+     */
+    public List<PartyPrByMemberDto> getByPartyIdGroupedByMember(long partyId, Member actor) {
+        Party party = party(partyId);
+        ensureReadable(party, actor);
+
+        var members = new LinkedHashMap<Long, Member>();
+        members.put(party.getOwner().getId(), party.getOwner());
+        partyMemberRepository.findAllByParty(party).stream()
+                .filter(partyMember -> partyMember.getStatus() == PartyMemberStatus.APPROVED)
+                .forEach(partyMember -> members.put(partyMember.getMember().getId(), partyMember.getMember()));
+
+        Map<Long, List<PartyPrDto>> pullRequestsByGithubUserId = new LinkedHashMap<>();
+        List<PartyPrDto> unknownAuthorPullRequests = new ArrayList<>();
+        Map<Long, String> githubLoginByUserId = new LinkedHashMap<>();
+        for (PartyPr pullRequest : partyPrRepository.findAllByPartyIdOrderByGithubUpdatedAtDesc(partyId)) {
+            PartyPrDto dto = new PartyPrDto(pullRequest);
+            Long githubUserId = pullRequest.getAuthorGithubUserId();
+            if (githubUserId == null) {
+                unknownAuthorPullRequests.add(dto);
+                continue;
+            }
+            pullRequestsByGithubUserId.computeIfAbsent(githubUserId, ignored -> new ArrayList<>()).add(dto);
+            githubLoginByUserId.putIfAbsent(githubUserId, pullRequest.getAuthorLogin());
+        }
+
+        List<PartyPrByMemberDto> result = new ArrayList<>();
+        Set<Long> matchedGithubUserIds = new HashSet<>();
+        for (Member member : members.values()) {
+            Long githubUserId = member.getGithubUserId();
+            List<PartyPrDto> pullRequests = githubUserId == null
+                    ? List.of()
+                    : pullRequestsByGithubUserId.getOrDefault(githubUserId, List.of());
+            if (githubUserId != null) matchedGithubUserIds.add(githubUserId);
+            result.add(PartyPrByMemberDto.member(member, party.isOwnedBy(member), pullRequests));
+        }
+
+        pullRequestsByGithubUserId.forEach((githubUserId, pullRequests) -> {
+            if (!matchedGithubUserIds.contains(githubUserId)) {
+                result.add(PartyPrByMemberDto.external(
+                        githubUserId, githubLoginByUserId.get(githubUserId), pullRequests
+                ));
+            }
+        });
+        if (!unknownAuthorPullRequests.isEmpty()) {
+            result.add(PartyPrByMemberDto.external(null, null, unknownAuthorPullRequests));
+        }
+        return result;
+    }
+
+    public PartyPrByMemberDto getByPartyIdAndMemberId(long partyId, long memberId, Member actor) {
+        return getByPartyIdGroupedByMember(partyId, actor).stream()
+                .filter(group -> group.memberId() != null && group.memberId() == memberId)
+                .findFirst()
+                .orElseThrow(() -> new ServiceException("404-2", "파티장 또는 승인된 파티원을 찾을 수 없습니다."));
     }
 
     public List<PartyPrDto> getMyPullRequests(Member actor) {
