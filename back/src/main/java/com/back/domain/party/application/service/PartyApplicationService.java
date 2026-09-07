@@ -3,6 +3,8 @@ package com.back.domain.party.application.service;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.party.application.dtos.PartyApplicationDto;
 import com.back.domain.party.application.entity.PartyMember;
+import com.back.domain.party.application.event.PartyApplicationApprovedEvent;
+import com.back.domain.party.application.event.PartyApplicationReceivedEvent;
 import com.back.domain.party.application.repository.PartyMemberRepository;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.repository.PartyRepository;
@@ -11,6 +13,7 @@ import com.back.domain.party.position.entity.Position;
 import com.back.global.exception.ServiceException;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +28,7 @@ public class PartyApplicationService {
     private final PartyRepository partyRepository;
     private final PartyMemberRepository partyMemberRepository;
     private final EntityManager entityManager;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public PartyApplicationDto apply(long partyId, long positionId, Member applicant, String message) {
@@ -45,7 +49,9 @@ public class PartyApplicationService {
         Position position = party.findPosition(positionId);
 
         PartyMember partyMember = new PartyMember(party, applicant, position, message);
-        return new PartyApplicationDto(partyMemberRepository.save(partyMember));
+        partyMemberRepository.save(partyMember);
+        eventPublisher.publishEvent(new PartyApplicationReceivedEvent(party.getId(), party.getOwner().getId()));
+        return new PartyApplicationDto(partyMember);
     }
 
     public List<PartyApplicationDto> getApplications(long partyId, Member actor) {
@@ -96,6 +102,9 @@ public class PartyApplicationService {
             throw new ServiceException("409-2", "정원이 마감되어 승인할 수 없습니다. 새로고침 후 다시 시도해주세요.");
         }
 
+        if (decision == Decision.APPROVED) {
+            eventPublisher.publishEvent(new PartyApplicationApprovedEvent(party.getId(), partyMember.getMember().getId()));
+        }
         return new PartyApplicationDto(partyMember);
     }
 
