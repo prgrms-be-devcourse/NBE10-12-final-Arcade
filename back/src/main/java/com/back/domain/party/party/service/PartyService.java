@@ -7,6 +7,8 @@ import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.interaction.like.service.LikeInteractionPort;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
+import com.back.domain.party.application.entity.PartyMemberStatus;
+import com.back.domain.party.application.repository.PartyMemberRepository;
 import com.back.domain.party.party.dtos.PartyDto;
 import com.back.domain.party.party.dtos.PartyListItemDto;
 import com.back.domain.party.party.entity.Party;
@@ -44,6 +46,7 @@ public class PartyService {
     private final ContestLookupPort contestLookupPort;
     private final PartySearchKeywordPort partySearchKeywordPort;
     private final ApplicationEventPublisher eventPublisher;
+    private final PartyMemberRepository partyMemberRepository;
 
     public record PositionCreateSpec(
         PositionType type,
@@ -203,6 +206,16 @@ public class PartyService {
             throw new ServiceException("403-1", "본인이 만든 파티만 삭제할 수 있습니다.");
         }
         party.checkDeletable();
+
+        // 승인된 파티원은 실제 팀 소속 관계라, 파티를 지운다고 그냥 같이 사라지면 안 된다.
+        // 먼저 ApiV1PartyApplicationController.cancelApproval()로 승인을 전부 취소해야 삭제할 수 있다.
+        if (partyMemberRepository.existsByPartyAndStatus(party, PartyMemberStatus.APPROVED)) {
+            throw new ServiceException("409-3", "승인된 파티원이 있는 파티는 삭제할 수 없습니다. 먼저 승인을 취소해주세요.");
+        }
+
+        // PENDING/REJECTED 지원 기록은 실제 소속 관계가 아니라 단순 이력이라 파티와 함께 지운다.
+        partyMemberRepository.deleteAllByParty(party);
+
 
         partyRepository.delete(party);
     }
