@@ -31,13 +31,19 @@ public class ShowcaseService {
     private ShowcaseGoalDto toDto(Goal goal) {
         ShowcaseGoalDto.PartySummary party = null;
         String title;
+        // PROJECT는 Goal 자체가 아니라 sourcePartyId가 가리키는 Party에 좋아요가 집계된다
+        // 같은 전시글을 참여자 수만큼 나눠 가진 Goal 각각이 서로 다른 카운트를 보여주면 안 되기 때문
+        int likeCount = goal.getLikeCount();
 
+        // 세 하위 타입 다 title을 갖고 있지만 공통 상위 타입엔 없어서 분기해서 꺼낸다.
+        // PROJECT만 파티 요약을 같이 채운다 - sourcePartyId/partyShowcase가 있는 유일한 타입.
         if (goal instanceof Project projectGoal) {
             title = projectGoal.getTitle();
             party = new ShowcaseGoalDto.PartySummary(
                     projectGoal.getPartyShowcase().getParty().getId(),
                     projectGoal.getPartyShowcase().getParty().getPartyName()
             );
+            likeCount = projectGoal.getPartyShowcase().getParty().getLikeCount();
         } else if (goal instanceof PersonalContest contestGoal) {
             title = contestGoal.getTitle();
         } else if (goal instanceof PersonalChecklist checklistGoal) {
@@ -53,7 +59,7 @@ public class ShowcaseService {
                 goal.getStatus(),
                 goal.getSource(),
                 new ShowcaseGoalDto.Detail(title),
-                goal.getLikeCount(),
+                likeCount,
                 goal.getCreateDate()
         );
     }

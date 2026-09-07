@@ -120,7 +120,12 @@ public class GoalRepositoryImpl implements GoalRepositoryCustom {
         BooleanBuilder where = new BooleanBuilder()
                 .and(goal.status.eq(GoalStatus.ACHIEVED))
                 .and(eqType(type))
-                .and(project.partyShowcase.isNotNull().or(goal.type.ne(GoalType.PROJECT)));
+                // PROJECT는 파티장이 전시글을 게시해야 노출된다
+                // 그 외 타입은 완료면 그 자체로 전시 대상이라 이 조건에서 걸릴 게 없다
+                .and(project.partyShowcase.isNotNull().or(goal.type.ne(GoalType.PROJECT)))
+                // 파티 확정 시 승인된 참여자 수만큼 PROJECT Goal이 각각 생기므로 같은 전시글이 팀원 수만큼 목록에 중복으로 뜬다.
+                // 그래서 PROJECT는 partyShowcase당 대표 1건만 남기고 그 외 타입은 그대로 둔다.
+                .and(goal.type.ne(GoalType.PROJECT).or(goal.id.in(representativeProjectIdsPerShowcase())));
 
         List<Goal> content = withSubTypes(queryFactory.selectFrom(goal))
                 .where(where)
@@ -143,5 +148,18 @@ public class GoalRepositoryImpl implements GoalRepositoryCustom {
             return new OrderSpecifier<?>[]{goal.likeCount.desc(), goal.id.desc()};
         }
         return new OrderSpecifier<?>[]{goal.createDate.desc(), goal.id.desc()};
+    }
+
+    private com.querydsl.jpa.JPQLQuery<Long> representativeProjectIdsPerShowcase() {
+        return com.querydsl.jpa.JPAExpressions
+                .select(goal.id.min())
+                .from(goal)
+                .join(project).on(project.id.eq(goal.id))
+                .where(
+                        goal.type.eq(GoalType.PROJECT),
+                        goal.status.eq(GoalStatus.ACHIEVED),
+                        project.partyShowcase.isNotNull()
+                )
+                .groupBy(project.partyShowcase.id);
     }
 }
