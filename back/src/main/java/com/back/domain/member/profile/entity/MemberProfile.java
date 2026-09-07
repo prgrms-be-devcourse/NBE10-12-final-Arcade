@@ -53,8 +53,6 @@ public class MemberProfile extends BaseEntity {
      */
     private String profileImageUrl;
 
-    private String githubUsername;
-
     // 대표 포지션 하나다. 화면도 select 로 하나만 고르게 돼 있어 목록으로 둘 이유가 없다.
     @Enumerated(EnumType.STRING)
     private PositionType position;
@@ -102,7 +100,6 @@ public class MemberProfile extends BaseEntity {
             String webpage,
             String profileImageUrl,
             String bio,
-            String githubUsername,
             PositionType position,
             List<String> techStacks,
             List<CareerCommand> careers,
@@ -111,7 +108,6 @@ public class MemberProfile extends BaseEntity {
         this.nickname = nickname;
         this.webPage = ProfileUrl.normalize(webpage);
         this.bio = bio;
-        this.githubUsername = githubUsername;
         this.profileImageUrl = profileImageUrl;
 
         this.position = position;

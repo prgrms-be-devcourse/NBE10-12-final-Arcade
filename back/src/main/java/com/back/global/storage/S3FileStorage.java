@@ -10,6 +10,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
+import java.io.InputStream;
 
 /** S3 및 S3 호환 저장소(MinIO). */
 @RequiredArgsConstructor
@@ -28,8 +29,9 @@ public class S3FileStorage implements FileStorage {
                 .contentType(file.getContentType())
                 .build();
 
-        try {
-            s3Client.putObject(request, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+        // RequestBody.fromInputStream 도 호출자가 넘긴 스트림을 닫아주지 않는다.
+        try (InputStream in = file.getInputStream()) {
+            s3Client.putObject(request, RequestBody.fromInputStream(in, file.getSize()));
         } catch (IOException | SdkException e) {
             throw new ServiceException("500-1", "파일 저장에 실패했습니다.");
         }
@@ -44,6 +46,15 @@ public class S3FileStorage implements FileStorage {
             return configured.replaceAll("/+$", "");
         }
 
-        return properties.getEndpoint().replaceAll("/+$", "") + "/" + properties.getBucket();
+        String endpoint = properties.getEndpoint();
+
+        // endpoint 는 MinIO 를 바라보는 dev·test 이용 (DevS3Config).
+        if (endpoint == null || endpoint.isBlank()) {
+            throw new IllegalStateException(
+                    "S3 공개 URL 을 만들 수 없습니다. custom.storage.s3.public-url-prefix "
+                            + "또는 custom.storage.s3.endpoint 중 하나를 설정해야 합니다.");
+        }
+
+        return endpoint.replaceAll("/+$", "") + "/" + properties.getBucket();
     }
 }

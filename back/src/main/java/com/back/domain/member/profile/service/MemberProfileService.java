@@ -46,14 +46,14 @@ public class MemberProfileService {
     @Transactional
     public MemberProfileDto modifyProfile(
             Member actor, String nickname, String webpage, String profileImageUrl,
-            String bio, String githubUsername,
+            String bio,
             PositionType position, List<String> techStacks,
             List<CareerCommand> careers, List<LinkCommand> links) {
 
         MemberProfile profile = memberProfileRepository.findByMember(actor)
                 .orElseGet(() -> memberProfileRepository.save(new MemberProfile(actor)));
 
-        profile.modify(nickname, webpage, profileImageUrl, bio, githubUsername,
+        profile.modify(nickname, webpage, profileImageUrl, bio,
                 position, techStacks, careers, links);
 
         try {
@@ -95,7 +95,11 @@ public class MemberProfileService {
             throw new ServiceException("400-1", "이미지 파일이 비어 있습니다.");
         }
 
-        if (!ALLOWED_IMAGE_TYPES.contains(file.getContentType())) {
+        // Content-Type 헤더가 없는 파트면 getContentType() 이 null 이다.
+        // List.of() 로 만든 목록은 contains(null) 에서 NPE 를 내므로 먼저 거른다.
+        String contentType = file.getContentType();
+
+        if (contentType == null || !ALLOWED_IMAGE_TYPES.contains(contentType)) {
             throw new ServiceException("400-1", "jpg, png 이미지만 올릴 수 있습니다.");
         }
 

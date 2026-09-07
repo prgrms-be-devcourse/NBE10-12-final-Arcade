@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -21,9 +22,11 @@ public class LocalFileStorage implements FileStorage {
         String key = FileStorage.newKey(directory, file.getOriginalFilename());
         Path target = Path.of(properties.getPath()).toAbsolutePath().resolve(key).normalize();
 
-        try {
+        // Files.copy 는 넘겨받은 스트림을 닫지 않는다(Javadoc 명시).
+        // 서블릿 멀티파트는 디스크 임시 파일을 열어두므로, 안 닫으면 FD 가 물린 채 남는다.
+        try (InputStream in = file.getInputStream()) {
             Files.createDirectories(target.getParent());
-            Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
             throw new ServiceException("500-1", "파일 저장에 실패했습니다.");
         }
