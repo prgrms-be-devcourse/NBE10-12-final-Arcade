@@ -12,6 +12,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface ContestPostRepository extends JpaRepository<ContestPost, Long> {
@@ -20,6 +22,10 @@ public interface ContestPostRepository extends JpaRepository<ContestPost, Long> 
     Optional<ContestPost> findByContestId(long contestId);
 
     boolean existsByContestId(long contestId);
+
+    // 북마크함처럼 대회 여러 건의 게시글을 한 번에 읽을 때. contest 까지 당겨와 카드 조립 중 추가 쿼리를 막는다.
+    @Query("select cp from ContestPost cp join fetch cp.contest c where c.id in :contestIds")
+    List<ContestPost> findAllByContestIdIn(@Param("contestIds") Collection<Long> contestIds);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("delete from ContestPost cp where cp.contest.applicationPeriodEnd < :date")

@@ -31,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 import static com.back.domain.party.party.entity.PartySortOption.DEADLINE;
 import static com.back.domain.party.party.entity.PartySortOption.VACANCY;
@@ -255,7 +256,11 @@ public class PartyService {
             );
         };
 
-        return parties.map(PartyListItemDto::new);
+        Map<Long, Long> applicantCounts = partyMemberRepository.countApplicantsByPartyIds(
+                parties.getContent().stream().map(Party::getId).toList());
+
+        return parties.map(party ->
+                new PartyListItemDto(party, applicantCounts.getOrDefault(party.getId(), 0L)));
     }
 
     @Transactional

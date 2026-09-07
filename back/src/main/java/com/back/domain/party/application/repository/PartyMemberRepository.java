@@ -1,6 +1,7 @@
 package com.back.domain.party.application.repository;
 
 import com.back.domain.member.member.entity.Member;
+import com.back.domain.party.application.dtos.PartyApplicantCount;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.party.application.entity.PartyMember;
 import com.back.domain.party.application.entity.PartyMemberStatus;
@@ -13,8 +14,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> {
     boolean existsByPartyAndMember(Party party, Member member);
@@ -61,6 +65,22 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
             @Param("positionType") PositionType positionType,
             Pageable pageable
     );
+
+    // 목록 카드의 '지원자 N명'. 승인 인원(Position.filledCount)과 다른 값이라 따로 센다 -
+    // 거절된 건까지 포함한, 그 파티에 지원한 사람 수 전체다.
+    @Query("""
+            select new com.back.domain.party.application.dtos.PartyApplicantCount(pm.party.id, count(pm))
+            from PartyMember pm
+            where pm.party.id in :partyIds
+            group by pm.party.id
+            """)
+    List<PartyApplicantCount> countApplicantsByPartyIdIn(@Param("partyIds") Collection<Long> partyIds);
+
+    // 위 집계를 카드 조립에서 바로 쓰기 좋은 모양으로. 지원자가 없는 파티는 행이 아예 없어 getOrDefault 로 읽는다.
+    default Map<Long, Long> countApplicantsByPartyIds(Collection<Long> partyIds) {
+        return countApplicantsByPartyIdIn(partyIds).stream()
+                .collect(Collectors.toMap(PartyApplicantCount::partyId, PartyApplicantCount::count));
+    }
 
     // 마이페이지 요약의 '완료한 파티' 수.
     @Query("""

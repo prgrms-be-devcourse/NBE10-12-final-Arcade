@@ -1,22 +1,36 @@
 package com.back.domain.interaction.bookmark.service;
 
+import com.back.domain.contest.contest.dtos.ContestResponseDto;
+import com.back.domain.contest.contest.entity.ContestPost;
 import com.back.domain.contest.contest.repository.ContestPostRepository;
+import com.back.domain.contest.contest.repository.ContestRepository;
 import com.back.domain.goal.goal.entity.Goal;
 import com.back.domain.goal.goal.repository.GoalRepository;
 import com.back.domain.interaction.bookmark.dtos.BookmarkDto;
+import com.back.domain.interaction.bookmark.dtos.MyBookmarkDto;
 import com.back.domain.interaction.bookmark.entity.Bookmark;
 import com.back.domain.interaction.bookmark.repository.BookmarkRepository;
 import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.member.member.entity.Member;
+import com.back.domain.party.application.repository.PartyMemberRepository;
+import com.back.domain.party.party.dtos.PartyListItemDto;
+import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.repository.PartyRepository;
+import com.back.global.dto.PageDto;
+import com.back.domain.showcase.showcase.service.ShowcaseService;
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -24,9 +38,78 @@ import java.util.Set;
 public class BookmarkService implements BookmarkInteractionPort {
 
     private final BookmarkRepository bookmarkRepository;
+    private final ContestRepository contestRepository;
     private final ContestPostRepository contestPostRepository;
     private final PartyRepository partyRepository;
+    private final PartyMemberRepository partyMemberRepository;
     private final GoalRepository goalRepository;
+    private final ShowcaseService showcaseService;
+
+    /**
+     * 북마크함 조회. 파티·대회·전시를 한 목록에 섞어 최근 담은 순으로 돌려준다(기획서 2.11).
+     *
+     * Bookmark 는 targetType + targetId 다형성 저장이라 FK 조인으로 한 번에 읽을 수 없다.
+     * 그래서 타입별로 id 를 모아 세 번에 나눠 읽고 다시 북마크 순서로 맞춘다.
+     *
+     * 대상이 사라진 행을 거르는 건 페이지를 자른 뒤라, 그런 행이 섞이면 그 페이지만 요청한
+     * size 보다 짧게 나온다(totalElements 는 거르기 전 개수다). 화면은 hasNext 가 아니라
+     * totalPages 로 넘기므로 페이지가 밀리지는 않는다.
+     */
+    public PageDto<MyBookmarkDto> getMyBookmarks(Member actor, int page, int size) {
+        Page<Bookmark> bookmarks = bookmarkRepository.findAllByMemberOrderByCreateDateDesc(
+                actor, PageRequest.of(page, size));
+
+        Map<TargetType, List<Long>> idsByType = bookmarks.getContent().stream()
+                .collect(Collectors.groupingBy(
+                        Bookmark::getTargetType,
+                        Collectors.mapping(Bookmark::getTargetId, Collectors.toList())));
+
+        Map<TargetType, Map<Long, Object>> cards = Map.of(
+                TargetType.PARTY, partyCards(idsByType.getOrDefault(TargetType.PARTY, List.of())),
+                TargetType.CONTEST, contestCards(idsByType.getOrDefault(TargetType.CONTEST, List.of())),
+                TargetType.GOAL, goalCards(idsByType.getOrDefault(TargetType.GOAL, List.of()))
+        );
+
+        // 대상이 사라졌거나 전시가 내려간 북마크는 그릴 카드가 없어 건너뛴다.
+        // 삭제 시 deleteAllBookmarksForTarget 이 정리하지만, 놓친 행이 500 을 내지 않게 한다.
+        List<MyBookmarkDto> content = bookmarks.getContent().stream()
+                .filter(bookmark -> cards.get(bookmark.getTargetType()).containsKey(bookmark.getTargetId()))
+                .map(bookmark -> new MyBookmarkDto(
+                        bookmark.getId(),
+                        bookmark.getTargetType(),
+                        cards.get(bookmark.getTargetType()).get(bookmark.getTargetId()),
+                        bookmark.getCreateDate()))
+                .toList();
+
+        return new PageDto<>(content, bookmarks.getNumber(), bookmarks.getSize(),
+                bookmarks.getTotalElements(), bookmarks.getTotalPages());
+    }
+
+    private Map<Long, Object> partyCards(List<Long> partyIds) {
+        Map<Long, Long> applicantCounts = partyMemberRepository.countApplicantsByPartyIds(partyIds);
+
+        return partyRepository.findAllByIdIn(partyIds).stream()
+                .collect(Collectors.toMap(
+                        Party::getId,
+                        party -> new PartyListItemDto(party, applicantCounts.getOrDefault(party.getId(), 0L))));
+    }
+
+    private Map<Long, Object> contestCards(List<Long> contestIds) {
+        // 접수기간이 지난 대회는 ContestPost 가 지워질 수 있다 - 그때는 null 을 넘겨 archived 카드로 조립된다.
+        Map<Long, ContestPost> posts = contestPostRepository.findAllByContestIdIn(contestIds).stream()
+                .collect(Collectors.toMap(post -> post.getContest().getId(), post -> post));
+
+        return contestRepository.findAllById(contestIds).stream()
+                .collect(Collectors.toMap(
+                        contest -> contest.getId(),
+                        contest -> new ContestResponseDto(contest, posts.get(contest.getId()))));
+    }
+
+    private Map<Long, Object> goalCards(List<Long> goalIds) {
+        return goalRepository.findAllById(goalIds).stream()
+                .filter(Goal::isExhibited)
+                .collect(Collectors.toMap(Goal::getId, showcaseService::toDto));
+    }
 
     public boolean isBookmarked(Member member, TargetType targetType, long targetId) {
         return bookmarkRepository.existsByMemberAndTargetTypeAndTargetId(member, targetType, targetId);
