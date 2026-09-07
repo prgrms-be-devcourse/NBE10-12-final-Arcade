@@ -162,6 +162,33 @@ export async function createSoloItem(id: string, content: string): Promise<Check
   );
 }
 
+/** PATCH /todos/{id}/items/{itemId} — 할 일 내용 수정. 완료 여부는 완료 API가 따로 다룬다. */
+export async function updateSoloItem(
+  id: string,
+  itemId: string,
+  content: string,
+): Promise<ChecklistItem> {
+  if (USE_MOCK) {
+    return mockResponse({
+      id: itemId,
+      content,
+      state: 'open',
+      assignee: null,
+      approvals: 0,
+      quorum: 0,
+    });
+  }
+  return toChecklistItem(
+    await http.patch<PersonalTodoItemResponse>(`/todos/${id}/items/${itemId}`, { content }),
+  );
+}
+
+/** DELETE /todos/{id}/items/{itemId} — 할 일 삭제. */
+export async function deleteSoloItem(id: string, itemId: string): Promise<void> {
+  if (USE_MOCK) return mockResponse(undefined as void);
+  await http.delete<void>(`/todos/${id}/items/${itemId}`);
+}
+
 /**
  * POST /todos/{id}/items/{itemId}/complete — 할 일 완료.
  *
