@@ -57,6 +57,8 @@ public class SecurityConfig {
                                 // GitHub App 설치 완료는 GitHub가 state·installation_id만 붙여 호출한다.
                                 // 사용자 쿠키를 기대하면 setup 콜백이 401로 막혀 프론트로 돌아갈 수 없다.
                                 .requestMatchers(HttpMethod.GET, "/api/*/github-app/setup").permitAll()
+                                // GitHub App user authorization callback은 state로 연결하므로 GitHub 리다이렉트를 허용한다.
+                                .requestMatchers(HttpMethod.GET, "/api/*/github-app/user/callback").permitAll()
                                 // GitHub 웹훅은 일반 로그인 대신 컨트롤러에서 HMAC 서명을 검증한다.
                                 .requestMatchers(HttpMethod.POST, "/api/*/github/webhook").permitAll()
                                 .requestMatchers(

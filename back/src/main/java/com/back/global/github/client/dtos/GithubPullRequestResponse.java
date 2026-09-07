@@ -25,7 +25,7 @@ public record GithubPullRequestResponse(
     @JsonProperty("updated_at")
     String updatedAt
 ) {
-    public record GithubUser(String login) {
+    public record GithubUser(long id, String login) {
     }
 
     public record GithubBranch(String ref) {
