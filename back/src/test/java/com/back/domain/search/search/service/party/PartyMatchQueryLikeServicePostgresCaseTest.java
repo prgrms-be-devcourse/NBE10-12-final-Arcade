@@ -1,11 +1,13 @@
 package com.back.domain.search.search.service.party;
 
 import com.back.domain.member.member.entity.Member;
+import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.member.repository.MemberRepository;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
 import com.back.domain.party.party.repository.PartyRepository;
+import com.back.domain.party.position.entity.Position;
 import com.back.domain.search.search.entity.party.PartySearchKeyword;
 import com.back.domain.search.search.repository.party.PartySearchKeywordRepository;
 import com.back.domain.search.search.service.keyword.KeywordExtractionPort;
@@ -96,5 +98,56 @@ class PartyMatchQueryLikeServicePostgresCaseTest {
         assertThat(result.getContent())
                 .contains(appParty.getId())
                 .doesNotContain(webParty.getId());
+    }
+
+    @Test
+    void filtersByTopicTypeOnRealPostgres() {
+        Member owner = memberRepository.save(new Member("like-topic-owner@test.com", "pw", "owner", null));
+        Party studyParty = partyRepository.save(new Party(
+                owner, "파티명S", "백엔드 스터디S", null, null, "외부 대회", "https://example.com",
+                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7)
+        ));
+        Party contestParty = partyRepository.save(new Party(
+                owner, "파티명C", "백엔드 스터디C", null, null, "외부 대회", "https://example.com",
+                TopicType.CONTEST, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7)
+        ));
+        partySearchKeywordRepository.save(new PartySearchKeyword(studyParty, "백엔드 스터디"));
+        partySearchKeywordRepository.save(new PartySearchKeyword(contestParty, "백엔드 스터디"));
+
+        Page<Long> result = partyMatchQueryLikeService.findMatchingPartyIds(
+                List.of("백엔드"), null, TopicType.CONTEST.name(), null, PageRequest.of(0, 10)
+        );
+
+        assertThat(result.getContent())
+                .contains(contestParty.getId())
+                .doesNotContain(studyParty.getId());
+    }
+
+    @Test
+    void filtersByPositionTypeOnRealPostgres() {
+        Member owner = memberRepository.save(new Member("like-position-owner@test.com", "pw", "owner", null));
+        Party backParty = new Party(
+                owner, "파티명-back", "백엔드 스터디-back", null, null, "외부 대회", "https://example.com",
+                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7)
+        );
+        backParty.addPosition(new Position(PositionType.BACK, 2));
+        backParty = partyRepository.save(backParty);
+        partySearchKeywordRepository.save(new PartySearchKeyword(backParty, "백엔드 스터디"));
+
+        Party frontParty = new Party(
+                owner, "파티명-front", "백엔드 스터디-front", null, null, "외부 대회", "https://example.com",
+                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7)
+        );
+        frontParty.addPosition(new Position(PositionType.FRONT, 2));
+        frontParty = partyRepository.save(frontParty);
+        partySearchKeywordRepository.save(new PartySearchKeyword(frontParty, "백엔드 스터디"));
+
+        Page<Long> result = partyMatchQueryLikeService.findMatchingPartyIds(
+                List.of("백엔드"), null, null, PositionType.FRONT.name(), PageRequest.of(0, 10)
+        );
+
+        assertThat(result.getContent())
+                .contains(frontParty.getId())
+                .doesNotContain(backParty.getId());
     }
 }
