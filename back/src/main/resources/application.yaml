@@ -57,6 +57,10 @@ custom:
       id: ${CUSTOM__GITHUB__APP__ID:}
       slug: ${CUSTOM__GITHUB__APP__SLUG:}
       privateKey: ${CUSTOM__GITHUB__APP__PRIVATE_KEY:}
+      clientId: ${CUSTOM__GITHUB__APP__CLIENT_ID:}
+      clientSecret: ${CUSTOM__GITHUB__APP__CLIENT_SECRET:}
+      userAuthorizationCallbackUrl: ${CUSTOM__GITHUB__APP__USER_AUTHORIZATION_CALLBACK_URL:}
+      tokenEncryptionKey: ${CUSTOM__GITHUB__APP__TOKEN_ENCRYPTION_KEY:}
     webhook:
       secret: ${CUSTOM__GITHUB__WEBHOOK__SECRET:}
   storage:

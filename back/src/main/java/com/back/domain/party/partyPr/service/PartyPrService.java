@@ -1,10 +1,17 @@
 package com.back.domain.party.partyPr.service;
 
 import com.back.domain.party.github.entity.PartyGithubConnectionStatus;
+import com.back.domain.party.github.entity.PartyGithubBindingStatus;
+import com.back.domain.party.github.repository.GithubInstallationRepositoryRepository;
 import com.back.domain.party.github.repository.PartyGithubConnectionRepository;
+import com.back.domain.party.github.repository.PartyGithubBindingRepository;
+import com.back.domain.member.member.entity.Member;
+import com.back.domain.party.application.entity.PartyMemberStatus;
+import com.back.domain.party.application.repository.PartyMemberRepository;
 import com.back.global.github.client.dtos.GithubPullRequestResponse;
 import com.back.global.github.event.GithubPullRequestReceivedEvent;
 import com.back.domain.party.party.entity.Party;
+import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.partyPr.dtos.PartyPrDto;
 import com.back.domain.party.partyPr.entity.PartyPr;
 import com.back.domain.party.partyPr.model.GithubPullRequestSnapshot;
@@ -14,9 +21,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.LinkedHashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -28,11 +38,27 @@ import java.util.List;
 
 public class PartyPrService {
     private final PartyGithubConnectionRepository githubConnectionRepository;
+    private final GithubInstallationRepositoryRepository installationRepositoryRepository;
+    private final PartyGithubBindingRepository bindingRepository;
     private final PartyPrRepository partyPrRepository;
+    private final PartyRepository partyRepository;
+    private final PartyMemberRepository partyMemberRepository;
+    private final PartyPrSseService partyPrSseService;
 
-    public List<PartyPrDto> getByPartyId(long partyId) {
+    public List<PartyPrDto> getByPartyId(long partyId, Member actor) {
+        Party party = party(partyId);
+        ensureReadable(party, actor);
         return partyPrRepository.findAllByPartyIdOrderByGithubUpdatedAtDesc(partyId)
             .stream().map(PartyPrDto::new).toList();
+    }
+
+    public List<PartyPrDto> getMyPullRequests(Member actor) {
+        if (actor == null || actor.getGithubUserId() == null) {
+            throw new ServiceException("400-20", "GITHUB_ACCOUNT_LINK_REQUIRED");
+        }
+        return partyPrRepository.findAllByAuthorGithubUserIdOrderByGithubUpdatedAtDesc(actor.getGithubUserId()).stream()
+                .filter(pullRequest -> canRead(pullRequest.getParty(), actor))
+                .map(PartyPrDto::new).toList();
     }
 
     @Transactional
@@ -43,16 +69,21 @@ public class PartyPrService {
         long installationId = requiredLong(event.installationId(), "installation.id");
         GithubPullRequestSnapshot data = toSnapshot(event.pullRequest());
 
-        var connections = githubConnectionRepository
+        var parties = new LinkedHashMap<Long, Party>();
+        githubConnectionRepository
             .findAllByRepositoryIdAndInstallationIdAndStatus(repositoryId, installationId, PartyGithubConnectionStatus.ACTIVE)
-            .stream().toList();
+            .forEach(connection -> parties.put(connection.getParty().getId(), connection.getParty()));
+        // 신규 binding 기반 연결과 기존 PartyGithubConnection을 함께 지원해 데이터 이행 중 webhook 누락을 막는다.
+        installationRepositoryRepository.findByInstallationInstallationIdAndRepositoryId(installationId, repositoryId)
+                .ifPresent(repository -> bindingRepository
+                        .findAllByInstallationRepositoryIdAndStatus(repository.getId(), PartyGithubBindingStatus.ACTIVE)
+                        .forEach(binding -> parties.put(binding.getParty().getId(), binding.getParty())));
 
-        for (var connection : connections) {
-            long partyId = connection.getParty().getId();
-            upsert(connection.getParty(), data);
+        for (Party party : parties.values()) {
+            upsert(party, data);
         }
 
-        return connections.size();
+        return parties.size();
     }
 
     /** GitHub App installation token으로 조회한 기존 PR을 반영한다. */
@@ -72,6 +103,7 @@ public class PartyPrService {
             && data.githubUpdatedAt().isBefore(partyPr.getGithubUpdatedAt())) return;
         partyPr.update(data);
         partyPrRepository.save(partyPr);
+        publishAfterCommit(party.getId(), new PartyPrDto(partyPr));
     }
 
     /** GitHub 외부 DTO를 PartyPr이 이해하는 내부 snapshot으로 변환하면서 필수 필드를 검증한다. */
@@ -80,6 +112,7 @@ public class PartyPrService {
         return new GithubPullRequestSnapshot(
             requiredLong(pr.id(), "id"), requiredInt(pr.number(), "number"), requiredText(pr.title(), "title"),
             requiredText(pr.htmlUrl(), "html_url"), requiredText(pr.state(), "state"),
+            pr.user() == null || pr.user().id() <= 0 ? null : pr.user().id(),
             pr.user() == null ? null : pr.user().login(),
             Boolean.TRUE.equals(pr.draft()),
             Boolean.TRUE.equals(pr.merged()) || pr.mergedAt() != null,
@@ -109,5 +142,32 @@ public class PartyPrService {
 
     private OffsetDateTime date(String value) {
         return value == null || value.isBlank() ? null : OffsetDateTime.parse(value);
+    }
+
+    private Party party(long partyId) {
+        return partyRepository.findById(partyId)
+                .orElseThrow(() -> new ServiceException("404-1", "파티를 찾을 수 없습니다."));
+    }
+
+    private void ensureReadable(Party party, Member actor) {
+        if (!canRead(party, actor)) throw new ServiceException("403-1", "파티장 또는 확정 파티원만 PR을 조회할 수 있습니다.");
+    }
+
+    private boolean canRead(Party party, Member actor) {
+        return actor != null && (party.isOwnedBy(actor)
+                || partyMemberRepository.existsByPartyAndMemberAndStatus(party, actor, PartyMemberStatus.APPROVED));
+    }
+
+    private void publishAfterCommit(long partyId, PartyPrDto pullRequest) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            partyPrSseService.publish(partyId, pullRequest);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                partyPrSseService.publish(partyId, pullRequest);
+            }
+        });
     }
 }

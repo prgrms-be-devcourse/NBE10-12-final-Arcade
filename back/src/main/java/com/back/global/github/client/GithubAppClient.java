@@ -1,5 +1,7 @@
 package com.back.global.github.client;
 
+import com.back.global.github.client.dtos.GithubInstallationSnapshot;
+
 import com.back.global.github.client.dtos.GithubPullRequestResponse;
 import com.back.global.exception.ServiceException;
 import io.jsonwebtoken.Jwts;
@@ -36,6 +38,40 @@ public class GithubAppClient {
         String token = response == null ? null : response.path("token").asString();
         if (token == null || token.isBlank()) throw new ServiceException("502-20", "GITHUB_INSTALLATION_TOKEN_CREATE_FAILED");
         return token;
+    }
+
+    /** App JWT로 installation의 소유 계정과 현재 상태를 조회한다. */
+    public Installation getInstallation(long installationId) {
+        JsonNode response = appHeaders(client.get().uri("/app/installations/{id}", installationId))
+                .retrieve().body(JsonNode.class);
+        if (response == null) throw new ServiceException("502-20", "GITHUB_APP_INSTALLATION_FETCH_FAILED");
+        JsonNode account = response.path("account");
+        long accountId = account.path("id").asLong();
+        String accountLogin = account.path("login").asString();
+        String accountType = account.path("type").asString();
+        if (accountId <= 0 || accountLogin.isBlank() || accountType.isBlank()) {
+            throw new ServiceException("502-20", "GITHUB_APP_INSTALLATION_FETCH_FAILED");
+        }
+        return new Installation(response.path("id").asLong(), accountId, accountLogin, accountType);
+    }
+
+    /** installation token으로 현재 App 접근 범위에 포함된 레포 전체를 조회한다. */
+    public List<Repository> getAllInstallationRepositories(String installationToken) {
+        List<Repository> all = new ArrayList<>();
+        for (int page = 1; ; page++) {
+            JsonNode response = tokenHeaders(client.get()
+                    .uri("/installation/repositories?per_page=100&page={page}", page), installationToken)
+                    .retrieve().body(JsonNode.class);
+            JsonNode repositories = response == null ? null : response.path("repositories");
+            if (repositories == null || !repositories.isArray() || repositories.isEmpty()) break;
+            for (JsonNode repository : repositories) {
+                long id = repository.path("id").asLong();
+                String fullName = repository.path("full_name").asString();
+                if (id > 0 && !fullName.isBlank()) all.add(new Repository(id, fullName));
+            }
+            if (repositories.size() < 100) break;
+        }
+        return all;
     }
 
     public Repository findRepository(String installationToken, String expectedFullName) {
@@ -180,5 +216,13 @@ public class GithubAppClient {
         return result;
     }
 
+    public GithubInstallationSnapshot getInstallationSnapshot(long installationId) {
+        Installation installation = getInstallation(installationId);
+        String token = createInstallationToken(installationId);
+        return new GithubInstallationSnapshot(
+                installation, getAllInstallationRepositories(token));
+    }
+
     public record Repository(long id, String fullName) {}
+    public record Installation(long id, long accountGithubId, String accountLogin, String accountType) {}
 }

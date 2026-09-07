@@ -92,4 +92,22 @@ public class ApiV1PartyApplicationController {
                 dto
         );
     }
+
+    @PostMapping("/{application-id}/cancel-approval")
+    public RsData<PartyApplicationDto> cancelApproval(
+            @PathVariable long partyId,
+            @PathVariable("application-id") long applicationId
+    ) {
+        PartyApplicationDto dto = partyApplicationService.cancelApproval(
+                partyId,
+                applicationId,
+                rq.getActorFromDb()
+        );
+
+        return new RsData<>(
+                "200-1",
+                "승인 취소 성공",
+                dto
+        );
+    }
 }

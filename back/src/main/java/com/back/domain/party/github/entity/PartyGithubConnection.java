@@ -98,4 +98,18 @@ public class PartyGithubConnection extends BaseEntity {
         this.lastError = message;
     }
 
+    /** Party 완료 후에는 GitHub App installation은 보존하고 이 Party의 webhook fan-out만 중단한다. */
+    public void archive() {
+        this.status = PartyGithubConnectionStatus.ARCHIVED;
+        this.lastError = null;
+        this.lastErrorCode = null;
+    }
+
+    /** 신규 binding 전환 이전의 연결도 Party 단위 연동 해제 흐름에서 종료할 수 있다. */
+    public void disconnect() {
+        this.status = PartyGithubConnectionStatus.DISCONNECTED;
+        this.lastError = null;
+        this.lastErrorCode = null;
+    }
+
 }
