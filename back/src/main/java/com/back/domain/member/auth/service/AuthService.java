@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -18,6 +19,15 @@ public class AuthService {
 
     private final PasswordEncoder passwordEncoder;
     private final MemberRepository memberRepository;
+
+    @Transactional(readOnly = true)
+    public Optional<Member> findByGithubSocialIdentity(String githubProviderUserId) {
+        Optional<Member> member = memberRepository.findByGithubProviderUserId(githubProviderUserId);
+        if (member.isPresent()) return member;
+
+        Long githubUserId = githubUserId(githubProviderUserId);
+        return githubUserId == null ? Optional.empty() : memberRepository.findByGithubUserId(githubUserId);
+    }
 
     @Transactional
     public RsData<Member> modifyOrJoin(String email, String password, String profileImgUrl,
