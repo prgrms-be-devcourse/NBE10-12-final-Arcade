@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/Field';
 import { ChipRow, SkillChip } from '@/components/ui/Tag';
 import { POSITION_LABELS, POSITION_TYPES } from '@/lib/constants';
-import { updateMyProfile } from '@/lib/api';
+import { updateMyProfile, uploadProfileImage } from '@/lib/api';
 import type {
   CareerItem,
   PositionType,
@@ -34,7 +34,8 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
   const [position, setPosition] = useState(profile.position);
   const [bio, setBio] = useState(profile.bio);
   const [githubUsername, setGithubUsername] = useState(profile.githubUsername ?? '');
-  const [avatarFileName, setAvatarFileName] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [skills, setSkills] = useState<string[]>(profile.skills);
   const [skillInput, setSkillInput] = useState('');
   const [careers, setCareers] = useState<CareerItem[]>(profile.careers);
@@ -43,18 +44,28 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
 
   const save = async () => {
     setSaving(true);
+    setSaveError(null);
     try {
+      // 새 파일을 골랐으면 먼저 올리고, 아니면 지금 붙어 있는 이미지를 그대로 유지한다.
+      // PATCH 는 보낸 값이 곧 저장될 값이라 생략하면 이미지가 지워진다.
+      const profileImageUrl = avatarFile
+        ? await uploadProfileImage(avatarFile)
+        : (profile.uploadedImageUrl ?? null);
+
       const updated = await updateMyProfile({
         nickname,
         position,
         bio,
         githubUsername: githubUsername.trim() || undefined,
-        avatarFileName: avatarFileName ?? undefined,
+        profileImageUrl,
         skills,
         careers,
         links,
       });
       onSaved(updated);
+    } catch (error) {
+      // 서버가 형식·크기 위반을 msg 로 알려준다. 화면 문구를 따로 들고 있으면 서버와 어긋난다.
+      setSaveError(error instanceof Error ? error.message : '저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
     } finally {
       setSaving(false);
     }
@@ -73,7 +84,7 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
           compact
           title="사진 업로드"
           sub="JPG · PNG · 5MB 이하"
-          onChange={setAvatarFileName}
+          onFileChange={setAvatarFile}
           hint={
             <>
               프로필·지원 카드에 함께 노출돼요. <b>1장만</b> 등록할 수 있고, 없으면 기존처럼 이니셜
@@ -252,6 +263,12 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
           </div>
         ))}
       </EditorBlock>
+
+      {saveError ? (
+        <p className="form-hint" role="alert">
+          {saveError}
+        </p>
+      ) : null}
 
       <div className="profile-edit-foot">
         <button type="button" className="btn btn-ghost" onClick={onCancel}>

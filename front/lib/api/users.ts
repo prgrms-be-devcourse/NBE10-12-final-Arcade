@@ -25,6 +25,8 @@ export interface MemberProfileResponse {
   nickname: string | null;
   webpage: string | null;
   profileImageUrl: string | null;
+  /** GitHub 이 준 아바타. 서버가 profileImageUrl 과 합치지 않고 따로 내려준다 */
+  githubAvatarUrl: string | null;
   githubLinked: boolean;
   /** 서버는 BACK/FRONT/UIUX/PM 4종을 모두 내려줄 수 있다 */
   positions: string[];
@@ -60,7 +62,9 @@ export function toUserProfile(
     id: String(dto.id),
     name: displayName,
     initial: displayName.charAt(0) || 'C',
-    avatarUrl: dto.profileImageUrl ?? undefined,
+    // 서버가 둘을 합치지 않고 그대로 내려주므로 화면이 고른다
+    avatarUrl: dto.profileImageUrl ?? dto.githubAvatarUrl ?? undefined,
+    uploadedImageUrl: dto.profileImageUrl ?? undefined,
     // UserSummary.role 은 계정 권한이 아니라 화면에 보여주는 대표 포지션 문구다
     role: dto.positions[0] ?? '',
     memberRole,
@@ -110,13 +114,35 @@ export async function fetchUserProfile(id: string): Promise<UserProfile> {
   return mockResponse(MOCK_PROFILES[id] ?? fallbackProfile(id));
 }
 
+/**
+ * POST /api/v1/members/me/image — 프로필 이미지 업로드.
+ *
+ * 저장된 이미지의 URL 을 돌려준다. 이 값을 updateMyProfile 의 profileImageUrl 로 실어야
+ * 실제로 프로필에 붙는다 — 업로드만 하면 파일만 올라가고 프로필은 그대로다.
+ *
+ * jpg·png 5MB 까지. 초과하거나 형식이 다르면 서버가 400-1 과 함께 사유를 msg 로 준다.
+ */
+export async function uploadProfileImage(file: File): Promise<string> {
+  if (USE_MOCK) return mockResponse(URL.createObjectURL(file));
+
+  const form = new FormData();
+  form.append('file', file);
+
+  const { profileImageUrl } = await http.post<{ profileImageUrl: string }>(
+    '/members/me/image',
+    form,
+  );
+  return profileImageUrl;
+}
+
 export interface ProfileUpdatePayload {
   nickname: string;
   position: PositionType;
   bio: string;
   /** GitHub 사용자명 — 팀 커밋 작성자와 회원을 연결하는 데 쓴다 */
   githubUsername?: string;
-  avatarFileName?: string;
+  /** uploadProfileImage() 가 돌려준 URL. 그대로 두려면 기존 값을, 지우려면 null 을 보낸다 */
+  profileImageUrl?: string | null;
   skills: string[];
   careers: CareerItem[];
   links: ProfileLink[];
@@ -149,7 +175,7 @@ export async function updateMyProfile(payload: ProfileUpdatePayload): Promise<Us
   const updated = await http.patch<MemberProfileResponse>('/members/me', {
     nickname: payload.nickname,
     webpage: null,
-    profileImageUrl: null,
+    profileImageUrl: payload.profileImageUrl ?? null,
     positions: [payload.position],
     techStacks: payload.skills,
   });

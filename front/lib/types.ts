@@ -129,6 +129,11 @@ export interface UserProfile extends UserSummary {
    * 이 값은 등록 권한을 가르는 계정 역할이라 서로 다른 개념이다.
    */
   memberRole: MemberRole;
+  /**
+   * 직접 올린 프로필 이미지 URL. avatarUrl 은 GitHub 아바타로 대체됐을 수 있어 따로 둔다 -
+   * 수정 요청에 GitHub 아바타를 실으면 '직접 올린 것'으로 굳어 GitHub 에서 바꿔도 반영되지 않는다.
+   */
+  uploadedImageUrl?: string;
   bio: string;
   /** 대표 포지션 — 4종 고정 enum */
   position: PositionType;
