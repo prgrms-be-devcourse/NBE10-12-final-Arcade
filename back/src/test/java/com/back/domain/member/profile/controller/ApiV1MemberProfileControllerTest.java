@@ -37,6 +37,7 @@ import java.time.LocalDateTime;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -79,7 +80,31 @@ public class ApiV1MemberProfileControllerTest {
                 .andExpect(jsonPath("$.data.awards").value(0))
                 .andExpect(jsonPath("$.data.exhibitions").value(0))
                 .andExpect(jsonPath("$.data.streakDays").value(0))
+                .andExpect(jsonPath("$.data.activityHeatmap.length()").value(56))
                 .andExpect(jsonPath("$.data.badges").isEmpty());
+    }
+
+    @Test
+    @DisplayName("내 활동 요약: 파티 활동이 있으면 스트릭과 히트맵에 반영된다")
+    @WithUserDetails("user1@test.com")
+    void summaryReflectsActivity() throws Exception {
+        Member actor = memberRepository.findByEmail("user1@test.com").orElseThrow();
+        Member owner = memberRepository.findByEmail("user2@test.com").orElseThrow();
+
+        // 파티 지원은 기획서 2.9 의 활동 목록에 들어간다 - 오늘 자 기록이 남아야 한다
+        Party party = partyRepository.save(newParty(owner));
+        mvc.perform(post("/api/v1/parties/" + party.getId() + "/applications")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{ \"positionId\": %d }".formatted(
+                                party.getPositions().getFirst().getId())))
+                .andExpect(status().isCreated());
+
+        mvc.perform(get("/api/v1/members/me/summary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.streakDays").value(1))
+                // 히트맵은 오래된 날부터라 오늘이 마지막 칸이다
+                .andExpect(jsonPath("$.data.activityHeatmap[55]").value(1))
+                .andExpect(jsonPath("$.data.activityHeatmap[54]").value(0));
     }
 
     @Test

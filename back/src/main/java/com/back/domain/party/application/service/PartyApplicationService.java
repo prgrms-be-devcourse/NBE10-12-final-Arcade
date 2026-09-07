@@ -19,6 +19,7 @@ import com.back.domain.party.position.entity.PartyStatus;
 import com.back.domain.party.position.entity.Position;
 import com.back.domain.party.application.entity.PartyMemberStatus;
 import com.back.global.dto.SliceDto;
+import com.back.domain.activity.activity.service.ActivityLogService;
 import com.back.global.exception.ServiceException;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +43,7 @@ public class PartyApplicationService {
 
     private final PartyRepository partyRepository;
     private final PartyMemberRepository partyMemberRepository;
+    private final ActivityLogService activityLogService;
     private final MemberProfileRepository memberProfileRepository;
     private final GoalRepository goalRepository;
     private final EntityManager entityManager;
@@ -67,6 +69,7 @@ public class PartyApplicationService {
 
         PartyMember partyMember = new PartyMember(party, applicant, position, message);
         partyMemberRepository.save(partyMember);
+        activityLogService.record(applicant);
         eventPublisher.publishEvent(new PartyApplicationReceivedEvent(party.getId(), party.getOwner().getId()));
         return new PartyApplicationDto(partyMember);
     }
@@ -162,6 +165,8 @@ public class PartyApplicationService {
             // 체크와는 별개로, DB 레벨 낙관적 락 자체가 깨진 경우도 동일하게 409-2로 응답
             throw new ServiceException("409-2", "정원이 마감되어 승인할 수 없습니다. 새로고침 후 다시 시도해주세요.");
         }
+
+        activityLogService.record(actor);
 
         if (decision == Decision.APPROVED) {
             eventPublisher.publishEvent(new PartyApplicationApprovedEvent(party.getId(), partyMember.getMember().getId()));

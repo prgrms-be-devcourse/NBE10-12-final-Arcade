@@ -16,12 +16,11 @@ public record MemberSummaryDto(
         long awards,
         /** 승인된 파티원으로 속한 파티 중 전시가 게시된 건 */
         long exhibitions,
-        /** 연속 활동일. 일자별 활동 기록 도메인이 없어 아직 0 고정이다. */
+        /** 연속 활동일. 오늘이 아직 비어 있으면 어제까지의 연속을 유지한다(기획서 2.9). */
         int streakDays,
+        /** 최근 8주(56일) 활동 농도를 오래된 날부터 늘어놓은 0~3 값. 마이페이지 히트맵이 쓴다. */
+        List<Integer> activityHeatmap,
         /** 획득 배지. 배지 도메인이 없어 아직 빈 배열이다. */
         List<String> badges
 ) {
-    public MemberSummaryDto(long completedParties, long awards, long exhibitions) {
-        this(completedParties, awards, exhibitions, 0, List.of());
-    }
 }

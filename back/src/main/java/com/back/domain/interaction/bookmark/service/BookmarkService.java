@@ -18,6 +18,7 @@ import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.global.dto.PageDto;
 import com.back.domain.showcase.showcase.service.ShowcaseService;
+import com.back.domain.activity.activity.service.ActivityLogService;
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -38,6 +39,7 @@ import java.util.stream.Collectors;
 public class BookmarkService implements BookmarkInteractionPort {
 
     private final BookmarkRepository bookmarkRepository;
+    private final ActivityLogService activityLogService;
     private final ContestRepository contestRepository;
     private final ContestPostRepository contestPostRepository;
     private final PartyRepository partyRepository;
@@ -166,6 +168,7 @@ public class BookmarkService implements BookmarkInteractionPort {
         }
 
         bookmarkRepository.save(new Bookmark(member, TargetType.PARTY, partyId));
+        activityLogService.record(member);
 
         return new BookmarkDto(TargetType.PARTY, partyId, true);
     }

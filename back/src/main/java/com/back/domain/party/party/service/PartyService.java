@@ -19,6 +19,7 @@ import com.back.domain.party.party.event.PartySearchIndexRequestedEvent;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.position.entity.Position;
 import com.back.domain.search.search.service.party.PartySearchKeywordPort;
+import com.back.domain.activity.activity.service.ActivityLogService;
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -48,6 +49,7 @@ public class PartyService {
     private final PartySearchKeywordPort partySearchKeywordPort;
     private final ApplicationEventPublisher eventPublisher;
     private final PartyMemberRepository partyMemberRepository;
+    private final ActivityLogService activityLogService;
 
     public record PositionCreateSpec(
         PositionType type,
@@ -108,6 +110,7 @@ public class PartyService {
         );
 
         Party savedParty = partyRepository.save(party);
+        activityLogService.record(owner);
         eventPublisher.publishEvent(new PartySearchIndexRequestedEvent(savedParty.getId()));
 
         return new PartyDto(savedParty);
