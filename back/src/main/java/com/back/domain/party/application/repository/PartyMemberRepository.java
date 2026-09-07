@@ -19,7 +19,7 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
     boolean existsByPartyAndStatus(Party party, PartyMemberStatus status);
 
     // 위와 같지만 특정 회원(파티장)은 뺀다.
-    // ARC-97 이후 파티장도 APPROVED 로 들어가는데, 파티장 자신은 '지켜야 할 팀원'이 아니다.
+    // 파티가 생성시 파티장이 Member로 들어가지는 구조
     boolean existsByPartyAndStatusAndMemberNot(Party party, PartyMemberStatus status, Member member);
 
 

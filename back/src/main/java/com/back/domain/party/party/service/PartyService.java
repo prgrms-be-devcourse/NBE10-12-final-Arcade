@@ -236,11 +236,7 @@ public class PartyService {
         }
         party.checkDeletable();
 
-        // 승인된 파티원은 실제 팀 소속 관계라, 파티를 지운다고 그냥 같이 사라지면 안 된다.
-        // 먼저 ApiV1PartyApplicationController.cancelApproval()로 승인을 전부 취소해야 삭제할 수 있다.
-        //
-        // 다만 파티장 본인은 뺀다 - ARC-97 이후 파티장도 APPROVED 로 들어가는데(PartyMember.owner),
-        // 그대로 세면 지원자가 없어도 항상 걸려 어떤 파티도 지울 수 없게 된다.
+        // 파티장을 제외한 다른 승인된 멤머가 없을 시 삭제가 가능합니다.
         if (partyMemberRepository.existsByPartyAndStatusAndMemberNot(
                 party, PartyMemberStatus.APPROVED, party.getOwner())) {
             throw new ServiceException("409-3", "승인된 파티원이 있는 파티는 삭제할 수 없습니다. 먼저 승인을 취소해주세요.");
