@@ -13,10 +13,9 @@ interface SocialButtonsProps {
   suffix: string;
   /** 주최측 계정은 소셜 로그인을 지원하지 않아 버튼 자체를 감춘다 */
   hidden?: boolean;
-  onSuccess?: () => void;
 }
 
-export function SocialButtons({ suffix, hidden, onSuccess }: SocialButtonsProps) {
+export function SocialButtons({ suffix, hidden }: SocialButtonsProps) {
   if (hidden) return null;
 
   return (
@@ -26,10 +25,7 @@ export function SocialButtons({ suffix, hidden, onSuccess }: SocialButtonsProps)
           key={provider.key}
           type="button"
           className={`social-btn social-btn--${provider.key}`}
-          onClick={async () => {
-            await socialLogin(provider.key);
-            onSuccess?.();
-          }}
+          onClick={() => void socialLogin(provider.key)}
         >
           <Icon name={provider.icon} viewBox={provider.viewBox} />
           {provider.label}로 {suffix}
