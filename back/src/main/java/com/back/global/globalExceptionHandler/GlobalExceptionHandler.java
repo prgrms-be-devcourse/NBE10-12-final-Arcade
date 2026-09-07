@@ -11,6 +11,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -130,6 +131,17 @@ public class GlobalExceptionHandler {
                         "이미 존재하는 데이터입니다."
                 ),
                 CONFLICT
+        );
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<RsData<Void>> handle(MaxUploadSizeExceededException ex) {
+        return new ResponseEntity<>(
+                new RsData<>(
+                        "400-1",
+                        "업로드할 수 있는 파일 크기를 넘었습니다."
+                ),
+                BAD_REQUEST
         );
     }
 

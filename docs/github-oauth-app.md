@@ -67,8 +67,8 @@ GitHub OAuth App에는 콜백 URL을 하나만 등록할 수 있으므로 로컬
 [back/.env.example](../back/.env.example)을 `back/.env`로 복사하고 발급받은 값을 입력합니다.
 
 ```dotenv
-SPRING__SECURITY__OAUTH2__CLIENT__REGISTRATION__GITHUB__CLIENT_ID=발급받은_Client_ID
-SPRING__SECURITY__OAUTH2__CLIENT__REGISTRATION__GITHUB__CLIENT_SECRET=발급받은_Client_Secret
+SPRING__SECURITY__OAUTH2__CLIENT__REGISTRATION__GITHUB__CLIENT_ID=NEED_TO_SET
+SPRING__SECURITY__OAUTH2__CLIENT__REGISTRATION__GITHUB__CLIENT_SECRET=NEED_TO_SET
 ```
 
 Docker Compose로 실행한다면 루트의 [.env.local.example](../.env.local.example)을 `.env.local`로 복사한 뒤 같은 두 환경변수에 값을 입력합니다. 운영 배포에서는 [.env.prod.example](../.env.prod.example)의 같은 항목을 기준으로 배포 환경변수를 설정합니다.

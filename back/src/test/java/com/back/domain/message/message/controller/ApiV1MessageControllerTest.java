@@ -60,7 +60,7 @@ class ApiV1MessageControllerTest {
     private void saveProfile(String email, String nickname) {
         Member member = member(email);
         if (memberProfileRepository.findByMember(member).isEmpty()) {
-            memberProfileRepository.save(new MemberProfile(member, nickname, null, List.of(), List.of()));
+            memberProfileRepository.save(new MemberProfile(member, nickname, null, null, List.of()));
         }
     }
 

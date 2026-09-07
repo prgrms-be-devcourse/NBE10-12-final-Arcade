@@ -44,3 +44,5 @@ db_dev.lock.db
 .env
 
 .DS_Store
+
+.uploads/
