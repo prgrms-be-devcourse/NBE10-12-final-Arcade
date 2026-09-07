@@ -104,7 +104,8 @@ public class ApiV1PartyPrController {
     }
 
     @GetMapping("/parties/{partyId}/pull-requests/grouped-by-member")
-    public RsData<List<PartyPrByMemberDto>> getPullRequestsGroupedByMember(@PathVariable long partyId) {
+    public RsData<List<PartyPrByMemberDto>> getPullRequestsGroupedByMember(
+            @PathVariable long partyId) {
         return new RsData<>(
                 "200-1",
                 "담당자별 PR 목록 조회 성공",
@@ -112,7 +113,18 @@ public class ApiV1PartyPrController {
         );
     }
 
-    @GetMapping("/parties/{partyId}/pull-requests/members/{memberId}")
+    @GetMapping("/parties/{partyId}/pull-requests/members/me")
+    public RsData<PartyPrByMemberDto> getMyPullRequestsInParty(
+            @PathVariable long partyId) {
+        var actor = rq.getActor();
+        return new RsData<>(
+                "200-1",
+                "파티 내 PR 목록 조회 성공",
+                partyPrService.getByPartyIdAndMemberId(partyId, actor.getId(), actor)
+        );
+    }
+
+    @GetMapping("/parties/{partyId}/pull-requests/members/{memberId:\\d+}")
     public RsData<PartyPrByMemberDto> getPullRequestsByMember(
             @PathVariable long partyId,
             @PathVariable long memberId
