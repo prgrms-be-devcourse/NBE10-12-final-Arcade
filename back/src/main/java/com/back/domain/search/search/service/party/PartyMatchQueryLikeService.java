@@ -7,6 +7,7 @@ import com.back.domain.party.position.entity.PartyStatus;
 import com.back.domain.party.position.entity.Position;
 import com.back.domain.search.search.entity.party.PartySearchKeyword;
 import com.back.domain.search.search.repository.party.PartySearchKeywordRepository;
+import com.back.global.exception.ServiceException;
 import jakarta.persistence.criteria.Subquery;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
@@ -36,8 +37,8 @@ public class PartyMatchQueryLikeService implements PartyMatchQueryPort {
     ) {
         Specification<PartySearchKeyword> spec = matchesAnyKeyword(keywords)
                 .and(isRecruiting())
-                .and(hasPartyTag(partyTag))
-                .and(hasTopicType(topicType))
+                .and(hasPartyEnumEquals("partyTag", partyTag, PartyTag.class))
+                .and(hasPartyEnumEquals("topicType", topicType, TopicType.class))
                 .and(hasPositionType(positionType))
                 .and(orderByPartyIdDesc());
 
@@ -65,34 +66,37 @@ public class PartyMatchQueryLikeService implements PartyMatchQueryPort {
         return (root, query, cb) -> cb.equal(root.get("party").get("status"), PartyStatus.RECRUITING);
     }
 
-    private Specification<PartySearchKeyword> hasPartyTag(String partyTag) {
-        if (partyTag == null) {
-            return (root, query, cb) -> cb.conjunction();
+    private <E extends Enum<E>> Specification<PartySearchKeyword> hasPartyEnumEquals(String attribute, String value, Class<E> enumType) {
+        if (value == null) {
+            return Specification.unrestricted();
         }
-        return (root, query, cb) -> cb.equal(root.get("party").get("partyTag"), PartyTag.valueOf(partyTag));
-    }
-
-    private Specification<PartySearchKeyword> hasTopicType(String topicType) {
-        if (topicType == null) {
-            return (root, query, cb) -> cb.conjunction();
-        }
-        return (root, query, cb) -> cb.equal(root.get("party").get("topicType"), TopicType.valueOf(topicType));
+        E enumValue = parseEnum(enumType, value);
+        return (root, query, cb) -> cb.equal(root.get("party").get(attribute), enumValue);
     }
 
     private Specification<PartySearchKeyword> hasPositionType(String positionType) {
         if (positionType == null) {
-            return (root, query, cb) -> cb.conjunction();
+            return Specification.unrestricted();
         }
+        PositionType type = parseEnum(PositionType.class, positionType);
         return (root, query, cb) -> {
             Subquery<Long> subquery = query.subquery(Long.class);
             var positionRoot = subquery.from(Position.class);
             subquery.select(cb.literal(1L))
                     .where(
                             cb.equal(positionRoot.get("party"), root.get("party")),
-                            cb.equal(positionRoot.get("type"), PositionType.valueOf(positionType))
+                            cb.equal(positionRoot.get("type"), type)
                     );
             return cb.exists(subquery);
         };
+    }
+
+    private <E extends Enum<E>> E parseEnum(Class<E> enumType, String value) {
+        try {
+            return Enum.valueOf(enumType, value);
+        } catch (IllegalArgumentException e) {
+            throw new ServiceException("400-1", "%s 값이 올바르지 않습니다.".formatted(enumType.getSimpleName()));
+        }
     }
 
     private Specification<PartySearchKeyword> orderByPartyIdDesc() {
