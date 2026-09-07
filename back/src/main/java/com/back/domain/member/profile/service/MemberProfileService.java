@@ -69,6 +69,20 @@ public class MemberProfileService {
         return new MemberProfileDto(profile);
     }
 
+    /**
+     * 대표 포지션만 바꾼다. GitHub 로 처음 가입하면 닉네임이 없어
+     * nickname 이 필수인 modifyProfile 로는 포지션을 저장할 수 없다.
+     */
+    @Transactional
+    public MemberProfileDto modifyPosition(Member actor, PositionType position) {
+        MemberProfile profile = memberProfileRepository.findByMember(actor)
+                .orElseGet(() -> memberProfileRepository.save(new MemberProfile(actor)));
+
+        profile.changePosition(position);
+
+        return new MemberProfileDto(profile);
+    }
+
     /** 저장만 하고 URL 을 돌려준다. 프로필에 반영하는 건 수정 요청의 몫이다. */
     public String uploadProfileImage(MultipartFile file) {
         validateImage(file);

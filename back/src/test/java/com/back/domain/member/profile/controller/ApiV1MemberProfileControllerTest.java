@@ -479,4 +479,41 @@ public class ApiV1MemberProfileControllerTest {
         mvc.perform(multipart("/api/v1/members/me/image").file(file))
                 .andExpect(status().isUnauthorized());
     }
+
+    @Test
+    @DisplayName("포지션만 수정: 다른 항목은 건드리지 않고 대표 포지션만 바꾼다")
+    @WithUserDetails("user1@test.com")
+    void modifyPositionOnly() throws Exception {
+        mvc.perform(patch("/api/v1/members/me/position")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "position": "UIUX" }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resultCode").value("200-1"))
+                .andExpect(jsonPath("$.msg").value("대표 포지션 수정 성공"))
+                .andExpect(jsonPath("$.data.position").value("UIUX"));
+    }
+
+    @Test
+    @DisplayName("포지션만 수정: position 이 없으면 400-1")
+    @WithUserDetails("user1@test.com")
+    void modifyPositionWithoutValue() throws Exception {
+        mvc.perform(patch("/api/v1/members/me/position")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-1"));
+    }
+
+    @Test
+    @DisplayName("포지션만 수정: 미로그인이면 401")
+    void modifyPositionWithoutLogin() throws Exception {
+        mvc.perform(patch("/api/v1/members/me/position")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "position": "BACK" }
+                                """))
+                .andExpect(status().isUnauthorized());
+    }
 }

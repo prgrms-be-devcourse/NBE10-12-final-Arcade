@@ -18,8 +18,10 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
     // 파티 삭제 전 "승인된 파티원이 하나도 없어야 하는지" 확인할 때 쓴다.
     boolean existsByPartyAndStatus(Party party, PartyMemberStatus status);
 
-    // 파티 삭제 시 남은 PENDING/REJECTED 지원 기록을 함께 정리한다 (APPROVED는 이미 없는 상태여야 호출됨).
-    void deleteAllByParty(Party party);
+    // 위와 같지만 특정 회원(파티장)은 뺀다.
+    // 파티가 생성시 파티장이 Member로 들어가지는 구조
+    boolean existsByPartyAndStatusAndMemberNot(Party party, PartyMemberStatus status, Member member);
+
 
     Optional<PartyMember> findByIdAndParty(long id, Party party);
 
@@ -29,6 +31,9 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
 
     @EntityGraph(attributePaths = {"member", "position"})
     List<PartyMember> findAllByParty(Party party);
+
+    // 파티를 지우기 전에 먼저 지운다. 안 그러면 position 을 참조하는 FK 때문에 삭제가 실패한다.
+    void deleteAllByParty(Party party);
 
     // 여러 파티의 파티원을 한 번에 조회 - TOP3처럼 파티가 여러 개일 때 파티마다 쿼리 날리는 걸 방지
     @EntityGraph(attributePaths = {"member"})
