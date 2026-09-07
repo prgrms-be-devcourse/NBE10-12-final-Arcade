@@ -33,7 +33,14 @@ public class ActivityLogService {
 
     private final ActivityLogRepository activityLogRepository;
 
-    /** 활동 하나를 오늘 자에 기록한다. 같은 날 여러 번이면 행이 늘지 않고 count 만 올라간다. */
+    /**
+     * 활동 하나를 오늘 자에 기록한다. 같은 날 여러 번이면 행이 늘지 않고 count 만 올라간다.
+     *
+     * 그날 첫 활동이 동시에 두 번이면 한쪽이 유니크 제약에 걸린다. 활동이 일어난 트랜잭션에
+     * 얹혀 돌아 예외를 잡아도 소용없고(rollback-only), 해법은 DB 업서트뿐인데 운영 PostgreSQL·테스트 H2 로
+     * 방언이 갈린다. 이긴 쪽이 행을 만들어 스트릭·히트맵 값은 그대로라 남겨둔다 -
+     * 테스트 DB 를 PostgreSQL 로 정리할 때 업서트로 전환할 것.
+     */
     @Transactional
     public void record(Member actor) {
         LocalDate today = LocalDate.now(ZONE);
