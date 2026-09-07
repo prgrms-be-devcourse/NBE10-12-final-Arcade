@@ -280,11 +280,14 @@ export interface ExhibitionProject {
   coverImageUrl?: string;
   /** PLATFORM_VERIFIED 면 좋아요·조회수를 이 파티로 합산한다 (기획서 3.2) */
   sourcePartyId?: ID;
-  leader: UserSummary;
+  /** 전시 목록(GET /showcase/goals)에는 소유자 정보가 없어 비어 있을 수 있다 */
+  leader?: UserSummary;
   thumbnailLabel: string;
 }
 
 export interface ExhibitionDetail extends ExhibitionProject {
+  /** 상세는 소유자를 아는 경로에서만 오므로 목록과 달리 항상 채워진다 */
+  leader: UserSummary;
   description: string;
   members: UserSummary[];
   links: ProfileLink[];

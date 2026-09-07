@@ -1,11 +1,19 @@
-import type { ExhibitionComment, ExhibitionDetail, ExhibitionProject } from '@/lib/types';
+import type {
+  ExhibitionComment,
+  ExhibitionDetail,
+  ExhibitionProject,
+  GoalSource,
+  GoalStatus,
+  GoalType,
+} from '@/lib/types';
 import {
   MOCK_EXHIBITIONS,
   MOCK_EXHIBITION_DETAILS,
   MOCK_EXHIBITION_COMMITS,
   MOCK_PROFILES,
 } from '@/lib/mock';
-import { http, mockResponse } from './client';
+import { GOAL_TYPE_LABELS } from '@/lib/constants';
+import { USE_MOCK as USE_API_MOCK, http, mockResponse } from './client';
 
 /**
  * 백엔드에 대응 엔드포인트가 아직 없는 모듈이다.
@@ -19,12 +27,58 @@ import { http, mockResponse } from './client';
 const USE_MOCK: boolean = true;
 
 
-/** GET /exhibitions — 목록 인기순은 좋아요 수 기준 (기획서 9.7) */
+/** 서버 ShowcaseGoalDto — 전시관 목록의 한 칸 */
+interface ShowcaseGoalResponse {
+  id: number;
+  /** PROJECT 만 채워진다. 개인 성취(CONTEST·CHECKLIST)는 파티가 없다 */
+  party: { id: number; name: string } | null;
+  type: GoalType;
+  status: GoalStatus;
+  source: GoalSource;
+  detail: { title: string | null };
+  likeCount: number;
+  createAt: string;
+}
+
+/**
+ * 서버 전시 목록에 없어서 비워 두는 값:
+ * - summary, skills, coverImageUrl : ShowcaseGoalDto 에 본문·기술스택·이미지가 없다
+ * - viewCount                      : 목록 응답에 없다 (파티 전시 상세에는 있다)
+ * - leader                         : 소유자 정보가 아예 없어 카드에서 생략된다
+ * - likedByMe, bookmarkedByMe      : 응답에 없다 (docs/마이페이지-요약API_백엔드_요청.md ⑤)
+ *
+ * category 는 서버의 분야 태그가 아니라 성취 타입 문구다 - 화면 필터도 이 기준으로 맞춘다.
+ */
+function toExhibitionProject(dto: ShowcaseGoalResponse): ExhibitionProject {
+  return {
+    id: String(dto.id),
+    title: dto.detail.title ?? '',
+    summary: '',
+    partyName: dto.party?.name ?? '',
+    role: 'BACK',
+    category: GOAL_TYPE_LABELS[dto.type],
+    source: dto.source,
+    skills: [],
+    viewCount: 0,
+    likeCount: dto.likeCount,
+    sourcePartyId: dto.party ? String(dto.party.id) : undefined,
+    thumbnailLabel: GOAL_TYPE_LABELS[dto.type],
+  };
+}
+
+/**
+ * GET /api/v1/showcase/goals — 전시 성취 목록 (ARC-96).
+ *
+ * 서버는 status=ACHIEVED 인 성취만 내려주고, PROJECT 는 파티장이 전시글을 게시해
+ * partyShowcase 가 연결된 것만 포함한다. 좋아요/북마크 가능 조건과 같은 기준이다.
+ *
+ * 분야(category) 필터는 서버에 없어 화면에서 성취 타입으로 거른다.
+ */
 export async function fetchExhibitions(
   category = '전체',
   sort: 'like' | 'recent' = 'like',
 ): Promise<ExhibitionProject[]> {
-  if (USE_MOCK) {
+  if (USE_API_MOCK) {
     const filtered =
       category === '전체'
         ? MOCK_EXHIBITIONS
@@ -33,7 +87,11 @@ export async function fetchExhibitions(
       sort === 'like' ? [...filtered].sort((a, b) => b.likeCount - a.likeCount) : filtered;
     return mockResponse(sorted);
   }
-  return http.get<ExhibitionProject[]>('/exhibitions', { query: { category, sort } });
+
+  const page = await http.get<{ content: ShowcaseGoalResponse[] }>('/showcase/goals', {
+    query: { sort: sort === 'like' ? 'POPULAR' : 'LATEST', size: 60 },
+  });
+  return page.content.map(toExhibitionProject);
 }
 
 /** GET /exhibitions/{id} */

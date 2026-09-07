@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Icon, type IconName } from '@/components/icons/Icon';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { deleteNotifications, fetchNotifications, markNotificationsRead } from '@/lib/api';
-import { useRefreshOnVisible } from '@/lib/hooks/useRefreshOnVisible';
+import { useServerEvents } from '@/lib/hooks/useServerEvents';
 import type { AppNotification, NotificationTarget, NotificationType } from '@/lib/types';
 
 const NOTIF_ICONS: Record<NotificationType, IconName> = {
@@ -49,14 +49,19 @@ export function NotificationPanel() {
   }, [load]);
 
   /*
-   * 서버에 푸시가 없어서 창을 다시 볼 때 읽어온다.
-   * 패널을 열어둔 동안은 건너뛴다 — 읽는 중에 목록이 바뀌면 선택해 둔 항목이 어긋난다.
+   * 새 알림은 서버가 SSE 로 밀어준다 (GET /notifications/subscribe).
+   *
+   * 패널을 열어둔 동안은 다시 읽지 않는다 — 읽는 중에 목록이 바뀌면 선택해 둔 항목이 어긋난다.
+   * 끊겼다 다시 붙으면 그동안의 이벤트는 사라지므로, connect 때 목록을 통째로 다시 읽어 메꾼다.
    */
-  useRefreshOnVisible(
-    useCallback(() => {
+  useServerEvents('/notifications/subscribe', {
+    connect: () => {
       if (!open) load();
-    }, [open, load]),
-  );
+    },
+    notification: () => {
+      if (!open) load();
+    },
+  });
 
   useEffect(() => {
     if (!open) return;

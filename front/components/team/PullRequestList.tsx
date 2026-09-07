@@ -1,4 +1,13 @@
-import type { PartyPullRequest } from '@/lib/api';
+'use client';
+
+import { useState } from 'react';
+import {
+  isServerPartyId,
+  parsePartyPullRequest,
+  parsePartyPullRequests,
+  type PartyPullRequest,
+} from '@/lib/api';
+import { useServerEvents } from '@/lib/hooks/useServerEvents';
 
 /** PR 한 건의 상태 배지. GitHub 의 open/closed 에 draft·merged 를 얹어 네 가지로 본다 */
 function badgeOf(pr: PartyPullRequest): { label: string; tone: string } {
@@ -30,7 +39,32 @@ function timeLine(pr: PartyPullRequest): string {
  * 서버가 웹훅으로 받아 쌓아둔 값을 그대로 보여준다. 작성자는 GitHub 로그인명이고
  * 아직 크루온 회원과 연결되지 않는다(프로필의 githubUsername 과 맞추는 건 다음 작업).
  */
-export function PullRequestList({ pullRequests }: { pullRequests: PartyPullRequest[] }) {
+export function PullRequestList({
+  partyId,
+  pullRequests: initial,
+}: {
+  partyId: string;
+  pullRequests: PartyPullRequest[];
+}) {
+  const [pullRequests, setPullRequests] = useState(initial);
+
+  // 웹훅이 PR을 받으면 서버가 곧바로 밀어준다. 목 슬러그 파티는 서버 경로가 없어 구독하지 않는다.
+  useServerEvents(isServerPartyId(partyId) ? `/parties/${partyId}/pull-requests/stream` : null, {
+    // 연결·재연결 때마다 서버가 현재 목록 전체를 먼저 보낸다. 끊긴 동안의 빈 구간이 여기서 메꿔진다.
+    snapshot: (data) => setPullRequests(parsePartyPullRequests(data)),
+    'pull-request': (data) => {
+      const incoming = parsePartyPullRequest(data);
+      setPullRequests((prev) => {
+        const index = prev.findIndex((pr) => pr.id === incoming.id);
+        if (index < 0) return [incoming, ...prev];
+        // 같은 PR의 갱신(리뷰·머지 등)이라 자리를 옮기지 않고 내용만 바꾼다
+        const next = [...prev];
+        next[index] = incoming;
+        return next;
+      });
+    },
+  });
+
   if (pullRequests.length === 0) {
     return (
       <p className="goal-empty">

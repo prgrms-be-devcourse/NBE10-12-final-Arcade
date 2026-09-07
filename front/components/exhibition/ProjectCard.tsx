@@ -13,10 +13,13 @@ interface ProjectCardProps {
 
 /** 전시관 프로젝트 카드 */
 export function ProjectCard({ project, rank, showLeader = true }: ProjectCardProps) {
+  // 전시 항목은 모두 성취(Goal)다. GET /goals/{id} 가 PROJECT·CONTEST·CHECKLIST 를 모두 처리한다.
+  const href = `/goals/${project.id}`;
+
   return (
     <article className="project-card">
       <Link
-        href={`/exhibition/${project.id}`}
+        href={href}
         className={project.coverImageUrl ? 'project-thumb has-cover' : 'project-thumb'}
         style={
           project.coverImageUrl ? { backgroundImage: `url(${project.coverImageUrl})` } : undefined
@@ -37,7 +40,7 @@ export function ProjectCard({ project, rank, showLeader = true }: ProjectCardPro
       <div className="project-body">
         <SourceBadge source={project.source} />
         <h5>
-          <Link href={`/exhibition/${project.id}`}>{project.title}</Link>
+          <Link href={href}>{project.title}</Link>
         </h5>
         <p className="sub">{project.summary}</p>
         <ChipRow>
@@ -45,7 +48,7 @@ export function ProjectCard({ project, rank, showLeader = true }: ProjectCardPro
             <SkillChip key={skill}>{skill}</SkillChip>
           ))}
         </ChipRow>
-        {showLeader ? (
+        {showLeader && project.leader ? (
           <LeaderRow user={project.leader} href={`/profile/${project.leader.id}`} />
         ) : null}
       </div>

@@ -12,7 +12,7 @@ import { MOCK_CURRENT_USER_ID } from '@/lib/mock';
 export default async function PublicProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [profile, exhibitions] = await Promise.all([fetchUserProfile(id), fetchExhibitions()]);
-  const myProjects = exhibitions.filter((project) => project.leader.id === profile.id);
+  const myProjects = exhibitions.filter((project) => project.leader?.id === profile.id);
   const isMe = profile.id === MOCK_CURRENT_USER_ID;
   const awards = profile.achievements.filter((item) => item.type === 'CONTEST');
 
