@@ -1,4 +1,5 @@
 import { Icon } from '@/components/icons/Icon';
+import { CommentSection } from '@/components/exhibition/CommentSection';
 import { ExhibitionActions } from '@/components/exhibition/ExhibitionActions';
 import { DetailActions } from '@/components/ui/DetailActions';
 import { SendMessageButton } from '@/components/message/SendMessageButton';
@@ -8,7 +9,7 @@ import { LeaderRow } from '@/components/ui/Avatar';
 import { ChipRow, SkillChip, Tag, TagRow } from '@/components/ui/Tag';
 import { fetchExhibition, fetchExhibitionCommits } from '@/lib/api';
 import { GOAL_SOURCE_LABELS } from '@/lib/constants';
-import { MOCK_CURRENT_USER_ID } from '@/lib/mock';
+import { MOCK_CURRENT_USER_ID, MOCK_USER_SUMMARIES } from '@/lib/mock';
 
 export default async function ExhibitionDetailPage({
   params,
@@ -29,6 +30,7 @@ export default async function ExhibitionDetailPage({
       }[]
     >,
   ]);
+  const currentUser = MOCK_USER_SUMMARIES[MOCK_CURRENT_USER_ID];
   const githubUrl = project.links.find((link) => link.label === 'GitHub')?.url;
 
   return (
@@ -114,10 +116,16 @@ export default async function ExhibitionDetailPage({
               ) : null}
 
               {/*
-                댓글은 서버에 대응 API 가 없어 숨겨 뒀다 (docs/마이페이지-요약API_백엔드_요청.md ⑦).
-                저장되지 않는 입력창을 남기면 사용자가 쓴 댓글이 조용히 사라진다.
-                API 가 생기면 CommentSection import 와 함께 이 블록을 되살리면 된다.
+                화면은 그대로 두고 서버 연동만 아직 하지 않은 상태다.
+                댓글 API 가 없어(docs/마이페이지-요약API_백엔드_요청.md ⑦) 목록은 항상 비어 있고,
+                작성한 댓글은 새로고침하면 사라진다 - lib/api/exhibitions.ts 의 댓글 함수들이
+                목 모드로 고정돼 있기 때문이다. 서버가 생기면 그쪽만 열면 된다.
               */}
+              <CommentSection
+                exhibitionId={project.id}
+                comments={project.comments}
+                currentUserName={currentUser.name}
+              />
             </>
           }
           side={

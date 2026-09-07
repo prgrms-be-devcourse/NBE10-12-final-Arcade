@@ -321,6 +321,9 @@ export function toAchievement(goal: GoalResponse): Achievement {
     tags: [],
     links: [],
     sourcePartyId: goal.sourcePartyId != null ? (String(goal.sourcePartyId) as ID) : undefined,
+    positionLabel: goal.detail.positionType
+      ? GOAL_POSITION_LABELS[goal.detail.positionType]
+      : undefined,
   };
 }
 

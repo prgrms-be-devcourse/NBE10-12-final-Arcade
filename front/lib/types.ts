@@ -96,6 +96,8 @@ export interface Achievement {
   links: AchievementLink[];
   /** PLATFORM_VERIFIED 일 때만 값 존재 — 좋아요·조회수를 원본 파티로 합산 (기획서 3.2) */
   sourcePartyId?: ID;
+  /** PROJECT 에서 그 파티에 맡았던 포지션 문구. 참여 파티 히스토리에 쓴다 */
+  positionLabel?: string;
 }
 
 export interface CareerItem {
