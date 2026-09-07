@@ -7,6 +7,7 @@ import type {
   UserProfile,
 } from '@/lib/types';
 import { MOCK_CURRENT_USER_ID, MOCK_PROFILES, MOCK_USER_SUMMARIES } from '@/lib/mock';
+import { positionLabel } from '@/lib/constants';
 import { ApiError, USE_MOCK, http, mockResponse } from './client';
 
 function fallbackProfile(id: string): UserProfile {
@@ -94,7 +95,7 @@ export function toUserProfile(
     avatarUrl: dto.profileImageUrl ?? dto.githubAvatarUrl ?? undefined,
     uploadedImageUrl: dto.profileImageUrl ?? undefined,
     // UserSummary.role 은 계정 권한이 아니라 화면에 보여주는 대표 포지션 문구다
-    role: dto.position ?? '',
+    role: dto.position ? positionLabel(toPositionType(dto.position)) : '',
     memberRole,
     githubLinked: dto.githubLinked,
     githubUsername: dto.githubUsername ?? undefined,
