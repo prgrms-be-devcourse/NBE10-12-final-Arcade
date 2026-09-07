@@ -44,6 +44,15 @@ public class S3FileStorage implements FileStorage {
             return configured.replaceAll("/+$", "");
         }
 
-        return properties.getEndpoint().replaceAll("/+$", "") + "/" + properties.getBucket();
+        String endpoint = properties.getEndpoint();
+
+        // endpoint 는 MinIO 를 바라보는 dev·test 이용 (DevS3Config).
+        if (endpoint == null || endpoint.isBlank()) {
+            throw new IllegalStateException(
+                    "S3 공개 URL 을 만들 수 없습니다. custom.storage.s3.public-url-prefix "
+                            + "또는 custom.storage.s3.endpoint 중 하나를 설정해야 합니다.");
+        }
+
+        return endpoint.replaceAll("/+$", "") + "/" + properties.getBucket();
     }
 }
