@@ -1,10 +1,13 @@
 package com.back.domain.party.application.repository;
 
 import com.back.domain.member.member.entity.Member;
+import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.party.application.entity.PartyMember;
 import com.back.domain.party.application.entity.PartyMemberStatus;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.position.entity.PartyStatus;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -36,6 +39,28 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
     // 여러 파티의 파티원을 한 번에 조회 - TOP3처럼 파티가 여러 개일 때 파티마다 쿼리 날리는 걸 방지
     @EntityGraph(attributePaths = {"member"})
     List<PartyMember> findAllByPartyIn(List<Party> parties);
+
+    // 마이페이지 '내 지원' 목록. 카드가 파티 이름·포지션을 그리므로 미리 당겨온다.
+    // 전체 건수를 쓰지 않는 화면이라 Slice 로 받아 count 쿼리를 아낀다.
+    @EntityGraph(attributePaths = {"party", "position"})
+    Slice<PartyMember> findAllByMemberAndStatus(Member member, PartyMemberStatus status, Pageable pageable);
+
+    // 마이페이지 '파티 관리' 목록. 내가 파티장인 파티들에 들어온 지원을 한 번에 본다.
+    // partyId·positionType 은 선택 필터라 null 이면 조건이 없는 것으로 친다.
+    // 여기도 전체 건수를 쓰지 않는 화면이라 Slice 다.
+    @EntityGraph(attributePaths = {"member", "position", "party"})
+    @Query("""
+            select pm from PartyMember pm
+            where pm.party.owner = :owner
+              and (:partyId is null or pm.party.id = :partyId)
+              and (:positionType is null or pm.position.type = :positionType)
+            """)
+    Slice<PartyMember> findAllByPartyOwner(
+            @Param("owner") Member owner,
+            @Param("partyId") Long partyId,
+            @Param("positionType") PositionType positionType,
+            Pageable pageable
+    );
 
     // 마이페이지 요약의 '완료한 파티' 수.
     @Query("""
