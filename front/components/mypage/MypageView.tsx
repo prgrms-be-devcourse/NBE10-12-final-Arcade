@@ -87,7 +87,7 @@ export function MypageView({
               onConnectGithub={profile.githubLinked ? undefined : connectGithub}
             />
 
-            <HeroStats streakDays={profile.streakDays} badges={profile.badges} />
+            <HeroStats streakDays={profile.streakDays} />
 
             <MypageTabs active={activeTab} onChange={changeTab} />
 
