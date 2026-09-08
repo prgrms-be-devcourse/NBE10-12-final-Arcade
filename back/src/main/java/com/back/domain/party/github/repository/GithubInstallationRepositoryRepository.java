@@ -28,4 +28,5 @@ public interface GithubInstallationRepositoryRepository extends JpaRepository<Gi
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<GithubInstallationRepository> findById(Long id);
     List<GithubInstallationRepository> findAllByInstallationInstallationId(Long installationId);
+    List<GithubInstallationRepository> findAllByInstallationInstallationIdAndStatus(Long installationId, GithubInstallationRepositoryStatus status);
 }
