@@ -5,6 +5,7 @@ import com.back.domain.goal.goal.entity.Goal;
 import com.back.domain.goal.goal.entity.GoalStatus;
 import com.back.domain.goal.goal.entity.GoalType;
 import com.back.domain.goal.goal.entity.PersonalChecklist;
+import com.back.domain.goal.goal.entity.Project;
 import com.back.domain.member.member.entity.Member;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -78,4 +79,15 @@ public interface GoalRepository extends JpaRepository<Goal, Long>, GoalRepositor
             @Param("status") GoalStatus status
     );
 
+    // 북마크함 카드 조립용 - 같은 전시글(PARTY_SHOWCASE)에 파티원 수만큼 Project가 존재해 대표 1건만 필요하다
+    // id가 가장 작은 것을 대표로 고정한다
+    @Query("""
+        select p from Project p
+        where p.id in (
+            select min(p2.id) from Project p2
+            where p2.partyShowcase.id in :showcaseIds
+            group by p2.partyShowcase.id
+        )
+        """)
+    List<Project> findRepresentativeProjectsByShowcaseIds(@Param("showcaseIds") Collection<Long> showcaseIds);
 }
