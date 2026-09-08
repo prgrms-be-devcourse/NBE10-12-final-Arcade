@@ -4,6 +4,7 @@ import com.back.domain.contest.contest.dtos.ContestResponseDto;
 import com.back.domain.contest.contest.entity.ContestFormat;
 import com.back.domain.contest.contest.entity.ContestTag;
 import com.back.domain.contest.contest.service.ContestService;
+import com.back.domain.goal.goal.entity.Goal;
 import com.back.domain.goal.goal.entity.GoalStatus;
 import com.back.domain.goal.goal.entity.PersonalChecklist;
 import com.back.domain.goal.goal.entity.Project;
@@ -460,5 +461,59 @@ public class ApiV1LikeControllerTest {
         mvc.perform(post("/api/v1/goals/" + goalId + "/likes"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.likeCount").value(1));
+    }
+
+    @Test
+    @DisplayName("성취 좋아요: PROJECT 성취를 좋아요한 뒤 같은 파티를 직접 좋아요하면 409-1이다 (같은 행 공유 확인)")
+    @WithUserDetails("user1@test.com")
+    void likeGoalProjectThenLikePartyDirectlyConflicts() throws Exception {
+        long goalId = savePublishedProjectGoal("user2@test.com", 401L);
+
+        mvc.perform(post("/api/v1/goals/" + goalId + "/likes"))
+                .andExpect(status().isCreated());
+
+        Goal goal = goalRepository.findById(goalId).orElseThrow();
+        long partyId = goal.getSourcePartyId();
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/parties/" + partyId + "/likes"));
+
+        resultActions.andExpect(status().isConflict())
+                .andExpect(jsonPath("$.resultCode").value("409-1"));
+    }
+
+    @Test
+    @DisplayName("성취 좋아요: 파티를 직접 좋아요한 뒤 같은 파티의 PROJECT 성취에 좋아요하면 409-1이다")
+    @WithUserDetails("user1@test.com")
+    void likePartyDirectlyThenLikeGoalProjectConflicts() throws Exception {
+        long goalId = savePublishedProjectGoal("user2@test.com", 402L);
+        Goal goal = goalRepository.findById(goalId).orElseThrow();
+        long partyId = goal.getSourcePartyId();
+
+        mvc.perform(post("/api/v1/parties/" + partyId + "/likes"))
+                .andExpect(status().isCreated());
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/goals/" + goalId + "/likes"));
+
+        resultActions.andExpect(status().isConflict())
+                .andExpect(jsonPath("$.resultCode").value("409-1"));
+    }
+
+    @Test
+    @DisplayName("성취 좋아요: PROJECT 성취 좋아요 취소 후에는 같은 파티를 직접 좋아요할 수 있다")
+    @WithUserDetails("user1@test.com")
+    void unlikeGoalProjectAllowsSubsequentPartyLike() throws Exception {
+        long goalId = savePublishedProjectGoal("user2@test.com", 403L);
+        Goal goal = goalRepository.findById(goalId).orElseThrow();
+        long partyId = goal.getSourcePartyId();
+
+        mvc.perform(post("/api/v1/goals/" + goalId + "/likes"))
+                .andExpect(status().isCreated());
+
+        mvc.perform(delete("/api/v1/goals/" + goalId + "/likes"))
+                .andExpect(status().isNoContent());
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/parties/" + partyId + "/likes"));
+
+        resultActions.andExpect(status().isCreated());
     }
 }
