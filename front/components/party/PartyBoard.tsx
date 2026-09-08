@@ -28,6 +28,8 @@ interface PartyBoardProps {
   keywords: string;
 }
 
+type BoardFilters = Required<PartySearchFilters>;
+
 /** 파티 게시판 (검색 · 유형 · 분야 · 정렬). */
 export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) {
   const [draft, setDraft] = useState('');
@@ -35,9 +37,11 @@ export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) 
   const [results, setResults] = useState<Party[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [searchFailed, setSearchFailed] = useState(false);
-  const [topicType, setTopicType] = useState<TopicType | '전체'>('전체');
-  const [position, setPosition] = useState<PositionType | '전체'>('전체');
-  const [subCategory, setSubCategory] = useState('전체');
+  const [filters, setFilters] = useState<BoardFilters>({
+    topicType: '전체',
+    position: '전체',
+    subCategory: '전체',
+  });
   const [sort, setSort] = useState<'empty' | 'dday' | 'like'>('empty');
   const searchSeq = useRef(0);
 
@@ -72,18 +76,22 @@ export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) 
     }
   };
 
-  const applyFilters = (raw: string, patch?: Partial<PartySearchFilters>) => {
-    void runSearch(raw, { topicType, position, subCategory, ...patch });
+  // 바뀐 필터를 합친 완성본을 만들어, state 갱신과 서버 검색에 같은 값을 쓴다.
+  const changeFilter = (patch: Partial<BoardFilters>) => {
+    const next = { ...filters, ...patch };
+    setFilters(next);
+    void runSearch(query, next);
   };
 
   const handleSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const next = draft.trim();
     setQuery(next);
-    applyFilters(next);
+    void runSearch(next, filters);
   };
 
   const visible = useMemo(() => {
+    const { topicType, position, subCategory } = filters;
     // 검색 결과에도 필터를 걸어, 서버 왕복 전 이전 결과가 새 필터 기준으로 좁혀지게 한다.
     const matchesFilters = (party: Party) =>
       (topicType === '전체' || party.topicType === topicType) &&
@@ -92,7 +100,7 @@ export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) 
 
     const base = query ? (results ?? []) : parties;
     return [...base.filter(matchesFilters)].sort(comparePartiesBy(sort));
-  }, [parties, results, query, topicType, subCategory, position, sort]);
+  }, [parties, results, query, filters, sort]);
 
   return (
     <>
@@ -137,19 +145,15 @@ export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) 
               setDraft(next);
               if (next === '') {
                 setQuery('');
-                applyFilters('');
+                void runSearch('');
               }
             }}
           />
         </form>
         <SelectField
           className="select-field"
-          value={topicType}
-          onChange={(event) => {
-            const next = event.target.value as TopicType | '전체';
-            setTopicType(next);
-            applyFilters(query, { topicType: next });
-          }}
+          value={filters.topicType}
+          onChange={(event) => changeFilter({ topicType: event.target.value as TopicType | '전체' })}
           aria-label="주제 유형"
         >
           <option value="전체">유형 전체</option>
@@ -161,12 +165,10 @@ export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) 
         </SelectField>
         <SelectField
           className="select-field"
-          value={position}
-          onChange={(event) => {
-            const next = event.target.value as PositionType | '전체';
-            setPosition(next);
-            applyFilters(query, { position: next });
-          }}
+          value={filters.position}
+          onChange={(event) =>
+            changeFilter({ position: event.target.value as PositionType | '전체' })
+          }
           aria-label="포지션"
         >
           <option value="전체">포지션 전체</option>
@@ -178,12 +180,8 @@ export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) 
         </SelectField>
         <SelectField
           className="select-field"
-          value={subCategory}
-          onChange={(event) => {
-            const next = event.target.value;
-            setSubCategory(next);
-            applyFilters(query, { subCategory: next });
-          }}
+          value={filters.subCategory}
+          onChange={(event) => changeFilter({ subCategory: event.target.value })}
           aria-label="분야"
         >
           <option value="전체">분야 전체</option>
