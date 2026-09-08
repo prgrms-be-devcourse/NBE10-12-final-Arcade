@@ -4,8 +4,8 @@ import com.back.domain.contest.contest.dtos.ContestResponseDto;
 import com.back.domain.contest.contest.entity.ContestFormat;
 import com.back.domain.contest.contest.entity.ContestTag;
 import com.back.domain.contest.contest.service.ContestService;
-import com.back.domain.goal.goal.entity.Goal;
 import com.back.domain.goal.goal.entity.GoalStatus;
+import com.back.domain.goal.goal.entity.Goal;
 import com.back.domain.goal.goal.entity.PersonalChecklist;
 import com.back.domain.goal.goal.entity.Project;
 import com.back.domain.goal.goal.repository.GoalRepository;
@@ -102,7 +102,6 @@ public class ApiV1LikeControllerTest {
         return partyRepository.save(party);
     }
 
-    // 자기신고 성취 - 완료(ACHIEVED) 상태라 전시 가능
     private long saveAchievedGoal(String ownerEmail) {
         Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
         PersonalChecklist checklist = new PersonalChecklist(
@@ -111,7 +110,6 @@ public class ApiV1LikeControllerTest {
         return goalRepository.save(checklist).getId();
     }
 
-    // 자기신고 성취 - 아직 진행 중이라 전시 불가
     private long saveInProgressGoal(String ownerEmail) {
         Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
         PersonalChecklist checklist = new PersonalChecklist(
@@ -120,7 +118,6 @@ public class ApiV1LikeControllerTest {
         return goalRepository.save(checklist).getId();
     }
 
-    // PROJECT 성취 - 완료됐지만 파티장이 아직 전시글을 게시하지 않아 전시 불가
     private long saveUnpublishedProjectGoal(String ownerEmail, long partyAssembleToMemberId) {
         Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
         Party party = saveParty(ownerEmail);
@@ -133,7 +130,6 @@ public class ApiV1LikeControllerTest {
         return goalRepository.save(project).getId();
     }
 
-    // PROJECT 성취 - 완료 + 파티장이 전시글까지 게시해서 전시 가능
     private long savePublishedProjectGoal(String ownerEmail, long partyAssembleToMemberId) {
         Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
         Party party = saveParty(ownerEmail);
@@ -151,8 +147,6 @@ public class ApiV1LikeControllerTest {
         return goalRepository.save(project).getId();
     }
 
-    // 파티 확정 시 참여자 수만큼 Project가 각각 따로 생기지만 같은 파티면 같은 PartyShowcase를 공유한다
-    // PROJECT 좋아요가 PARTY_SHOWCASE로 라우팅되는 걸 검증하려면 이렇게 같은 전시글을 가리키는 서로 다른 goalId 두 개가 필요하다.
     private record TeamProjectGoals(long goalIdA, long goalIdB) {
     }
 
