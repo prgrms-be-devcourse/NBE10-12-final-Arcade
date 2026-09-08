@@ -17,7 +17,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -149,7 +152,46 @@ public class LikeService implements LikeInteractionPort {
             return Set.of();
         }
 
-        return new HashSet<>(likeActionRepository.findTargetIdsByMemberAndTargetTypeAndTargetIdIn(member, targetType, targetIds));
+        if (targetType != TargetType.GOAL) {
+            return new HashSet<>(likeActionRepository.findTargetIdsByMemberAndTargetTypeAndTargetIdIn(member, targetType, targetIds));
+        }
+
+        List<Goal> goals = goalRepository.findAllById(targetIds);
+
+        Map<Long, Long> projectGoalIdToPartyId = new HashMap<>();
+        Set<Long> plainGoalIds = new HashSet<>();
+
+        for (Goal goal : goals) {
+            if (goal instanceof Project) {
+                projectGoalIdToPartyId.put(goal.getId(), goal.getSourcePartyId());
+            } else {
+                plainGoalIds.add(goal.getId());
+            }
+        }
+
+        Set<Long> likedGoalIds = new HashSet<>();
+
+        if (!plainGoalIds.isEmpty()) {
+            likedGoalIds.addAll(likeActionRepository.findTargetIdsByMemberAndTargetTypeAndTargetIdIn(
+                    member, TargetType.GOAL, plainGoalIds
+            ));
+        }
+
+        if (!projectGoalIdToPartyId.isEmpty()) {
+            Set<Long> partyIds = new HashSet<>(projectGoalIdToPartyId.values());
+            Set<Long> likedPartyIds = new HashSet<>(likeActionRepository.findTargetIdsByMemberAndTargetTypeAndTargetIdIn(
+                    member, TargetType.PARTY, partyIds
+            ));
+
+            // 좋아요된 partyId를 다시 원래 요청받은 goalId로 되돌린다
+            for (Map.Entry<Long, Long> entry : projectGoalIdToPartyId.entrySet()) {
+                if (likedPartyIds.contains(entry.getValue())) {
+                    likedGoalIds.add(entry.getKey());
+                }
+            }
+        }
+
+        return likedGoalIds;
     }
 
     private ContestPost findContestPostOrThrow(long contestId) {
