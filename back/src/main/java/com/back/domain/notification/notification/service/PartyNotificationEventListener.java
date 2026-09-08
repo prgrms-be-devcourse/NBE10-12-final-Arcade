@@ -2,10 +2,9 @@ package com.back.domain.notification.notification.service;
 
 import com.back.domain.member.member.repository.MemberRepository;
 import com.back.domain.notification.notification.entity.NotificationType;
-import com.back.domain.party.application.entity.PartyMemberStatus;
 import com.back.domain.party.application.event.PartyApplicationApprovedEvent;
 import com.back.domain.party.application.event.PartyApplicationReceivedEvent;
-import com.back.domain.party.application.repository.PartyMemberRepository;
+import com.back.domain.party.assemble.repository.PartyAssembleToMemberRepository;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.event.PartyAssembledEvent;
 import com.back.domain.party.party.event.PartyCompletedEvent;
@@ -27,7 +26,7 @@ public class PartyNotificationEventListener {
     private final NotificationService notificationService;
     private final PartyRepository partyRepository;
     private final MemberRepository memberRepository;
-    private final PartyMemberRepository partyMemberRepository;
+    private final PartyAssembleToMemberRepository partyAssembleToMemberRepository;
 
     // 원본 작업과 알림을 함께 커밋한다. SSE 전송은 NotificationCreatedEvent의 AFTER_COMMIT 리스너가 담당한다.
     @EventListener
@@ -71,13 +70,10 @@ public class PartyNotificationEventListener {
                 " 파티의 성과가 전시관에 게시되었습니다.");
     }
 
+    // 완료·전시 게시는 확정 이후 사건이라 수신자는 확정 명단이 기준이다. 파티장도 그 안에 있다.
     private void notifyParticipants(Party party, NotificationType type, String message) {
-        Set<Long> recipients = new LinkedHashSet<>();
-        recipients.add(party.getOwner().getId());
-        partyMemberRepository.findAllByParty(party).stream()
-                .filter(member -> member.getStatus() == PartyMemberStatus.APPROVED)
-                .forEach(member -> recipients.add(member.getMember().getId()));
-        recipients.forEach(id -> notify(party, id, type, message));
+        partyAssembleToMemberRepository.findAllByPartyAssemble_PartyOrderByIdAsc(party)
+                .forEach(atm -> notify(party, atm.getMember().getId(), type, message));
     }
 
     private void notify(Party party, long memberId, NotificationType type, String message) {

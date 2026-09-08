@@ -61,10 +61,14 @@ public class PartyLifecycleService {
 
         // 파티장은 지원 절차(PartyMember)를 거치지 않으므로 이미 들고 있는 party.owner를 확정 명단 맨 앞에 바로 붙인다.
         // 지원한 자리가 없어 포지션은 프로필의 대표 포지션에서 가져온다(Member에는 포지션이 없다).
+        //
+        // 파티장을 생성 시점에 APPROVED PartyMember로 넣던 시절(ARC-97)에 만들어져 아직 RECRUITING인
+        // 파티가 남아 있다. 그 옛 행을 거르지 않으면 파티장이 확정 명단에 두 번 들어간다.
         List<Confirmed> confirmed = Stream.concat(
                 Stream.of(new Confirmed(party.getOwner(), ownerPositionType(party.getOwner()))),
                 members.stream()
                         .filter(m -> m.getStatus() == PartyMemberStatus.APPROVED)
+                        .filter(m -> !party.isOwnedBy(m.getMember()))
                         .map(m -> new Confirmed(m.getMember(), m.getPosition().getType()))
         ).toList();
 

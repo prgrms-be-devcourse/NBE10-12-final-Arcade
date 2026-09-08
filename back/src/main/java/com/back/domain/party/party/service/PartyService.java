@@ -212,13 +212,14 @@ public class PartyService {
         }
         party.checkDeletable();
 
-        // 파티장을 제외한 다른 승인된 멤머가 없을 시 삭제가 가능합니다.
+        // 파티장을 제외한 다른 승인된 파티원이 없어야 삭제할 수 있다.
+        // 파티장은 이제 PartyMember 로 들어가지 않지만, ARC-97 시절 파티에는 그 행이 남아 있어 빼고 센다.
         if (partyMemberRepository.existsByPartyAndStatusAndMemberNot(
                 party, PartyMemberStatus.APPROVED, party.getOwner())) {
             throw new ServiceException("409-3", "승인된 파티원이 있는 파티는 삭제할 수 없습니다. 먼저 승인을 취소해주세요.");
         }
 
-        // 남은 기록(파티장 + PENDING/REJECTED 지원)은 position 을 참조하므로
+        // 남은 지원 기록(PENDING/REJECTED)은 position 을 참조하므로
         // 파티(와 position)보다 먼저 지워야 FK 제약에 걸리지 않는다.
         partyMemberRepository.deleteAllByParty(party);
         partyMemberRepository.flush();

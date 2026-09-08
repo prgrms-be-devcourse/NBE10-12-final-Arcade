@@ -81,7 +81,8 @@ public class PartyApplicationService {
             throw new ServiceException("403-1", "파티장만 조회할 수 있습니다.");
         }
 
-        // 파티장 본인 행(파티 생성 시 APPROVED 로 들어간다)은 지원이 아니므로 뺀다.
+        // 파티장은 더 이상 PartyMember 로 들어가지 않는다. 다만 ARC-97 시절 파티에는 그 행이 남아 있어
+        // 거르지 않으면 파티장이 자기 파티의 지원자로 보인다.
         return partyMemberRepository.findAllByParty(party).stream()
                 .filter(pm -> !party.isOwnedBy(pm.getMember()))
                 .map(PartyApplicationDto::new)
