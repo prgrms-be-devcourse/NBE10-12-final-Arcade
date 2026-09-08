@@ -93,7 +93,6 @@ public class PartyLifecycleService {
         return new PartyDto(party);
     }
 
-    /** 프로필을 안 채운 파티장도 있으므로 없으면 null이다. */
     private PositionType ownerPositionType(Member owner) {
         return memberProfileRepository.findByMember(owner)
                 .map(MemberProfile::getPosition)

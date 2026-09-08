@@ -8,7 +8,6 @@ import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.member.repository.MemberRepository;
 import com.back.domain.party.application.entity.PartyMember;
-import com.back.domain.party.application.entity.PartyMemberStatus;
 import com.back.domain.party.application.repository.PartyMemberRepository;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.entity.PartyTag;

@@ -81,7 +81,6 @@ public class PartyShowcaseService {
         List<Party> parties = showcases.stream().map(PartyShowcase::getParty).toList();
         List<Long> partyIds = parties.stream().map(Party::getId).toList();
 
-        // 파티장은 PartyMember로 남지 않으므로 명단 맨 앞에 따로 붙인다
         Map<Long, List<String>> memberNamesByPartyId = partyMemberRepository.findAllByPartyIn(parties).stream()
                 .filter(pm -> pm.getStatus() == PartyMemberStatus.APPROVED)
                 .collect(Collectors.groupingBy(

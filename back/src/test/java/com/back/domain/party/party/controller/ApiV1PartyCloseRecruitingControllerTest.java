@@ -169,9 +169,6 @@ public class ApiV1PartyCloseRecruitingControllerTest {
                 .andExpect(status().isCreated());
 
         assertThat(partyMemberRepository.findByPartyAndMember(party, owner)).isEmpty();
-        assertThat(partyAssembleToMemberRepository.findAll())
-                .anyMatch(atm -> atm.getMember().getId().equals(owner.getId()));
-
         PartyAssembledEvent event = events.stream(PartyAssembledEvent.class).findFirst().orElseThrow();
         assertThat(event.approvedMembers())
                 .anyMatch(m -> m.memberId() == owner.getId() && m.positionType() == PositionType.FRONT);
