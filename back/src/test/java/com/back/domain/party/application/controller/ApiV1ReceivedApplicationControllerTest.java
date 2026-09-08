@@ -69,6 +69,9 @@ public class ApiV1ReceivedApplicationControllerTest {
         Member frontApplicant = memberRepository.findByEmail("user3@test.com").orElseThrow();
 
         Party party = partyRepository.save(newParty(owner));
+        // 운영 경로(PartyService.createParty)와 같은 상태 - 파티장도 APPROVED 행을 갖는다.
+        // 이게 없으면 파티장이 지원자로 새는 회귀를 여기서 못 잡는다.
+        partyMemberRepository.save(PartyMember.owner(party, owner, findPosition(party, PositionType.BACK)));
 
         // user2 는 프로필과 성취가 있다 - 자기신고 2건, 자동기록(PROJECT) 1건
         memberProfileRepository.save(new MemberProfile(

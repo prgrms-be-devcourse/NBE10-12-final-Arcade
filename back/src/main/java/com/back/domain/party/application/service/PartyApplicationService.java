@@ -81,7 +81,9 @@ public class PartyApplicationService {
             throw new ServiceException("403-1", "파티장만 조회할 수 있습니다.");
         }
 
+        // 파티장 본인 행(파티 생성 시 APPROVED 로 들어간다)은 지원이 아니므로 뺀다.
         return partyMemberRepository.findAllByParty(party).stream()
+                .filter(pm -> !party.isOwnedBy(pm.getMember()))
                 .map(PartyApplicationDto::new)
                 .toList();
     }
