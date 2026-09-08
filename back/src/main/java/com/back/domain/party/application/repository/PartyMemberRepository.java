@@ -1,14 +1,24 @@
 package com.back.domain.party.application.repository;
 
 import com.back.domain.member.member.entity.Member;
+import com.back.domain.party.application.dtos.PartyApplicantCount;
+import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.party.application.entity.PartyMember;
 import com.back.domain.party.application.entity.PartyMemberStatus;
 import com.back.domain.party.party.entity.Party;
+import com.back.domain.party.position.entity.PartyStatus;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> {
     boolean existsByPartyAndMember(Party party, Member member);
@@ -38,4 +48,65 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
     // 여러 파티의 파티원을 한 번에 조회 - TOP3처럼 파티가 여러 개일 때 파티마다 쿼리 날리는 걸 방지
     @EntityGraph(attributePaths = {"member"})
     List<PartyMember> findAllByPartyIn(List<Party> parties);
+
+    // 마이페이지 '내 지원' 목록. 카드가 파티 이름·포지션을 그리므로 미리 당겨온다.
+    // 전체 건수를 쓰지 않는 화면이라 Slice 로 받아 count 쿼리를 아낀다.
+    @EntityGraph(attributePaths = {"party", "position"})
+    Slice<PartyMember> findAllByMemberAndStatus(Member member, PartyMemberStatus status, Pageable pageable);
+
+    // 마이페이지 '파티 관리' 목록. 내가 파티장인 파티들에 들어온 지원을 한 번에 본다.
+    // partyId·positionType 은 선택 필터라 null 이면 조건이 없는 것으로 친다.
+    // 여기도 전체 건수를 쓰지 않는 화면이라 Slice 다.
+    // 파티장 본인의 APPROVED 행은 지원이 아니므로 뺀다.
+    @EntityGraph(attributePaths = {"member", "position", "party"})
+    @Query("""
+            select pm from PartyMember pm
+            where pm.party.owner = :owner
+              and pm.member <> :owner
+              and (:partyId is null or pm.party.id = :partyId)
+              and (:positionType is null or pm.position.type = :positionType)
+            """)
+    Slice<PartyMember> findAllByPartyOwner(
+            @Param("owner") Member owner,
+            @Param("partyId") Long partyId,
+            @Param("positionType") PositionType positionType,
+            Pageable pageable
+    );
+
+    // 목록 카드의 '지원자 N명'. 승인 인원(Position.filledCount)과 다른 값이라 따로 센다 -
+    // 거절된 건까지 포함한, 그 파티에 지원한 사람 수 전체다.
+    // 파티장은 파티 생성 시 APPROVED 행으로 들어가지만 지원자가 아니므로 뺀다.
+    @Query("""
+            select new com.back.domain.party.application.dtos.PartyApplicantCount(pm.party.id, count(pm))
+            from PartyMember pm
+            where pm.party.id in :partyIds
+              and pm.member <> pm.party.owner
+            group by pm.party.id
+            """)
+    List<PartyApplicantCount> countApplicantsByPartyIdIn(@Param("partyIds") Collection<Long> partyIds);
+
+    // 위 집계를 카드 조립에서 바로 쓰기 좋은 모양으로. 지원자가 없는 파티는 행이 아예 없어 getOrDefault 로 읽는다.
+    // 목록이 비면 여기서 끊는다 - @Query 라 빈 in 절이어도 DB 까지 나가고, 검색 0건이나
+    // 관련 파티 없는 대회처럼 빈 목록으로 부르는 화면이 흔하다. 호출처마다 막지 않고 여기 한 곳에서 막는다.
+    default Map<Long, Long> countApplicantsByPartyIds(Collection<Long> partyIds) {
+        if (partyIds.isEmpty()) {
+            return Map.of();
+        }
+
+        return countApplicantsByPartyIdIn(partyIds).stream()
+                .collect(Collectors.toMap(PartyApplicantCount::partyId, PartyApplicantCount::count));
+    }
+
+    // 마이페이지 요약의 '완료한 파티' 수.
+    @Query("""
+            select count(pm) from PartyMember pm
+            where pm.member = :member
+              and pm.status = :status
+              and pm.party.status = :partyStatus
+            """)
+    long countByMemberAndStatusAndPartyStatus(
+            @Param("member") Member member,
+            @Param("status") PartyMemberStatus status,
+            @Param("partyStatus") PartyStatus partyStatus
+    );
 }

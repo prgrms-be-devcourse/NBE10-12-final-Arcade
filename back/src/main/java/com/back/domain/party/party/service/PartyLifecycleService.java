@@ -13,6 +13,7 @@ import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.event.PartyAssembledEvent;
 import com.back.domain.party.party.event.PartyCompletedEvent;
 import com.back.domain.party.party.repository.PartyRepository;
+import com.back.domain.activity.activity.service.ActivityLogService;
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -30,6 +31,7 @@ public class PartyLifecycleService {
 
     private final PartyRepository partyRepository;
     private final PartyMemberRepository partyMemberRepository;
+    private final ActivityLogService activityLogService;
     private final PartyAssembleRepository partyAssembleRepository;
     private final PartyAssembleToMemberRepository partyAssembleToMemberRepository;
     private final ApplicationEventPublisher eventPublisher;
@@ -43,6 +45,7 @@ public class PartyLifecycleService {
         }
 
         party.closeRecruiting(); // RECRUITING 아니면 409-1
+        activityLogService.record(actor);
 
         List<PartyMember> members = partyMemberRepository.findAllByParty(party);
 
@@ -98,6 +101,7 @@ public class PartyLifecycleService {
         }
 
         party.complete(); // IN_PROGRESS 아니면 409-1
+        activityLogService.record(actor);
 
         // 성취 ACHIEVED 전이, PARTY_PR 동기화 중단은 해당 도메인이 리스너를 붙이면 되므로 여기서는 이벤트 발행까지만
         eventPublisher.publishEvent(new PartyCompletedEvent(party.getId(), party.getCompletedAt()));

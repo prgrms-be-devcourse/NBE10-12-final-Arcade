@@ -9,6 +9,7 @@ import com.back.domain.interaction.like.dtos.LikeDto;
 import com.back.domain.interaction.like.entity.LikeAction;
 import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.interaction.like.repository.LikeActionRepository;
+import com.back.domain.activity.activity.service.ActivityLogService;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.party.party.repository.PartyRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ import java.util.Set;
 public class LikeService implements LikeInteractionPort {
 
     private final LikeActionRepository likeActionRepository;
+    private final ActivityLogService activityLogService;
     private final PartyRepository partyRepository;
     private final ContestPostRepository contestPostRepository;
     private final GoalRepository goalRepository;
@@ -45,6 +47,7 @@ public class LikeService implements LikeInteractionPort {
     public LikeDto likeParty(long partyId, Member member) {
         likeActionRepository.save(new LikeAction(member, TargetType.PARTY, partyId));
         partyRepository.increaseLikeCount(partyId);
+        activityLogService.record(member);
 
         int updatedLikeCount = partyRepository.findById(partyId).orElseThrow().getLikeCount();
         return new LikeDto(TargetType.PARTY, partyId, true, updatedLikeCount);

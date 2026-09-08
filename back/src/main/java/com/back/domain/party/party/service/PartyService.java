@@ -22,6 +22,7 @@ import com.back.domain.party.party.event.PartySearchIndexRequestedEvent;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.position.entity.Position;
 import com.back.domain.search.search.service.party.PartySearchKeywordPort;
+import com.back.domain.activity.activity.service.ActivityLogService;
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -34,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 import static com.back.domain.party.party.entity.PartySortOption.DEADLINE;
 import static com.back.domain.party.party.entity.PartySortOption.VACANCY;
@@ -51,6 +53,7 @@ public class PartyService {
     private final ApplicationEventPublisher eventPublisher;
     private final MemberProfileRepository memberProfileRepository;
     private final PartyMemberRepository partyMemberRepository;
+    private final ActivityLogService activityLogService;
 
     public record PositionCreateSpec(
         PositionType type,
@@ -115,6 +118,7 @@ public class PartyService {
         Party savedParty = partyRepository.save(party);
         partyMemberRepository.save(PartyMember.owner(savedParty, owner, ownerPosition));
 
+        activityLogService.record(owner);
         eventPublisher.publishEvent(new PartySearchIndexRequestedEvent(savedParty.getId()));
 
         return new PartyDto(savedParty);
@@ -285,7 +289,11 @@ public class PartyService {
             );
         };
 
-        return parties.map(PartyListItemDto::new);
+        Map<Long, Long> applicantCounts = partyMemberRepository.countApplicantsByPartyIds(
+                parties.getContent().stream().map(Party::getId).toList());
+
+        return parties.map(party ->
+                new PartyListItemDto(party, applicantCounts.getOrDefault(party.getId(), 0L)));
     }
 
     @Transactional

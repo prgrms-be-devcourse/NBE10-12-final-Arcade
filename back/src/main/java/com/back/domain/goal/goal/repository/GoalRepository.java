@@ -1,13 +1,17 @@
 package com.back.domain.goal.goal.repository;
 
+import com.back.domain.goal.goal.dtos.OwnerAchievementCount;
 import com.back.domain.goal.goal.entity.Goal;
+import com.back.domain.goal.goal.entity.GoalStatus;
 import com.back.domain.goal.goal.entity.GoalType;
 import com.back.domain.goal.goal.entity.PersonalChecklist;
+import com.back.domain.member.member.entity.Member;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -51,5 +55,27 @@ public interface GoalRepository extends JpaRepository<Goal, Long>, GoalRepositor
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("update Goal g set g.likeCount = case when g.likeCount > 0 then g.likeCount - 1 else 0 end where g.id = :id")
     void decreaseLikeCount(@Param("id") long id);
+
+    // 지원자 카드의 성취 건수. 화면이 건수만 쓰므로 Goal을 엔티티로 읽지 않는다 -
+    // JOINED 상속이라 엔티티 조회는 자식 테이블 3개를 조인한다.
+    // 지원자마다 세면 카드 수만큼 쿼리가 나가므로 소유자 id를 모아 한 번에 집계한다.
+    @Query("""
+            select new com.back.domain.goal.goal.dtos.OwnerAchievementCount(
+                g.owner.id,
+                sum(case when g.source = com.back.domain.goal.goal.entity.GoalSource.PLATFORM_VERIFIED then 1L else 0L end),
+                sum(case when g.source = com.back.domain.goal.goal.entity.GoalSource.SELF_REPORTED then 1L else 0L end))
+            from Goal g
+            where g.owner.id in :ownerIds
+            group by g.owner.id
+            """)
+    List<OwnerAchievementCount> countAchievementsByOwnerIdIn(@Param("ownerIds") Collection<Long> ownerIds);
+
+    // 마이페이지 요약의 '수상' 건수. idx_goal_owner를 탄다.
+    @Query("select count(g) from Goal g where g.owner = :owner and g.type = :type and g.status = :status")
+    long countByOwnerAndTypeAndStatus(
+            @Param("owner") Member owner,
+            @Param("type") GoalType type,
+            @Param("status") GoalStatus status
+    );
 
 }

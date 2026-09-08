@@ -1,10 +1,13 @@
 package com.back.domain.party.showcase.repository;
 
+import com.back.domain.member.member.entity.Member;
+import com.back.domain.party.application.entity.PartyMemberStatus;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.showcase.entity.PartyShowcase;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -24,4 +27,18 @@ public interface PartyShowcaseRepository extends JpaRepository<PartyShowcase, Lo
         """)
 
     List<PartyShowcase> findPublishedOrderByPartyLikeCountDesc(Pageable pageable);
+
+    // 마이페이지 요약의 '전시' 건수 - 내가 승인된 파티원인 파티 중 전시가 게시된 것.
+    @Query("""
+            select count(ps) from PartyShowcase ps
+            where ps.published = true
+              and ps.party in (
+                  select pm.party from PartyMember pm
+                  where pm.member = :member and pm.status = :status
+              )
+            """)
+    long countPublishedByMemberAndStatus(
+            @Param("member") Member member,
+            @Param("status") PartyMemberStatus status
+    );
 }
