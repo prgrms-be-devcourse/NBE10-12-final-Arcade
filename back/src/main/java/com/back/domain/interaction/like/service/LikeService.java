@@ -129,7 +129,9 @@ public class LikeService implements LikeInteractionPort {
 
     private LikeTarget resolveGoalLikeTarget(Goal goal) {
         if (goal instanceof Project project) {
-            return new LikeTarget(TargetType.PARTY_SHOWCASE, project.getPartyShowcase().getId());
+            if (project.getPartyShowcase() != null) {
+                return new LikeTarget(TargetType.PARTY_SHOWCASE, project.getPartyShowcase().getId());
+            }
         }
         return new LikeTarget(TargetType.GOAL, goal.getId());
     }
@@ -157,7 +159,11 @@ public class LikeService implements LikeInteractionPort {
 
         for (Goal goal : goals) {
             if (goal instanceof Project project) {
-                projectGoalIdToShowcaseId.put(goal.getId(), project.getPartyShowcase().getId());
+                if (project.getPartyShowcase() != null) {
+                    projectGoalIdToShowcaseId.put(goal.getId(), project.getPartyShowcase().getId());
+                } else {
+                    plainGoalIds.add(goal.getId()); // 미전시 상태면 일단 GOAL ID로 처리
+                }
             } else {
                 plainGoalIds.add(goal.getId());
             }
