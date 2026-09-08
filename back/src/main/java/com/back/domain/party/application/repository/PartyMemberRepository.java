@@ -86,7 +86,13 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
     List<PartyApplicantCount> countApplicantsByPartyIdIn(@Param("partyIds") Collection<Long> partyIds);
 
     // 위 집계를 카드 조립에서 바로 쓰기 좋은 모양으로. 지원자가 없는 파티는 행이 아예 없어 getOrDefault 로 읽는다.
+    // 목록이 비면 여기서 끊는다 - @Query 라 빈 in 절이어도 DB 까지 나가고, 검색 0건이나
+    // 관련 파티 없는 대회처럼 빈 목록으로 부르는 화면이 흔하다. 호출처마다 막지 않고 여기 한 곳에서 막는다.
     default Map<Long, Long> countApplicantsByPartyIds(Collection<Long> partyIds) {
+        if (partyIds.isEmpty()) {
+            return Map.of();
+        }
+
         return countApplicantsByPartyIdIn(partyIds).stream()
                 .collect(Collectors.toMap(PartyApplicantCount::partyId, PartyApplicantCount::count));
     }

@@ -119,10 +119,13 @@ public class PartyApplicationService {
                 .distinct()
                 .toList();
 
-        Map<Long, MemberProfile> profiles = memberProfileRepository.findByMember_IdIn(applicantIds).stream()
+        // 받은 지원이 0건이면 물어볼 대상이 없다 - 빈 in 절로 두 방 나가지 않게 끊는다.
+        Map<Long, MemberProfile> profiles = applicantIds.isEmpty() ? Map.of()
+                : memberProfileRepository.findByMember_IdIn(applicantIds).stream()
                 .collect(Collectors.toMap(profile -> profile.getMember().getId(), Function.identity()));
 
-        Map<Long, OwnerAchievementCount> achievements = goalRepository.countAchievementsByOwnerIdIn(applicantIds).stream()
+        Map<Long, OwnerAchievementCount> achievements = applicantIds.isEmpty() ? Map.of()
+                : goalRepository.countAchievementsByOwnerIdIn(applicantIds).stream()
                 .collect(Collectors.toMap(OwnerAchievementCount::ownerId, Function.identity()));
 
         return new SliceDto<>(applications.map(partyMember -> new ReceivedApplicationDto(

@@ -140,6 +140,10 @@ public class MessageService {
     }
 
     private Map<Long, MessageMemberDto> memberDtos(Collection<Member> members) {
+        if (members.isEmpty()) {
+            return Map.of();
+        }
+
         Map<Long, Member> membersById = members.stream().collect(Collectors.toMap(
                 Member::getId,
                 member -> member,

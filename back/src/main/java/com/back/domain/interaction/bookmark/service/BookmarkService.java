@@ -88,8 +88,9 @@ public class BookmarkService implements BookmarkInteractionPort {
     }
 
     private Map<Long, Object> partyCards(List<Long> partyIds) {
-        // 두 조회 다 @Query 라 빈 목록이어도 그대로 실행된다. 북마크함은 타입 3종을 항상 다 부르므로
-        // 대개 2종이 비어 있어, 여기서 끊지 않으면 매 요청 헛도는 쿼리가 생긴다.
+        // findAllByIdIn 이 @Query 라 빈 목록이어도 그대로 실행된다(지원자 집계는 레포에서 막는다).
+        // 북마크함은 타입 3종을 항상 다 부르므로 대개 2종이 비어 있어,
+        // 여기서 끊지 않으면 매 요청 헛도는 쿼리가 생긴다.
         if (partyIds.isEmpty()) {
             return Map.of();
         }
