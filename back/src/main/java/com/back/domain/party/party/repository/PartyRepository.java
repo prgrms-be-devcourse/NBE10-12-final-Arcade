@@ -3,6 +3,7 @@ package com.back.domain.party.party.repository;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.entity.PartyTag;
+import com.back.domain.party.position.entity.PartyStatus;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -75,4 +76,15 @@ public interface PartyRepository extends JpaRepository<Party, Long>,PartyContest
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from Party p where p.id = :id")
     Optional<Party> findByIdForUpdate(@Param("id") long id);
+
+    // 홈 "인기 파티 TOP3" - 모집 중인 파티만, 좋아요 수 내림차순. 완료/진행중인 파티까지 섞이면
+    // "지금 못 들어가는 파티"가 인기 위젯에 뜨는 게 이상해서 RECRUITING으로 제한한다.
+    // 동점일 때 조회할 때마다 순서가 흔들리지 않도록 id를 보조 정렬키로 둔다.
+    @Query("""
+        select p from Party p
+        join fetch p.owner
+        where p.status = :status
+        order by p.likeCount desc, p.id desc
+        """)
+    List<Party> findTopByStatusOrderByLikeCountDesc(@Param("status") PartyStatus status, Pageable pageable);
 }

@@ -303,4 +303,11 @@ public class PartyService {
         likeInteractionPort.deleteAllLikesForTarget(TargetType.PARTY, partyId);
         bookmarkInteractionPort.deleteAllBookmarksForTarget(TargetType.PARTY, partyId);
     }
+
+    public List<PartyListItemDto> getTop3() {
+        return partyRepository.findTopByStatusOrderByLikeCountDesc(
+                com.back.domain.party.position.entity.PartyStatus.RECRUITING,
+                PageRequest.of(0, 3)
+        ).stream().map(PartyListItemDto::new).toList();
+    }
 }
