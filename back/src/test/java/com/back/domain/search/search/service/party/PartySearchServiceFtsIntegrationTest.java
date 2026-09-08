@@ -12,6 +12,7 @@ import com.back.domain.search.search.repository.party.PartySearchKeywordReposito
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import com.back.support.PostgresTestProperties;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -34,12 +35,7 @@ class PartySearchServiceFtsIntegrationTest {
 
     @DynamicPropertySource
     static void overrideDatasource(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
-        registry.add("spring.datasource.driver-class-name", POSTGRES::getDriverClassName);
-        registry.add("spring.jpa.hibernate.ddl-auto", () -> "update");
-        registry.add("custom.notification.redis-pubsub.enabled", () -> "false");
+        PostgresTestProperties.registerForProdProfile(registry, POSTGRES);
     }
 
     @Autowired
@@ -63,7 +59,7 @@ class PartySearchServiceFtsIntegrationTest {
         ));
         partySearchKeywordRepository.save(new PartySearchKeyword(party, "백엔드 스터디"));
 
-        PartySearchResultDto result = partySearchService.search(null, "백엔드", PageRequest.of(0, 10));
+        PartySearchResultDto result = partySearchService.search(null, "백엔드", null, null, null, PageRequest.of(0, 10));
 
         assertThat(result.content()).extracting("id").contains(party.getId());
         assertThat(result.totalElements()).isEqualTo(1);
@@ -78,7 +74,7 @@ class PartySearchServiceFtsIntegrationTest {
         ));
         partySearchKeywordRepository.save(new PartySearchKeyword(party, "자바스크립트 스터디"));
 
-        PartySearchResultDto result = partySearchService.search(null, "자바", PageRequest.of(0, 10));
+        PartySearchResultDto result = partySearchService.search(null, "자바", null, null, null, PageRequest.of(0, 10));
 
         assertThat(result.content()).extracting("id").doesNotContain(party.getId());
     }

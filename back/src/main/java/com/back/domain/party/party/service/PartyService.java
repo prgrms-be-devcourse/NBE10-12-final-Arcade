@@ -7,6 +7,11 @@ import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.interaction.like.service.LikeInteractionPort;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
+import com.back.domain.member.profile.entity.MemberProfile;
+import com.back.domain.member.profile.repository.MemberProfileRepository;
+import com.back.domain.party.application.entity.PartyMember;
+import com.back.domain.party.application.entity.PartyMemberStatus;
+import com.back.domain.party.application.repository.PartyMemberRepository;
 import com.back.domain.party.party.dtos.PartyDto;
 import com.back.domain.party.party.dtos.PartyListItemDto;
 import com.back.domain.party.party.entity.Party;
@@ -16,7 +21,9 @@ import com.back.domain.party.party.entity.TopicType;
 import com.back.domain.party.party.event.PartySearchIndexRequestedEvent;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.position.entity.Position;
+import com.back.domain.party.showcase.repository.PartyShowcaseRepository;
 import com.back.domain.search.search.service.party.PartySearchKeywordPort;
+import com.back.domain.activity.activity.service.ActivityLogService;
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -29,6 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 import static com.back.domain.party.party.entity.PartySortOption.DEADLINE;
 import static com.back.domain.party.party.entity.PartySortOption.VACANCY;
@@ -44,6 +52,10 @@ public class PartyService {
     private final ContestLookupPort contestLookupPort;
     private final PartySearchKeywordPort partySearchKeywordPort;
     private final ApplicationEventPublisher eventPublisher;
+    private final MemberProfileRepository memberProfileRepository;
+    private final PartyMemberRepository partyMemberRepository;
+    private final ActivityLogService activityLogService;
+    private final PartyShowcaseRepository partyShowcaseRepository;
 
     public record PositionCreateSpec(
         PositionType type,
@@ -103,10 +115,36 @@ public class PartyService {
             party.addPosition(new Position(spec.type(), spec.capacity()))
         );
 
+        Position ownerPosition = seatForOwner(party, owner);
+
         Party savedParty = partyRepository.save(party);
+        partyMemberRepository.save(PartyMember.owner(savedParty, owner, ownerPosition));
+
+        activityLogService.record(owner);
         eventPublisher.publishEvent(new PartySearchIndexRequestedEvent(savedParty.getId()));
 
         return new PartyDto(savedParty);
+    }
+
+    /**
+     * 파티장이 앉을 자리를 고른다. 파티장은 모집 대상이 아니라 정원(filledCount)은 건드리지 않는다.
+     * 같은 포지션을 모집 중이면 그 자리를 가리키고, 아니면 모집하지 않는 자리(정원 0)를 만들어 붙인다.
+     */
+    private Position seatForOwner(Party party, Member owner) {
+        PositionType ownerType = memberProfileRepository.findByMember(owner)
+                .map(MemberProfile::getPosition)
+                .orElseThrow(() -> new ServiceException(
+                        "400-4", "프로필에 대표 포지션을 먼저 설정해야 파티를 만들 수 있습니다."));
+
+        return party.getPositions().stream()
+                .filter(position -> position.getType() == ownerType)
+                .findFirst()
+                .orElseGet(() -> {
+                    Position seat = new Position(ownerType, 0);
+                    party.addPosition(seat);
+
+                    return seat;
+                });
     }
 
     public record PositionCapacityUpdateSpec(
@@ -204,6 +242,17 @@ public class PartyService {
         }
         party.checkDeletable();
 
+        // 파티장을 제외한 다른 승인된 멤머가 없을 시 삭제가 가능합니다.
+        if (partyMemberRepository.existsByPartyAndStatusAndMemberNot(
+                party, PartyMemberStatus.APPROVED, party.getOwner())) {
+            throw new ServiceException("409-3", "승인된 파티원이 있는 파티는 삭제할 수 없습니다. 먼저 승인을 취소해주세요.");
+        }
+
+        // 남은 기록(파티장 + PENDING/REJECTED 지원)은 position 을 참조하므로
+        // 파티(와 position)보다 먼저 지워야 FK 제약에 걸리지 않는다.
+        partyMemberRepository.deleteAllByParty(party);
+        partyMemberRepository.flush();
+
         partyRepository.delete(party);
     }
 
@@ -242,7 +291,11 @@ public class PartyService {
             );
         };
 
-        return parties.map(PartyListItemDto::new);
+        Map<Long, Long> applicantCounts = partyMemberRepository.countApplicantsByPartyIds(
+                parties.getContent().stream().map(Party::getId).toList());
+
+        return parties.map(party ->
+                new PartyListItemDto(party, applicantCounts.getOrDefault(party.getId(), 0L)));
     }
 
     @Transactional
@@ -255,9 +308,25 @@ public class PartyService {
     // delete()만 부르면 좋아요/북마크 삭제가 별도 트랜잭션으로 빠져 원자성이 깨질 수 있어서
     @Transactional
     public void deletePartyAndInteractions(long partyId, Member actor) {
+        Party party = partyRepository.findById(partyId).orElse(null);
+        if (party == null) return; // 파티가 없으면 무시
+
         partySearchKeywordPort.deleteKeywordParty(partyId);
+
+        partyShowcaseRepository.findByParty(party).ifPresent(showcase -> {
+            likeInteractionPort.deleteAllLikesForTarget(TargetType.PARTY_SHOWCASE, showcase.getId());
+            bookmarkInteractionPort.deleteAllBookmarksForTarget(TargetType.PARTY_SHOWCASE, showcase.getId());
+        });
+
         delete(partyId, actor);
         likeInteractionPort.deleteAllLikesForTarget(TargetType.PARTY, partyId);
         bookmarkInteractionPort.deleteAllBookmarksForTarget(TargetType.PARTY, partyId);
+    }
+
+    public List<PartyListItemDto> getTop3() {
+        return partyRepository.findTopByStatusOrderByLikeCountDesc(
+                com.back.domain.party.position.entity.PartyStatus.RECRUITING,
+                PageRequest.of(0, 3)
+        ).stream().map(PartyListItemDto::new).toList();
     }
 }

@@ -53,8 +53,6 @@ public class MemberProfile extends BaseEntity {
      */
     private String profileImageUrl;
 
-    private String githubUsername;
-
     // 대표 포지션 하나다. 화면도 select 로 하나만 고르게 돼 있어 목록으로 둘 이유가 없다.
     @Enumerated(EnumType.STRING)
     private PositionType position;
@@ -92,12 +90,16 @@ public class MemberProfile extends BaseEntity {
     }
 
     /** 경력·링크는 넘어온 목록이 곧 저장될 목록이다. 빈 목록을 보내면 전부 지운다. */
+    /** 가입 직후 포지션만 고르는 흐름용. modify 는 폼 전체를 교체하므로 여기 쓸 수 없다. */
+    public void changePosition(PositionType position) {
+        this.position = position;
+    }
+
     public void modify(
             String nickname,
             String webpage,
             String profileImageUrl,
             String bio,
-            String githubUsername,
             PositionType position,
             List<String> techStacks,
             List<CareerCommand> careers,
@@ -106,7 +108,6 @@ public class MemberProfile extends BaseEntity {
         this.nickname = nickname;
         this.webPage = ProfileUrl.normalize(webpage);
         this.bio = bio;
-        this.githubUsername = githubUsername;
         this.profileImageUrl = profileImageUrl;
 
         this.position = position;

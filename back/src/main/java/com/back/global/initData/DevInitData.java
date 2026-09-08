@@ -181,8 +181,8 @@ public class DevInitData {
     private void createNotifications(Member user1, Member user2, Member user3) {
         Notification readNotification = notificationService.create(user1, NotificationType.PARTY_APPLICATION_APPROVED, "AI 크루 파티 참여 신청이 승인되었습니다.");
         readNotification.read();
-        notificationService.create(user1, NotificationType.PARTY_APPLICATION_APPROVED, "데이터 탐험대 파티에 새로운 지원자가 있습니다.");
+        notificationService.create(user1, NotificationType.PARTY_APPLICATION_RECEIVED, "데이터 탐험대 파티에 새로운 지원자가 있습니다.");
         notificationService.create(user2, NotificationType.PARTY_APPLICATION_APPROVED, "스프링 스터디 파티 참여 신청이 승인되었습니다.");
-        notificationService.create(user3, NotificationType.PARTY_APPLICATION_APPROVED, "금융 UX 스프린트 파티에 새로운 지원자가 있습니다.");
+        notificationService.create(user3, NotificationType.PARTY_APPLICATION_RECEIVED, "금융 UX 스프린트 파티에 새로운 지원자가 있습니다.");
     }
 }

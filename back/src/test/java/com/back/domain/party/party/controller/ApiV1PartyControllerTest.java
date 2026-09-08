@@ -7,6 +7,9 @@ import com.back.domain.contest.contest.service.ContestService;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.member.repository.MemberRepository;
+import com.back.domain.party.application.entity.PartyMember;
+import com.back.domain.party.application.entity.PartyMemberStatus;
+import com.back.domain.party.application.repository.PartyMemberRepository;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
@@ -23,6 +26,10 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
+import org.junit.jupiter.api.BeforeEach;
+import com.back.domain.member.member.entity.PositionType;
+import com.back.domain.member.profile.entity.MemberProfile;
+import com.back.domain.member.profile.repository.MemberProfileRepository;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -33,6 +40,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @ActiveProfiles("test")
 @SpringBootTest
@@ -51,6 +59,21 @@ public class ApiV1PartyControllerTest {
 
     @Autowired
     private ContestService contestService;
+
+    @Autowired
+    private MemberProfileRepository memberProfileRepository;
+
+    @Autowired
+    private PartyMemberRepository partyMemberRepository;
+
+    // 파티장은 프로필에 대표 포지션이 있어야 파티를 만들 수 있다
+    @BeforeEach
+    void givenOwnerHasPosition() {
+        Member owner = memberRepository.findByEmail("user1@test.com").orElseThrow();
+        MemberProfile profile = memberProfileRepository.findByMember(owner)
+                .orElseGet(() -> memberProfileRepository.save(new MemberProfile(owner)));
+        profile.changePosition(PositionType.BACK);
+    }
 
     private final String deadline = LocalDateTime.now().plusDays(7).toString();
 
@@ -341,6 +364,53 @@ public class ApiV1PartyControllerTest {
                 .andExpect(jsonPath("$.resultCode").value("403-1"));
     }
 
+    @Test
+    @DisplayName("파티 삭제: 승인된 파티원이 있으면 409-3이다")
+    @WithUserDetails("user1@test.com")
+    void deleteBlockedWhenApprovedMemberExists() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 2);
+        saveApprovedMember(party, "user2@test.com");
+
+        ResultActions resultActions = mvc.perform(delete("/api/v1/parties/" + party.getId()));
+
+        resultActions.andExpect(status().isConflict())
+                .andExpect(jsonPath("$.resultCode").value("409-3"))
+                .andExpect(jsonPath("$.msg").value("승인된 파티원이 있는 파티는 삭제할 수 없습니다. 먼저 승인을 취소해주세요."));
+    }
+
+    @Test
+    @DisplayName("파티 삭제: 승인을 전부 취소하면 삭제할 수 있다")
+    @WithUserDetails("user1@test.com")
+    void deleteSucceedsAfterCancellingAllApprovals() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 2);
+        PartyMember approved = saveApprovedMember(party, "user2@test.com");
+
+        mvc.perform(post(
+                "/api/v1/parties/" + party.getId() + "/applications/" + approved.getId() + "/cancel-approval"
+        )).andExpect(status().isOk());
+
+        ResultActions resultActions = mvc.perform(delete("/api/v1/parties/" + party.getId()));
+
+        resultActions.andExpect(status().isNoContent())
+                .andExpect(jsonPath("$.resultCode").value("204-1"));
+    }
+
+    @Test
+    @DisplayName("파티 삭제: PENDING 지원 기록만 있으면 승인자 체크에 걸리지 않고 삭제된다")
+    @WithUserDetails("user1@test.com")
+    void deleteSucceedsWithOnlyPendingApplications() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 2);
+
+        Member applicant = memberRepository.findByEmail("user2@test.com").orElseThrow();
+        Position position = party.getPositions().get(0);
+        partyMemberRepository.save(new PartyMember(party, applicant, position, "잘 하겠습니다"));
+
+        ResultActions resultActions = mvc.perform(delete("/api/v1/parties/" + party.getId()));
+
+        resultActions.andExpect(status().isNoContent())
+                .andExpect(jsonPath("$.resultCode").value("204-1"));
+    }
+
     private Party savePartyOwnedBy(
             String ownerEmail,
             String partyName,
@@ -368,6 +438,17 @@ public class ApiV1PartyControllerTest {
         party.addPosition(new Position(positionType, capacity));
 
         return partyRepository.save(party);
+    }
+
+    private PartyMember saveApprovedMember(Party party, String applicantEmail) {
+        Member applicant = memberRepository.findByEmail(applicantEmail).orElseThrow();
+        Position position = party.getPositions().get(0);
+
+        PartyMember partyMember = new PartyMember(party, applicant, position, "잘 하겠습니다");
+        partyMember.approve();
+        position.fillOneSeat();
+
+        return partyMemberRepository.save(partyMember);
     }
 
     @Test
@@ -488,5 +569,126 @@ public class ApiV1PartyControllerTest {
 
         resultActions.andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.resultCode").value("404-1"));
+    }
+
+    @Test
+    @DisplayName("파티 생성: 파티장이 APPROVED 상태의 PartyMember 로 들어간다")
+    @WithUserDetails("user1@test.com")
+    void ownerBecomesApprovedPartyMember() throws Exception {
+        mvc.perform(post("/api/v1/parties")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(partyCreateBody()))
+                .andExpect(status().isCreated());
+
+        Member owner = memberRepository.findByEmail("user1@test.com").orElseThrow();
+        Party party = partyRepository.findAll().getLast();
+        PartyMember ownerMember = partyMemberRepository.findByPartyAndMember(party, owner).orElseThrow();
+
+        assertThat(ownerMember.getStatus()).isEqualTo(PartyMemberStatus.APPROVED);
+        assertThat(ownerMember.getPosition().getType()).isEqualTo(PositionType.BACK);
+    }
+
+    @Test
+    @DisplayName("파티 생성: 파티장은 모집 정원을 차지하지 않는다")
+    @WithUserDetails("user1@test.com")
+    void ownerDoesNotFillASeat() throws Exception {
+        mvc.perform(post("/api/v1/parties")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(partyCreateBody()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.positions[0].filledCount").value(0));
+    }
+
+    @Test
+    @DisplayName("파티 생성: 프로필에 대표 포지션이 없으면 400-4 로 막는다")
+    @WithUserDetails("user2@test.com")
+    void rejectsOwnerWithoutPosition() throws Exception {
+        mvc.perform(post("/api/v1/parties")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(partyCreateBody()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-4"));
+    }
+
+    private String partyCreateBody() {
+        return """
+                {
+                  "partyName": "테스트파티",
+                  "title": "백엔드 모집",
+                  "description": "설명",
+                  "topicType": "STUDY",
+                  "partyTag": "WEB",
+                  "checklistRequiredApprovals": 1,
+                  "deadline": "%s",
+                  "positions": [{ "name": "BACK", "capacity": 2 }]
+                }
+                """.formatted(deadline);
+    }
+
+    @Test
+    @DisplayName("인기 파티 TOP3: 로그인하지 않아도 조회할 수 있다")
+    void top3WithoutLogin() throws Exception {
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/top3"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.resultCode").value("200-1"))
+                .andExpect(jsonPath("$.msg").value("인기 파티 TOP3 조회 성공"));
+    }
+
+    @Test
+    @DisplayName("인기 파티 TOP3: 지원자 수는 세지 않아 null 로 내려간다 - 0(지원자 없음)과 구분된다")
+    void top3DoesNotCountApplicants() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 2);
+        partyRepository.increaseLikeCount(party.getId());
+
+        mvc.perform(get("/api/v1/parties/top3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[?(@.id == " + party.getId() + ")].applicantCount")
+                        .value(org.hamcrest.Matchers.contains(org.hamcrest.Matchers.nullValue())));
+    }
+
+    @Test
+    @DisplayName("인기 파티 TOP3: 좋아요 수 내림차순으로 정렬된다")
+    void top3OrderedByLikeCountDesc() throws Exception {
+        Party lowLikeParty = savePartyOwnedBy("user1@test.com", 2);
+        Party highLikeParty = savePartyOwnedBy("user1@test.com", 2);
+
+        partyRepository.increaseLikeCount(highLikeParty.getId());
+        partyRepository.increaseLikeCount(highLikeParty.getId());
+        partyRepository.increaseLikeCount(lowLikeParty.getId());
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/top3"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].id").value(highLikeParty.getId()));
+    }
+
+    @Test
+    @DisplayName("인기 파티 TOP3: 모집 중(RECRUITING)이 아닌 파티는 제외된다")
+    void top3ExcludesNonRecruitingParty() throws Exception {
+        Party completedParty = savePartyOwnedBy("user1@test.com", 2);
+        completedParty.closeRecruiting();
+        completedParty.complete();
+        partyRepository.increaseLikeCount(completedParty.getId());
+        partyRepository.increaseLikeCount(completedParty.getId());
+        partyRepository.increaseLikeCount(completedParty.getId());
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/top3"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[?(@.id == " + completedParty.getId() + ")]").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("인기 파티 TOP3: 최대 3개까지만 반환한다")
+    void top3ReturnsAtMostThree() throws Exception {
+        for (int i = 0; i < 5; i++) {
+            savePartyOwnedBy("user1@test.com", 2);
+        }
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/top3"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(3));
     }
 }

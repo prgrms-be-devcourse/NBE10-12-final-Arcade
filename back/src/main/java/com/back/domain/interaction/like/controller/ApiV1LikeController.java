@@ -117,7 +117,7 @@ public class ApiV1LikeController {
         if (!likeService.goalExists(goalId)) {
             throw new ServiceException("404-1", "존재하지 않는 성취입니다.");
         }
-        if (likeService.isLiked(actor, TargetType.GOAL, goalId)) {
+        if (likeService.isGoalLiked(goalId, actor)) {
             throw new ServiceException("409-1", "이미 좋아요한 성취입니다.");
         }
 
@@ -125,7 +125,7 @@ public class ApiV1LikeController {
 
         return new RsData<>(
                 "201-1",
-                "전시 성취 좋아요 성공",
+                "좋아요 성공",
                 dto
         );
     }
@@ -139,7 +139,7 @@ public class ApiV1LikeController {
         if (!likeService.goalExists(goalId)) {
             throw new ServiceException("404-1", "존재하지 않는 성취입니다.");
         }
-        if (!likeService.isLiked(actor, TargetType.GOAL, goalId)) {
+        if (!likeService.isGoalLiked(goalId, actor)) {
             throw new ServiceException("409-1", "좋아요하지 않은 성취입니다.");
         }
 
@@ -147,7 +147,7 @@ public class ApiV1LikeController {
 
         return new RsData<>(
                 "204-1",
-                "전시 성취 좋아요 취소 성공",
+                "좋아요 취소 성공",
                 null
         );
     }

@@ -19,6 +19,11 @@ public interface PartySearchKeywordRepository extends JpaRepository<PartySearchK
                 JOIN party p ON p.id = psk.party_id
                 WHERE to_tsvector('simple', psk.keywords) @@ to_tsquery('simple', :tsQuery)
                   AND p.status = :status
+                  AND (:partyTag IS NULL OR p.party_tag = :partyTag)
+                  AND (:topicType IS NULL OR p.topic_type = :topicType)
+                  AND (:positionType IS NULL OR EXISTS (
+                      SELECT 1 FROM "position" pos WHERE pos.party_id = p.id AND pos.type = :positionType
+                  ))
                 ORDER BY p.id DESC
                 """,
             countQuery = """
@@ -26,8 +31,20 @@ public interface PartySearchKeywordRepository extends JpaRepository<PartySearchK
                 JOIN party p ON p.id = psk.party_id
                 WHERE to_tsvector('simple', psk.keywords) @@ to_tsquery('simple', :tsQuery)
                   AND p.status = :status
+                  AND (:partyTag IS NULL OR p.party_tag = :partyTag)
+                  AND (:topicType IS NULL OR p.topic_type = :topicType)
+                  AND (:positionType IS NULL OR EXISTS (
+                      SELECT 1 FROM "position" pos WHERE pos.party_id = p.id AND pos.type = :positionType
+                  ))
                 """,
             nativeQuery = true
     )
-    Page<Long> searchPartyIdsByKeywords(@Param("tsQuery") String tsQuery, @Param("status") String status, Pageable pageable);
+    Page<Long> searchPartyIdsByKeywords(
+            @Param("tsQuery") String tsQuery,
+            @Param("status") String status,
+            @Param("partyTag") String partyTag,
+            @Param("topicType") String topicType,
+            @Param("positionType") String positionType,
+            Pageable pageable
+    );
 }

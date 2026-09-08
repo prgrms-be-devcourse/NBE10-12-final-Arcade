@@ -86,6 +86,10 @@ public abstract class Goal extends BaseEntity {
         this.likeCount = 0;
     }
 
+    // 세 타입 모두 '이 성취의 이름'을 title 로 통일한다 - PROJECT 는 파티 이름,
+    // CONTEST 는 대회명, CHECKLIST 는 목표 제목. 자식의 @Getter 가 이 자리를 채운다.
+    public abstract String getTitle();
+
     public boolean isOwnedBy(Member member) {
         return this.owner.getId().equals(member.getId());
     }

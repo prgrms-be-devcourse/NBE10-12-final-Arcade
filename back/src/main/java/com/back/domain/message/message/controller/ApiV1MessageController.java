@@ -3,9 +3,9 @@ package com.back.domain.message.message.controller;
 import com.back.domain.message.message.dtos.MessageDetailDto;
 import com.back.domain.message.message.dtos.MessageDto;
 import com.back.domain.message.message.dtos.MessageListDto;
-import com.back.domain.message.message.dtos.MessagePageDto;
 import com.back.domain.message.message.service.MessageService;
 import com.back.global.exception.ServiceException;
+import com.back.global.dto.PageDto;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
 import io.swagger.v3.oas.annotations.Operation;
@@ -81,7 +81,7 @@ public class ApiV1MessageController {
                     - 401-1 : 미로그인
                     """
     )
-    public RsData<MessagePageDto> getList(
+    public RsData<PageDto<MessageListDto>> getList(
             @Parameter(description = "쪽지함 종류: RECEIVED(받은 쪽지), SENT(보낸 쪽지)")
             @Valid @RequestParam(defaultValue = "RECEIVED") MessageService.MessageFilterOption box,
             @Parameter(description = "0부터 시작하는 페이지 번호")

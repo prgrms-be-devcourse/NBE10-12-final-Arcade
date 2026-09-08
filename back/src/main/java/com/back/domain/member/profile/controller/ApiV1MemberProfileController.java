@@ -4,8 +4,10 @@ import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.profile.dtos.CareerCommand;
 import com.back.domain.member.profile.dtos.LinkCommand;
 import com.back.domain.member.profile.dtos.MemberProfileDto;
+import com.back.domain.member.profile.dtos.MemberSummaryDto;
 import com.back.domain.member.profile.dtos.ProfileImageDto;
 import com.back.domain.member.profile.service.MemberProfileService;
+import com.back.domain.member.profile.service.MemberSummaryService;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,6 +35,7 @@ import java.util.List;
 public class ApiV1MemberProfileController {
 
     private final MemberProfileService memberProfileService;
+    private final MemberSummaryService memberSummaryService;
     private final Rq rq;
 
     @GetMapping("/me")
@@ -54,12 +57,37 @@ public class ApiV1MemberProfileController {
         );
     }
 
+    @GetMapping("/me/summary")
+    @Operation(
+            summary = "내 활동 요약 조회",
+            description = """
+                    마이페이지 '활동 스코어' 카드가 쓰는 집계값을 돌려준다.
+                    프로필 조회(GET /me)와 나눠 둔 것은 그쪽이 세션 확인용이라 거의 모든 화면이 부르고,
+                    수정(PATCH /me)도 같은 응답을 돌려주기 때문이다. 섞으면 프로필을 읽고 쓸 때마다 집계가 함께 돈다.
+
+                    - completedParties : 승인된 파티원으로 속한 파티 중 COMPLETED 인 건
+                    - awards           : 달성한 CONTEST 성취 건수
+                    - exhibitions      : 승인된 파티원으로 속한 파티 중 전시가 게시된 건
+                    - streakDays       : 일자별 활동 기록 도메인이 없어 아직 0 고정
+                    - badges           : 배지 도메인이 없어 아직 빈 배열
+
+                    예외
+                    - 401-1 : 미로그인
+                    """
+    )
+    public RsData<MemberSummaryDto> summary() {
+        return new RsData<>(
+                "200-1",
+                "내 활동 요약 조회 성공",
+                memberSummaryService.summary(rq.getActorFromDb())
+        );
+    }
+
     public record ModifyProfileReqBody(
             @NotNull String nickname,
             String webpage,
             String profileImageUrl,
             String bio,
-            String githubUsername,
             PositionType position,
             List<@NotBlank String> techStacks,
             List<CareerCommand> careers,
@@ -107,7 +135,6 @@ public class ApiV1MemberProfileController {
                         request.webpage,
                         request.profileImageUrl,
                         request.bio,
-                        request.githubUsername,
                         request.position,
                         request.techStacks,
                         request.careers,
@@ -138,6 +165,38 @@ public class ApiV1MemberProfileController {
                 "201-1",
                 "프로필 이미지 업로드 성공",
                 new ProfileImageDto(memberProfileService.uploadProfileImage(file))
+        );
+    }
+
+    public record ModifyPositionReqBody(
+            @NotNull PositionType position
+    ) {
+    }
+
+    @PatchMapping("/me/position")
+    @Operation(
+            summary = "대표 포지션만 수정",
+            description = """
+                    대표 포지션 하나만 바꾼다. 나머지 항목은 건드리지 않는다.
+                    프로필이 없으면 만들어서 저장한다.
+
+                    GitHub 로 처음 가입하면 닉네임이 없어 PATCH /me 를 쓸 수 없다(nickname 필수).
+                    가입 직후 포지션을 고르게 하는 화면은 이 API 를 쓴다.
+                    포지션을 골랐는지는 조회 응답의 position 이 null 인지로 판단하면 된다.
+
+                    예외
+                    - 400-1 : position 누락
+                    - 400-2 : position 이 정의된 값이 아님
+                    - 401-1 : 미로그인
+                    """
+    )
+    public RsData<MemberProfileDto> modifyPosition(
+            @Valid @RequestBody ModifyPositionReqBody request
+    ) {
+        return new RsData<>(
+                "200-1",
+                "대표 포지션 수정 성공",
+                memberProfileService.modifyPosition(rq.getActorFromDb(), request.position)
         );
     }
 }

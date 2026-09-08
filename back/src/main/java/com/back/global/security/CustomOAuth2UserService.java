@@ -17,6 +17,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -37,7 +38,6 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         String oauthUserId = "";
         String providerTypeCode = userRequest.getClientRegistration().getRegistrationId().toUpperCase();
 
-        String email = "";
         String profileImgUrl = "";
 
         switch (providerTypeCode) {
@@ -45,7 +45,6 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                 Map<String, Object> attributes = oAuth2User.getAttributes();
 
                 oauthUserId = oAuth2User.getName();
-                email = getGithubVerifiedEmail(userRequest);
                 profileImgUrl = (String) attributes.get("avatar_url");
 
             }
@@ -56,11 +55,20 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         Member member;
 
         if (actor == null) {
-            // 비로그인 상태에서는 기존과 같이 소셜 로그인/가입을 수행한다.
-            member = authService.modifyOrJoin(email, "", profileImgUrl, username).data();
+            Optional<Member> existingMember = authService.findByGithubSocialIdentity(username);
+
+            if (existingMember.isPresent()) {
+                // 이미 GitHub ID가 연결된 회원은 이메일이 회원 식별에 필요하지 않다.
+                member = existingMember.get();
+            } else {
+                // 최초 소셜 로그인에서만 검증된 이메일로 신규 가입 또는 기존 이메일 계정 연결을 판단한다.
+                String email = getGithubVerifiedEmail(userRequest);
+                member = authService.modifyOrJoin(email, "", profileImgUrl, username).data();
+            }
         } else {
             try {
-                // 일반 로그인 상태에서는 소셜 로그인으로 전환하지 않고 현재 계정에 연결한다.
+                // 최초 계정 연결에서는 검증된 GitHub 이메일도 함께 저장한다.
+                String email = getGithubVerifiedEmail(userRequest);
                 member = authService.linkGithubSocial(actor, username, email, profileImgUrl);
             } catch (ServiceException e) {
                 throw new OAuth2AuthenticationException(

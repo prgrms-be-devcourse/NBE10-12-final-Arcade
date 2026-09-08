@@ -12,6 +12,7 @@ import com.back.domain.search.search.repository.party.PartySearchKeywordReposito
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import com.back.support.PostgresTestProperties;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -34,11 +35,7 @@ class PartySearchServiceLogFailureIsolationTest {
 
     @DynamicPropertySource
     static void overrideDatasource(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
-        registry.add("spring.datasource.driver-class-name", POSTGRES::getDriverClassName);
-        registry.add("spring.jpa.hibernate.ddl-auto", () -> "update");
+        PostgresTestProperties.register(registry, POSTGRES);
     }
 
     @Autowired
@@ -65,7 +62,7 @@ class PartySearchServiceLogFailureIsolationTest {
         partySearchKeywordRepository.save(new PartySearchKeyword(party, "백엔드 스터디"));
 
         assertThatCode(() ->
-                partySearchService.search(nonExistentActor, "백엔드", PageRequest.of(0, 10))
+                partySearchService.search(nonExistentActor, "백엔드", null, null, null, PageRequest.of(0, 10))
         ).doesNotThrowAnyException();
     }
 }

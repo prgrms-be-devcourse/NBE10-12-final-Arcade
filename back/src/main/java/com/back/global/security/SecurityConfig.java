@@ -47,7 +47,8 @@ public class SecurityConfig {
                                         "/api/*/goals/{id:\\d+}",
                                         "/api/*/goals/{id:\\d+}/checklist",
                                         "/api/*/showcase/goals",
-                                        "/api/*/parties/showcase/top3"
+                                        "/api/*/parties/showcase/top3",
+                                        "/api/*/parties/top3"
                                 ).permitAll()
                                 .requestMatchers(
                                         "/api/*/members/login",

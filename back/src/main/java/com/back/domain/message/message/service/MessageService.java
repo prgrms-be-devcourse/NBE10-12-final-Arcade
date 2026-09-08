@@ -8,9 +8,9 @@ import com.back.domain.message.message.dtos.MessageDetailDto;
 import com.back.domain.message.message.dtos.MessageDto;
 import com.back.domain.message.message.dtos.MessageListDto;
 import com.back.domain.message.message.dtos.MessageMemberDto;
-import com.back.domain.message.message.dtos.MessagePageDto;
 import com.back.domain.message.message.entity.Message;
 import com.back.domain.message.message.repository.MessageRepository;
+import com.back.global.dto.PageDto;
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -51,7 +51,7 @@ public class MessageService {
         return new MessageDto(messageRepository.save(new Message(sender, recipient, content)));
     }
 
-    public MessagePageDto getList(Member actor, MessageFilterOption option, int page, int size) {
+    public PageDto<MessageListDto> getList(Member actor, MessageFilterOption option, int page, int size) {
 
         PageRequest pageable = PageRequest.of(page, size, Sort.by(
                 Sort.Order.desc("createDate"),
@@ -75,7 +75,7 @@ public class MessageService {
                                 .toList()
         );
 
-        return new MessagePageDto(
+        return new PageDto<>(
                 messages.map(
                         message -> toListDto(message, membersById))
         );
@@ -140,6 +140,10 @@ public class MessageService {
     }
 
     private Map<Long, MessageMemberDto> memberDtos(Collection<Member> members) {
+        if (members.isEmpty()) {
+            return Map.of();
+        }
+
         Map<Long, Member> membersById = members.stream().collect(Collectors.toMap(
                 Member::getId,
                 member -> member,
