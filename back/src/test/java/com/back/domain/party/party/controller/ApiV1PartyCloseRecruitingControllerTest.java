@@ -175,6 +175,27 @@ public class ApiV1PartyCloseRecruitingControllerTest {
     }
 
     @Test
+    @DisplayName("모집 마감: 파티장이 옛 방식대로 APPROVED PartyMember 로도 남아 있으면 확정 명단에 한 번만 들어간다")
+    @WithUserDetails("user1@test.com")
+    void closeRecruitingDoesNotDuplicateLegacyOwnerRow() throws Exception {
+        Party party = saveParty("user1@test.com");
+        Member owner = memberRepository.findByEmail("user1@test.com").orElseThrow();
+
+        // ARC-97 시절 파티 생성이 만들던 상태 재현 - 파티장이 APPROVED 지원 행으로도 들어가 있다
+        PartyMember legacyOwnerRow = partyMemberRepository.save(
+                new PartyMember(party, owner, party.getPositions().getFirst(), null));
+        legacyOwnerRow.approve();
+
+        mvc.perform(post("/api/v1/parties/" + party.getId() + "/close-recruiting"))
+                .andExpect(status().isCreated());
+
+        PartyAssembledEvent event = events.stream(PartyAssembledEvent.class).findFirst().orElseThrow();
+        assertThat(event.approvedMembers())
+                .filteredOn(m -> m.memberId() == owner.getId())
+                .hasSize(1);
+    }
+
+    @Test
     @DisplayName("모집 마감: 파티장이 프로필에 대표 포지션을 안 넣어뒀으면 포지션 없이(null) 확정 명단에 들어간다")
     @WithUserDetails("user2@test.com")
     void closeRecruitingAllowsOwnerWithoutPosition() throws Exception {
