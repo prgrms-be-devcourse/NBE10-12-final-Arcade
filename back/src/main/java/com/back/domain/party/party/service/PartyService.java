@@ -9,7 +9,6 @@ import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.profile.entity.MemberProfile;
 import com.back.domain.member.profile.repository.MemberProfileRepository;
-import com.back.domain.party.application.entity.PartyMember;
 import com.back.domain.party.application.entity.PartyMemberStatus;
 import com.back.domain.party.application.repository.PartyMemberRepository;
 import com.back.domain.party.party.dtos.PartyDto;
@@ -110,35 +109,23 @@ public class PartyService {
             party.addPosition(new Position(spec.type(), spec.capacity()))
         );
 
-        Position ownerPosition = seatForOwner(party, owner);
+        // 파티장 포지션은 모집 마감 시 확정 명단에 실려 성취(Project)로 남는다.
+        // 그때 가서 비어 있으면 되돌릴 수 없으니 생성 단계에서 막는다.
+        requireOwnerPositionType(owner);
 
         Party savedParty = partyRepository.save(party);
-        partyMemberRepository.save(PartyMember.owner(savedParty, owner, ownerPosition));
 
         eventPublisher.publishEvent(new PartySearchIndexRequestedEvent(savedParty.getId()));
 
         return new PartyDto(savedParty);
     }
 
-    /**
-     * 파티장이 앉을 자리를 고른다. 파티장은 모집 대상이 아니라 정원(filledCount)은 건드리지 않는다.
-     * 같은 포지션을 모집 중이면 그 자리를 가리키고, 아니면 모집하지 않는 자리(정원 0)를 만들어 붙인다.
-     */
-    private Position seatForOwner(Party party, Member owner) {
-        PositionType ownerType = memberProfileRepository.findByMember(owner)
+    /** 파티장은 지원 절차가 없어 프로필의 대표 포지션이 곧 파티에서의 포지션이 된다. */
+    private void requireOwnerPositionType(Member owner) {
+        memberProfileRepository.findByMember(owner)
                 .map(MemberProfile::getPosition)
                 .orElseThrow(() -> new ServiceException(
                         "400-4", "프로필에 대표 포지션을 먼저 설정해야 파티를 만들 수 있습니다."));
-
-        return party.getPositions().stream()
-                .filter(position -> position.getType() == ownerType)
-                .findFirst()
-                .orElseGet(() -> {
-                    Position seat = new Position(ownerType, 0);
-                    party.addPosition(seat);
-
-                    return seat;
-                });
     }
 
     public record PositionCapacityUpdateSpec(

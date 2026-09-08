@@ -572,9 +572,9 @@ public class ApiV1PartyControllerTest {
     }
 
     @Test
-    @DisplayName("파티 생성: 파티장이 APPROVED 상태의 PartyMember 로 들어간다")
+    @DisplayName("파티 생성: 파티장은 아직 PartyMember 로 들어가지 않는다 (모집 마감 시 합류)")
     @WithUserDetails("user1@test.com")
-    void ownerBecomesApprovedPartyMember() throws Exception {
+    void ownerIsNotPartyMemberOnCreate() throws Exception {
         mvc.perform(post("/api/v1/parties")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(partyCreateBody()))
@@ -582,10 +582,7 @@ public class ApiV1PartyControllerTest {
 
         Member owner = memberRepository.findByEmail("user1@test.com").orElseThrow();
         Party party = partyRepository.findAll().getLast();
-        PartyMember ownerMember = partyMemberRepository.findByPartyAndMember(party, owner).orElseThrow();
-
-        assertThat(ownerMember.getStatus()).isEqualTo(PartyMemberStatus.APPROVED);
-        assertThat(ownerMember.getPosition().getType()).isEqualTo(PositionType.BACK);
+        assertThat(partyMemberRepository.findByPartyAndMember(party, owner)).isEmpty();
     }
 
     @Test

@@ -1,6 +1,9 @@
 package com.back.domain.party.party.service;
 
 import com.back.domain.member.member.entity.Member;
+import com.back.domain.member.member.entity.PositionType;
+import com.back.domain.member.profile.entity.MemberProfile;
+import com.back.domain.member.profile.repository.MemberProfileRepository;
 import com.back.domain.party.application.entity.PartyMember;
 import com.back.domain.party.application.entity.PartyMemberStatus;
 import com.back.domain.party.application.repository.PartyMemberRepository;
@@ -22,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +36,7 @@ public class PartyLifecycleService {
     private final PartyMemberRepository partyMemberRepository;
     private final PartyAssembleRepository partyAssembleRepository;
     private final PartyAssembleToMemberRepository partyAssembleToMemberRepository;
+    private final MemberProfileRepository memberProfileRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
@@ -51,26 +56,30 @@ public class PartyLifecycleService {
                 .filter(m -> m.getStatus() == PartyMemberStatus.PENDING)
                 .forEach(PartyMember::reject);
 
-        // Member만 뽑지 않고 PartyMember를 그대로 들고 있어야 positionType을 이벤트에 실을 수 있다
-        List<PartyMember> approvedPartyMembers = members.stream()
-                .filter(m -> m.getStatus() == PartyMemberStatus.APPROVED)
-                .toList();
+        // 파티장은 지원 절차(PartyMember)를 거치지 않으므로 이미 들고 있는 party.owner를 확정 명단 맨 앞에 바로 붙인다.
+        // 지원한 자리가 없어 포지션은 프로필의 대표 포지션에서 가져온다(Member에는 포지션이 없다).
+        List<Confirmed> confirmed = Stream.concat(
+                Stream.of(new Confirmed(party.getOwner(), ownerPositionType(party.getOwner()))),
+                members.stream()
+                        .filter(m -> m.getStatus() == PartyMemberStatus.APPROVED)
+                        .map(m -> new Confirmed(m.getMember(), m.getPosition().getType()))
+        ).toList();
 
-        // 파티 확정 원본 사건과 그 시점 승인된 참여자별 파생 레코드를 분리 기록
+        // 파티 확정 원본 사건과 그 시점 확정된 참여자별 파생 레코드를 분리 기록
         PartyAssemble partyAssemble = partyAssembleRepository.save(new PartyAssemble(party));
-        List<PartyAssembleToMember> assembleToMembers = approvedPartyMembers.stream()
-                .map(pm -> new PartyAssembleToMember(partyAssemble, pm.getMember()))
+        List<PartyAssembleToMember> assembleToMembers = confirmed.stream()
+                .map(c -> new PartyAssembleToMember(partyAssemble, c.member()))
                 .toList();
         partyAssembleToMemberRepository.saveAll(assembleToMembers);
 
         LocalDate assembledAt = LocalDate.now();
 
-        // approvedPartyMembers와 assembleToMembers는 같은 순서로 만들어졌으니 인덱스로 짝지어 memberId + 그 사람의 PartyAssembleToMember id + positionType을 한 번에 이벤트에 실어 보낸다
-        List<PartyAssembledEvent.ApprovedMember> approvedMembersPayload = IntStream.range(0, approvedPartyMembers.size())
+        // confirmed와 assembleToMembers는 같은 순서로 만들어졌으니 인덱스로 짝지어 memberId + 그 사람의 PartyAssembleToMember id + positionType을 한 번에 이벤트에 실어 보낸다
+        List<PartyAssembledEvent.ApprovedMember> approvedMembersPayload = IntStream.range(0, confirmed.size())
                 .mapToObj(i -> new PartyAssembledEvent.ApprovedMember(
-                        approvedPartyMembers.get(i).getMember().getId(),
+                        confirmed.get(i).member().getId(),
                         assembleToMembers.get(i).getId(),
-                        approvedPartyMembers.get(i).getPosition().getType()
+                        confirmed.get(i).positionType()
                 ))
                 .toList();
 
@@ -83,6 +92,16 @@ public class PartyLifecycleService {
 
         return new PartyDto(party);
     }
+
+    /** 프로필을 안 채운 파티장도 있으므로 없으면 null이다. */
+    private PositionType ownerPositionType(Member owner) {
+        return memberProfileRepository.findByMember(owner)
+                .map(MemberProfile::getPosition)
+                .orElse(null);
+    }
+
+    /** 확정 명단 한 줄. 파티장은 PartyMember가 없어 (회원, 포지션) 쌍으로만 지원자와 나란히 다룬다. */
+    private record Confirmed(Member member, PositionType positionType) { }
 
     private Party findPartyOrThrow(long partyId) {
         return partyRepository.findById(partyId)

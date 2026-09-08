@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -80,6 +81,7 @@ public class PartyShowcaseService {
         List<Party> parties = showcases.stream().map(PartyShowcase::getParty).toList();
         List<Long> partyIds = parties.stream().map(Party::getId).toList();
 
+        // 파티장은 PartyMember로 남지 않으므로 명단 맨 앞에 따로 붙인다
         Map<Long, List<String>> memberNamesByPartyId = partyMemberRepository.findAllByPartyIn(parties).stream()
                 .filter(pm -> pm.getStatus() == PartyMemberStatus.APPROVED)
                 .collect(Collectors.groupingBy(
@@ -98,17 +100,22 @@ public class PartyShowcaseService {
                 .map(showcase -> toDto(
                         showcase.getParty(),
                         showcase,
-                        memberNamesByPartyId.getOrDefault(showcase.getParty().getId(), List.of()),
+                        withOwner(showcase.getParty(), memberNamesByPartyId.getOrDefault(showcase.getParty().getId(), List.of())),
                         pullRequestsByPartyId.getOrDefault(showcase.getParty().getId(), List.of())
                 ))
                 .toList();
     }
 
     private List<String> getApprovedMemberNames(Party party) {
-        return partyMemberRepository.findAllByParty(party).stream()
+        return withOwner(party, partyMemberRepository.findAllByParty(party).stream()
                 .filter(pm -> pm.getStatus() == PartyMemberStatus.APPROVED)
                 .map(pm -> pm.getMember().getName())
-                .toList();
+                .toList());
+    }
+
+    /** 파티장은 지원 절차를 거치지 않아 PartyMember로 남지 않으므로 명단 맨 앞에 따로 붙인다. */
+    private List<String> withOwner(Party party, List<String> memberNames) {
+        return Stream.concat(Stream.of(party.getOwner().getName()), memberNames.stream()).toList();
     }
 
     private List<PartyShowcaseDto.PrSummary> getPrSummaries(long partyId) {
