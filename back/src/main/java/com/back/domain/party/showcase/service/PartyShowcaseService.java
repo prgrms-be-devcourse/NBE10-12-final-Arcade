@@ -127,21 +127,6 @@ public class PartyShowcaseService {
                 .toList();
     }
 
-    // 전시관 목록 - 카드에 PR 목록/파티원 전체까지 안 실어도 되므로 무거운 조립 없이 바로 매핑
-    public Page<PartyShowcaseListItemDto> getList(PartyTag partyTag, Pageable pageable) {
-        return partyShowcaseRepository.findPublished(partyTag, pageable)
-                .map(showcase -> new PartyShowcaseListItemDto(
-                        showcase.getParty().getId(),
-                        showcase.getParty().getPartyName(),
-                        showcase.getTitle(),
-                        showcase.getParty().getOwner().getName(),
-                        showcase.getParty().getPartyTag(),
-                        showcase.getParty().getViewCount(),
-                        showcase.getParty().getLikeCount(),
-                        showcase.getPublishedAt()
-                ));
-    }
-
     private List<String> getApprovedMemberNames(Party party) {
         return partyMemberRepository.findAllByParty(party).stream()
                 .filter(pm -> pm.getStatus() == PartyMemberStatus.APPROVED)
