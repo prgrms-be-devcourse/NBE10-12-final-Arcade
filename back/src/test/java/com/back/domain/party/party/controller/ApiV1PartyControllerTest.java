@@ -5,7 +5,6 @@ import com.back.domain.contest.contest.entity.ContestFormat;
 import com.back.domain.contest.contest.entity.ContestTag;
 import com.back.domain.contest.contest.service.ContestService;
 import com.back.domain.member.member.entity.Member;
-import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.member.repository.MemberRepository;
 import com.back.domain.party.application.entity.PartyMember;
 import com.back.domain.party.application.repository.PartyMemberRepository;
@@ -25,10 +24,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
-import org.junit.jupiter.api.BeforeEach;
 import com.back.domain.member.member.entity.PositionType;
-import com.back.domain.member.profile.entity.MemberProfile;
-import com.back.domain.member.profile.repository.MemberProfileRepository;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -60,19 +56,7 @@ public class ApiV1PartyControllerTest {
     private ContestService contestService;
 
     @Autowired
-    private MemberProfileRepository memberProfileRepository;
-
-    @Autowired
     private PartyMemberRepository partyMemberRepository;
-
-    // 파티장은 프로필에 대표 포지션이 있어야 파티를 만들 수 있다
-    @BeforeEach
-    void givenOwnerHasPosition() {
-        Member owner = memberRepository.findByEmail("user1@test.com").orElseThrow();
-        MemberProfile profile = memberProfileRepository.findByMember(owner)
-                .orElseGet(() -> memberProfileRepository.save(new MemberProfile(owner)));
-        profile.changePosition(PositionType.BACK);
-    }
 
     private final String deadline = LocalDateTime.now().plusDays(7).toString();
 
@@ -596,14 +580,13 @@ public class ApiV1PartyControllerTest {
     }
 
     @Test
-    @DisplayName("파티 생성: 프로필에 대표 포지션이 없으면 400-4 로 막는다")
+    @DisplayName("파티 생성: 프로필에 대표 포지션이 없어도 파티를 만들 수 있다")
     @WithUserDetails("user2@test.com")
-    void rejectsOwnerWithoutPosition() throws Exception {
+    void allowsOwnerWithoutPosition() throws Exception {
         mvc.perform(post("/api/v1/parties")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(partyCreateBody()))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.resultCode").value("400-4"));
+                .andExpect(status().isCreated());
     }
 
     private String partyCreateBody() {

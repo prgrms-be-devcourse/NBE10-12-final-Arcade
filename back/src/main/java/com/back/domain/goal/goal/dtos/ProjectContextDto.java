@@ -25,7 +25,7 @@ public record ProjectContextDto(
         LocalDateTime deadline,
         /** 등록된 저장소. 없으면 null */
         String githubRepoUrl,
-        /** 이 파티에서 맡은 포지션. 파티장은 지원 절차가 없어 값이 없다 */
+        /** 이 파티에서 맡은 포지션. 파티장은 프로필의 대표 포지션을 따라가고, 그마저 없으면 null 이다 */
         PositionType myPositionType,
         /** 파티장인지 여부 */
         boolean partyOwner,

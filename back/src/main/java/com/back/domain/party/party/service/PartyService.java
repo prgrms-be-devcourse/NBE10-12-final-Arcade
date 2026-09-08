@@ -7,8 +7,6 @@ import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.interaction.like.service.LikeInteractionPort;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
-import com.back.domain.member.profile.entity.MemberProfile;
-import com.back.domain.member.profile.repository.MemberProfileRepository;
 import com.back.domain.party.application.entity.PartyMemberStatus;
 import com.back.domain.party.application.repository.PartyMemberRepository;
 import com.back.domain.party.party.dtos.PartyDto;
@@ -50,7 +48,6 @@ public class PartyService {
     private final ContestLookupPort contestLookupPort;
     private final PartySearchKeywordPort partySearchKeywordPort;
     private final ApplicationEventPublisher eventPublisher;
-    private final MemberProfileRepository memberProfileRepository;
     private final PartyMemberRepository partyMemberRepository;
     private final ActivityLogService activityLogService;
 
@@ -112,24 +109,12 @@ public class PartyService {
             party.addPosition(new Position(spec.type(), spec.capacity()))
         );
 
-        // 파티장 포지션은 모집 마감 시 확정 명단에 실려 성취(Project)로 남는다.
-        // 그때 가서 비어 있으면 되돌릴 수 없으니 생성 단계에서 막는다.
-        requireOwnerPositionType(owner);
-
         Party savedParty = partyRepository.save(party);
 
         activityLogService.record(owner);
         eventPublisher.publishEvent(new PartySearchIndexRequestedEvent(savedParty.getId()));
 
         return new PartyDto(savedParty);
-    }
-
-    /** 파티장은 지원 절차가 없어 프로필의 대표 포지션이 곧 파티에서의 포지션이 된다. */
-    private void requireOwnerPositionType(Member owner) {
-        memberProfileRepository.findByMember(owner)
-                .map(MemberProfile::getPosition)
-                .orElseThrow(() -> new ServiceException(
-                        "400-4", "프로필에 대표 포지션을 먼저 설정해야 파티를 만들 수 있습니다."));
     }
 
     public record PositionCapacityUpdateSpec(

@@ -175,6 +175,22 @@ public class ApiV1PartyCloseRecruitingControllerTest {
     }
 
     @Test
+    @DisplayName("모집 마감: 파티장이 프로필에 대표 포지션을 안 넣어뒀으면 포지션 없이(null) 확정 명단에 들어간다")
+    @WithUserDetails("user2@test.com")
+    void closeRecruitingAllowsOwnerWithoutPosition() throws Exception {
+        Party party = saveParty("user2@test.com");
+        Member owner = memberRepository.findByEmail("user2@test.com").orElseThrow();
+        memberProfileRepository.findByMember(owner).ifPresent(profile -> profile.changePosition(null));
+
+        mvc.perform(post("/api/v1/parties/" + party.getId() + "/close-recruiting"))
+                .andExpect(status().isCreated());
+
+        PartyAssembledEvent event = events.stream(PartyAssembledEvent.class).findFirst().orElseThrow();
+        assertThat(event.approvedMembers())
+                .anyMatch(m -> m.memberId() == owner.getId() && m.positionType() == null);
+    }
+
+    @Test
     @DisplayName("모집 마감: 이미 마감된 파티에 재요청하면 409-1이다")
     @WithUserDetails("user1@test.com")
     void closeRecruitingTwice() throws Exception {
