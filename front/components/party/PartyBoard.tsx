@@ -6,7 +6,7 @@ import { Icon } from '@/components/icons/Icon';
 import { PartyCard } from '@/components/party/PartyCard';
 import { SelectField } from '@/components/ui/Field';
 import { DDay, Tag } from '@/components/ui/Tag';
-import { comparePartiesBy, fetchPartySearch } from '@/lib/api';
+import { comparePartiesBy, fetchPartySearch, type PartySearchFilters } from '@/lib/api';
 import {
   PARTY_FIELDS,
   POSITION_LABELS,
@@ -28,56 +28,79 @@ interface PartyBoardProps {
   keywords: string;
 }
 
+type BoardFilters = Required<PartySearchFilters>;
+
 /** 파티 게시판 (검색 · 유형 · 분야 · 정렬). */
 export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) {
   const [draft, setDraft] = useState('');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Party[] | null>(null);
   const [searching, setSearching] = useState(false);
-  const [topicType, setTopicType] = useState<TopicType | '전체'>('전체');
-  const [position, setPosition] = useState<PositionType | '전체'>('전체');
-  const [subCategory, setSubCategory] = useState('전체');
+  const [searchFailed, setSearchFailed] = useState(false);
+  const [filters, setFilters] = useState<BoardFilters>({
+    topicType: '전체',
+    position: '전체',
+    subCategory: '전체',
+  });
   const [sort, setSort] = useState<'empty' | 'dday' | 'like'>('empty');
   const searchSeq = useRef(0);
 
-  const runSearch = async (raw: string) => {
+  // 분야·유형·포지션 필터링은 /parties/search 가 처리한다.
+  // 필터를 바꿀 때마다 현재 검색어로 서버 검색을 다시 실행한다.
+  const runSearch = async (raw: string, filters: PartySearchFilters = {}) => {
     const next = raw.trim();
-    setQuery(next);
 
     if (!next) {
       searchSeq.current += 1;
       setResults(null);
       setSearching(false);
+      setSearchFailed(false);
       return;
     }
 
     const seq = (searchSeq.current += 1);
     setSearching(true);
+    setSearchFailed(false);
     try {
-      const found = await fetchPartySearch(next, { size: 100 });
+      const found = await fetchPartySearch(next, { size: 100, ...filters });
       if (seq === searchSeq.current) setResults(found);
-    } catch {
-      if (seq === searchSeq.current) setResults([]);
+    } catch (error) {
+      // fetchPartySearch 는 결과 없음을 빈 배열로 돌려준다. 여기까지 온 건 네트워크·서버
+      // 오류라, 직전 목록을 지우지 않고 알림만 띄운다.
+      if (seq === searchSeq.current) {
+        console.error('파티 검색 요청 실패', error);
+        setSearchFailed(true);
+      }
     } finally {
       if (seq === searchSeq.current) setSearching(false);
     }
   };
 
+  // 바뀐 필터를 합친 완성본을 만들어, state 갱신과 서버 검색에 같은 값을 쓴다.
+  const changeFilter = (patch: Partial<BoardFilters>) => {
+    const next = { ...filters, ...patch };
+    setFilters(next);
+    void runSearch(query, next);
+  };
+
   const handleSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    void runSearch(draft);
+    const next = draft.trim();
+    setQuery(next);
+    void runSearch(next, filters);
   };
 
   const visible = useMemo(() => {
+    const { topicType, position, subCategory } = filters;
+    // 검색 결과에도 필터를 걸어, 서버 왕복 전 이전 결과가 새 필터 기준으로 좁혀지게 한다.
+    const matchesFilters = (party: Party) =>
+      (topicType === '전체' || party.topicType === topicType) &&
+      (subCategory === '전체' || party.subCategory === subCategory) &&
+      (position === '전체' || party.positions.some((slot) => slot.type === position));
+
     const base = query ? (results ?? []) : parties;
-    const filtered = base.filter(
-      (party) =>
-        (topicType === '전체' || party.topicType === topicType) &&
-        (subCategory === '전체' || party.subCategory === subCategory) &&
-        (position === '전체' || party.positions.some((slot) => slot.type === position)),
-    );
-    return [...filtered].sort(comparePartiesBy(sort));
-  }, [parties, results, query, topicType, subCategory, position, sort]);
+    return [...base.filter(matchesFilters)].sort(comparePartiesBy(sort));
+  }, [parties, results, query, filters, sort]);
 
   return (
     <>
@@ -120,14 +143,17 @@ export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) 
             onChange={(event) => {
               const next = event.target.value;
               setDraft(next);
-              if (next === '') void runSearch('');
+              if (next === '') {
+                setQuery('');
+                void runSearch('');
+              }
             }}
           />
         </form>
         <SelectField
           className="select-field"
-          value={topicType}
-          onChange={(event) => setTopicType(event.target.value as TopicType | '전체')}
+          value={filters.topicType}
+          onChange={(event) => changeFilter({ topicType: event.target.value as TopicType | '전체' })}
           aria-label="주제 유형"
         >
           <option value="전체">유형 전체</option>
@@ -139,8 +165,10 @@ export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) 
         </SelectField>
         <SelectField
           className="select-field"
-          value={position}
-          onChange={(event) => setPosition(event.target.value as PositionType | '전체')}
+          value={filters.position}
+          onChange={(event) =>
+            changeFilter({ position: event.target.value as PositionType | '전체' })
+          }
           aria-label="포지션"
         >
           <option value="전체">포지션 전체</option>
@@ -152,8 +180,8 @@ export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) 
         </SelectField>
         <SelectField
           className="select-field"
-          value={subCategory}
-          onChange={(event) => setSubCategory(event.target.value)}
+          value={filters.subCategory}
+          onChange={(event) => changeFilter({ subCategory: event.target.value })}
           aria-label="분야"
         >
           <option value="전체">분야 전체</option>
@@ -184,6 +212,8 @@ export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) 
       </div>
       {searching ? (
         <p className="notif-empty">검색 중…</p>
+      ) : searchFailed ? (
+        <p className="notif-empty">검색 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.</p>
       ) : visible.length === 0 ? (
         <p className="notif-empty">
           {query ? `'${query}' 검색 결과가 없어요.` : '조건에 맞는 파티가 없어요.'}
