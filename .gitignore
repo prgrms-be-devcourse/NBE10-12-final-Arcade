@@ -85,3 +85,6 @@ next-env.d.ts
 .pnpm-store/
 .cache/
 outputs/
+
+# DB 덤프
+/backups/

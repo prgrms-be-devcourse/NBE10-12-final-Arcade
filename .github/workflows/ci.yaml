@@ -16,7 +16,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   pull-requests: read
@@ -116,7 +116,6 @@ jobs:
               });
             }
 
-      # 어떤 테스트가 깨졌는지 보는 용도
       - name: Upload test report
         if: failure()
         uses: actions/upload-artifact@v5
@@ -169,3 +168,106 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  # 이미지는 main·develop 이 갱신될 때만 만든다. PR 에서는 안 만든다.
+  # 테스트가 실패하면 건너뛴다 — needs 만으로는 "건너뜀"과 "실패"가 안 갈린다.
+  build-backend:
+    needs: [changes, backend]
+    if: >
+      !cancelled() && !failure()
+      && github.event_name == 'push'
+      && needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 태그와 저장소 이름
+        id: meta
+        run: |
+          echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "repo=ghcr.io/$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v4.3.0
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 백엔드 이미지
+        uses: docker/build-push-action@v7.3.0
+        with:
+          context: ./back
+          # 서버가 amd64 다. 빼면 러너 아키텍처로 만들어져 서버에서
+          # exec format error 로 죽는다 — 빌드는 성공해서 배포해 봐야 드러난다.
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.repo }}/backend:${{ steps.meta.outputs.sha }}
+          cache-from: type=gha,scope=backend
+          # mode=max 여야 한다. 기본(min)은 최종 이미지에 들어간 레이어만 담는데
+          # Gradle 컴파일이 중간 스테이지에 있고 결과물만 COPY --from 으로 온다.
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: 만든 태그
+        run: |
+          echo "${{ steps.meta.outputs.repo }}/backend:${{ steps.meta.outputs.sha }}"
+
+  build-frontend:
+    needs: [changes, frontend]
+    if: >
+      !cancelled() && !failure()
+      && github.event_name == 'push'
+      && needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    env:
+      # 프론트는 이 값이 번들에 박힌다. 주소가 바뀌면 이미지를 다시 만들어야 한다.
+      # 비어 있으면 이미지 단계를 건너뛴다 — 설정 안 됐다고 CI 를 빨갛게 두지 않는다.
+      PUBLIC_ORIGIN: ${{ vars.PUBLIC_ORIGIN }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 태그와 저장소 이름
+        id: meta
+        run: |
+          echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          echo "repo=ghcr.io/$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v4.3.0
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 프론트 이미지
+        if: env.PUBLIC_ORIGIN != ''
+        uses: docker/build-push-action@v7.3.0
+        with:
+          context: ./front
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.repo }}/frontend:${{ steps.meta.outputs.sha }}
+          # 빌드 인자는 docker history 에 남고, 패키지가 public 이라
+          # 로그인 없이 보인다. 시크릿 성격의 인자를 여기 넣지 않는다.
+          build-args: |
+            PUBLIC_ORIGIN=${{ env.PUBLIC_ORIGIN }}
+            NEXT_PUBLIC_USE_MOCK=false
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+      - name: 만든 태그
+        run: |
+          echo "${{ steps.meta.outputs.repo }}/frontend:${{ steps.meta.outputs.sha }}"
+          if [ -z "$PUBLIC_ORIGIN" ]; then
+            echo "저장소 변수 PUBLIC_ORIGIN 이 없어 건너뜀"
+          fi
