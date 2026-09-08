@@ -6,7 +6,7 @@ import { Icon } from '@/components/icons/Icon';
 import { PartyCard } from '@/components/party/PartyCard';
 import { SelectField } from '@/components/ui/Field';
 import { DDay, Tag } from '@/components/ui/Tag';
-import { comparePartiesBy, fetchPartySearch } from '@/lib/api';
+import { comparePartiesBy, fetchPartySearch, type PartySearchFilters } from '@/lib/api';
 import {
   PARTY_FIELDS,
   POSITION_LABELS,
@@ -40,9 +40,10 @@ export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) 
   const [sort, setSort] = useState<'empty' | 'dday' | 'like'>('empty');
   const searchSeq = useRef(0);
 
-  const runSearch = async (raw: string) => {
+  // 분야·유형·포지션 필터링은 /parties/search 가 처리한다.
+  // 필터를 바꿀 때마다 현재 검색어로 서버 검색을 다시 실행한다.
+  const runSearch = async (raw: string, filters: PartySearchFilters) => {
     const next = raw.trim();
-    setQuery(next);
 
     if (!next) {
       searchSeq.current += 1;
@@ -54,7 +55,7 @@ export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) 
     const seq = (searchSeq.current += 1);
     setSearching(true);
     try {
-      const found = await fetchPartySearch(next, { size: 100 });
+      const found = await fetchPartySearch(next, { size: 100, ...filters });
       if (seq === searchSeq.current) setResults(found);
     } catch {
       if (seq === searchSeq.current) setResults([]);
@@ -65,12 +66,17 @@ export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) 
 
   const handleSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    void runSearch(draft);
+    const next = draft.trim();
+    setQuery(next);
+    void runSearch(next, { topicType, position, subCategory });
   };
 
   const visible = useMemo(() => {
-    const base = query ? (results ?? []) : parties;
-    const filtered = base.filter(
+    // 검색 중이면 서버가 이미 걸러 준 결과라 추가 필터링을 하지 않는다.
+    if (query) {
+      return [...(results ?? [])].sort(comparePartiesBy(sort));
+    }
+    const filtered = parties.filter(
       (party) =>
         (topicType === '전체' || party.topicType === topicType) &&
         (subCategory === '전체' || party.subCategory === subCategory) &&
@@ -120,14 +126,21 @@ export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) 
             onChange={(event) => {
               const next = event.target.value;
               setDraft(next);
-              if (next === '') void runSearch('');
+              if (next === '') {
+                setQuery('');
+                void runSearch('', { topicType, position, subCategory });
+              }
             }}
           />
         </form>
         <SelectField
           className="select-field"
           value={topicType}
-          onChange={(event) => setTopicType(event.target.value as TopicType | '전체')}
+          onChange={(event) => {
+            const next = event.target.value as TopicType | '전체';
+            setTopicType(next);
+            void runSearch(query, { topicType: next, position, subCategory });
+          }}
           aria-label="주제 유형"
         >
           <option value="전체">유형 전체</option>
@@ -140,7 +153,11 @@ export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) 
         <SelectField
           className="select-field"
           value={position}
-          onChange={(event) => setPosition(event.target.value as PositionType | '전체')}
+          onChange={(event) => {
+            const next = event.target.value as PositionType | '전체';
+            setPosition(next);
+            void runSearch(query, { topicType, position: next, subCategory });
+          }}
           aria-label="포지션"
         >
           <option value="전체">포지션 전체</option>
@@ -153,7 +170,11 @@ export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) 
         <SelectField
           className="select-field"
           value={subCategory}
-          onChange={(event) => setSubCategory(event.target.value)}
+          onChange={(event) => {
+            const next = event.target.value;
+            setSubCategory(next);
+            void runSearch(query, { topicType, position, subCategory: next });
+          }}
           aria-label="분야"
         >
           <option value="전체">분야 전체</option>
