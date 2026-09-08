@@ -12,6 +12,7 @@ import com.back.domain.interaction.like.repository.LikeActionRepository;
 import com.back.domain.activity.activity.service.ActivityLogService;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.party.party.repository.PartyRepository;
+import com.back.domain.party.showcase.repository.PartyShowcaseRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +34,7 @@ public class LikeService implements LikeInteractionPort {
     private final PartyRepository partyRepository;
     private final ContestPostRepository contestPostRepository;
     private final GoalRepository goalRepository;
+    private final PartyShowcaseRepository partyShowcaseRepository;
 
     public boolean partyExists(long partyId) {
         return partyRepository.existsById(partyId);
@@ -91,10 +93,10 @@ public class LikeService implements LikeInteractionPort {
         contestPostRepository.decreaseLikeCount(contestId);
     }
 
-    // PROJECT는 파티 확정 시 참여자 수만큼 Goal이 따로 생기므로 LikeAction
-    // 행을 Goal 자신으로 저장하면 파티 페이지에서 직접 누른 좋아요와 성취 카드에서 누른 좋아요가
-    // 서로 다른 행으로 취급돼 같은 사람이 두 경로로 각각 좋아요를 눌러 카운트가 중복 반영될 수 있다
-    // 그래서 카운터뿐 아니라 LikeAction 행 자체를 sourcePartyId가 가리키는 PARTY 타깃으로 저장해 파티 직접 좋아요와 완전히 같은 행을 공유하게 한다.
+    // 전시 성취의 좋아요, 북마크는 GOAL 자신이 아니라 sourcePartyId가 가리키는 파티의 전시 게시글을 대상으로 건다
+    // 같은 프로젝트의 참여자 전원의 카드가 동일한 전시글 1건을 가리키므로 좋아요·북마크가 자연스럽게 하나로 합산된다.
+    // 모집글 좋아요와 전시글 좋아요는 시점도 응답자 의도도 다른 별개 지표라, 모집글 자신이 아니라 그 파티의 전시글로 라우팅한다
+    // PARTY로 라우팅하면 모집 단계 좋아요랑 뒤섞여 버린다
     @Transactional
     public LikeDto likeGoal(long goalId, Member member) {
         Goal goal = goalRepository.findById(goalId).orElseThrow();
@@ -103,9 +105,9 @@ public class LikeService implements LikeInteractionPort {
         likeActionRepository.save(new LikeAction(member, target.targetType(), target.targetId()));
 
         int updatedLikeCount;
-        if (target.targetType() == TargetType.PARTY) {
-            partyRepository.increaseLikeCount(target.targetId());
-            updatedLikeCount = partyRepository.findById(target.targetId()).orElseThrow().getLikeCount();
+        if (target.targetType() == TargetType.PARTY_SHOWCASE) {
+            partyShowcaseRepository.increaseLikeCount(target.targetId());
+            updatedLikeCount = partyShowcaseRepository.findById(target.targetId()).orElseThrow().getLikeCount();
         } else {
             goalRepository.increaseLikeCount(target.targetId());
             updatedLikeCount = goalRepository.findById(target.targetId()).orElseThrow().getLikeCount();
@@ -123,8 +125,8 @@ public class LikeService implements LikeInteractionPort {
 
         likeActionRepository.deleteByMemberAndTargetTypeAndTargetId(member, target.targetType(), target.targetId());
 
-        if (target.targetType() == TargetType.PARTY) {
-            partyRepository.decreaseLikeCount(target.targetId());
+        if (target.targetType() == TargetType.PARTY_SHOWCASE) {
+            partyShowcaseRepository.decreaseLikeCount(target.targetId());
         } else {
             goalRepository.decreaseLikeCount(target.targetId());
         }
@@ -134,8 +136,8 @@ public class LikeService implements LikeInteractionPort {
     }
 
     private LikeTarget resolveGoalLikeTarget(Goal goal) {
-        if (goal instanceof Project) {
-            return new LikeTarget(TargetType.PARTY, goal.getSourcePartyId());
+        if (goal instanceof Project project) {
+            return new LikeTarget(TargetType.PARTY_SHOWCASE, project.getPartyShowcase().getId());
         }
         return new LikeTarget(TargetType.GOAL, goal.getId());
     }
@@ -158,12 +160,12 @@ public class LikeService implements LikeInteractionPort {
 
         List<Goal> goals = goalRepository.findAllById(targetIds);
 
-        Map<Long, Long> projectGoalIdToPartyId = new HashMap<>();
+        Map<Long, Long> projectGoalIdToShowcaseId = new HashMap<>();
         Set<Long> plainGoalIds = new HashSet<>();
 
         for (Goal goal : goals) {
-            if (goal instanceof Project) {
-                projectGoalIdToPartyId.put(goal.getId(), goal.getSourcePartyId());
+            if (goal instanceof Project project) {
+                projectGoalIdToShowcaseId.put(goal.getId(), project.getPartyShowcase().getId());
             } else {
                 plainGoalIds.add(goal.getId());
             }
@@ -177,15 +179,15 @@ public class LikeService implements LikeInteractionPort {
             ));
         }
 
-        if (!projectGoalIdToPartyId.isEmpty()) {
-            Set<Long> partyIds = new HashSet<>(projectGoalIdToPartyId.values());
-            Set<Long> likedPartyIds = new HashSet<>(likeActionRepository.findTargetIdsByMemberAndTargetTypeAndTargetIdIn(
-                    member, TargetType.PARTY, partyIds
+        if (!projectGoalIdToShowcaseId.isEmpty()) {
+            Set<Long> showcaseIds = new HashSet<>(projectGoalIdToShowcaseId.values());
+            Set<Long> likedShowcaseIds = new HashSet<>(likeActionRepository.findTargetIdsByMemberAndTargetTypeAndTargetIdIn(
+                    member, TargetType.PARTY_SHOWCASE, showcaseIds
             ));
 
-            // 좋아요된 partyId를 다시 원래 요청받은 goalId로 되돌린다
-            for (Map.Entry<Long, Long> entry : projectGoalIdToPartyId.entrySet()) {
-                if (likedPartyIds.contains(entry.getValue())) {
+            // 좋아요된 showcaseId를 다시 원래 요청받은 goalId로 되돌린다
+            for (Map.Entry<Long, Long> entry : projectGoalIdToShowcaseId.entrySet()) {
+                if (likedShowcaseIds.contains(entry.getValue())) {
                     likedGoalIds.add(entry.getKey());
                 }
             }
