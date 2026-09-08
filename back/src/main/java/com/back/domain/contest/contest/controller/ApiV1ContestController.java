@@ -9,7 +9,9 @@ import com.back.domain.interaction.bookmark.service.BookmarkInteractionPort;
 import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.interaction.like.service.LikeInteractionPort;
 import com.back.domain.member.member.entity.Member;
+import com.back.domain.party.application.repository.PartyMemberRepository;
 import com.back.domain.party.party.dtos.PartyListItemDto;
+import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.repository.PartyContestLookupPort;
 import com.back.domain.party.position.entity.PartyStatus;
 import com.back.global.exception.ServiceException;
@@ -47,6 +49,7 @@ import java.util.Map;
 @Tag(name = "ApiV1ContestController", description = "대회 글 컨트롤러")
 public class ApiV1ContestController {
     private final ContestService contestService;
+    private final PartyMemberRepository partyMemberRepository;
     private final LikeInteractionPort likeInteractionPort;
     private final BookmarkInteractionPort bookmarkInteractionPort;
     private final Rq rq;
@@ -186,10 +189,12 @@ public class ApiV1ContestController {
     public RsData<ContestResponseDto> getDetail(@PathVariable("contest-id") long contestId) {
         String viewCookieName = "contest_viewed_" + contestId;
         boolean alreadyViewed = rq.getCookieValue(viewCookieName, null) != null;
-        List<PartyListItemDto> relatedParties = partyContestLookupPort
-                .findByTargetContestId(contestId, PartyStatus.RECRUITING, PartyStatus.IN_PROGRESS)
-                .stream()
-                .map(PartyListItemDto::new)
+        List<Party> relatedPartyEntities = partyContestLookupPort
+                .findByTargetContestId(contestId, PartyStatus.RECRUITING, PartyStatus.IN_PROGRESS);
+        Map<Long, Long> applicantCounts = partyMemberRepository.countApplicantsByPartyIds(
+                relatedPartyEntities.stream().map(Party::getId).toList());
+        List<PartyListItemDto> relatedParties = relatedPartyEntities.stream()
+                .map(party -> new PartyListItemDto(party, applicantCounts.getOrDefault(party.getId(), 0L)))
                 .toList();
 
         ContestResponseDto contestResponseDto = contestService.getDetail(contestId, !alreadyViewed).orElseThrow();

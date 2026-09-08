@@ -632,6 +632,18 @@ public class ApiV1PartyControllerTest {
     }
 
     @Test
+    @DisplayName("인기 파티 TOP3: 지원자 수는 세지 않아 null 로 내려간다 - 0(지원자 없음)과 구분된다")
+    void top3DoesNotCountApplicants() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 2);
+        partyRepository.increaseLikeCount(party.getId());
+
+        mvc.perform(get("/api/v1/parties/top3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[?(@.id == " + party.getId() + ")].applicantCount")
+                        .value(org.hamcrest.Matchers.contains(org.hamcrest.Matchers.nullValue())));
+    }
+
+    @Test
     @DisplayName("인기 파티 TOP3: 좋아요 수 내림차순으로 정렬된다")
     void top3OrderedByLikeCountDesc() throws Exception {
         Party lowLikeParty = savePartyOwnedBy("user1@test.com", 2);

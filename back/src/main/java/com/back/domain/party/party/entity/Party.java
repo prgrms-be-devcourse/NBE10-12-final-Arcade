@@ -42,6 +42,9 @@ public class Party extends BaseEntity {
     @Lob
     private String description;
 
+    // 목록 카드가 대회 형식(공모전/해커톤) 태그를 그리느라 매번 건드린다.
+    // 지연 로딩이라 카드 수만큼 쿼리가 나갈 수 있어 Contest 엔티티에 @BatchSize 를 걸어 묶는다
+    // (to-one 은 필드가 아니라 대상 엔티티 클래스에 붙여야 한다).
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "target_contest_id")
     private Contest targetContest;

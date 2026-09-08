@@ -2,6 +2,7 @@ package com.back.domain.search.search.service.party;
 
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
+import com.back.domain.party.application.repository.PartyMemberRepository;
 import com.back.domain.party.party.dtos.PartyListItemDto;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.entity.PartyTag;
@@ -38,6 +39,7 @@ public class PartySearchService {
     private final RelatedTermExpansionPort relatedTermExpansionPort;
     private final PartyMatchQueryPort partyMatchQueryPort;
     private final PartyRepository partyRepository;
+    private final PartyMemberRepository partyMemberRepository;
     private final SearchLogService searchLogService;
 
     public PartySearchResultDto search(
@@ -71,7 +73,9 @@ public class PartySearchService {
                 .toList();
         Page<Party> matched = new PageImpl<>(parties, pageable, matchedIds.getTotalElements());
 
-        Page<PartyListItemDto> dtoPage = matched.map(PartyListItemDto::new);
+        Map<Long, Long> applicantCounts = partyMemberRepository.countApplicantsByPartyIds(ids);
+        Page<PartyListItemDto> dtoPage = matched.map(party ->
+                new PartyListItemDto(party, applicantCounts.getOrDefault(party.getId(), 0L)));
         return new PartySearchResultDto(query, expanded, dtoPage);
     }
 }

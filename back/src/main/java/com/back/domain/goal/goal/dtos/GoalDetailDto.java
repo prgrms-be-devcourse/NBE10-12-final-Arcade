@@ -44,7 +44,7 @@ public record GoalDetailDto(
         if (goal instanceof Project project) {
             return new GoalDetailDto(
                     // PROJECT 의 result 는 없앴다 - 전시글 내용은 상세 응답의 project 블록에서 온다
-                    project.getTitle(), null,
+                    goal.getTitle(), null,
                     project.getPositionType(), project.getStartDate(), project.getEndDate(),
                     null, null, null, null, null, null, null, null,
                     null, null, null
@@ -53,7 +53,7 @@ public record GoalDetailDto(
 
         if (goal instanceof PersonalContest contest) {
             return new GoalDetailDto(
-                    contest.getTitle(), contest.getResult(),
+                    goal.getTitle(), contest.getResult(),
                     null, null, null,
                     contest.isTeam(), contest.getAwardDate(),
                     contest.getContestUrl(), contest.getTargetContestId(),
@@ -65,7 +65,7 @@ public record GoalDetailDto(
 
         if (goal instanceof PersonalChecklist checklist) {
             return new GoalDetailDto(
-                    checklist.getTitle(), null,
+                    goal.getTitle(), null,
                     null, null, null,
                     null, null, null, null, null, null, null, null,
                     checklist.getMemo(), checklist.getTargetDate(),

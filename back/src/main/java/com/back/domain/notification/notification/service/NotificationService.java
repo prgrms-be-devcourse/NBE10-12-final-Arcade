@@ -2,11 +2,11 @@ package com.back.domain.notification.notification.service;
 
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.notification.notification.dtos.NotificationDto;
-import com.back.domain.notification.notification.dtos.NotificationPageDto;
 import com.back.domain.notification.notification.dtos.NotificationReadResponse;
 import com.back.domain.notification.notification.entity.Notification;
 import com.back.domain.notification.notification.entity.NotificationType;
 import com.back.domain.notification.notification.repository.NotificationRepository;
+import com.back.global.dto.PageDto;
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -40,7 +40,7 @@ public class NotificationService {
         return notification;
     }
 
-    public NotificationPageDto getList(Member member, Boolean isRead, int page, int size) {
+    public PageDto<NotificationDto> getList(Member member, Boolean isRead, int page, int size) {
         PageRequest pageable = PageRequest.of(page, size, Sort.by(
                 Sort.Order.desc("createDate"),
                 Sort.Order.desc("id")
@@ -50,7 +50,7 @@ public class NotificationService {
                 ? notificationRepository.findByMember(member, pageable)
                 : notificationRepository.findByMemberAndIsRead(member, isRead, pageable);
 
-        return new NotificationPageDto(notifications.map(NotificationDto::new));
+        return new PageDto<>(notifications.map(NotificationDto::new));
     }
 
     @Transactional

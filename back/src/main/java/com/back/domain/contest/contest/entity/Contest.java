@@ -8,9 +8,11 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Lob;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.BatchSize;
 
 import java.time.LocalDate;
 
+@BatchSize(size = 100)
 @Entity
 @Getter
 @NoArgsConstructor
