@@ -1,8 +1,13 @@
 package com.back.domain.search.search.service.party;
 
+import com.back.domain.member.member.entity.PositionType;
+import com.back.domain.party.party.entity.PartyTag;
+import com.back.domain.party.party.entity.TopicType;
 import com.back.domain.party.position.entity.PartyStatus;
+import com.back.domain.party.position.entity.Position;
 import com.back.domain.search.search.entity.party.PartySearchKeyword;
 import com.back.domain.search.search.repository.party.PartySearchKeywordRepository;
+import jakarta.persistence.criteria.Subquery;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.domain.Page;
@@ -22,8 +27,19 @@ public class PartyMatchQueryLikeService implements PartyMatchQueryPort {
     private final PartySearchKeywordRepository partySearchKeywordRepository;
 
     @Override
-    public Page<Long> findMatchingPartyIds(List<String> keywords, Pageable pageable) {
-        Specification<PartySearchKeyword> spec = matchesAnyKeyword(keywords).and(isRecruiting()).and(orderByPartyIdDesc());
+    public Page<Long> findMatchingPartyIds(
+            List<String> keywords,
+            PartyTag partyTag,
+            TopicType topicType,
+            PositionType positionType,
+            Pageable pageable
+    ) {
+        Specification<PartySearchKeyword> spec = matchesAnyKeyword(keywords)
+                .and(isRecruiting())
+                .and(hasPartyEnumEquals("partyTag", partyTag))
+                .and(hasPartyEnumEquals("topicType", topicType))
+                .and(hasPositionType(positionType))
+                .and(orderByPartyIdDesc());
 
         return partySearchKeywordRepository.findAll(spec, pageable)
                 .map(psk -> psk.getParty().getId());
@@ -47,6 +63,29 @@ public class PartyMatchQueryLikeService implements PartyMatchQueryPort {
 
     private Specification<PartySearchKeyword> isRecruiting() {
         return (root, query, cb) -> cb.equal(root.get("party").get("status"), PartyStatus.RECRUITING);
+    }
+
+    private <E extends Enum<E>> Specification<PartySearchKeyword> hasPartyEnumEquals(String attribute, E value) {
+        if (value == null) {
+            return Specification.unrestricted();
+        }
+        return (root, query, cb) -> cb.equal(root.get("party").get(attribute), value);
+    }
+
+    private Specification<PartySearchKeyword> hasPositionType(PositionType positionType) {
+        if (positionType == null) {
+            return Specification.unrestricted();
+        }
+        return (root, query, cb) -> {
+            Subquery<Long> subquery = query.subquery(Long.class);
+            var positionRoot = subquery.from(Position.class);
+            subquery.select(cb.literal(1L))
+                    .where(
+                            cb.equal(positionRoot.get("party"), root.get("party")),
+                            cb.equal(positionRoot.get("type"), positionType)
+                    );
+            return cb.exists(subquery);
+        };
     }
 
     private Specification<PartySearchKeyword> orderByPartyIdDesc() {

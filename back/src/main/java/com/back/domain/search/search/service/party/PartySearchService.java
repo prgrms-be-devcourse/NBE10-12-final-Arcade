@@ -1,9 +1,12 @@
 package com.back.domain.search.search.service.party;
 
 import com.back.domain.member.member.entity.Member;
+import com.back.domain.member.member.entity.PositionType;
+import com.back.domain.party.application.repository.PartyMemberRepository;
 import com.back.domain.party.party.dtos.PartyListItemDto;
 import com.back.domain.party.party.entity.Party;
-import com.back.domain.party.application.repository.PartyMemberRepository;
+import com.back.domain.party.party.entity.PartyTag;
+import com.back.domain.party.party.entity.TopicType;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.search.search.dtos.PartySearchResultDto;
 import com.back.domain.search.search.service.SearchLogService;
@@ -39,7 +42,14 @@ public class PartySearchService {
     private final PartyMemberRepository partyMemberRepository;
     private final SearchLogService searchLogService;
 
-    public PartySearchResultDto search(Member actor, String query, Pageable pageable) {
+    public PartySearchResultDto search(
+            Member actor,
+            String query,
+            PartyTag partyTag,
+            TopicType topicType,
+            PositionType positionType,
+            Pageable pageable
+    ) {
         List<String> extracted = keywordExtractionPort.extract(query);
         if (extracted.isEmpty()) {
             throw new ServiceException("400-4", "검색어가 너무 짧습니다.");
@@ -53,7 +63,7 @@ public class PartySearchService {
             log.warn("검색 기록 저장에 실패했습니다.", e);
         }
 
-        Page<Long> matchedIds = partyMatchQueryPort.findMatchingPartyIds(expanded, pageable);
+        Page<Long> matchedIds = partyMatchQueryPort.findMatchingPartyIds(expanded, partyTag, topicType, positionType, pageable);
         List<Long> ids = matchedIds.getContent();
         Map<Long, Party> partyById = partyRepository.findAllByIdIn(ids).stream()
                 .collect(Collectors.toMap(Party::getId, Function.identity()));

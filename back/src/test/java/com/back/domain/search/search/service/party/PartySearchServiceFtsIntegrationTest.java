@@ -59,7 +59,7 @@ class PartySearchServiceFtsIntegrationTest {
         ));
         partySearchKeywordRepository.save(new PartySearchKeyword(party, "백엔드 스터디"));
 
-        PartySearchResultDto result = partySearchService.search(null, "백엔드", PageRequest.of(0, 10));
+        PartySearchResultDto result = partySearchService.search(null, "백엔드", null, null, null, PageRequest.of(0, 10));
 
         assertThat(result.content()).extracting("id").contains(party.getId());
         assertThat(result.totalElements()).isEqualTo(1);
@@ -74,7 +74,7 @@ class PartySearchServiceFtsIntegrationTest {
         ));
         partySearchKeywordRepository.save(new PartySearchKeyword(party, "자바스크립트 스터디"));
 
-        PartySearchResultDto result = partySearchService.search(null, "자바", PageRequest.of(0, 10));
+        PartySearchResultDto result = partySearchService.search(null, "자바", null, null, null, PageRequest.of(0, 10));
 
         assertThat(result.content()).extracting("id").doesNotContain(party.getId());
     }

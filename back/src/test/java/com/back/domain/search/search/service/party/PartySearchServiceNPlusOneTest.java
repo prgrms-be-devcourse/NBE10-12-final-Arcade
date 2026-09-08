@@ -73,7 +73,7 @@ class PartySearchServiceNPlusOneTest {
         statistics.clear();
 
         Page<Long> matchedIds = partyMatchQueryLikeService.findMatchingPartyIds(
-                List.of("오너엔플러스원테스트"), PageRequest.of(0, 10)
+                List.of("오너엔플러스원테스트"), null, null, null, PageRequest.of(0, 10)
         );
         List<Party> parties = partyRepository.findAllByIdIn(matchedIds.getContent());
         // 지원자 수도 파티마다 세지 않고 한 번에 집계한다 - 카드 수와 무관하게 쿼리 1방이다

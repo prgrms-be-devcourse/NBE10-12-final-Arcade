@@ -53,7 +53,7 @@ class PartyMatchQueryLikeServiceEscapingTest {
         partySearchKeywordRepository.save(new PartySearchKeyword(wildcardOnlyMatch, "aXXXb 스터디"));
 
         Page<Long> result = partyMatchQueryLikeService.findMatchingPartyIds(
-                List.of("a%b"), PageRequest.of(0, 10)
+                List.of("a%b"), null, null, null, PageRequest.of(0, 10)
         );
 
         assertThat(result.getContent()).contains(literalMatch.getId());

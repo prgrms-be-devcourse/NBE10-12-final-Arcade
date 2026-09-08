@@ -57,7 +57,7 @@ class PartySearchKeywordRepositoryFtsTest {
         partySearchKeywordRepository.save(new PartySearchKeyword(party, "백엔드 스터디"));
 
         Page<Long> result = partySearchKeywordRepository.searchPartyIdsByKeywords(
-                "백엔드", "RECRUITING", PageRequest.of(0, 10)
+                "백엔드", "RECRUITING", null, null, null, PageRequest.of(0, 10)
         );
 
         assertThat(result.getContent()).contains(party.getId());
@@ -73,7 +73,7 @@ class PartySearchKeywordRepositoryFtsTest {
         partySearchKeywordRepository.save(new PartySearchKeyword(party, "프론트엔드 스터디"));
 
         Page<Long> result = partySearchKeywordRepository.searchPartyIdsByKeywords(
-                "게임개발", "RECRUITING", PageRequest.of(0, 10)
+                "게임개발", "RECRUITING", null, null, null, PageRequest.of(0, 10)
         );
 
         assertThat(result.getContent()).doesNotContain(party.getId());
@@ -89,7 +89,7 @@ class PartySearchKeywordRepositoryFtsTest {
         partySearchKeywordRepository.save(new PartySearchKeyword(party, "C++ 스터디"));
 
         Page<Long> result = partySearchKeywordRepository.searchPartyIdsByKeywords(
-                "C++ | C#", "RECRUITING", PageRequest.of(0, 10)
+                "C++ | C#", "RECRUITING", null, null, null, PageRequest.of(0, 10)
         );
 
         assertThat(result.getContent()).contains(party.getId());

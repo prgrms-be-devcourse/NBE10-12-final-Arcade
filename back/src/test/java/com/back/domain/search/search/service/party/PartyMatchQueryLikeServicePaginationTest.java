@@ -52,9 +52,9 @@ class PartyMatchQueryLikeServicePaginationTest {
 
         List<String> keywords = List.of("페이징테스트");
 
-        Page<Long> page0 = partyMatchQueryLikeService.findMatchingPartyIds(keywords, PageRequest.of(0, 2));
-        Page<Long> page1 = partyMatchQueryLikeService.findMatchingPartyIds(keywords, PageRequest.of(1, 2));
-        Page<Long> page2 = partyMatchQueryLikeService.findMatchingPartyIds(keywords, PageRequest.of(2, 2));
+        Page<Long> page0 = partyMatchQueryLikeService.findMatchingPartyIds(keywords, null, null, null, PageRequest.of(0, 2));
+        Page<Long> page1 = partyMatchQueryLikeService.findMatchingPartyIds(keywords, null, null, null, PageRequest.of(1, 2));
+        Page<Long> page2 = partyMatchQueryLikeService.findMatchingPartyIds(keywords, null, null, null, PageRequest.of(2, 2));
 
         List<Long> allIds = List.of(page0, page1, page2).stream()
                 .flatMap(p -> p.getContent().stream())
