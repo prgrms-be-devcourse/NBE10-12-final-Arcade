@@ -61,7 +61,7 @@ class PartySearchServiceNPlusOneTest {
             Member owner = memberRepository.save(new Member("owner-nplus1-" + i + "@test.com", "pw", "owner" + i, null));
             Party party = partyRepository.save(new Party(
                     owner, "파티명" + i, "제목" + i, null, null, "외부 대회", "https://example.com",
-                    TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7)
+                    TopicType.STUDY, PartyTag.WEB, null, LocalDateTime.now().plusDays(7)
             ));
             partySearchKeywordRepository.save(new PartySearchKeyword(party, "오너엔플러스원테스트 스터디"));
         }

@@ -76,7 +76,7 @@ public class ApiV1PartyApplicationControllerTest {
                 TopicType.PROJECT,
                 PartyTag.WEB,
                 null,
-                1,
+                
                 LocalDateTime.now().plusDays(7)
         );
         party.addPosition(new Position(PositionType.BACK, 2));
@@ -333,7 +333,7 @@ public class ApiV1PartyApplicationControllerTest {
                 TopicType.PROJECT,
                 PartyTag.WEB,
                 null,
-                1,
+                
                 LocalDateTime.now().plusDays(7)
         );
         party.addPosition(new Position(PositionType.BACK, 1)); // 정원 1명
