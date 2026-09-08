@@ -42,12 +42,16 @@ interface PartyListItemResponse {
   partyName: string;
   title: string;
   topicType: TopicType;
+  /** 연동된 등록 대회의 형식. 대회 파티가 아니거나 미등록 외부 대회면 null */
+  contestFormat: ContestFormat | null;
   status: PartyStatus;
   partyTag: PartyTag;
   deadline: string;
   dDay: number;
   likeCount: number;
   viewCount: number;
+  /** 지원자 수 전체. 이 값을 세지 않는 조회(홈 TOP3·검색)에서는 null */
+  applicantCount: number | null;
   positions: PositionResponse[];
 }
 
@@ -62,16 +66,20 @@ interface PartySearchResponse {
   totalPages: number;
 }
 
-/** PartyDto — 상세. 목록보다 필드가 많다 */
+/**
+ * PartyDto — 상세. 목록보다 필드가 많지만 contestFormat·applicantCount 는 빠져 있어,
+ * toParty 가 그 둘을 기본값으로 채운다.
+ */
 interface PartyResponse extends Omit<PartyListItemResponse, 'ownerName'> {
   ownerId: number;
   ownerName: string;
   description: string | null;
-  targetContestId: number | null;
-  contestName: string | null;
+  /** 크루온에 등록된 대회와 연결된 경우에만 값 존재 */
+  targetContest: { id: number; title: string } | null;
+  /** 미등록 외부 대회의 자유 입력 이름 */
+  contestTitle: string | null;
   contestLinkUrl: string | null;
   githubRepoUrl: string | null;
-  checklistRequiredApprovals: number;
 }
 
 /** PartyApplicationDto */
@@ -126,7 +134,6 @@ function toUserSummary(id: string, name: string): UserSummary {
  *
  * 목록 응답에 없어서 비워 두는 값:
  * - summary, tags   : 서버 목록 DTO 에 본문·태그가 없다
- * - applicants      : 지원자 수 필드가 없다 (filledCount 는 승인 인원이라 다른 값이다)
  * - createdAt       : 서버가 생성일을 내려주지 않는다
  * - leader.id       : 목록 DTO 에 ownerId 가 없다 (상세에는 있다)
  */
@@ -136,13 +143,14 @@ function toParty(dto: PartyListItemResponse): Party {
     title: dto.title,
     summary: '',
     topicType: dto.topicType,
+    contestFormat: dto.contestFormat ?? undefined,
     subCategory: TAG_TO_LABEL[dto.partyTag],
     positions: dto.positions.map((position) => ({
       type: toPositionType(position.type),
       capacity: position.capacity,
       filledCount: position.filledCount,
     })),
-    applicants: 0,
+    applicants: dto.applicantCount ?? 0,
     dday: dto.dDay >= 0 ? `D-${dto.dDay}` : '마감',
     deadline: dto.deadline,
     createdAt: '',
@@ -169,11 +177,10 @@ function toPartyDetail(dto: PartyResponse): PartyDetail {
     leader: toUserSummary(String(dto.ownerId), dto.ownerName),
     summary: dto.description ?? '',
     description: dto.description ?? '',
-    contestId: dto.targetContestId != null ? String(dto.targetContestId) : undefined,
-    contestName: dto.contestName ?? undefined,
+    contestId: dto.targetContest ? String(dto.targetContest.id) : undefined,
+    contestName: dto.targetContest?.title ?? dto.contestTitle ?? undefined,
     contestLinkUrl: dto.contestLinkUrl ?? undefined,
     githubRepoUrl: dto.githubRepoUrl ?? undefined,
-    checklistRequiredApprovals: dto.checklistRequiredApprovals,
     schedule: '',
     meetingType: '',
     members: [],
@@ -410,14 +417,11 @@ function toPartyRequestBody(payload: PartyFormPayload) {
     title: payload.title,
     description: payload.description,
     targetContestId: payload.contestId ? Number(payload.contestId) : null,
-    contestName: payload.contestName ?? null,
+    contestTitle: payload.contestName ?? null,
     contestLinkUrl: payload.contestLinkUrl ?? null,
     topicType: payload.topicType,
     partyTag: toPartyTag(payload.subCategory) ?? 'ETC',
     githubRepoUrl: payload.repositoryUrl ?? null,
-    // 서버 요청 record 의 int 필드라 값을 빼면 본문 파싱 자체가 실패한다(400-2).
-    // 진행 기록 방식이 커밋 기반으로 바뀌는 중이라 폼에 입력칸이 없어, 최소값 1 로 보낸다.
-    checklistRequiredApprovals: 1,
     deadline,
     positions: payload.positions.map((position) => ({
       name: position.type,
@@ -468,7 +472,7 @@ export async function closePartyRecruit(id: string): Promise<void> {
   await http.post<PartyResponse>(`/parties/${id}/close-recruiting`);
 }
 
-/** POST /api/v1/parties/{partyId}/complete — 파티 완료 판정 */
+/** POST /api/v1/parties/{partyId}/complete — 파티 진행 완료 */
 export async function completeParty(id: string): Promise<void> {
   if (USE_MOCK) return mockResponse(undefined as void);
   await http.post<PartyResponse>(`/parties/${id}/complete`);

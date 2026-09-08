@@ -191,8 +191,6 @@ export interface PartyDetail extends Party {
   description: string;
   /** 파티 등록 시 입력한 GitHub 저장소 주소 */
   githubRepoUrl?: string;
-  /** 커밋 동료 승인 정족수 */
-  checklistRequiredApprovals?: number;
   schedule: string;
   meetingType: string;
   members: UserSummary[];
@@ -281,22 +279,19 @@ export interface ExhibitionDetail extends ExhibitionProject {
   comments: ThreadComment[];
 }
 
-/* ---------- 팀 스페이스 ---------- */
+/* ---------- 개인 TODO · 댓글 ---------- */
 
-/** 개인 TODO(성취 CHECKLIST 타입)의 항목 상태 */
-export type ChecklistState = 'open' | 'requested' | 'done';
+/** 개인 TODO 항목 상태 (백엔드 PersonalTodoItem.done 을 화면에서 쓰는 표현) */
+export type ChecklistState = 'open' | 'done';
 
 export interface ChecklistItem {
   id: ID;
   content: string;
   state: ChecklistState;
-  assignee: string | null;
-  approvals: number;
-  quorum: number;
 }
 
 /**
- * 댓글 — 커밋(팀 협업)과 전시 상세에서 함께 쓴다.
+ * 댓글 — 전시 상세에서 쓴다.
  *
  * 서버는 (target_id, 작성자, 내용, parentCommentId, 작성일시) 로 평평하게 저장하고,
  * 화면은 원댓글 아래 답글을 묶어 그리므로 여기서는 중첩 형태로 다룬다.
@@ -310,54 +305,6 @@ export interface ThreadComment {
   createdAt: string;
   /** 원댓글에만 값이 있다. 답글은 항상 빈 배열이다. */
   replies: ThreadComment[];
-}
-
-/**
- * GitHub 웹훅(push 이벤트)으로 받아오는 커밋 한 건.
- *
- * 저장 스키마(ERD)는 아직 미정이라, push payload 의 commits[] 에서 바로 뽑을 수 있는
- * 값만 골라 담았다 — 해시 · 제목 · 작성자 · 시각 · 브랜치 · 변경량 · 원본 링크.
- */
-export interface TeamCommit {
-  id: ID;
-  /** 짧은 해시 (7자리) */
-  sha: string;
-  /** 커밋 메시지 첫 줄 */
-  message: string;
-  authorName: string;
-  authorInitial: string;
-  /** GitHub username — 회원 프로필의 githubUsername 과 맞춰 크루온 계정에 연결한다 */
-  githubUsername: string;
-  /** 매칭된 크루온 회원 id (매칭 실패 시 없음) */
-  memberId?: ID;
-  /** 그룹 헤더로 쓰는 날짜 (YYYY.MM.DD) */
-  date: string;
-  /** 화면에 보여줄 시각 (HH:mm) */
-  time: string;
-  branch: string;
-  additions: number;
-  deletions: number;
-  changedFiles: number;
-  url: string;
-  /** 동료 승인 — 정족수를 채우면 approved 로 바뀐다 */
-  approvalState: 'pending' | 'approved';
-  approvals: number;
-  quorum: number;
-  /** 승인한 팀원 이름 */
-  approvers: string[];
-}
-
-export interface TeamSpace {
-  id: ID;
-  partyId: ID;
-  title: string;
-  contestName?: string;
-  period: string;
-  members: UserSummary[];
-  /** 커밋 완료 승인에 필요한 인원 수 (최소 1, 상한은 팀 인원 수) */
-  commitQuorum: number;
-  /** 커밋 id → 댓글 목록 */
-  threads: Record<ID, ThreadComment[]>;
 }
 
 /* ---------- 라이브 채팅 ---------- */
