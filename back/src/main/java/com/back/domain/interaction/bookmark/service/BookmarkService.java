@@ -71,16 +71,19 @@ public class BookmarkService implements BookmarkInteractionPort {
         Map<TargetType, Map<Long, Object>> cards = Map.of(
                 TargetType.PARTY, partyCards(idsByType.getOrDefault(TargetType.PARTY, List.of())),
                 TargetType.CONTEST, contestCards(idsByType.getOrDefault(TargetType.CONTEST, List.of())),
-                TargetType.GOAL, goalCards(idsByType.getOrDefault(TargetType.GOAL, List.of()))
+                TargetType.GOAL, goalCards(idsByType.getOrDefault(TargetType.GOAL, List.of())),
+                TargetType.PARTY_SHOWCASE, partyShowcaseCards(idsByType.getOrDefault(TargetType.PARTY_SHOWCASE, List.of()))
         );
 
         // 대상이 사라졌거나 전시가 내려간 북마크는 그릴 카드가 없어 건너뛴다.
-        // 삭제 시 deleteAllBookmarksForTarget 이 정리하지만, 놓친 행이 500 을 내지 않게 한다.
+        // cards.get(...)이 null일 수도 있으니(4종 외 targetType 방어) getOrDefault로 감싼다
         List<MyBookmarkDto> content = bookmarks.getContent().stream()
-                .filter(bookmark -> cards.get(bookmark.getTargetType()).containsKey(bookmark.getTargetId()))
+                .filter(bookmark -> cards.getOrDefault(bookmark.getTargetType(), Map.of())
+                        .containsKey(bookmark.getTargetId()))
                 .map(bookmark -> new MyBookmarkDto(
                         bookmark.getId(),
-                        bookmark.getTargetType(),
+                        // PARTY_SHOWCASE는 내부 저장 방식일 뿐, 프론트에는 여전히 성취(GOAL) 카드로 노출한다.
+                        bookmark.getTargetType() == TargetType.PARTY_SHOWCASE ? TargetType.GOAL : bookmark.getTargetType(),
                         cards.get(bookmark.getTargetType()).get(bookmark.getTargetId()),
                         bookmark.getCreateDate()))
                 .toList();
@@ -126,6 +129,19 @@ public class BookmarkService implements BookmarkInteractionPort {
         return goalRepository.findAllById(goalIds).stream()
                 .filter(Goal::isExhibited)
                 .collect(Collectors.toMap(Goal::getId, showcaseService::toDto));
+    }
+
+    // 전시된 프로젝트 성취의 북마크는 GOAL이 아니라 PARTY_SHOWCASE로 저장된다(3.2)
+    // 같은 전시글을 파티원 수만큼 나눠 가진 Project 중 대표 1건만 있으면 카드를 조립할 수 있다
+    private Map<Long, Object> partyShowcaseCards(List<Long> showcaseIds) {
+        if (showcaseIds.isEmpty()) {
+            return Map.of();
+        }
+
+        return goalRepository.findRepresentativeProjectsByShowcaseIds(showcaseIds).stream()
+                .collect(Collectors.toMap(
+                        project -> project.getPartyShowcase().getId(),
+                        showcaseService::toDto));
     }
 
     public boolean isBookmarked(Member member, TargetType targetType, long targetId) {
