@@ -14,6 +14,4 @@ public interface ActivityLogRepository extends JpaRepository<ActivityLog, Long> 
 
     // 스트릭과 히트맵이 같은 조회를 쓴다. 임계값 최대가 200일이라 그만큼만 읽으면 충분하다.
     List<ActivityLog> findAllByMemberAndActivityDateGreaterThanEqual(Member member, LocalDate from);
-
-    boolean existsBy();
 }

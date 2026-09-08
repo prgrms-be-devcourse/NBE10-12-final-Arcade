@@ -1,7 +1,5 @@
 package com.back.domain.party.application.repository;
 
-import java.time.LocalDateTime;
-import com.back.domain.activity.activity.dtos.MemberActivityAt;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.party.application.dtos.PartyApplicantCount;
 import com.back.domain.member.member.entity.PositionType;
@@ -74,14 +72,6 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
             @Param("positionType") PositionType positionType,
             Pageable pageable
     );
-
-    // ACTIVITY_LOG 백필용. 엔티티가 아니라 (회원, 시각)만 읽는다.
-    @Query("""
-            select new com.back.domain.activity.activity.dtos.MemberActivityAt(pm.member.id, pm.createDate)
-            from PartyMember pm
-            where pm.createDate >= :from
-            """)
-    List<MemberActivityAt> findActivityAtSince(@Param("from") LocalDateTime from);
 
     // 목록 카드의 '지원자 N명'. 승인 인원(Position.filledCount)과 다른 값이라 따로 센다 -
     // 거절된 건까지 포함한, 그 파티에 지원한 사람 수 전체다.
