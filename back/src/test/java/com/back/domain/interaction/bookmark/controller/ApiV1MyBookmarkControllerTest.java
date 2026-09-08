@@ -230,7 +230,7 @@ public class ApiV1MyBookmarkControllerTest {
 
         Party party = new Party(
                 owner, "북마크 테스트용 파티", "북마크 테스트용 파티 모집", "설명",
-                null, null, null, TopicType.PROJECT, PartyTag.WEB, null, 
+                null, null, null, TopicType.PROJECT, PartyTag.WEB, null,
                 LocalDateTime.now().plusDays(7)
         );
         party.addPosition(new Position(PositionType.BACK, 2));

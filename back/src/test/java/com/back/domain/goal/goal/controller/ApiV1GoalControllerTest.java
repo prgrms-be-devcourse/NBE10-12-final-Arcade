@@ -98,7 +98,7 @@ public class ApiV1GoalControllerTest {
                 owner, "오락실 팀", "오락실 공모전 팀원 모집", "설명",
                 null, null, null,
                 TopicType.PROJECT, PartyTag.WEB,
-                "https://github.com/crewon/oakroom", 
+                "https://github.com/crewon/oakroom",
                 LocalDateTime.now().plusDays(7)
         );
         party.addPosition(new Position(PositionType.BACK, 3));

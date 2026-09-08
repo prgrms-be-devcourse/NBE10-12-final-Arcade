@@ -156,7 +156,7 @@ public class ApiV1MemberProfileControllerTest {
     private Party newParty(Member owner) {
         Party party = new Party(
                 owner, "파티", "제목", "설명", null, null, null,
-                TopicType.PROJECT, PartyTag.WEB, null, 
+                TopicType.PROJECT, PartyTag.WEB, null,
                 LocalDateTime.now().plusDays(7));
         party.addPosition(new Position(PositionType.BACK, 3));
 
