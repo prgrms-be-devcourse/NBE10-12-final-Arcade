@@ -25,11 +25,19 @@ public record PartyListItemDto(
         long dDay,
         int likeCount,
         int viewCount,
-        /** 지원한 사람 수 전체. 승인 인원(positions[].filledCount)과는 다른 값이다 */
-        long applicantCount,
+        /**
+         * 지원한 사람 수 전체. 승인 인원(positions[].filledCount)과는 다른 값이다.
+         * 이 값을 세지 않는 조회(홈 TOP3)에서는 null - 0(지원자 없음)과 구분된다.
+         */
+        Long applicantCount,
         List<PositionDto> positions
 ) {
-    public PartyListItemDto(Party party, long applicantCount) {
+    // 지원자 수를 세지 않는 조회용. 세는 쪽은 아래 생성자로 값을 넘긴다.
+    public PartyListItemDto(Party party) {
+        this(party, null);
+    }
+
+    public PartyListItemDto(Party party, Long applicantCount) {
         this(
                 party.getId(),
                 party.getOwner().getName(),
