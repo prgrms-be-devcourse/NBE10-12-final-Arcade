@@ -309,21 +309,52 @@ export async function fetchRecommendedParties(): Promise<(Party & { why: string 
   return mockResponse(MOCK_RECOMMENDED_PARTIES);
 }
 
+/** /parties/search 의 카테고리 필터 — 서버가 분야·유형·포지션으로 걸러 준다 */
+export interface PartySearchFilters {
+  /** 주제 유형 — '전체' 면 필터를 걸지 않는다 */
+  topicType?: TopicType | '전체';
+  /** 분야 — 화면 라벨('웹 개발' 등)을 서버 PartyTag 로 변환해 보낸다 */
+  subCategory?: string;
+  /** 포지션 — '전체' 면 필터를 걸지 않는다 */
+  position?: PositionType | '전체';
+}
+
 /** GET /api/v1/parties/search — 형태소 분석 기반 유사 파티 검색 (keyword 필터와 별개) */
 export async function fetchPartySearch(
   query: string,
-  options: { page?: number; size?: number } = {},
+  options: { page?: number; size?: number } & PartySearchFilters = {},
 ): Promise<Party[]> {
   const q = query.trim();
   if (!q) return [];
 
+  const topicType = options.topicType === '전체' ? undefined : options.topicType;
+  const position = options.position === '전체' ? undefined : options.position;
+  const partyTag = toPartyTag(options.subCategory);
+
   if (USE_MOCK) {
-    return mockResponse(MOCK_PARTIES.filter((party) => party.title.includes(q)));
+    return mockResponse(
+      MOCK_PARTIES.filter(
+        (party) =>
+          party.title.includes(q) &&
+          (!topicType || party.topicType === topicType) &&
+          (!options.subCategory ||
+            options.subCategory === '전체' ||
+            party.subCategory === options.subCategory) &&
+          (!position || party.positions.some((slot) => slot.type === position)),
+      ),
+    );
   }
 
   try {
     const result = await http.get<PartySearchResponse>('/parties/search', {
-      query: { q, page: options.page ?? 0, size: options.size ?? 20 },
+      query: {
+        q,
+        partyTag,
+        topicType,
+        positionType: position,
+        page: options.page ?? 0,
+        size: options.size ?? 20,
+      },
     });
     return result.content.map(toParty);
   } catch (error) {
