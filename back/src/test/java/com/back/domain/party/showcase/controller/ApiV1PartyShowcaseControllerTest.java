@@ -66,7 +66,6 @@ public class ApiV1PartyShowcaseControllerTest {
                 TopicType.PROJECT,
                 PartyTag.WEB,
                 "https://github.com/example/arcade",
-                
                 LocalDateTime.now().plusDays(7)
         );
         party.addPosition(new Position(PositionType.BACK, 2));
