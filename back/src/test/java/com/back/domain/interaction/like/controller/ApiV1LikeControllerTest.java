@@ -5,6 +5,7 @@ import com.back.domain.contest.contest.entity.ContestFormat;
 import com.back.domain.contest.contest.entity.ContestTag;
 import com.back.domain.contest.contest.service.ContestService;
 import com.back.domain.goal.goal.entity.GoalStatus;
+import com.back.domain.goal.goal.entity.Goal;
 import com.back.domain.goal.goal.entity.PersonalChecklist;
 import com.back.domain.goal.goal.entity.Project;
 import com.back.domain.goal.goal.repository.GoalRepository;
@@ -101,7 +102,6 @@ public class ApiV1LikeControllerTest {
         return partyRepository.save(party);
     }
 
-    // 자기신고 성취 - 완료(ACHIEVED) 상태라 전시 가능
     private long saveAchievedGoal(String ownerEmail) {
         Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
         PersonalChecklist checklist = new PersonalChecklist(
@@ -110,7 +110,6 @@ public class ApiV1LikeControllerTest {
         return goalRepository.save(checklist).getId();
     }
 
-    // 자기신고 성취 - 아직 진행 중이라 전시 불가
     private long saveInProgressGoal(String ownerEmail) {
         Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
         PersonalChecklist checklist = new PersonalChecklist(
@@ -119,7 +118,6 @@ public class ApiV1LikeControllerTest {
         return goalRepository.save(checklist).getId();
     }
 
-    // PROJECT 성취 - 완료됐지만 파티장이 아직 전시글을 게시하지 않아 전시 불가
     private long saveUnpublishedProjectGoal(String ownerEmail, long partyAssembleToMemberId) {
         Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
         Party party = saveParty(ownerEmail);
@@ -132,7 +130,6 @@ public class ApiV1LikeControllerTest {
         return goalRepository.save(project).getId();
     }
 
-    // PROJECT 성취 - 완료 + 파티장이 전시글까지 게시해서 전시 가능
     private long savePublishedProjectGoal(String ownerEmail, long partyAssembleToMemberId) {
         Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
         Party party = saveParty(ownerEmail);
@@ -148,6 +145,35 @@ public class ApiV1LikeControllerTest {
         project.linkShowcase(showcase);
 
         return goalRepository.save(project).getId();
+    }
+
+    private record TeamProjectGoals(long goalIdA, long goalIdB) {
+    }
+
+    private TeamProjectGoals savePublishedProjectGoalsSharingShowcase(String memberAEmail, String memberBEmail) {
+        Party party = saveParty(memberAEmail);
+
+        PartyShowcase showcase = new PartyShowcase(party);
+        showcase.publish("정산 자동화 API", "설명");
+        partyShowcaseRepository.save(showcase);
+
+        Member memberA = memberRepository.findByEmail(memberAEmail).orElseThrow();
+        Project projectA = new Project(
+                memberA, 501L, party.getId(), "정산 자동화 API", PositionType.BACK, LocalDate.now()
+        );
+        projectA.complete(LocalDate.now());
+        projectA.linkShowcase(showcase);
+        long goalIdA = goalRepository.save(projectA).getId();
+
+        Member memberB = memberRepository.findByEmail(memberBEmail).orElseThrow();
+        Project projectB = new Project(
+                memberB, 502L, party.getId(), "정산 자동화 API", PositionType.FRONT, LocalDate.now()
+        );
+        projectB.complete(LocalDate.now());
+        projectB.linkShowcase(showcase);
+        long goalIdB = goalRepository.save(projectB).getId();
+
+        return new TeamProjectGoals(goalIdA, goalIdB);
     }
 
     @Test
@@ -460,5 +486,37 @@ public class ApiV1LikeControllerTest {
         mvc.perform(post("/api/v1/goals/" + goalId + "/likes"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.likeCount").value(1));
+    }
+
+    @Test
+    @DisplayName("성취 좋아요: 같은 파티 팀원 A, B의 PROJECT 성취는 같은 전시글(PARTY_SHOWCASE)로 라우팅되어, A를 좋아요한 뒤 B에 좋아요하면 409-1이다")
+    @WithUserDetails("user1@test.com")
+    void likeTeammateGoalConflictsWithSameShowcase() throws Exception {
+        TeamProjectGoals goals = savePublishedProjectGoalsSharingShowcase("user2@test.com", "admin");
+
+        mvc.perform(post("/api/v1/goals/" + goals.goalIdA() + "/likes"))
+                .andExpect(status().isCreated());
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/goals/" + goals.goalIdB() + "/likes"));
+
+        resultActions.andExpect(status().isConflict())
+                .andExpect(jsonPath("$.resultCode").value("409-1"));
+    }
+
+    @Test
+    @DisplayName("성취 좋아요: 팀원 A의 성취 좋아요를 취소하면, 같은 전시글을 가리키는 팀원 B의 성취에 다시 좋아요할 수 있다")
+    @WithUserDetails("user1@test.com")
+    void unlikeTeammateGoalAllowsLikingOtherTeammateGoal() throws Exception {
+        TeamProjectGoals goals = savePublishedProjectGoalsSharingShowcase("user2@test.com", "admin");
+
+        mvc.perform(post("/api/v1/goals/" + goals.goalIdA() + "/likes"))
+                .andExpect(status().isCreated());
+
+        mvc.perform(delete("/api/v1/goals/" + goals.goalIdA() + "/likes"))
+                .andExpect(status().isNoContent());
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/goals/" + goals.goalIdB() + "/likes"));
+
+        resultActions.andExpect(status().isCreated());
     }
 }

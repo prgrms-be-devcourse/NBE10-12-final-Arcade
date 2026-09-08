@@ -43,8 +43,8 @@ public class ShowcaseService {
             Party sourceParty = projectGoal.getPartyShowcase().getParty();
 
             party = new ShowcaseGoalDto.PartySummary(sourceParty.getId(), sourceParty.getPartyName());
-            likeCount = sourceParty.getLikeCount();
-            viewCount = sourceParty.getViewCount();
+            likeCount = projectGoal.getPartyShowcase().getLikeCount();
+            viewCount = projectGoal.getPartyShowcase().getViewCount();
             positionType = projectGoal.getPositionType();
         }
 
