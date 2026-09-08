@@ -2,6 +2,8 @@ import { StreakHeatmap } from './StreakHeatmap';
 
 interface HeroStatsProps {
   streakDays: number;
+  /** GET /members/me/summary 의 최근 8주 활동 농도(0~3). 비어 있으면 히트맵이 데모 값을 쓴다 */
+  activityHeatmap?: number[];
 }
 
 /**
@@ -15,7 +17,7 @@ interface HeroStatsProps {
  *   2. section 의 gridTemplateColumns 인라인 값 (2단으로 돌아간다)
  *   3. MypageView 의 <HeroStats ... badges={profile.badges} />
  */
-export function HeroStats({ streakDays }: HeroStatsProps) {
+export function HeroStats({ streakDays, activityHeatmap }: HeroStatsProps) {
   const remaining = Math.max(0, 30 - streakDays);
 
   return (
@@ -23,7 +25,7 @@ export function HeroStats({ streakDays }: HeroStatsProps) {
     <section className="hero-stats" data-reveal style={{ gridTemplateColumns: '1fr' }}>
       <div className="hero-stats-col">
         <h4>연속 활동</h4>
-        <StreakHeatmap />
+        <StreakHeatmap levels={activityHeatmap?.length ? activityHeatmap : undefined} />
         <p className="streak-caption">
           {streakDays}일 연속 기록 중 · 스트릭 배지(30일)까지 {remaining}일 남음
         </p>

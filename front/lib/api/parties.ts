@@ -21,12 +21,14 @@ import {
   MOCK_PARTY_DETAILS,
   MOCK_RECOMMENDED_PARTIES,
 } from '@/lib/mock';
+import { positionLabel } from '@/lib/constants';
 import { ApiError, USE_MOCK, http, mockResponse } from './client';
 
 /* ---------- 백엔드 응답 타입 ---------- */
 
 type PartyTag = 'WEB' | 'APP' | 'GAME' | 'ETC';
-type ServerPositionType = 'BACK' | 'FRONT' | 'UIUX' | 'PM';
+/** 서버 PositionType 과 화면 PositionType 이 같은 4종이라 그대로 쓴다 */
+type ServerPositionType = PositionType;
 
 interface PositionResponse {
   id: number;
@@ -36,7 +38,7 @@ interface PositionResponse {
 }
 
 /** PartyListItemDto */
-interface PartyListItemResponse {
+export interface PartyListItemResponse {
   id: number;
   ownerName: string;
   partyName: string;
@@ -87,6 +89,37 @@ interface PartyApplicationResponse {
   createDate: string;
 }
 
+/** MyApplicationDto — 내 지원 현황 한 건. 지원 id 는 내려오지 않는다 */
+interface MyApplicationResponse {
+  party: { id: number; name: string };
+  position: PositionType;
+  state: 'PENDING' | 'APPROVED' | 'REJECTED';
+}
+
+/**
+ * ReceivedApplicationDto — 파티장이 보는 지원 한 건.
+ * 카드 하나로 승인·거절을 판단할 수 있게 지원자 프로필과 성취 건수가 함께 온다(기획서 2.1).
+ */
+interface ReceivedApplicationResponse {
+  applicationId: number;
+  partyId: number;
+  partyName: string;
+  applicant: {
+    id: number;
+    name: string;
+    /** 프로필을 아직 만들지 않았으면 null */
+    nickname: string | null;
+    /** 프로필에 적어둔 희망 포지션. 이번에 지원한 position 과는 다른 값이다 */
+    preferredPosition: PositionType | null;
+    techStacks: string[];
+  };
+  position: PositionType;
+  state: 'PENDING' | 'APPROVED' | 'REJECTED';
+  message: string | null;
+  achievements: { platformVerified: number; selfReported: number };
+  createDate: string;
+}
+
 /** LikeDto */
 interface LikeResponse {
   targetType: 'PARTY' | 'CONTEST' | 'GOAL';
@@ -96,11 +129,6 @@ interface LikeResponse {
 }
 
 /* ---------- 매퍼 ---------- */
-
-/** 화면 PositionType 은 이번 스코프에서 BACK/FRONT 만 쓴다(lib/types.ts). 나머지는 BACK 으로 접는다 */
-function toPositionType(value: ServerPositionType): PositionType {
-  return value === 'FRONT' ? 'FRONT' : 'BACK';
-}
 
 /** 화면 필터가 쓰는 한글 분야 라벨 ↔ 서버 PartyTag */
 const TAG_TO_LABEL: Record<PartyTag, string> = {
@@ -130,7 +158,7 @@ function toUserSummary(id: string, name: string): UserSummary {
  * - createdAt       : 서버가 생성일을 내려주지 않는다
  * - leader.id       : 목록 DTO 에 ownerId 가 없다 (상세에는 있다)
  */
-function toParty(dto: PartyListItemResponse): Party {
+export function toParty(dto: PartyListItemResponse): Party {
   return {
     id: String(dto.id),
     title: dto.title,
@@ -138,7 +166,7 @@ function toParty(dto: PartyListItemResponse): Party {
     topicType: dto.topicType,
     subCategory: TAG_TO_LABEL[dto.partyTag],
     positions: dto.positions.map((position) => ({
-      type: toPositionType(position.type),
+      type: position.type,
       capacity: position.capacity,
       filledCount: position.filledCount,
     })),
@@ -188,22 +216,34 @@ const APPLICANT_STATUS: Record<PartyApplicationResponse['status'], ApplicantStat
 };
 
 /**
- * PartyApplicationDto → Applicant.
- * skills·achievements 는 지원자 성취 프로필 조회가 아직 응답에 없어 비워 둔다(기획서 9.2).
+ * ReceivedApplicationDto → Applicant.
+ *
+ * 성취는 건수만 오므로(목록이 필요하면 성취 API 를 쓴다) 카드 문구로 바꿔 싣는다.
+ * user.role 은 계정 권한이 아니라 화면에 보여주는 대표 포지션 문구다 - 지원자가 프로필에 적어둔 희망 포지션이다.
  */
-function toApplicant(dto: PartyApplicationResponse, partyName = ''): Applicant {
+function toReceivedApplicant(dto: ReceivedApplicationResponse): Applicant {
+  const displayName = dto.applicant.nickname?.trim() || dto.applicant.name;
+  const { platformVerified, selfReported } = dto.achievements;
+
   return {
-    id: String(dto.id),
+    id: String(dto.applicationId),
     partyId: String(dto.partyId),
-    partyName,
-    position: toPositionType(dto.positionType),
-    source: 'SELF_REPORTED',
-    user: toUserSummary(String(dto.applicantId), dto.applicantName),
+    partyName: dto.partyName,
+    position: dto.position,
+    // 카드의 출처 배지 - 자동기록 성취가 하나라도 있으면 그쪽을 앞세운다
+    source: platformVerified > 0 ? 'PLATFORM_VERIFIED' : 'SELF_REPORTED',
+    user: {
+      ...toUserSummary(String(dto.applicant.id), displayName),
+      role: dto.applicant.preferredPosition ? positionLabel(dto.applicant.preferredPosition) : '',
+    },
     appliedAt: dto.createDate,
-    status: APPLICANT_STATUS[dto.status],
+    status: APPLICANT_STATUS[dto.state],
     message: dto.message ?? '',
-    skills: [],
-    achievements: [],
+    skills: dto.applicant.techStacks,
+    achievements: [
+      `플랫폼 자동기록 ${platformVerified}건`,
+      `자기신고 ${selfReported}건`,
+    ],
   };
 }
 
@@ -509,7 +549,7 @@ export async function fetchMyPartyApplicants(
 ): Promise<Applicant[]> {
   const { partyId = '전체', position = '전체' } = query;
 
-  if (USE_MOCK || partyId === '전체' || !partyId) {
+  if (USE_MOCK) {
     return mockResponse(
       MOCK_APPLICANTS.filter(
         (applicant) =>
@@ -519,12 +559,17 @@ export async function fetchMyPartyApplicants(
     );
   }
 
-  const applications = await http.get<PartyApplicationResponse[]>(
-    `/parties/${partyId}/applications`,
+  const slice = await http.get<{ content: ReceivedApplicationResponse[] }>(
+    '/members/me/received-applications',
+    {
+      query: {
+        partyId: partyId === '전체' ? undefined : partyId,
+        part: position === '전체' ? undefined : position,
+        size: 100,
+      },
+    },
   );
-  return applications
-    .map((application) => toApplicant(application))
-    .filter((applicant) => position === '전체' || applicant.position === position);
+  return slice.content.map(toReceivedApplicant);
 }
 
 /**
@@ -544,20 +589,42 @@ export async function decideApplicant(
 }
 
 /**
- * 내가 지원한 내역.
- * 백엔드에 GET /mypage/applications(기획서 9.11)가 아직 없어 데모 데이터를 그대로 쓴다.
+ * GET /api/v1/members/me/applications — 내가 지원한 내역.
+ *
+ * 서버가 승인대기(PENDING)만 최신순으로 내려준다 - 승인·거절된 건은 여기 오지 않는다.
+ * 응답에 지원 id 가 없어(파티로 이동하는 데 party.id 만 쓰므로) 카드 key 는 파티+포지션으로 만든다.
+ * 지원자는 나 자신이라 user·skills·achievements 는 이 화면에서 쓰지 않는다.
  */
 export async function fetchMyApplications(): Promise<Applicant[]> {
-  return mockResponse([
-    {
-      ...MOCK_APPLICANTS[0],
-      id: 'my-1',
-      partyId: 'commerce-clone',
-      partyName: '커머스 클론 사이드프로젝트',
-      position: 'BACK' as PositionType,
-      message: '성취 프로필 전체 첨부됨',
-    },
-  ]);
+  if (USE_MOCK) {
+    return mockResponse([
+      {
+        ...MOCK_APPLICANTS[0],
+        id: 'my-1',
+        partyId: 'commerce-clone',
+        partyName: '커머스 클론 사이드프로젝트',
+        position: 'BACK' as PositionType,
+        message: '성취 프로필 전체 첨부됨',
+      },
+    ]);
+  }
+
+  const slice = await http.get<{ content: MyApplicationResponse[] }>('/members/me/applications', {
+    query: { size: 100 },
+  });
+  return slice.content.map((dto) => ({
+    id: `${dto.party.id}-${dto.position}`,
+    partyId: String(dto.party.id),
+    partyName: dto.party.name,
+    position: dto.position,
+    source: 'SELF_REPORTED' as const,
+    user: toUserSummary('', ''),
+    appliedAt: '',
+    status: APPLICANT_STATUS[dto.state],
+    message: '',
+    skills: [],
+    achievements: [],
+  }));
 }
 
 /* ---------- 좋아요 · 북마크 ---------- */

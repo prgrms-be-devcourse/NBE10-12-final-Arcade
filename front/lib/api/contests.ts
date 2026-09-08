@@ -14,7 +14,7 @@ type ServerContestFormat = 'CONTEST' | 'HACKATHON';
 type ServerContestTag = 'DATA' | 'ENVIRONMENT' | 'FINTECH' | 'UX' | 'AI' | 'LOCAL_ECONOMY' | 'ETC';
 
 /** ContestResponseDto */
-interface ContestResponse {
+export interface ContestResponse {
   id: number;
   hostId: number | null;
   creatorMemberId: number | null;
@@ -102,7 +102,7 @@ function toStatus(endDate: string): Contest['status'] {
  * - host  : 주최측 이름이 응답에 없다. hostId·creatorMemberId 만 온다
  * - teams : 참가팀 수 필드가 없다
  */
-function toContest(dto: ContestResponse): Contest {
+export function toContest(dto: ContestResponse): Contest {
   return {
     id: String(dto.id),
     title: dto.title,

@@ -17,11 +17,13 @@ import type {
 
 /* ---------- 포지션 (기획서 2.1) ---------- */
 
-export const POSITION_TYPES: readonly PositionType[] = ['BACK', 'FRONT'];
+export const POSITION_TYPES: readonly PositionType[] = ['BACK', 'FRONT', 'UIUX', 'PM'];
 
 export const POSITION_LABELS: Record<PositionType, string> = {
   BACK: '백엔드',
   FRONT: '프론트엔드',
+  UIUX: 'UI/UX',
+  PM: 'PM',
 };
 
 export const positionLabel = (type: PositionType) => POSITION_LABELS[type];

@@ -119,7 +119,7 @@ export function CommitTimeline({
                     <h5>{commit.message}</h5>
 
                     <div className="commit-meta">
-                      {/* 커밋 작성자는 githubUsername 으로 크루온 회원과 매칭한다 */}
+                      {/* 서버가 매칭해 준 memberId 가 있을 때만 회원 프로필로 잇는다 */}
                       <span className="commit-author">
                         <span className="mini-avatar">{commit.authorInitial}</span>
                         {commit.memberId ? (

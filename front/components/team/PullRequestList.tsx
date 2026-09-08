@@ -37,7 +37,7 @@ function timeLine(pr: PartyPullRequest): string {
  * 파티 저장소에서 동기화된 PR 목록.
  *
  * 서버가 웹훅으로 받아 쌓아둔 값을 그대로 보여준다. 작성자는 GitHub 로그인명이고
- * 아직 크루온 회원과 연결되지 않는다(프로필의 githubUsername 과 맞추는 건 다음 작업).
+ * 아직 크루온 회원과 연결되지 않는다 - 프로필에 GitHub 사용자명을 담는 필드가 서버에 없다.
  */
 export function PullRequestList({
   partyId,

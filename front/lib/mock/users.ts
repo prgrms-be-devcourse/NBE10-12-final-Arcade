@@ -18,7 +18,6 @@ export const MOCK_CURRENT_USER_ID = 'haneul';
 interface SeedUser {
   id: string;
   name: string;
-  githubUsername?: string;
   /** 프로필 사진 — 없는 회원은 이니셜 아바타로 대체된다 */
   avatarUrl?: string;
   position: PositionType;
@@ -37,7 +36,6 @@ const SEED_USERS: SeedUser[] = [
     position: 'BACK',
     // 데모용 — 대회 등록 버튼 노출을 확인하려면 'MEMBER' 로 바꿔 보면 된다
     memberRole: 'HOST',
-    githubUsername: 'skyjeong',
     bio: '3번의 파티 완주, 2번의 수상. 다음 도전을 찾는 중입니다.',
     skills: ['Java', 'Kotlin', 'Spring Boot', 'JPA', 'PostgreSQL', 'Redis'],
     streakDays: 12,
@@ -111,7 +109,6 @@ const SEED_USERS: SeedUser[] = [
   {
     id: 'somin',
     name: '윤소민',
-    githubUsername: 'sominyun',
     position: 'FRONT',
     bio: '해커톤에서 프론트를 맡습니다. 승인 요청은 바로바로 처리해요.',
     skills: ['React', 'Recharts', 'TypeScript'],
@@ -448,7 +445,6 @@ export const MOCK_PROFILES: Record<string, UserProfile> = Object.fromEntries(
     {
       ...MOCK_USER_SUMMARIES[user.id],
       memberRole: user.memberRole ?? 'MEMBER',
-      githubUsername: user.githubUsername,
       bio: user.bio,
       position: user.position,
       skills: user.skills,

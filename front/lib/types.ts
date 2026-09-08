@@ -13,9 +13,10 @@ export type ID = string;
 
 /**
  * 포지션 — 고정 enum. 자유 입력 문자열을 쓰지 않는다 (기획서 2.1).
- * UIUX·PM 은 이번 스코프에서 쓰지 않기로 해 제외했다.
+ * 서버 PositionType 과 같은 4종이다 - 예전에 BACK/FRONT 만 두던 동안
+ * 서버가 준 UIUX·PM 이 화면에서 BACK 으로 뭉개졌다.
  */
-export type PositionType = 'BACK' | 'FRONT';
+export type PositionType = 'BACK' | 'FRONT' | 'UIUX' | 'PM';
 
 /** 파티 주제 유형 — 공모전·해커톤은 '대회(CONTEST)' 하나로 묶는다 (기획서 3.5) */
 export type TopicType = 'CONTEST' | 'PROJECT' | 'STUDY' | 'ETC';
@@ -130,8 +131,6 @@ export interface BadgeItem {
 export interface UserProfile extends UserSummary {
   /** GitHub OAuth 계정 연동 여부. 연동 버튼 노출 여부에만 사용한다. */
   githubLinked?: boolean;
-  /** GitHub 사용자명 — 팀 스페이스의 커밋 작성자를 회원과 연결하는 데 쓴다 */
-  githubUsername?: string;
   /**
    * 계정 권한. UserSummary.role 은 화면에 보여주는 대표 포지션 문구이고,
    * 이 값은 등록 권한을 가르는 계정 역할이라 서로 다른 개념이다.
@@ -153,6 +152,8 @@ export interface UserProfile extends UserSummary {
     approvalRate: number;
   };
   streakDays: number;
+  /** 최근 8주(56일) 활동 농도 0~3. GET /members/me/summary 가 준다 */
+  activityHeatmap?: number[];
   badges: BadgeItem[];
   achievements: Achievement[];
   careers: CareerItem[];
@@ -342,7 +343,7 @@ export interface TeamCommit {
   message: string;
   authorName: string;
   authorInitial: string;
-  /** GitHub username — 회원 프로필의 githubUsername 과 맞춰 크루온 계정에 연결한다 */
+  /** 커밋 작성자의 GitHub username. 프로필에 대응 필드가 없어 아직 회원과 맞출 수 없다 */
   githubUsername: string;
   /** 매칭된 크루온 회원 id (매칭 실패 시 없음) */
   memberId?: ID;

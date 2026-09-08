@@ -33,7 +33,6 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
   const [nickname, setNickname] = useState(profile.name);
   const [position, setPosition] = useState(profile.position);
   const [bio, setBio] = useState(profile.bio);
-  const [githubUsername, setGithubUsername] = useState(profile.githubUsername ?? '');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [skills, setSkills] = useState<string[]>(profile.skills);
@@ -49,17 +48,14 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
     setSaving(true);
     setSaveError(null);
     try {
-      // 새 파일을 골랐으면 먼저 올리고, 아니면 지금 붙어 있는 이미지를 그대로 유지한다.
-      // PATCH 는 보낸 값이 곧 저장될 값이라 생략하면 이미지가 지워진다.
-      const profileImageUrl = avatarFile
-        ? await uploadProfileImage(avatarFile)
-        : (profile.uploadedImageUrl ?? null);
+      // 새 파일을 골랐을 때만 올려서 실어 보낸다.
+      // PATCH 는 보낸 항목만 바꾸므로(ARC-120) 안 보내면 지금 이미지가 그대로 남는다.
+      const profileImageUrl = avatarFile ? await uploadProfileImage(avatarFile) : undefined;
 
       const updated = await updateMyProfile({
         nickname,
         position,
         bio,
-        githubUsername: githubUsername.trim() || undefined,
         profileImageUrl,
         skills,
         careers,
@@ -126,19 +122,6 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
           style={{ minHeight: '5rem' }}
           value={bio}
           onChange={(event) => setBio(event.target.value)}
-        />
-      </FormGroup>
-
-      <FormGroup
-        label="GitHub 사용자명"
-        htmlFor="editGithub"
-        hint="팀 스페이스의 커밋 작성자를 내 계정과 연결하는 데 쓰여요. @ 없이 사용자명만 적어주세요."
-      >
-        <TextField
-          id="editGithub"
-          placeholder="예: skyjeong"
-          value={githubUsername}
-          onChange={(event) => setGithubUsername(event.target.value)}
         />
       </FormGroup>
 

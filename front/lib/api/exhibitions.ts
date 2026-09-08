@@ -5,6 +5,7 @@ import type {
   GoalSource,
   GoalStatus,
   GoalType,
+  PositionType,
 } from '@/lib/types';
 import {
   MOCK_EXHIBITIONS,
@@ -16,19 +17,29 @@ import { GOAL_TYPE_LABELS } from '@/lib/constants';
 import { USE_MOCK as USE_API_MOCK, http, mockResponse } from './client';
 
 /**
- * 백엔드에 대응 엔드포인트가 아직 없는 모듈이다.
+ * 이 모듈에서 **아직 서버가 없는 기능**만 데모 데이터로 고정하는 스위치다.
  *
- * 없는 경로로 요청해도 서버 SecurityConfig 의 전체 경로 인증 규칙에 먼저 걸려 404 가 아니라 401 이 오고,
- * 서버 컴포넌트에서 호출한 경우 페이지 전체가 500 으로 죽는다.
- * 그래서 실제 API 가 생기기 전까지는 이 상수로 데모 데이터만 쓰도록 고정한다.
+ * 목록·상세·게시·좋아요·북마크는 서버가 있어서 client 의 USE_MOCK(USE_API_MOCK)을 쓴다.
+ * 남은 것은 댓글·커밋 스냅샷·전시 직접 등록/수정/삭제로, 대응 엔드포인트가 없다.
  *
- * 서버가 준비되면 이 상수를 지우고 client 의 USE_MOCK 을 다시 import 하면 아래 http 호출이 살아난다.
+ * 없는 경로로 요청하면 서버 SecurityConfig 의 전체 경로 인증 규칙에 먼저 걸려 404 가 아니라 401 이 오고,
+ * 서버 컴포넌트에서 호출한 경우 페이지 전체가 500 으로 죽는다. 그래서 이 상수로 막아 둔다.
+ *
+ * 서버가 생기면 해당 함수의 USE_MOCK 을 USE_API_MOCK 으로 바꾸면 된다.
  */
 const USE_MOCK: boolean = true;
 
 
+/** LikeDto — 좋아요 응답 */
+interface LikeResponse {
+  targetType: 'PARTY' | 'CONTEST' | 'GOAL' | 'PARTY_SHOWCASE';
+  targetId: number;
+  liked: boolean;
+  likeCount: number;
+}
+
 /** 서버 ShowcaseGoalDto — 전시관 목록의 한 칸 */
-interface ShowcaseGoalResponse {
+export interface ShowcaseGoalResponse {
   id: number;
   /** PROJECT 만 채워진다. 개인 성취(CONTEST·CHECKLIST)는 파티가 없다 */
   party: { id: number; name: string } | null;
@@ -36,30 +47,34 @@ interface ShowcaseGoalResponse {
   status: GoalStatus;
   source: GoalSource;
   detail: { title: string | null };
+  /** 전시된 프로젝트에서 맡았던 포지션. PROJECT 가 아니면 null */
+  positionType: PositionType | null;
   likeCount: number;
+  /** PROJECT 는 원본 파티에 합산된 조회수를 쓴다(기획서 3.2). 자기신고 성취는 원천이 없어 0 */
+  viewCount: number;
   createAt: string;
 }
 
 /**
  * 서버 전시 목록에 없어서 비워 두는 값:
  * - summary, skills, coverImageUrl : ShowcaseGoalDto 에 본문·기술스택·이미지가 없다
- * - viewCount                      : 목록 응답에 없다 (파티 전시 상세에는 있다)
  * - leader                         : 소유자 정보가 아예 없어 카드에서 생략된다
  * - likedByMe, bookmarkedByMe      : 응답에 없다 (docs/마이페이지-요약API_백엔드_요청.md ⑤)
  *
  * category 는 서버의 분야 태그가 아니라 성취 타입 문구다 - 화면 필터도 이 기준으로 맞춘다.
  */
-function toExhibitionProject(dto: ShowcaseGoalResponse): ExhibitionProject {
+export function toExhibitionProject(dto: ShowcaseGoalResponse): ExhibitionProject {
   return {
     id: String(dto.id),
     title: dto.detail.title ?? '',
     summary: '',
     partyName: dto.party?.name ?? '',
-    role: 'BACK',
+    // 자기신고 성취(CONTEST·CHECKLIST)는 파티가 없어 포지션도 없다
+    role: dto.positionType ?? 'BACK',
     category: GOAL_TYPE_LABELS[dto.type],
     source: dto.source,
     skills: [],
-    viewCount: 0,
+    viewCount: dto.viewCount,
     likeCount: dto.likeCount,
     sourcePartyId: dto.party ? String(dto.party.id) : undefined,
     thumbnailLabel: GOAL_TYPE_LABELS[dto.type],
@@ -163,6 +178,36 @@ export async function fetchExhibition(id: string): Promise<ExhibitionDetail> {
 }
 
 /**
+ * 전시가 실제로 **게시된** 파티만 골라낸다.
+ *
+ * 성취 목록(GET /goals/me)의 `GoalDto` 에는 전시 게시 여부가 없어(상세 응답에만 있다)
+ * 완료된 파티인지와 전시가 올라갔는지를 구분할 수 없다. 기획서 2.11 은 게시까지 마친 항목에만
+ * '전시 페이지 보기' 를 붙이라고 하므로, 파티별 전시 초안 조회의 `published` 로 판별한다.
+ *
+ * 파티원이면 미게시 초안도 200 이라 이 호출 자체는 성공한다 - `published` 만 본다.
+ * 403·404 는 게시 안 된 것으로 취급한다. 완료된 파티 수만큼 요청이 나가므로 호출부에서 목록을 좁혀 넘긴다.
+ *
+ * `GoalDto` 에 게시 여부 한 필드가 생기면 이 함수와 호출부를 지우면 된다.
+ */
+export async function fetchPublishedPartyIds(partyIds: string[]): Promise<string[]> {
+  const unique = Array.from(new Set(partyIds.filter(Boolean)));
+  if (unique.length === 0) return [];
+  if (USE_API_MOCK) return mockResponse(unique);
+
+  const checked = await Promise.all(
+    unique.map(async (partyId) => {
+      try {
+        const showcase = await http.get<PartyShowcaseResponse>(`/parties/${partyId}/showcase`);
+        return showcase.published ? partyId : null;
+      } catch {
+        return null;
+      }
+    }),
+  );
+  return checked.filter((partyId): partyId is string => partyId !== null);
+}
+
+/**
  * POST /api/v1/parties/{partyId}/showcase — 전시 게시.
  *
  * 파티장만 부를 수 있다(403). 이미 게시된 파티에 다시 부르면 제목·설명이 갱신된다 —
@@ -189,24 +234,41 @@ export async function fetchExhibitionCommits(id: string) {
   return http.get(`/exhibitions/${id}/commits`);
 }
 
-/** POST /exhibitions/{id}/like, DELETE /exhibitions/{id}/like */
-export async function toggleExhibitionLike(id: string, liked: boolean): Promise<{ likes: number }> {
-  if (USE_MOCK) {
+/**
+ * 전시 좋아요 — 서버 경로는 성취 기준이다. POST /api/v1/goals/{goalId}/likes, DELETE 로 취소.
+ *
+ * 전시 카드의 id 가 곧 goal id 다. PROJECT 성취는 서버가 좋아요 행을 파티 전시(PARTY_SHOWCASE)로
+ * 라우팅해 성취 카드와 파티에서 누른 좋아요가 같은 행을 쓴다(ARC-117) - 화면은 신경 쓸 게 없다.
+ *
+ * 취소 응답에는 본문이 없고 성취 상세에도 likeCount 가 없어, 버튼이 이미 반영한 수를 그대로 돌려준다.
+ */
+export async function toggleExhibitionLike(
+  id: string,
+  liked: boolean,
+  currentCount = 0,
+): Promise<{ likes: number }> {
+  if (USE_API_MOCK) {
     const project = MOCK_EXHIBITIONS.find((item) => item.id === id);
     const base = project?.likeCount ?? 0;
     return mockResponse({ likes: liked ? base + 1 : base });
   }
-  return liked
-    ? http.post<{ likes: number }>(`/exhibitions/${id}/like`)
-    : http.delete<{ likes: number }>(`/exhibitions/${id}/like`);
+
+  if (!liked) {
+    await http.delete<void>(`/goals/${id}/likes`);
+    return { likes: currentCount };
+  }
+  const result = await http.post<LikeResponse>(`/goals/${id}/likes`);
+  return { likes: result.likeCount };
 }
 
-/** POST /exhibitions/{id}/bookmark */
+/** POST /api/v1/goals/{goalId}/bookmarks, DELETE 로 취소 */
 export async function toggleExhibitionBookmark(id: string, bookmarked: boolean): Promise<void> {
-  if (USE_MOCK) return mockResponse(undefined as void);
-  return bookmarked
-    ? http.post<void>(`/exhibitions/${id}/bookmark`)
-    : http.delete<void>(`/exhibitions/${id}/bookmark`);
+  if (USE_API_MOCK) return mockResponse(undefined as void);
+  if (bookmarked) {
+    await http.post<unknown>(`/goals/${id}/bookmarks`);
+    return;
+  }
+  await http.delete<void>(`/goals/${id}/bookmarks`);
 }
 
 /**

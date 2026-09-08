@@ -1,7 +1,7 @@
 import type { Contest, ExhibitionProject, HeroSlide, Party } from '@/lib/types';
 import { MOCK_CONTESTS, MOCK_EXHIBITIONS, MOCK_HERO_SLIDES, MOCK_TOP_PARTIES } from '@/lib/mock';
 import { fetchContests } from './contests';
-import { fetchParties } from './parties';
+import { type PartyListItemResponse, toParty } from './parties';
 import { ApiError, USE_MOCK, http, mockResponse } from './client';
 
 /**
@@ -28,10 +28,16 @@ export async function fetchHeroSlides(): Promise<HeroSlide[]> {
   return mockResponse(MOCK_HERO_SLIDES);
 }
 
-/** GET /home/top-parties — 좋아요 수(likeCount) 상위 3건 (기획서 2.1) */
+/**
+ * GET /api/v1/parties/top3 — 모집중(RECRUITING) 파티를 좋아요 수 내림차순 3건 (기획서 2.1).
+ * 목록 전체를 받아 화면에서 자르던 것을 서버 정렬로 옮겼다.
+ */
 export async function fetchTopParties(): Promise<Party[]> {
   if (USE_MOCK) return mockResponse(MOCK_TOP_PARTIES);
-  return listOrEmpty(async () => (await fetchParties({ sort: 'like', size: 3 })).slice(0, 3));
+  return listOrEmpty(async () => {
+    const parties = await http.get<PartyListItemResponse[]>('/parties/top3');
+    return parties.map(toParty);
+  });
 }
 
 /** GET /home/popular-contests — 좋아요 수 상위 (기획서 2.4) */
