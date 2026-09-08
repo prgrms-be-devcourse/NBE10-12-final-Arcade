@@ -151,6 +151,37 @@ public class ApiV1LikeControllerTest {
         return goalRepository.save(project).getId();
     }
 
+    // 파티 확정 시 참여자 수만큼 Project가 각각 따로 생기지만 같은 파티면 같은 PartyShowcase를 공유한다
+    // PROJECT 좋아요가 PARTY_SHOWCASE로 라우팅되는 걸 검증하려면 이렇게 같은 전시글을 가리키는 서로 다른 goalId 두 개가 필요하다.
+    private record TeamProjectGoals(long goalIdA, long goalIdB) {
+    }
+
+    private TeamProjectGoals savePublishedProjectGoalsSharingShowcase(String memberAEmail, String memberBEmail) {
+        Party party = saveParty(memberAEmail);
+
+        PartyShowcase showcase = new PartyShowcase(party);
+        showcase.publish("정산 자동화 API", "설명");
+        partyShowcaseRepository.save(showcase);
+
+        Member memberA = memberRepository.findByEmail(memberAEmail).orElseThrow();
+        Project projectA = new Project(
+                memberA, 501L, party.getId(), "정산 자동화 API", PositionType.BACK, LocalDate.now()
+        );
+        projectA.complete(LocalDate.now());
+        projectA.linkShowcase(showcase);
+        long goalIdA = goalRepository.save(projectA).getId();
+
+        Member memberB = memberRepository.findByEmail(memberBEmail).orElseThrow();
+        Project projectB = new Project(
+                memberB, 502L, party.getId(), "정산 자동화 API", PositionType.FRONT, LocalDate.now()
+        );
+        projectB.complete(LocalDate.now());
+        projectB.linkShowcase(showcase);
+        long goalIdB = goalRepository.save(projectB).getId();
+
+        return new TeamProjectGoals(goalIdA, goalIdB);
+    }
+
     @Test
     @DisplayName("파티 좋아요: 201-1과 liked=true, likeCount 증가를 반환한다")
     @WithUserDetails("user1@test.com")
@@ -464,55 +495,33 @@ public class ApiV1LikeControllerTest {
     }
 
     @Test
-    @DisplayName("성취 좋아요: PROJECT 성취를 좋아요한 뒤 같은 파티를 직접 좋아요하면 409-1이다 (같은 행 공유 확인)")
+    @DisplayName("성취 좋아요: 같은 파티 팀원 A, B의 PROJECT 성취는 같은 전시글(PARTY_SHOWCASE)로 라우팅되어, A를 좋아요한 뒤 B에 좋아요하면 409-1이다")
     @WithUserDetails("user1@test.com")
-    void likeGoalProjectThenLikePartyDirectlyConflicts() throws Exception {
-        long goalId = savePublishedProjectGoal("user2@test.com", 401L);
+    void likeTeammateGoalConflictsWithSameShowcase() throws Exception {
+        TeamProjectGoals goals = savePublishedProjectGoalsSharingShowcase("user2@test.com", "admin");
 
-        mvc.perform(post("/api/v1/goals/" + goalId + "/likes"))
+        mvc.perform(post("/api/v1/goals/" + goals.goalIdA() + "/likes"))
                 .andExpect(status().isCreated());
 
-        Goal goal = goalRepository.findById(goalId).orElseThrow();
-        long partyId = goal.getSourcePartyId();
-
-        ResultActions resultActions = mvc.perform(post("/api/v1/parties/" + partyId + "/likes"));
+        ResultActions resultActions = mvc.perform(post("/api/v1/goals/" + goals.goalIdB() + "/likes"));
 
         resultActions.andExpect(status().isConflict())
                 .andExpect(jsonPath("$.resultCode").value("409-1"));
     }
 
     @Test
-    @DisplayName("성취 좋아요: 파티를 직접 좋아요한 뒤 같은 파티의 PROJECT 성취에 좋아요하면 409-1이다")
+    @DisplayName("성취 좋아요: 팀원 A의 성취 좋아요를 취소하면, 같은 전시글을 가리키는 팀원 B의 성취에 다시 좋아요할 수 있다")
     @WithUserDetails("user1@test.com")
-    void likePartyDirectlyThenLikeGoalProjectConflicts() throws Exception {
-        long goalId = savePublishedProjectGoal("user2@test.com", 402L);
-        Goal goal = goalRepository.findById(goalId).orElseThrow();
-        long partyId = goal.getSourcePartyId();
+    void unlikeTeammateGoalAllowsLikingOtherTeammateGoal() throws Exception {
+        TeamProjectGoals goals = savePublishedProjectGoalsSharingShowcase("user2@test.com", "admin");
 
-        mvc.perform(post("/api/v1/parties/" + partyId + "/likes"))
+        mvc.perform(post("/api/v1/goals/" + goals.goalIdA() + "/likes"))
                 .andExpect(status().isCreated());
 
-        ResultActions resultActions = mvc.perform(post("/api/v1/goals/" + goalId + "/likes"));
-
-        resultActions.andExpect(status().isConflict())
-                .andExpect(jsonPath("$.resultCode").value("409-1"));
-    }
-
-    @Test
-    @DisplayName("성취 좋아요: PROJECT 성취 좋아요 취소 후에는 같은 파티를 직접 좋아요할 수 있다")
-    @WithUserDetails("user1@test.com")
-    void unlikeGoalProjectAllowsSubsequentPartyLike() throws Exception {
-        long goalId = savePublishedProjectGoal("user2@test.com", 403L);
-        Goal goal = goalRepository.findById(goalId).orElseThrow();
-        long partyId = goal.getSourcePartyId();
-
-        mvc.perform(post("/api/v1/goals/" + goalId + "/likes"))
-                .andExpect(status().isCreated());
-
-        mvc.perform(delete("/api/v1/goals/" + goalId + "/likes"))
+        mvc.perform(delete("/api/v1/goals/" + goals.goalIdA() + "/likes"))
                 .andExpect(status().isNoContent());
 
-        ResultActions resultActions = mvc.perform(post("/api/v1/parties/" + partyId + "/likes"));
+        ResultActions resultActions = mvc.perform(post("/api/v1/goals/" + goals.goalIdB() + "/likes"));
 
         resultActions.andExpect(status().isCreated());
     }
