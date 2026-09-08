@@ -62,7 +62,7 @@ class PartySearchServiceLogFailureIsolationTest {
         partySearchKeywordRepository.save(new PartySearchKeyword(party, "백엔드 스터디"));
 
         assertThatCode(() ->
-                partySearchService.search(nonExistentActor, "백엔드", PageRequest.of(0, 10))
+                partySearchService.search(nonExistentActor, "백엔드", null, null, null, PageRequest.of(0, 10))
         ).doesNotThrowAnyException();
     }
 }

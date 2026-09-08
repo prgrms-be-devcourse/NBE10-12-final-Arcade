@@ -57,6 +57,26 @@ class ApiV1SearchControllerTest {
     }
 
     @Test
+    void partyTagFiltersOutOtherTags() throws Exception {
+        Member owner = memberRepository.save(new Member("search-controller-tag-owner@test.com", "pw", "owner", null));
+        Party webParty = partyRepository.save(new Party(
+                owner, "파티명W", "백엔드 스터디W", null, null, "외부 대회", "https://example.com",
+                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7)
+        ));
+        Party appParty = partyRepository.save(new Party(
+                owner, "파티명A", "백엔드 스터디A", null, null, "외부 대회", "https://example.com",
+                TopicType.STUDY, PartyTag.APP, null, 0, LocalDateTime.now().plusDays(7)
+        ));
+        partySearchKeywordRepository.save(new PartySearchKeyword(webParty, "백엔드 스터디"));
+        partySearchKeywordRepository.save(new PartySearchKeyword(appParty, "백엔드 스터디"));
+
+        mvc.perform(get("/api/v1/parties/search").param("q", "백엔드").param("partyTag", "APP"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].id").value(appParty.getId()))
+                .andExpect(jsonPath("$.data.content.length()").value(1));
+    }
+
+    @Test
     void missingQReturns400_1() throws Exception {
         mvc.perform(get("/api/v1/parties/search"))
                 .andExpect(status().isBadRequest())
