@@ -39,8 +39,22 @@ public class LikeService implements LikeInteractionPort {
         return contestPostRepository.existsByContestId(contestId);
     }
 
+    public boolean goalExists(long goalId) {
+        return goalRepository.findById(goalId)
+                .map(Goal::isExhibited)
+                .orElse(false);
+    }
+
     public boolean isLiked(Member member, TargetType targetType, long targetId) {
         return likeActionRepository.existsByMemberAndTargetTypeAndTargetId(member, targetType, targetId);
+    }
+
+    // goalId 기준 이미 좋아요했는지 확인 - PROJECT는 실제 좋아요가 PARTY 타깃으로 저장되므로 단순히 TargetType.GOAL로 체크하면 항상 false가 나와 중복 좋아요를 못 막는다
+    // resolveGoalLikeTarget()으로 실제 저장 위치를 먼저 알아낸 뒤 그 타깃으로 확인해야 한다
+    public boolean isGoalLiked(long goalId, Member member) {
+        Goal goal = goalRepository.findById(goalId).orElseThrow();
+        LikeTarget target = resolveGoalLikeTarget(goal);
+        return isLiked(member, target.targetType(), target.targetId());
     }
 
     @Transactional
@@ -74,6 +88,55 @@ public class LikeService implements LikeInteractionPort {
         contestPostRepository.decreaseLikeCount(contestId);
     }
 
+    // PROJECT는 파티 확정 시 참여자 수만큼 Goal이 따로 생기므로 LikeAction
+    // 행을 Goal 자신으로 저장하면 파티 페이지에서 직접 누른 좋아요와 성취 카드에서 누른 좋아요가
+    // 서로 다른 행으로 취급돼 같은 사람이 두 경로로 각각 좋아요를 눌러 카운트가 중복 반영될 수 있다
+    // 그래서 카운터뿐 아니라 LikeAction 행 자체를 sourcePartyId가 가리키는 PARTY 타깃으로 저장해 파티 직접 좋아요와 완전히 같은 행을 공유하게 한다.
+    @Transactional
+    public LikeDto likeGoal(long goalId, Member member) {
+        Goal goal = goalRepository.findById(goalId).orElseThrow();
+        LikeTarget target = resolveGoalLikeTarget(goal);
+
+        likeActionRepository.save(new LikeAction(member, target.targetType(), target.targetId()));
+
+        int updatedLikeCount;
+        if (target.targetType() == TargetType.PARTY) {
+            partyRepository.increaseLikeCount(target.targetId());
+            updatedLikeCount = partyRepository.findById(target.targetId()).orElseThrow().getLikeCount();
+        } else {
+            goalRepository.increaseLikeCount(target.targetId());
+            updatedLikeCount = goalRepository.findById(target.targetId()).orElseThrow().getLikeCount();
+        }
+
+        // 응답은 항상 요청받은 goalId 기준으로 내려준다 - 내부적으로 PARTY로 라우팅됐다는 사실을
+        // 클라이언트가 알 필요는 없다(API 계약을 goalId로 통일).
+        return new LikeDto(TargetType.GOAL, goalId, true, updatedLikeCount);
+    }
+
+    @Transactional
+    public void unlikeGoal(long goalId, Member member) {
+        Goal goal = goalRepository.findById(goalId).orElseThrow();
+        LikeTarget target = resolveGoalLikeTarget(goal);
+
+        likeActionRepository.deleteByMemberAndTargetTypeAndTargetId(member, target.targetType(), target.targetId());
+
+        if (target.targetType() == TargetType.PARTY) {
+            partyRepository.decreaseLikeCount(target.targetId());
+        } else {
+            goalRepository.decreaseLikeCount(target.targetId());
+        }
+    }
+
+    private record LikeTarget(TargetType targetType, long targetId) {
+    }
+
+    private LikeTarget resolveGoalLikeTarget(Goal goal) {
+        if (goal instanceof Project) {
+            return new LikeTarget(TargetType.PARTY, goal.getSourcePartyId());
+        }
+        return new LikeTarget(TargetType.GOAL, goal.getId());
+    }
+
     @Override
     @Transactional
     public void deleteAllLikesForTarget(TargetType targetType, long targetId) {
@@ -91,43 +154,5 @@ public class LikeService implements LikeInteractionPort {
 
     private ContestPost findContestPostOrThrow(long contestId) {
         return contestPostRepository.findByContestId(contestId).orElseThrow();
-    }
-
-    // 좋아요 가능은 존재 여부뿐 아니라 전시 여부까지 포함한다.
-    // 아직 전시 안 된 성취를 외부에 굳이 알릴 필요 없어서 못 찾은 것과 같은 404로 묶는다.
-    public boolean goalExists(long goalId) {
-        return goalRepository.findById(goalId)
-                .map(Goal::isExhibited)
-                .orElse(false);
-    }
-
-    @Transactional
-    public LikeDto likeGoal(long goalId, Member member) {
-        likeActionRepository.save(new LikeAction(member, TargetType.GOAL, goalId));
-
-        Goal goal = goalRepository.findById(goalId).orElseThrow();
-        int updatedLikeCount;
-        if (goal instanceof Project) {
-            long partyId = goal.getSourcePartyId();
-            partyRepository.increaseLikeCount(partyId);
-            updatedLikeCount = partyRepository.findById(partyId).orElseThrow().getLikeCount();
-        } else {
-            goalRepository.increaseLikeCount(goalId);
-            updatedLikeCount = goalRepository.findById(goalId).orElseThrow().getLikeCount();
-        }
-
-        return new LikeDto(TargetType.GOAL, goalId, true, updatedLikeCount);
-    }
-
-    @Transactional
-    public void unlikeGoal(long goalId, Member member) {
-        likeActionRepository.deleteByMemberAndTargetTypeAndTargetId(member, TargetType.GOAL, goalId);
-
-        Goal goal = goalRepository.findById(goalId).orElseThrow();
-        if (goal instanceof Project) {
-            partyRepository.decreaseLikeCount(goal.getSourcePartyId());
-        } else {
-            goalRepository.decreaseLikeCount(goalId);
-        }
     }
 }
