@@ -62,7 +62,7 @@ public class MemberProfile extends BaseEntity {
     private final List<MemberProfileTechStack> techStacks = new ArrayList<>();
 
     // 경력·링크는 포지션·기술스택과 달리 값으로 비교할 수 없어(같은 회사 두 줄이 있을 수 있다)
-    // 요청이 보내온 목록으로 통째로 교체한다. 순서는 다시 넣은 순서 = id 순이다.
+    // 목록을 보내오면 통째로 교체한다. 순서는 다시 넣은 순서 = id 순이다.
     @BatchSize(size = 100)
     @OneToMany(mappedBy = "memberProfile", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("id asc")
@@ -89,12 +89,18 @@ public class MemberProfile extends BaseEntity {
                 .forEach(techStack -> this.techStacks.add(new MemberProfileTechStack(this, techStack)));
     }
 
-    /** 경력·링크는 넘어온 목록이 곧 저장될 목록이다. 빈 목록을 보내면 전부 지운다. */
-    /** 가입 직후 포지션만 고르는 흐름용. modify 는 폼 전체를 교체하므로 여기 쓸 수 없다. */
+    /** 대표 포지션만 바꾼다. API 는 PATCH /me 하나로 통일했고, 지금은 테스트 준비에서만 쓴다. */
     public void changePosition(PositionType position) {
         this.position = position;
     }
 
+    /**
+     * 보낸 항목만 바꾼다. null(또는 생략)은 "건드리지 말라"는 뜻이다.
+     * 비우려면 빈 값을 명시해야 한다 - 문자열은 "", 목록은 [].
+     *
+     * 예전에는 폼 전체를 교체했는데(생략 = 비우기), 화면이 다루지 않는 필드까지
+     * null 로 실어 보내면서 저장할 때마다 소개·경력·링크가 지워졌다.
+     */
     public void modify(
             String nickname,
             String webpage,
@@ -105,23 +111,25 @@ public class MemberProfile extends BaseEntity {
             List<CareerCommand> careers,
             List<LinkCommand> links
     ) {
-        this.nickname = nickname;
-        this.webPage = ProfileUrl.normalize(webpage);
-        this.bio = bio;
-        this.profileImageUrl = profileImageUrl;
+        if (nickname != null) this.nickname = nickname;
+        if (webpage != null) this.webPage = ProfileUrl.normalize(webpage);  // "" -> null
+        if (bio != null) this.bio = blankToNull(bio);
+        if (profileImageUrl != null) this.profileImageUrl = blankToNull(profileImageUrl);
 
-        this.position = position;
-        replaceTechStacks(techStacks);
-        replaceCareers(careers);
-        replaceLinks(links);
+        if (position != null) this.position = position;
+        if (techStacks != null) replaceTechStacks(techStacks);
+        if (careers != null) replaceCareers(careers);
+        if (links != null) replaceLinks(links);
+    }
+
+    private String blankToNull(String value) {
+        return value.isBlank() ? null : value;
     }
 
 
     /** 기술 스택도 값으로 비교한다. 중복은 LinkedHashSet 이 걸러낸다. */
     private void replaceTechStacks(List<String> techStacks) {
-        Set<String> requested = techStacks == null
-                ? Set.of()
-                : techStacks.stream()
+        Set<String> requested = techStacks.stream()
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
@@ -139,7 +147,6 @@ public class MemberProfile extends BaseEntity {
     /** id 가 화면에서 만든 값이라 서버 행과 짝지을 수 없어 통째로 교체한다. */
     private void replaceCareers(List<CareerCommand> commands) {
         this.careers.clear();
-        if (commands == null) return;
 
         commands.stream()
                 .filter(command -> command != null && isNotBlank(command.role()))
@@ -150,7 +157,6 @@ public class MemberProfile extends BaseEntity {
 
     private void replaceLinks(List<LinkCommand> commands) {
         this.links.clear();
-        if (commands == null) return;
 
         commands.stream()
                 .filter(command -> command != null && isNotBlank(command.label()) && isNotBlank(command.url()))

@@ -268,7 +268,7 @@ public class ApiV1MemberProfileControllerTest {
     }
 
     @Test
-    @DisplayName("내 정보 수정: 경력·링크는 보낸 목록이 곧 저장될 목록이라 빈 배열을 보내면 지워진다")
+    @DisplayName("내 정보 수정: 경력·링크는 목록을 보내면 통째로 교체하고, 빈 배열이면 지워진다")
     @WithUserDetails("user1@test.com")
     void modifyProfileReplacesCareersAndLinks() throws Exception {
         mvc.perform(patch("/api/v1/members/me")
@@ -330,7 +330,7 @@ public class ApiV1MemberProfileControllerTest {
     }
 
     @Test
-    @DisplayName("내 정보 수정: careers·links 를 생략해도 400 이 아니다")
+    @DisplayName("내 정보 수정: careers·links 를 생략하면 건드리지 않는다")
     @WithUserDetails("user1@test.com")
     void modifyProfileWithoutCareersAndLinks() throws Exception {
         mvc.perform(patch("/api/v1/members/me")
@@ -389,6 +389,38 @@ public class ApiV1MemberProfileControllerTest {
     }
 
     @Test
+    @DisplayName("내 정보 수정: profileImageUrl 을 빼면 올린 이미지가 그대로 남고, \"\" 를 보내야 지워진다")
+    @WithUserDetails("user1@test.com")
+    void keepsUploadedImageUnlessClearedExplicitly() throws Exception {
+        // 업로드(POST /me/image)로 받은 URL 을 실어 보내는 흐름
+        mvc.perform(patch("/api/v1/members/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "profileImageUrl": "https://storage.example.com/me.png" }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.profileImageUrl").value("https://storage.example.com/me.png"));
+
+        // 사진을 안 바꾼 저장 - 필드를 빼면 그대로 남는다
+        mvc.perform(patch("/api/v1/members/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "bio": "사진은 그대로" }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.profileImageUrl").value("https://storage.example.com/me.png"));
+
+        // 기본 아바타로 되돌리기 - 빈 문자열을 명시해야 지워진다
+        mvc.perform(patch("/api/v1/members/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "profileImageUrl": "" }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.profileImageUrl").doesNotExist());
+    }
+
+    @Test
     @DisplayName("내 정보 수정: 다른 회원이 사용 중인 닉네임이면 409-1을 반환한다")
     @WithUserDetails("user1@test.com")
     void modifyProfileWithDuplicatedNickname() throws Exception {
@@ -419,12 +451,14 @@ public class ApiV1MemberProfileControllerTest {
     }
 
     @Test
-    @DisplayName("내 정보 수정: 필수값이 누락되면 400-1을 반환한다")
+    @DisplayName("내 정보 수정: 닉네임이 빈 문자열이면 400-1을 반환한다")
     @WithUserDetails("user1@test.com")
-    void modifyProfileWithMissingRequiredFields() throws Exception {
+    void modifyProfileWithBlankNickname() throws Exception {
         mvc.perform(patch("/api/v1/members/me")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
+                        .content("""
+                                { "nickname": "  " }
+                                """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.resultCode").value("400-1"));
     }
@@ -447,9 +481,9 @@ public class ApiV1MemberProfileControllerTest {
     }
 
     @Test
-    @DisplayName("내 정보 수정: position 을 생략하면 비운다")
+    @DisplayName("내 정보 수정: position 을 생략하면 그대로 둔다")
     @WithUserDetails("user1@test.com")
-    void modifyProfileClearsPositionWhenOmitted() throws Exception {
+    void modifyProfileKeepsPositionWhenOmitted() throws Exception {
         mvc.perform(patch("/api/v1/members/me")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -466,19 +500,18 @@ public class ApiV1MemberProfileControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "nickname": "직군 없는 사람",
+                                  "nickname": "직군 그대로인 사람",
                                   "techStacks": ["Java"]
                                 }
                                 """))
                 .andExpect(status().isOk())
-                // @JsonInclude(NON_NULL) 이라 비면 필드 자체가 빠진다
-                .andExpect(jsonPath("$.data.position").doesNotExist());
+                .andExpect(jsonPath("$.data.position").value("BACK"));
     }
 
     @Test
-    @DisplayName("내 정보 수정: 닉네임 말고 다 생략하면 나머지가 비워진다 (보낸 값이 곧 저장될 값)")
+    @DisplayName("내 정보 수정: 생략한 항목은 그대로 두고, 빈 값을 보낸 항목만 비운다")
     @WithUserDetails("user1@test.com")
-    void modifyProfileClearsOmittedFields() throws Exception {
+    void modifyProfileKeepsOmittedFieldsAndClearsEmptyOnes() throws Exception {
         mvc.perform(patch("/api/v1/members/me")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -494,14 +527,34 @@ public class ApiV1MemberProfileControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.techStacks", org.hamcrest.Matchers.hasSize(2)));
 
+        // 닉네임만 보낸다 - 화면이 다루지 않는 나머지는 그대로 있어야 한다
         mvc.perform(patch("/api/v1/members/me")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                { "nickname": "다 비운 사람" }
+                                { "nickname": "닉네임만 바꾼 사람" }
                                 """))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.nickname").value("닉네임만 바꾼 사람"))
+                .andExpect(jsonPath("$.data.bio").value("소개글"))
+                .andExpect(jsonPath("$.data.position").value("BACK"))
+                .andExpect(jsonPath("$.data.techStacks", org.hamcrest.Matchers.hasSize(2)))
+                .andExpect(jsonPath("$.data.careers", org.hamcrest.Matchers.hasSize(1)))
+                .andExpect(jsonPath("$.data.links", org.hamcrest.Matchers.hasSize(1)));
+
+        // 비우는 건 빈 값을 명시했을 때만이다
+        mvc.perform(patch("/api/v1/members/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "bio": "",
+                                  "techStacks": [],
+                                  "careers": [],
+                                  "links": []
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.nickname").value("닉네임만 바꾼 사람"))
                 .andExpect(jsonPath("$.data.bio").doesNotExist())
-                .andExpect(jsonPath("$.data.position").doesNotExist())
                 .andExpect(jsonPath("$.data.techStacks", org.hamcrest.Matchers.hasSize(0)))
                 .andExpect(jsonPath("$.data.careers", org.hamcrest.Matchers.hasSize(0)))
                 .andExpect(jsonPath("$.data.links", org.hamcrest.Matchers.hasSize(0)));
@@ -614,39 +667,17 @@ public class ApiV1MemberProfileControllerTest {
     }
 
     @Test
-    @DisplayName("포지션만 수정: 다른 항목은 건드리지 않고 대표 포지션만 바꾼다")
+    @DisplayName("내 정보 수정: 닉네임이 없는 회원도 position 만 보내 저장할 수 있다 (GitHub 최초 가입 흐름)")
     @WithUserDetails("user1@test.com")
-    void modifyPositionOnly() throws Exception {
-        mvc.perform(patch("/api/v1/members/me/position")
+    void modifyPositionOnlyWithoutNickname() throws Exception {
+        // GitHub 로 가입하면 닉네임이 없다. 그 상태에서 포지션만 고르는 화면이 쓰는 요청이다.
+        mvc.perform(patch("/api/v1/members/me")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 { "position": "UIUX" }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.resultCode").value("200-1"))
-                .andExpect(jsonPath("$.msg").value("대표 포지션 수정 성공"))
-                .andExpect(jsonPath("$.data.position").value("UIUX"));
-    }
-
-    @Test
-    @DisplayName("포지션만 수정: position 이 없으면 400-1")
-    @WithUserDetails("user1@test.com")
-    void modifyPositionWithoutValue() throws Exception {
-        mvc.perform(patch("/api/v1/members/me/position")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.resultCode").value("400-1"));
-    }
-
-    @Test
-    @DisplayName("포지션만 수정: 미로그인이면 401")
-    void modifyPositionWithoutLogin() throws Exception {
-        mvc.perform(patch("/api/v1/members/me/position")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                { "position": "BACK" }
-                                """))
-                .andExpect(status().isUnauthorized());
+                .andExpect(jsonPath("$.data.position").value("UIUX"))
+                .andExpect(jsonPath("$.data.nickname").doesNotExist());
     }
 }
