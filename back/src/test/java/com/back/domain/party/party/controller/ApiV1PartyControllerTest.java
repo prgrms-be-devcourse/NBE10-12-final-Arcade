@@ -624,4 +624,59 @@ public class ApiV1PartyControllerTest {
                 }
                 """.formatted(deadline);
     }
+
+    @Test
+    @DisplayName("인기 파티 TOP3: 로그인하지 않아도 조회할 수 있다")
+    void top3WithoutLogin() throws Exception {
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/top3"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.resultCode").value("200-1"))
+                .andExpect(jsonPath("$.msg").value("인기 파티 TOP3 조회 성공"));
+    }
+
+    @Test
+    @DisplayName("인기 파티 TOP3: 좋아요 수 내림차순으로 정렬된다")
+    void top3OrderedByLikeCountDesc() throws Exception {
+        Party lowLikeParty = savePartyOwnedBy("user1@test.com", 2);
+        Party highLikeParty = savePartyOwnedBy("user1@test.com", 2);
+
+        partyRepository.increaseLikeCount(highLikeParty.getId());
+        partyRepository.increaseLikeCount(highLikeParty.getId());
+        partyRepository.increaseLikeCount(lowLikeParty.getId());
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/top3"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].id").value(highLikeParty.getId()));
+    }
+
+    @Test
+    @DisplayName("인기 파티 TOP3: 모집 중(RECRUITING)이 아닌 파티는 제외된다")
+    void top3ExcludesNonRecruitingParty() throws Exception {
+        Party completedParty = savePartyOwnedBy("user1@test.com", 2);
+        completedParty.closeRecruiting();
+        completedParty.complete();
+        partyRepository.increaseLikeCount(completedParty.getId());
+        partyRepository.increaseLikeCount(completedParty.getId());
+        partyRepository.increaseLikeCount(completedParty.getId());
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/top3"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[?(@.id == " + completedParty.getId() + ")]").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("인기 파티 TOP3: 최대 3개까지만 반환한다")
+    void top3ReturnsAtMostThree() throws Exception {
+        for (int i = 0; i < 5; i++) {
+            savePartyOwnedBy("user1@test.com", 2);
+        }
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/top3"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(3));
+    }
 }

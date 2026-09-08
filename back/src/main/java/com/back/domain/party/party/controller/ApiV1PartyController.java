@@ -41,59 +41,66 @@ public class ApiV1PartyController {
     private final Rq rq;
 
     public record PositionReqBody(
-        @NotNull PositionType name,
-        int capacity
-    ) { }
+            @NotNull PositionType name,
+            int capacity
+    ) {
+    }
 
     public record PartyCreateReqBody(
-        @NotBlank @Size(max = 10) String partyName,
-        @NotBlank @Size(max = 20) String title,
-        @Size(max = 20000) String description,
-        Long targetContestId,
-        String contestTitle,
-        String contestLinkUrl,
-        @NotNull TopicType topicType,
-        @NotNull PartyTag partyTag,
-        String githubRepoUrl,
-        int checklistRequiredApprovals,
-        @NotNull LocalDateTime deadline,
-        @NotEmpty List<@Valid PositionReqBody> positions
-    ) { }
+            @NotBlank @Size(max = 10) String partyName,
+            @NotBlank @Size(max = 20) String title,
+            @Size(max = 20000) String description,
+            Long targetContestId,
+            String contestTitle,
+            String contestLinkUrl,
+            @NotNull TopicType topicType,
+            @NotNull PartyTag partyTag,
+            String githubRepoUrl,
+            int checklistRequiredApprovals,
+            @NotNull LocalDateTime deadline,
+            @NotEmpty List<@Valid PositionReqBody> positions
+    ) {
+    }
 
     @PostMapping
     public RsData<PartyDto> create(
-        @Valid @RequestBody PartyCreateReqBody request
+            @Valid @RequestBody PartyCreateReqBody request
     ) {
         List<PartyService.PositionCreateSpec> positionSpecs = request.positions().stream()
-            .map(p -> new PartyService.PositionCreateSpec(p.name(), p.capacity()))
-            .toList();
+                .map(p -> new PartyService.PositionCreateSpec(
+                        p.name(),
+                        p.capacity()
+                ))
+                .toList();
 
         PartyDto partyDto = partyService.create(
-            rq.getActorFromDb(),
-            request.partyName(),
-            request.title(),
-            request.description(),
-            request.targetContestId(),
-            request.contestTitle(),
-            request.contestLinkUrl(),
-            request.topicType(),
-            request.partyTag(),
-            request.githubRepoUrl(),
-            request.checklistRequiredApprovals(),
-            request.deadline(),
-            positionSpecs
+                rq.getActorFromDb(),
+                request.partyName(),
+                request.title(),
+                request.description(),
+                request.targetContestId(),
+                request.contestTitle(),
+                request.contestLinkUrl(),
+                request.topicType(),
+                request.partyTag(),
+                request.githubRepoUrl(),
+                request.checklistRequiredApprovals(),
+                request.deadline(),
+                positionSpecs
         );
 
         return new RsData<>(
-            "201-1",
-            "파티 생성 성공",
-            partyDto
+                "201-1",
+                "파티 생성 성공",
+                partyDto
         );
     }
+
     public record PositionCapacityReqBody(
             @NotNull Long positionId,
             int capacity
-    ) { }
+    ) {
+    }
 
     public record PartyUpdateReqBody(
             @NotBlank @Size(max = 10) String partyName,
@@ -107,7 +114,8 @@ public class ApiV1PartyController {
             String githubRepoUrl,
             @NotNull LocalDateTime deadline,
             List<@Valid PositionCapacityReqBody> positions
-    ) { }
+    ) {
+    }
 
     @PatchMapping("/{partyId}")
     public RsData<PartyDto> update(
@@ -117,7 +125,10 @@ public class ApiV1PartyController {
         List<PartyService.PositionCapacityUpdateSpec> positionSpecs = request.positions() == null
                 ? List.of()
                 : request.positions().stream()
-                .map(p -> new PartyService.PositionCapacityUpdateSpec(p.positionId(), p.capacity()))
+                .map(p -> new PartyService.PositionCapacityUpdateSpec(
+                        p.positionId(),
+                        p.capacity()
+                ))
                 .toList();
 
         PartyDto partyDto = partyService.update(
@@ -143,7 +154,8 @@ public class ApiV1PartyController {
         );
     }
 
-    public record GithubRepositoryUpdateReqBody(@NotBlank String githubRepoUrl) { }
+    public record GithubRepositoryUpdateReqBody(@NotBlank String githubRepoUrl) {
+    }
 
     @PatchMapping("/{partyId}/github-repository")
     public RsData<PartyDto> updateGithubRepository(
@@ -156,14 +168,21 @@ public class ApiV1PartyController {
                 request.githubRepoUrl()
         );
 
-        return new RsData<>("200-1", "GitHub 저장소 수정 성공", partyDto);
+        return new RsData<>(
+                "200-1",
+                "GitHub 저장소 수정 성공",
+                partyDto
+        );
     }
 
     @DeleteMapping("/{partyId}")
     public RsData<Void> delete(
             @PathVariable long partyId
     ) {
-        partyService.deletePartyAndInteractions(partyId, rq.getActorFromDb());
+        partyService.deletePartyAndInteractions(
+                partyId,
+                rq.getActorFromDb()
+        );
 
         return new RsData<>(
                 "204-1",
@@ -186,7 +205,10 @@ public class ApiV1PartyController {
                 partyTag,
                 position,
                 sort,
-                PageRequest.of(page, size)
+                PageRequest.of(
+                        page,
+                        size
+                )
         );
 
         return new RsData<>(
@@ -213,7 +235,10 @@ public class ApiV1PartyController {
     public RsData<PartyDto> closeRecruiting(
             @PathVariable long partyId
     ) {
-        PartyDto partyDto = partyLifecycleService.closeRecruiting(partyId, rq.getActorFromDb());
+        PartyDto partyDto = partyLifecycleService.closeRecruiting(
+                partyId,
+                rq.getActorFromDb()
+        );
 
         return new RsData<>(
                 "201-1",
@@ -226,12 +251,26 @@ public class ApiV1PartyController {
     public RsData<PartyDto> complete(
             @PathVariable long partyId
     ) {
-        PartyDto partyDto = partyLifecycleService.complete(partyId, rq.getActorFromDb());
+        PartyDto partyDto = partyLifecycleService.complete(
+                partyId,
+                rq.getActorFromDb()
+        );
 
         return new RsData<>(
                 "200-1",
                 "파티 완료 처리 성공",
                 partyDto
+        );
+    }
+
+    @GetMapping("/top3")
+    public RsData<List<PartyListItemDto>> top3() {
+        List<PartyListItemDto> parties = partyService.getTop3();
+
+        return new RsData<>(
+                "200-1",
+                "인기 파티 TOP3 조회 성공",
+                parties
         );
     }
 }
