@@ -5,6 +5,7 @@ import com.back.domain.contest.contest.entity.ContestPost;
 import com.back.domain.contest.contest.repository.ContestPostRepository;
 import com.back.domain.contest.contest.repository.ContestRepository;
 import com.back.domain.goal.goal.entity.Goal;
+import com.back.domain.goal.goal.entity.Project;
 import com.back.domain.goal.goal.repository.GoalRepository;
 import com.back.domain.interaction.bookmark.dtos.BookmarkDto;
 import com.back.domain.interaction.bookmark.dtos.MyBookmarkDto;
@@ -27,6 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -168,7 +170,49 @@ public class BookmarkService implements BookmarkInteractionPort {
             return Set.of();
         }
 
-        return new HashSet<>(bookmarkRepository.findTargetIdsByMemberAndTargetTypeAndTargetIdIn(member, targetType, targetIds));
+        if (targetType != TargetType.GOAL) {
+            return new HashSet<>(bookmarkRepository.findTargetIdsByMemberAndTargetTypeAndTargetIdIn(member, targetType, targetIds));
+        }
+
+        List<Goal> goals = goalRepository.findAllById(targetIds);
+
+        Map<Long, Long> projectGoalIdToShowcaseId = new HashMap<>();
+        Set<Long> plainGoalIds = new HashSet<>();
+
+        for (Goal goal : goals) {
+            if (goal instanceof Project project) {
+                if (project.getPartyShowcase() != null) {
+                    projectGoalIdToShowcaseId.put(goal.getId(), project.getPartyShowcase().getId());
+                } else {
+                    plainGoalIds.add(goal.getId()); // 미전시 상태면 일단 GOAL ID로 처리
+                }
+            } else {
+                plainGoalIds.add(goal.getId());
+            }
+        }
+
+        Set<Long> bookmarkedGoalIds = new HashSet<>();
+
+        if (!plainGoalIds.isEmpty()) {
+            bookmarkedGoalIds.addAll(bookmarkRepository.findTargetIdsByMemberAndTargetTypeAndTargetIdIn(
+                    member, TargetType.GOAL, plainGoalIds
+            ));
+        }
+
+        if (!projectGoalIdToShowcaseId.isEmpty()) {
+            Set<Long> showcaseIds = new HashSet<>(projectGoalIdToShowcaseId.values());
+            Set<Long> bookmarkedShowcaseIds = new HashSet<>(bookmarkRepository.findTargetIdsByMemberAndTargetTypeAndTargetIdIn(
+                    member, TargetType.PARTY_SHOWCASE, showcaseIds
+            ));
+
+            for (Map.Entry<Long, Long> entry : projectGoalIdToShowcaseId.entrySet()) {
+                if (bookmarkedShowcaseIds.contains(entry.getValue())) {
+                    bookmarkedGoalIds.add(entry.getKey());
+                }
+            }
+        }
+
+        return bookmarkedGoalIds;
     }
 
     @Transactional
@@ -198,37 +242,49 @@ public class BookmarkService implements BookmarkInteractionPort {
         bookmarkRepository.deleteByMemberAndTargetTypeAndTargetId(member, TargetType.PARTY, partyId);
     }
 
-    // 북마크 가능은 존재 여부뿐 아니라 전시 여부까지 포함한다.
-    // 아직 전시 안 된 성취를 외부에 굳이 알릴 필요 없어서 못 찾은 것과 같은 404로 묶는다.
-    private boolean isGoalExhibited(long goalId) {
-        return goalRepository.findById(goalId)
-                .map(Goal::isExhibited)
-                .orElse(false);
+    private record BookmarkTarget(TargetType targetType, long targetId) {
+    }
+
+    // LikeService.resolveGoalLikeTarget()과 동일한 판단 - PROJECT면 파티 전체가 공유하는
+    // PARTY_SHOWCASE로, 그 외(자기신고)는 GOAL 자신으로 북마크를 건다(기획서 3.2).
+    private BookmarkTarget resolveGoalBookmarkTarget(Goal goal) {
+        if (goal instanceof Project project) {
+            if (project.getPartyShowcase() != null) {
+                return new BookmarkTarget(TargetType.PARTY_SHOWCASE, project.getPartyShowcase().getId());
+            }
+        }
+        return new BookmarkTarget(TargetType.GOAL, goal.getId());
     }
 
     @Transactional
     public BookmarkDto bookmarkGoal(long goalId, Member member) {
-        if (!isGoalExhibited(goalId)) {
-            throw new ServiceException("404-1", "존재하지 않는 성취입니다.");
-        }
-        if (isBookmarked(member, TargetType.GOAL, goalId)) {
+        Goal goal = goalRepository.findById(goalId)
+                .filter(Goal::isExhibited)
+                .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 성취입니다."));
+
+        BookmarkTarget target = resolveGoalBookmarkTarget(goal);
+
+        if (isBookmarked(member, target.targetType(), target.targetId())) {
             throw new ServiceException("409-1", "이미 북마크한 성취입니다.");
         }
 
-        bookmarkRepository.save(new Bookmark(member, TargetType.GOAL, goalId));
+        bookmarkRepository.save(new Bookmark(member, target.targetType(), target.targetId()));
 
         return new BookmarkDto(TargetType.GOAL, goalId, true);
     }
 
     @Transactional
     public void unbookmarkGoal(long goalId, Member member) {
-        if (!isGoalExhibited(goalId)) {
-            throw new ServiceException("404-1", "존재하지 않는 성취입니다.");
-        }
-        if (!isBookmarked(member, TargetType.GOAL, goalId)) {
+        Goal goal = goalRepository.findById(goalId)
+                .filter(Goal::isExhibited)
+                .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 성취입니다."));
+
+        BookmarkTarget target = resolveGoalBookmarkTarget(goal);
+
+        if (!isBookmarked(member, target.targetType(), target.targetId())) {
             throw new ServiceException("409-1", "북마크하지 않은 성취입니다.");
         }
 
-        bookmarkRepository.deleteByMemberAndTargetTypeAndTargetId(member, TargetType.GOAL, goalId);
+        bookmarkRepository.deleteByMemberAndTargetTypeAndTargetId(member, target.targetType(), target.targetId());
     }
 }
