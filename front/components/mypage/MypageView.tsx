@@ -32,9 +32,13 @@ interface MypageViewProps {
   initialTab: MypageTabKey;
   profile: UserProfile;
   todos: TodoItem[];
+  /** 개인 TODO 전체 페이지 수 (서버 페이지네이션) */
+  todoTotalPages: number;
   applicants: Applicant[];
   myApplications: Applicant[];
   messages: DirectMessage[];
+  /** 쪽지함 전체 페이지 수 (서버 페이지네이션) */
+  messageTotalPages: number;
   bookmarks: BookmarkItem[];
   myParties: { id: string; title: string }[];
   /** 전시가 게시된 파티 id. 게시된 것만 '전시 페이지 보기' 를 단다(기획서 2.11) */
@@ -45,9 +49,11 @@ export function MypageView({
   initialTab,
   profile: initialProfile,
   todos,
+  todoTotalPages,
   applicants,
   myApplications,
   messages,
+  messageTotalPages,
   bookmarks,
   myParties,
   publishedPartyIds,
@@ -100,7 +106,7 @@ export function MypageView({
 
             {activeTab === 'todo' ? (
               <div className="mypage-tab-panel">
-                <DetailGrid main={<TodoTable todos={todos} />} />
+                <DetailGrid main={<TodoTable todos={todos} totalPages={todoTotalPages} />} />
               </div>
             ) : null}
 
@@ -147,7 +153,7 @@ export function MypageView({
                 <DetailGrid
                   main={
                     <Block title="쪽지함" reveal>
-                      <MessageBox messages={messages} />
+                      <MessageBox messages={messages} totalPages={messageTotalPages} />
                     </Block>
                   }
                 />

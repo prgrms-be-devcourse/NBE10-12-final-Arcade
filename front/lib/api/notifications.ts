@@ -72,19 +72,25 @@ function toServerIds(ids: string[]): number[] {
  *
  * 최신순으로 페이지 단위로 온다. 알림 드롭다운은 첫 페이지만 쓰므로 기본값을 그대로 둔다.
  */
+/** 서버가 페이지 단위로 주므로 목록과 전체 페이지 수를 함께 돌려준다 */
+export interface NotificationPage {
+  items: AppNotification[];
+  totalPages: number;
+}
+
 export async function fetchNotifications(options?: {
   /** 읽음 여부 필터. 생략하면 전부 */
   isRead?: boolean;
   page?: number;
   size?: number;
-}): Promise<AppNotification[]> {
-  if (USE_MOCK) return mockResponse(MOCK_NOTIFICATIONS);
+}): Promise<NotificationPage> {
+  if (USE_MOCK) return mockResponse({ items: MOCK_NOTIFICATIONS, totalPages: 1 });
 
   const result = await http.get<NotificationPageResponse>('/notifications', {
     query: { isRead: options?.isRead, page: options?.page, size: options?.size },
   });
 
-  return result.content.map(toAppNotification);
+  return { items: result.content.map(toAppNotification), totalPages: result.totalPages };
 }
 
 /**

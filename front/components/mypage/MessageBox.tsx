@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Icon } from '@/components/icons/Icon';
 import { TextAreaField } from '@/components/ui/Field';
+import { Pagination } from '@/components/ui/Pagination';
 import { RadioChipGroup } from '@/components/ui/RadioChipGroup';
 import { fetchMessages, sendDirectMessage, type MessageBoxName } from '@/lib/api';
 import type { DirectMessage } from '@/lib/types';
@@ -14,16 +15,27 @@ const BOX_LABELS: Record<MessageBoxName, string> = {
 
 const BOX_NAMES = Object.keys(BOX_LABELS) as MessageBoxName[];
 
+/** 한 쪽에 보여줄 건수. 서버에 그대로 넘긴다 */
+export const MESSAGE_PAGE_SIZE = 20;
+
 /**
  * 마이페이지 쪽지함 — 받은함/보낸함 전환과 답장 폼.
  *
  * 서버에 답장 스레드가 없어서(쪽지는 한 방향 기록) 답장은 상대에게 보내는 새 쪽지로 처리한다.
  * 보낸 쪽지는 보낸함에서 확인할 수 있다.
  */
-export function MessageBox({ messages: initial }: { messages: DirectMessage[] }) {
-  // 서버 컴포넌트가 먼저 읽어 넘겨준 받은함으로 시작하고, 함을 바꿀 때만 다시 읽는다
+export function MessageBox({
+  messages: initial,
+  totalPages: initialTotalPages,
+}: {
+  messages: DirectMessage[];
+  totalPages: number;
+}) {
+  // 서버 컴포넌트가 먼저 읽어 넘겨준 받은함 첫 쪽으로 시작하고, 함을 바꾸거나 쪽을 넘길 때 다시 읽는다
   const [box, setBox] = useState<MessageBoxName>('RECEIVED');
   const [messages, setMessages] = useState(initial);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(initialTotalPages);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
 
@@ -32,21 +44,34 @@ export function MessageBox({ messages: initial }: { messages: DirectMessage[] })
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<{ ok: boolean; message: string } | null>(null);
 
-  const changeBox = async (next: MessageBoxName) => {
-    if (next === box) return;
-    setBox(next);
+  /** 함 전환·쪽 넘기기 모두 서버를 다시 읽는다 (Pagination 은 1부터, 서버는 0부터) */
+  const load = async (nextBox: MessageBoxName, nextPage: number) => {
+    setBox(nextBox);
+    setPage(nextPage);
     setReplyingId(null);
     setSendResult(null);
     setLoading(true);
     setLoadError('');
     try {
-      setMessages(await fetchMessages({ box: next }));
+      const result = await fetchMessages({
+        box: nextBox,
+        page: nextPage - 1,
+        size: MESSAGE_PAGE_SIZE,
+      });
+      setMessages(result.items);
+      setTotalPages(result.totalPages);
     } catch {
       setMessages([]);
       setLoadError('쪽지함을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const changeBox = (next: MessageBoxName) => {
+    if (next === box) return;
+    // 함을 바꾸면 쪽 번호도 처음으로 돌린다
+    return load(next, 1);
   };
 
   const send = async (message: DirectMessage) => {
@@ -171,6 +196,8 @@ export function MessageBox({ messages: initial }: { messages: DirectMessage[] })
           {box === 'RECEIVED' ? '도착한 쪽지가 없어요.' : '보낸 쪽지가 없어요.'}
         </p>
       ) : null}
+
+      <Pagination page={page} totalPages={totalPages} onChange={(next) => load(box, next)} />
     </>
   );
 }

@@ -114,21 +114,32 @@ function toServerIds(ids: string[]): number[] {
  *
  * box 로 받은함·보낸함을 가른다(기본 받은함). 최신순으로 페이지 단위로 온다.
  */
+/** 서버가 페이지 단위로 주므로 목록과 전체 페이지 수를 함께 돌려준다 */
+export interface MessagePage {
+  items: DirectMessage[];
+  totalPages: number;
+}
+
 export async function fetchMessages(options?: {
   box?: MessageBoxName;
   page?: number;
   size?: number;
-}): Promise<DirectMessage[]> {
+}): Promise<MessagePage> {
   const box = options?.box ?? 'RECEIVED';
 
   // 목 데이터는 받은 쪽지만 있다. 보낸함은 빈 목록으로 둔다
-  if (USE_MOCK) return mockResponse(box === 'RECEIVED' ? MOCK_MESSAGES : []);
+  if (USE_MOCK) {
+    return mockResponse({ items: box === 'RECEIVED' ? MOCK_MESSAGES : [], totalPages: 1 });
+  }
 
   const result = await http.get<MessagePageResponse>('/members/me/messages', {
     query: { box, page: options?.page, size: options?.size },
   });
 
-  return result.content.map((dto) => toDirectMessage(dto, box));
+  return {
+    items: result.content.map((dto) => toDirectMessage(dto, box)),
+    totalPages: result.totalPages,
+  };
 }
 
 /**
@@ -143,11 +154,13 @@ export async function fetchMessagesOrEmpty(options?: {
   box?: MessageBoxName;
   page?: number;
   size?: number;
-}): Promise<DirectMessage[]> {
+}): Promise<MessagePage> {
   try {
     return await fetchMessages(options);
   } catch (error) {
-    if (error instanceof ApiError && (error.status === 401 || error.status >= 500)) return [];
+    if (error instanceof ApiError && (error.status === 401 || error.status >= 500)) {
+      return { items: [], totalPages: 1 };
+    }
     throw error;
   }
 }

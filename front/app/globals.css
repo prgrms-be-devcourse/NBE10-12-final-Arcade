@@ -155,6 +155,13 @@ img,svg{display:block;}
 .notif-close:hover{color:var(--gold);}
 .notif-close svg{width:0.75rem;height:0.75rem;}
 .notif-empty{padding:2rem 1rem;text-align:center;font-size:.84rem;color:var(--text-dim);}
+/* 알림은 이 드롭다운이 전부라 쪽 넘김 대신 이어 붙인다 */
+.notif-more{
+  width:100%;padding:0.75rem;border-top:0.125rem solid var(--border);
+  background:none;font-size:.82rem;color:var(--text-muted);cursor:pointer;
+}
+.notif-more:hover:not(:disabled){color:var(--text);}
+.notif-more:disabled{cursor:default;color:var(--text-dim);}
 
 @media (max-width:53.75rem){
   .nav-menu{display:none;}

@@ -28,6 +28,9 @@ const NOTIF_ROUTES: Record<NotificationTarget, string> = {
   contests: '/contests',
 };
 
+/** 한 번에 읽어오는 건수. 서버 기본값과 같지만 화면이 정한 값임을 드러낸다 */
+const PAGE_SIZE = 20;
+
 /** 네비게이션 우측 알림 드롭다운 (선택 삭제 · 전체 읽음 포함) */
 export function NotificationPanel() {
   const router = useRouter();
@@ -36,13 +39,41 @@ export function NotificationPanel() {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
+  /** 마지막으로 읽어온 쪽(0부터) */
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-  /** 목록 다시 읽기. 배경 갱신이 실패하면 화면에 있던 것을 그대로 둔다 */
+  /** 첫 쪽부터 다시 읽기. 배경 갱신이 실패하면 화면에 있던 것을 그대로 둔다 */
   const load = useCallback(() => {
-    fetchNotifications()
-      .then(setNotifications)
+    fetchNotifications({ size: PAGE_SIZE })
+      .then((result) => {
+        setNotifications(result.items);
+        setPage(0);
+        setHasMore(result.totalPages > 1);
+      })
       .catch(() => undefined);
   }, []);
+
+  /**
+   * 다음 쪽을 뒤에 이어 붙인다.
+   *
+   * 알림은 이 드롭다운이 전부라 따로 목록 화면이 없다 — 쪽을 넘기는 대신 쌓아 보여준다.
+   * 예전에는 서버 기본값 한 쪽(20건)만 읽어 21번째부터는 영영 볼 수 없었다.
+   */
+  const loadMore = () => {
+    if (loadingMore) return;
+    const next = page + 1;
+    setLoadingMore(true);
+    fetchNotifications({ page: next, size: PAGE_SIZE })
+      .then((result) => {
+        setNotifications((prev) => [...prev, ...result.items]);
+        setPage(next);
+        setHasMore(next + 1 < result.totalPages);
+      })
+      .catch(() => undefined)
+      .finally(() => setLoadingMore(false));
+  };
 
   useEffect(() => {
     load();
@@ -258,6 +289,11 @@ export function NotificationPanel() {
             })}
           </div>
           {notifications.length === 0 ? <p className="notif-empty">새 알림이 없어요.</p> : null}
+          {hasMore ? (
+            <button type="button" className="notif-more" disabled={loadingMore} onClick={loadMore}>
+              {loadingMore ? '불러오는 중…' : '이전 알림 더 보기'}
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>

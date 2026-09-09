@@ -68,25 +68,43 @@ function toChecklistItem(item: PersonalTodoItemResponse): ChecklistItem {
   };
 }
 
+/** 서버가 페이지 단위로 주므로 목록과 전체 페이지 수를 함께 돌려준다 */
+export interface TodoPage {
+  items: TodoItem[];
+  totalPages: number;
+}
+
 /**
  * GET /todos/me — 내 개인 TODO 목록.
  *
  * linked=false 를 주면 아직 성취에 연결되지 않은 것만 온다. 성취 등록·수정 화면의 TODO 선택은
  * 이미 연결된 것을 고르면 서버가 409 로 거절하므로 이 필터를 써야 한다.
  *
- * size 기본값은 20 이다. 선택 목록처럼 전부 필요한 곳은 최대치(100)를 준다.
+ * **page 는 0부터다**(서버 기준). size 는 기본 20, 최대 100 —
+ * 목록 화면은 화면 한 쪽만큼만 받고, 선택 목록처럼 전부 필요한 곳은 최대치를 준다.
+ *
+ * 이 엔드포인트만 PageDto 가 아니라 Spring Page 원본이라 껍데기가 다르다(page 가 아니라 number).
+ * 화면이 쓰는 건 content·totalPages 둘뿐이라 그 둘만 읽는다.
  */
 export async function fetchTodos(options?: {
   linked?: boolean;
+  page?: number;
   size?: number;
-}): Promise<TodoItem[]> {
-  if (USE_MOCK) return mockResponse(MOCK_TODOS);
+}): Promise<TodoPage> {
+  if (USE_MOCK) {
+    const size = options?.size ?? MOCK_TODOS.length;
+    const start = (options?.page ?? 0) * size;
+    return mockResponse({
+      items: MOCK_TODOS.slice(start, start + size),
+      totalPages: Math.max(1, Math.ceil(MOCK_TODOS.length / size)),
+    });
+  }
 
-  // 서버가 Page 로 감싸 내려주므로 content 만 꺼낸다
-  const page = await http.get<{ content: PersonalTodoResponse[] }>('/todos/me', {
-    query: { linked: options?.linked, size: options?.size },
-  });
-  return page.content.map(toTodoItem);
+  const page = await http.get<{ content: PersonalTodoResponse[]; totalPages: number }>(
+    '/todos/me',
+    { query: { linked: options?.linked, page: options?.page, size: options?.size } },
+  );
+  return { items: page.content.map(toTodoItem), totalPages: page.totalPages };
 }
 
 /** POST /todos */

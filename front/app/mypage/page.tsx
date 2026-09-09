@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation';
 import { MypageView } from '@/components/mypage/MypageView';
+import { MESSAGE_PAGE_SIZE } from '@/components/mypage/MessageBox';
+import { TODO_PAGE_SIZE } from '@/components/mypage/TodoTable';
 import { isMypageTabKey, type MypageTabKey } from '@/lib/mypageTabs';
 import {
   fetchMessagesOrEmpty,
@@ -39,10 +41,11 @@ export default async function MyPage({
       fetchMySummaryOrEmpty(),
       // 성취는 프로필 응답에 없고 GET /goals/me 로 따로 온다
       fetchMyGoalsOrEmpty(),
-      fetchTodos(),
+      // 목록 화면은 한 쪽만 받는다. 쪽을 넘기면 TodoTable 이 다시 읽는다
+      fetchTodos({ size: TODO_PAGE_SIZE }),
       fetchMyPartyApplicants(),
       fetchMyApplications(),
-      fetchMessagesOrEmpty(),
+      fetchMessagesOrEmpty({ size: MESSAGE_PAGE_SIZE }),
       fetchMyBookmarks(),
     ]);
 
@@ -63,10 +66,12 @@ export default async function MyPage({
     <MypageView
       initialTab={activeTab}
       profile={{ ...profile, ...summary, achievements }}
-      todos={todos}
+      todos={todos.items}
+      todoTotalPages={todos.totalPages}
       applicants={applicants}
       myApplications={myApplications}
-      messages={messages}
+      messages={messages.items}
+      messageTotalPages={messages.totalPages}
       bookmarks={bookmarks}
       myParties={toMyParties(applicants)}
       publishedPartyIds={publishedPartyIds}

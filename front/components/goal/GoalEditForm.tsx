@@ -156,7 +156,7 @@ export function GoalEditForm({ goal }: { goal: GoalDetailResponse }) {
       fetchTodos({ linked: false, size: 100 }),
       linkedId != null ? fetchSoloSpace(String(linkedId)).catch(() => null) : Promise.resolve(null),
     ])
-      .then(([rows, linked]) => {
+      .then(([{ items: rows }, linked]) => {
         if (!alive) return;
         setTodos(
           linked

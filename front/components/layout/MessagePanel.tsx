@@ -8,16 +8,23 @@ import { useRefreshOnVisible } from '@/lib/hooks/useRefreshOnVisible';
 import type { DirectMessage } from '@/lib/types';
 
 /** 네비게이션 우측 쪽지 드롭다운 */
+/** 드롭다운에 미리 보여줄 건수 */
+const PREVIEW_SIZE = 20;
+
 export function MessagePanel() {
   const router = useRouter();
   const wrapRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<DirectMessage[]>([]);
 
-  /** 받은 쪽지 다시 읽기. 배경 갱신이 실패하면 화면에 있던 것을 그대로 둔다 */
+  /**
+   * 받은 쪽지 다시 읽기. 배경 갱신이 실패하면 화면에 있던 것을 그대로 둔다.
+   *
+   * 드롭다운은 미리보기라 첫 쪽만 받는다 — 전체 목록과 쪽 넘기기는 마이페이지 쪽지함이 맡는다.
+   */
   const load = useCallback(() => {
-    fetchMessages()
-      .then(setMessages)
+    fetchMessages({ size: PREVIEW_SIZE })
+      .then(({ items }) => setMessages(items))
       .catch(() => undefined);
   }, []);
 
