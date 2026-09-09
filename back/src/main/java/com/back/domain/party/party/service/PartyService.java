@@ -228,18 +228,9 @@ public class PartyService {
         Party party = partyRepository.findById(partyId).orElse(null);
         if (party == null) return; // 이미 없으면 성공으로 간주(멱등)
 
-        partySearchKeywordPort.deleteKeywordParty(partyId);
-
-        partyShowcaseRepository.findByParty(party).ifPresent(showcase -> {
-            likeInteractionPort.deleteAllLikesForTarget(TargetType.PARTY_SHOWCASE, showcase.getId());
-            bookmarkInteractionPort.deleteAllBookmarksForTarget(TargetType.PARTY_SHOWCASE, showcase.getId());
-            partyShowcaseRepository.delete(showcase);
-        });
-
+        cleanupBeforeRowDeletion(party);
         removePartyRow(party);
-
-        likeInteractionPort.deleteAllLikesForTarget(TargetType.PARTY, partyId);
-        bookmarkInteractionPort.deleteAllBookmarksForTarget(TargetType.PARTY, partyId);
+        cleanupPartyLikesAndBookmarks(partyId);
     }
 
     // 남은 지원 기록(PENDING/REJECTED/APPROVED)은 position 을 참조하므로
@@ -249,6 +240,24 @@ public class PartyService {
         partyMemberRepository.flush();
 
         partyRepository.delete(party);
+    }
+
+    // 검색 인덱스, showcase(전시글)와 그에 딸린 좋아요/북마크를 파티 row 삭제 전에 정리한다.
+    // PartyShowcase.party는 FK가 필수(NOT NULL)라, showcase 자체를 먼저 지우지 않으면
+    // party row를 삭제할 때 FK 제약 위반이 날 수 있다.
+    private void cleanupBeforeRowDeletion(Party party) {
+        partySearchKeywordPort.deleteKeywordParty(party.getId());
+
+        partyShowcaseRepository.findByParty(party).ifPresent(showcase -> {
+            likeInteractionPort.deleteAllLikesForTarget(TargetType.PARTY_SHOWCASE, showcase.getId());
+            bookmarkInteractionPort.deleteAllBookmarksForTarget(TargetType.PARTY_SHOWCASE, showcase.getId());
+            partyShowcaseRepository.delete(showcase);
+        });
+    }
+
+    private void cleanupPartyLikesAndBookmarks(long partyId) {
+        likeInteractionPort.deleteAllLikesForTarget(TargetType.PARTY, partyId);
+        bookmarkInteractionPort.deleteAllBookmarksForTarget(TargetType.PARTY, partyId);
     }
 
     @Transactional
@@ -331,16 +340,9 @@ public class PartyService {
         Party party = partyRepository.findById(partyId).orElse(null);
         if (party == null) return; // 파티가 없으면 무시
 
-        partySearchKeywordPort.deleteKeywordParty(partyId);
-
-        partyShowcaseRepository.findByParty(party).ifPresent(showcase -> {
-            likeInteractionPort.deleteAllLikesForTarget(TargetType.PARTY_SHOWCASE, showcase.getId());
-            bookmarkInteractionPort.deleteAllBookmarksForTarget(TargetType.PARTY_SHOWCASE, showcase.getId());
-        });
-
+        cleanupBeforeRowDeletion(party);
         delete(partyId, actor);
-        likeInteractionPort.deleteAllLikesForTarget(TargetType.PARTY, partyId);
-        bookmarkInteractionPort.deleteAllBookmarksForTarget(TargetType.PARTY, partyId);
+        cleanupPartyLikesAndBookmarks(partyId);
     }
 
     public List<PartyListItemDto> getTop3() {
