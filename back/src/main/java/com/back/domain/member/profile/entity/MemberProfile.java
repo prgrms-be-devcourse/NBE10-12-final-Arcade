@@ -89,11 +89,6 @@ public class MemberProfile extends BaseEntity {
                 .forEach(techStack -> this.techStacks.add(new MemberProfileTechStack(this, techStack)));
     }
 
-    /** 대표 포지션만 바꾼다. API 는 PATCH /me 하나로 통일했고, 지금은 테스트 준비에서만 쓴다. */
-    public void changePosition(PositionType position) {
-        this.position = position;
-    }
-
     /**
      * 보낸 항목만 바꾼다. null(또는 생략)은 "건드리지 말라"는 뜻이다.
      * 비우려면 빈 값을 명시해야 한다 - 문자열은 "", 목록은 [].
@@ -111,7 +106,8 @@ public class MemberProfile extends BaseEntity {
             List<CareerCommand> careers,
             List<LinkCommand> links
     ) {
-        if (nickname != null) this.nickname = nickname;
+        // 닉네임은 UNIQUE 라 앞뒤 공백을 두면 " 홍길동 " 과 "홍길동" 이 다른 값이 된다.
+        if (nickname != null) this.nickname = nickname.strip();
         if (webpage != null) this.webPage = ProfileUrl.normalize(webpage);  // "" -> null
         if (bio != null) this.bio = blankToNull(bio);
         if (profileImageUrl != null) this.profileImageUrl = blankToNull(profileImageUrl);

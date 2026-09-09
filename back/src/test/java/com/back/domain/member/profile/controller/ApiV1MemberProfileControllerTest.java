@@ -464,6 +464,30 @@ public class ApiV1MemberProfileControllerTest {
     }
 
     @Test
+    @DisplayName("내 정보 수정: 전각 공백뿐인 닉네임도 400-1이다")
+    @WithUserDetails("user1@test.com")
+    void modifyProfileWithUnicodeBlankNickname() throws Exception {
+        mvc.perform(patch("/api/v1/members/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{ \"nickname\": \"\u3000\" }"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-1"));
+    }
+
+    @Test
+    @DisplayName("내 정보 수정: 닉네임 앞뒤 공백은 잘라서 저장한다")
+    @WithUserDetails("user1@test.com")
+    void modifyProfileTrimsNickname() throws Exception {
+        mvc.perform(patch("/api/v1/members/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "nickname": "  공백낀사람  " }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.nickname").value("공백낀사람"));
+    }
+
+    @Test
     @DisplayName("내 정보 수정: 정의되지 않은 직군이면 400-2 이다 (본문 파싱 실패)")
     @WithUserDetails("user1@test.com")
     void modifyProfileWithUnknownPosition() throws Exception {

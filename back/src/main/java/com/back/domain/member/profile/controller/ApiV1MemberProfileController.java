@@ -85,7 +85,8 @@ public class ApiV1MemberProfileController {
 
     public record ModifyProfileReqBody(
             // 보내지 않으면 그대로 둔다. 다만 빈 문자열은 실수로 지우는 경우라 막는다.
-            @Pattern(regexp = ".*\\S.*", message = "닉네임은 공백일 수 없습니다.")
+            // (?U) 없이는 \S 가 ASCII 공백만 부정해 전각 공백(U+3000) 한 글자짜리 닉네임이 통과한다.
+            @Pattern(regexp = "(?U).*\\S.*", message = "닉네임은 공백일 수 없습니다.")
             String nickname,
             String webpage,
             String profileImageUrl,
