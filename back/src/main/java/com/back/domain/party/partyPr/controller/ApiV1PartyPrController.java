@@ -60,39 +60,6 @@ public class ApiV1PartyPrController {
         return new RsData<>("200-1", "GitHub App 설치 URL 생성 성공", githubConnectionService.beginInstall(partyId, rq.getActorFromDb(), redirectUrl));
     }
 
-    @GetMapping("/github-app/setup")
-    public ResponseEntity<Void> githubAppSetup(
-        @RequestParam(required = false) String state,
-        @RequestParam(name = "installation_id") long installationId
-    ) {
-        // GitHub App 페이지에서 직접 설치한 경우에는 service가 발급한 state가 없다.
-        // 설치 자체는 inventory로만 동기화하고, Party 연결은 이후 사용자 인증·레포 선택 흐름에서 수행한다.
-        if (state == null || state.isBlank()) {
-            githubInstallationInventoryService.syncInstallation(installationId);
-            return ResponseEntity.status(HttpStatus.FOUND)
-                    .location(directInstallRedirectUri())
-                    .build();
-        }
-        PartyGithubConnectionService.InstallCompletion completion = githubConnectionService.completeInstall(state, installationId);
-        return ResponseEntity.status(HttpStatus.FOUND)
-                .location(redirectUri(completion))
-                .build();
-    }
-
-    private URI directInstallRedirectUri() {
-        String baseUrl = frontendBaseUrl.endsWith("/") ? frontendBaseUrl : frontendBaseUrl + "/";
-        return URI.create(baseUrl).resolve("github-app/installed");
-    }
-
-    private URI redirectUri(
-            PartyGithubConnectionService.InstallCompletion completion) {
-        String redirectPath = completion.redirectPath() == null
-                ? "/parties/" + completion.partyId()
-                : completion.redirectPath();
-        String baseUrl = frontendBaseUrl.endsWith("/") ? frontendBaseUrl : frontendBaseUrl + "/";
-
-        return URI.create(baseUrl).resolve(redirectPath.substring(1));
-    }
 
     @GetMapping("/parties/{partyId}/pull-requests")
     public RsData<List<PartyPrDto>> getPullRequests(
@@ -143,15 +110,4 @@ public class ApiV1PartyPrController {
                 partyPrQueryService.getMyPullRequests(rq.getActorFromDb()));
     }
 
-    @PostMapping("/github/webhook")
-    /** GitHub 공개 webhook endpoint: 일반 로그인 대신 HMAC 서명과 delivery ID로 신뢰성과 중복을 검증한다. */
-    public ResponseEntity<Void> githubWebhook(
-        @RequestHeader(value = "X-GitHub-Event", required = false) String event,
-        @RequestHeader(value = "X-Hub-Signature-256", required = false) String signature,
-        @RequestHeader(value = "X-GitHub-Delivery", required = false) String deliveryId,
-        @RequestBody byte[] body
-    ) {
-        githubWebhookService.receive(event, signature, deliveryId, body);
-        return ResponseEntity.status(HttpStatus.ACCEPTED).build();
-    }
 }
