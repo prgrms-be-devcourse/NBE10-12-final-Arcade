@@ -50,20 +50,6 @@ export const MOCK_EXHIBITIONS: ExhibitionProject[] = [
     thumbnailLabel: '결제',
   },
   {
-    id: 'pixel-dungeon',
-    title: '픽셀 던전 크롤러',
-    summary: '인디 로그라이크 사이드프로젝트 · 클라이언트',
-    partyName: '인디 로그라이크 사이드프로젝트',
-    role: 'FRONT',
-    category: '게임 개발',
-    source: 'SELF_REPORTED',
-    skills: ['Unity', 'C#'],
-    viewCount: 842,
-    likeCount: 77,
-    leader: MOCK_USER_SUMMARIES.seyoon,
-    thumbnailLabel: '던전',
-  },
-  {
     id: 'reservation-system',
     title: '소상공인 예약 시스템',
     summary: '소상공인 예약 서비스 사이드프로젝트 · 풀스택',
@@ -78,23 +64,7 @@ export const MOCK_EXHIBITIONS: ExhibitionProject[] = [
     leader: MOCK_USER_SUMMARIES.jiwoo,
     thumbnailLabel: '예약',
   },
-  {
-    id: 'match-notifier',
-    title: '팀 매칭 알림 서비스',
-    summary: '개인 토이프로젝트 · 백엔드',
-    partyName: '개인 토이프로젝트',
-    role: 'BACK',
-    category: '기타',
-    source: 'SELF_REPORTED',
-    skills: ['WebSocket'],
-    viewCount: 986,
-    likeCount: 35,
-    leader: MOCK_USER_SUMMARIES.haneul,
-    thumbnailLabel: '알림',
-  },
 ];
-
-export const MOCK_EXHIBITION_CATEGORIES = ['전체', '웹 개발', '게임 개발', '앱 개발', '기타'];
 
 /**
  * 완료 시점 스냅샷 — 팀 스페이스의 커밋 내역을 그대로 담는다.
