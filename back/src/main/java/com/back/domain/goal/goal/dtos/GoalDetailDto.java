@@ -22,6 +22,13 @@ public record GoalDetailDto(
         PositionType positionType,
         LocalDate startDate,
         LocalDate endDate,
+        /**
+         * 파티장이 전시글을 실제로 게시했는지. PROJECT 가 아니면 null 이다.
+         *
+         * 완료(ACHIEVED)만으로는 부족하다 - 전시를 올리지 않은 완료 파티에 '전시 페이지 보기' 를 달면
+         * 빈 초안이 열린다. 판정은 `Project.isExhibited()` 하나를 쓴다(전시관 노출·좋아요와 같은 기준).
+         */
+        Boolean exhibited,
 
         // CONTEST
         Boolean isTeam,
@@ -46,6 +53,7 @@ public record GoalDetailDto(
                     // PROJECT 의 result 는 없앴다 - 전시글 내용은 상세 응답의 project 블록에서 온다
                     goal.getTitle(), null,
                     project.getPositionType(), project.getStartDate(), project.getEndDate(),
+                    project.isExhibited(),
                     null, null, null, null, null, null, null, null,
                     null, null, null
             );
@@ -54,7 +62,7 @@ public record GoalDetailDto(
         if (goal instanceof PersonalContest contest) {
             return new GoalDetailDto(
                     goal.getTitle(), contest.getResult(),
-                    null, null, null,
+                    null, null, null, null,
                     contest.isTeam(), contest.getAwardDate(),
                     contest.getContestUrl(), contest.getTargetContestId(),
                     contest.getEvidenceStorageKey(), contest.getEvidenceFileName(),
@@ -66,7 +74,7 @@ public record GoalDetailDto(
         if (goal instanceof PersonalChecklist checklist) {
             return new GoalDetailDto(
                     goal.getTitle(), null,
-                    null, null, null,
+                    null, null, null, null,
                     null, null, null, null, null, null, null, null,
                     checklist.getMemo(), checklist.getTargetDate(),
                     checklist.getPersonalTodo() == null ? null : checklist.getPersonalTodo().getId()

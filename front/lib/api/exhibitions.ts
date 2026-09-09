@@ -178,35 +178,6 @@ export async function fetchExhibition(id: string): Promise<ExhibitionDetail> {
   return toExhibitionDetail(await http.get<PartyShowcaseResponse>(`/parties/${id}/showcase`));
 }
 
-/**
- * 전시가 실제로 **게시된** 파티만 골라낸다.
- *
- * 성취 목록(GET /goals/me)의 `GoalDto` 에는 전시 게시 여부가 없어(상세 응답에만 있다)
- * 완료된 파티인지와 전시가 올라갔는지를 구분할 수 없다. 기획서 2.11 은 게시까지 마친 항목에만
- * '전시 페이지 보기' 를 붙이라고 하므로, 파티별 전시 초안 조회의 `published` 로 판별한다.
- *
- * 파티원이면 미게시 초안도 200 이라 이 호출 자체는 성공한다 - `published` 만 본다.
- * 403·404 는 게시 안 된 것으로 취급한다. 완료된 파티 수만큼 요청이 나가므로 호출부에서 목록을 좁혀 넘긴다.
- *
- * `GoalDto` 에 게시 여부 한 필드가 생기면 이 함수와 호출부를 지우면 된다.
- */
-export async function fetchPublishedPartyIds(partyIds: string[]): Promise<string[]> {
-  const unique = Array.from(new Set(partyIds.filter(Boolean)));
-  if (unique.length === 0) return [];
-  if (USE_API_MOCK) return mockResponse(unique);
-
-  const checked = await Promise.all(
-    unique.map(async (partyId) => {
-      try {
-        const showcase = await http.get<PartyShowcaseResponse>(`/parties/${partyId}/showcase`);
-        return showcase.published ? partyId : null;
-      } catch {
-        return null;
-      }
-    }),
-  );
-  return checked.filter((partyId): partyId is string => partyId !== null);
-}
 
 /**
  * POST /api/v1/parties/{partyId}/showcase — 전시 게시.
