@@ -21,6 +21,7 @@ import {
   searchContests,
   updateParty,
 } from '@/lib/api';
+import { useLeaveTo } from '@/lib/navigation';
 import {
   CONTEST_FORMATS,
   CONTEST_FORMAT_LABELS,
@@ -45,6 +46,8 @@ interface PositionRow {
 export function PartyCreateForm({ editId }: { editId?: string }) {
   const router = useRouter();
   const { confirm, dialog } = useConfirm();
+  // 수정으로 들어왔으면 되돌아간다 - push 하면 상세에서 뒤로가기를 눌렀을 때 수정 폼이 다시 나온다
+  const leaveEdit = useLeaveTo(editId ? `/party/${editId}` : '/party');
   const [topicType, setTopicType] = useState<TopicType>('CONTEST');
   const [contestFormat, setContestFormat] = useState<ContestFormat>('COMPETITION');
   const [contestLinkUrl, setContestLinkUrl] = useState('');
@@ -199,7 +202,13 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
     };
     try {
       const result = editId ? await updateParty(editId, payload) : await createParty(payload);
-      router.push(`/party/${result.id}`);
+      if (editId) {
+        leaveEdit();
+        router.refresh();
+      } else {
+        // 새로 만든 파티로 가는 건 앞으로 가는 이동이라 히스토리에 쌓는 게 맞다
+        router.push(`/party/${result.id}`);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -422,7 +431,7 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
         >
           {loading ? '불러오는 중…' : submitting ? '등록 중…' : editId ? '수정 저장' : '모집글 등록'}
         </button>
-        <button type="button" className="btn btn-ghost" onClick={() => router.push('/party')}>
+        <button type="button" className="btn btn-ghost" onClick={leaveEdit}>
           취소
         </button>
       </FormActions>

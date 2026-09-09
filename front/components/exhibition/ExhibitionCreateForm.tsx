@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLeaveTo } from '@/lib/navigation';
 import Link from 'next/link';
 import { FormActions, FormGroup, TextAreaField, TextField } from '@/components/ui/Field';
 import { ApiError, fetchExhibition, publishPartyShowcase } from '@/lib/api';
@@ -19,6 +20,8 @@ import { ApiError, fetchExhibition, publishPartyShowcase } from '@/lib/api';
  */
 export function ExhibitionCreateForm({ partyId }: { partyId?: string }) {
   const router = useRouter();
+  // 취소는 왔던 화면(파티 상세·팀 스페이스)으로 되돌아간다
+  const leave = useLeaveTo('/exhibition');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [partyName, setPartyName] = useState('');
@@ -129,7 +132,7 @@ export function ExhibitionCreateForm({ partyId }: { partyId?: string }) {
         <button type="button" className="btn btn-primary" onClick={submit} disabled={submitting}>
           {submitting ? '게시 중…' : published ? '전시 수정' : '전시 게시'}
         </button>
-        <button type="button" className="btn btn-ghost" onClick={() => router.push('/exhibition')}>
+        <button type="button" className="btn btn-ghost" onClick={leave}>
           취소
         </button>
       </FormActions>

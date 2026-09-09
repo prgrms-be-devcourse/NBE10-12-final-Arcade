@@ -7,6 +7,7 @@ import { RadioChipGroup } from '@/components/ui/RadioChipGroup';
 import { Button } from '@/components/ui/Button';
 import { ApiError } from '@/lib/api';
 import { createGoal, fetchTodos, type CreateGoalPayload } from '@/lib/api';
+import { useLeaveTo } from '@/lib/navigation';
 import {
   GOAL_STATUSES,
   GOAL_STATUS_LABELS,
@@ -35,6 +36,8 @@ function trimmed(value: string): string | undefined {
  */
 export function GoalCreateForm() {
   const router = useRouter();
+  // 취소·등록 모두 왔던 화면으로 되돌아간다 - push 하면 뒤로가기에 작성하던 폼이 다시 뜬다
+  const leave = useLeaveTo('/mypage');
 
   const [type, setType] = useState<SelfReportedType>('CONTEST');
   const [status, setStatus] = useState<GoalStatus>('WANT');
@@ -132,8 +135,8 @@ export function GoalCreateForm() {
     setSubmitError('');
     try {
       await createGoal(payload);
-      // 상세 화면이 아직 없어 목록으로 돌려보낸다. 새로 만든 성취가 바로 보이도록 다시 읽는다
-      router.push('/mypage');
+      // 상세 화면이 아직 없어 왔던 목록으로 돌려보낸다. 새로 만든 성취가 바로 보이도록 다시 읽는다
+      leave();
       router.refresh();
     } catch (error) {
       // 서버 예외는 msg 를 그대로 화면 문구로 쓸 수 있는 봉투로 온다
@@ -319,7 +322,7 @@ export function GoalCreateForm() {
         <Button onClick={submit} disabled={submitting}>
           {submitting ? '등록 중…' : '등록'}
         </Button>
-        <Button variant="ghost" onClick={() => router.push('/mypage')}>
+        <Button variant="ghost" onClick={leave}>
           취소
         </Button>
       </FormActions>

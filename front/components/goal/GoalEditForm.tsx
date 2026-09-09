@@ -7,6 +7,7 @@ import { FormActions, FormGroup, FormRow, TextAreaField, TextField } from '@/com
 import { RadioChipGroup } from '@/components/ui/RadioChipGroup';
 import { Button } from '@/components/ui/Button';
 import { ApiError, fetchSoloSpace, fetchTodos } from '@/lib/api';
+import { useLeaveTo } from '@/lib/navigation';
 import {
   evidenceFilesOf,
   formatFileSize,
@@ -96,6 +97,8 @@ function trimmed(value: string): string | undefined {
  */
 export function GoalEditForm({ goal }: { goal: GoalDetailResponse }) {
   const router = useRouter();
+  // 수정 화면은 히스토리에 남기지 않는다 - 상세에서 뒤로가기를 누르면 목록으로 가야 한다
+  const leave = useLeaveTo(`/goals/${goal.id}`);
   const { detail } = goal;
 
   const statuses = selectableStatuses(goal.status);
@@ -290,7 +293,7 @@ export function GoalEditForm({ goal }: { goal: GoalDetailResponse }) {
     setSubmitError('');
     try {
       await updateGoal(goal.id, payload);
-      router.push(`/goals/${goal.id}`);
+      leave();
       router.refresh();
     } catch (error) {
       // 서버 예외는 msg 를 그대로 쓸 수 있는 봉투로 온다
@@ -544,7 +547,7 @@ export function GoalEditForm({ goal }: { goal: GoalDetailResponse }) {
         <Button onClick={submit} disabled={submitting}>
           {submitting ? '저장 중…' : '저장'}
         </Button>
-        <Button variant="ghost" onClick={() => router.push(`/goals/${goal.id}`)}>
+        <Button variant="ghost" onClick={leave}>
           취소
         </Button>
       </FormActions>
