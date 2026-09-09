@@ -6,6 +6,7 @@ import { TextAreaField } from '@/components/ui/Field';
 import { Pagination } from '@/components/ui/Pagination';
 import { RadioChipGroup } from '@/components/ui/RadioChipGroup';
 import { fetchMessages, sendDirectMessage, type MessageBoxName } from '@/lib/api';
+import { MESSAGE_PAGE_SIZE } from '@/lib/constants';
 import type { DirectMessage } from '@/lib/types';
 
 const BOX_LABELS: Record<MessageBoxName, string> = {
@@ -15,8 +16,6 @@ const BOX_LABELS: Record<MessageBoxName, string> = {
 
 const BOX_NAMES = Object.keys(BOX_LABELS) as MessageBoxName[];
 
-/** 한 쪽에 보여줄 건수. 서버에 그대로 넘긴다 */
-export const MESSAGE_PAGE_SIZE = 20;
 
 /**
  * 마이페이지 쪽지함 — 받은함/보낸함 전환과 답장 폼.

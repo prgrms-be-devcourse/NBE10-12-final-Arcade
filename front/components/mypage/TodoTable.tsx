@@ -8,11 +8,8 @@ import { ProgressBar } from '@/components/ui/ProgressBar';
 import { StatusPill } from '@/components/ui/Tag';
 import { TodoCreateModal } from './TodoCreateModal';
 import { fetchTodos } from '@/lib/api';
-import { GOAL_STATUS_LABELS } from '@/lib/constants';
+import { GOAL_STATUS_LABELS, TODO_PAGE_SIZE } from '@/lib/constants';
 import type { TodoItem } from '@/lib/types';
-
-/** 한 쪽에 보여줄 건수. 서버에 그대로 넘기는 값이라 화면과 요청이 어긋나지 않는다 */
-export const TODO_PAGE_SIZE = 5;
 
 /**
  * 개인 TODO 목록 — 열면 개인용 팀 스페이스로 이동한다.

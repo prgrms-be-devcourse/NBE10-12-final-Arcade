@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation';
 import { MypageView } from '@/components/mypage/MypageView';
-import { MESSAGE_PAGE_SIZE } from '@/components/mypage/MessageBox';
-import { TODO_PAGE_SIZE } from '@/components/mypage/TodoTable';
+import { MESSAGE_PAGE_SIZE, TODO_PAGE_SIZE } from '@/lib/constants';
 import { isMypageTabKey, type MypageTabKey } from '@/lib/mypageTabs';
 import {
   fetchMessagesOrEmpty,

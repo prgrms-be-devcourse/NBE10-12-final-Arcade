@@ -36,6 +36,18 @@ export function toPositionType(value: string | undefined | null): PositionType {
   return POSITION_TYPES.includes(value as PositionType) ? (value as PositionType) : 'BACK';
 }
 
+/* ---------- 목록 한 쪽 크기 ---------- */
+
+/**
+ * 서버에 그대로 넘기는 페이지 크기.
+ *
+ * 화면 컴포넌트가 아니라 여기 두는 이유는, 목록을 처음 읽는 쪽이 서버 컴포넌트라서다 —
+ * 'use client' 모듈에서 값을 import 하면 서버 쪽에서는 클라이언트 참조 프록시가 잡혀
+ * 숫자가 아닌 값이 쿼리에 실린다(size=[object Object] → 400-1).
+ */
+export const TODO_PAGE_SIZE = 5;
+export const MESSAGE_PAGE_SIZE = 20;
+
 /* ---------- 파티 주제 유형 (기획서 3.5) ---------- */
 
 export const TOPIC_TYPES: readonly TopicType[] = ['CONTEST', 'PROJECT', 'STUDY', 'ETC'];
