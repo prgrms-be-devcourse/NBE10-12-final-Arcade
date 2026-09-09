@@ -72,7 +72,7 @@ public class ApiV1PartyControllerTest {
         Member owner = memberRepository.findByEmail("user1@test.com").orElseThrow();
         MemberProfile profile = memberProfileRepository.findByMember(owner)
                 .orElseGet(() -> memberProfileRepository.save(new MemberProfile(owner)));
-        profile.changePosition(PositionType.BACK);
+        profile.modify(null, null, null, null, PositionType.BACK, null, null, null);
     }
 
     private final String deadline = LocalDateTime.now().plusDays(7).toString();
