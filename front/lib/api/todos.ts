@@ -56,14 +56,17 @@ function toChecklistItem(item: PersonalTodoItemResponse): ChecklistItem {
   return { id: String(item.id), content: item.content, state: item.done ? 'done' : 'open' };
 }
 
-function toSoloSpaceDetail(dto: PersonalTodoDetailResponse): SoloSpaceDetail {
+function toSoloSpaceDetail(
+  dto: PersonalTodoDetailResponse,
+  items: PersonalTodoItemResponse[],
+): SoloSpaceDetail {
   return {
     id: String(dto.id),
     title: dto.title,
     type: CATEGORY_LABEL[dto.category] ?? dto.category,
     createdAt: dto.createDate.slice(0, 10).replace(/-/g, '.'),
     memo: dto.memo ?? '',
-    checklist: dto.items.map(toChecklistItem),
+    checklist: items.map(toChecklistItem),
   };
 }
 
@@ -107,6 +110,21 @@ export async function createTodo(payload: {
 
 /* ---------- 상세 ---------- */
 
+const ITEM_PAGE_SIZE = 100;
+
+/** GET /todos/{id}/items — 상세 응답의 items 는 첫 20건뿐이라, 남으면 여기서 끝까지 받는다 */
+async function fetchAllTodoItems(id: string): Promise<PersonalTodoItemResponse[]> {
+  const all: PersonalTodoItemResponse[] = [];
+  for (let page = 0; ; page += 1) {
+    const res = await http.get<{ content: PersonalTodoItemResponse[] }>(`/todos/${id}/items`, {
+      query: { page, size: ITEM_PAGE_SIZE },
+    });
+    all.push(...res.content);
+    if (res.content.length < ITEM_PAGE_SIZE) break;
+  }
+  return all;
+}
+
 /** GET /todos/{id} */
 export async function fetchSoloSpace(id: string): Promise<SoloSpaceDetail> {
   if (USE_MOCK) {
@@ -122,7 +140,9 @@ export async function fetchSoloSpace(id: string): Promise<SoloSpaceDetail> {
       checklist: [],
     });
   }
-  return toSoloSpaceDetail(await http.get<PersonalTodoDetailResponse>(`/todos/${id}`));
+  const dto = await http.get<PersonalTodoDetailResponse>(`/todos/${id}`);
+  const items = dto.hasMoreItems ? await fetchAllTodoItems(id) : dto.items;
+  return toSoloSpaceDetail(dto, items);
 }
 
 /** PATCH /todos/{id} — 부분 수정이라 메모만 보낸다 */

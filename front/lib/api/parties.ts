@@ -15,6 +15,7 @@ import type {
   TopicType,
   UserSummary,
 } from '@/lib/types';
+import { toPositionType } from '@/lib/constants';
 import {
   MOCK_APPLICANTS,
   MOCK_PARTIES,
@@ -140,7 +141,7 @@ function toParty(dto: PartyListItemResponse): Party {
     contestFormat: dto.contestFormat ?? undefined,
     subCategory: TAG_TO_LABEL[dto.partyTag],
     positions: dto.positions.map((position) => ({
-      type: position.type,
+      type: toPositionType(position.type),
       capacity: position.capacity,
       filledCount: position.filledCount,
     })),
@@ -197,7 +198,7 @@ function toApplicant(dto: PartyApplicationResponse, partyName = ''): Applicant {
     id: String(dto.id),
     partyId: String(dto.partyId),
     partyName,
-    position: dto.positionType,
+    position: toPositionType(dto.positionType),
     source: 'SELF_REPORTED',
     user: toUserSummary(String(dto.applicantId), dto.applicantName),
     appliedAt: dto.createDate,

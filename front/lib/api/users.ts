@@ -6,7 +6,7 @@ import type {
   ProfileLink,
   UserProfile,
 } from '@/lib/types';
-import { POSITION_TYPES } from '@/lib/constants';
+import { toPositionType } from '@/lib/constants';
 import { MOCK_CURRENT_USER_ID, MOCK_PROFILES, MOCK_USER_SUMMARIES } from '@/lib/mock';
 import { ApiError, USE_MOCK, http, mockResponse } from './client';
 
@@ -30,11 +30,6 @@ export interface MemberProfileResponse {
   /** 서버는 BACK/FRONT/UIUX/PM 4종을 모두 내려줄 수 있다 */
   positions: string[];
   techStacks: string[];
-}
-
-/** 서버가 주는 포지션 문자열을 화면 타입으로 옮긴다. 모르는 값은 BACK 으로 둔다. */
-function toPositionType(value: string | undefined): PositionType {
-  return POSITION_TYPES.includes(value as PositionType) ? (value as PositionType) : 'BACK';
 }
 
 /**
