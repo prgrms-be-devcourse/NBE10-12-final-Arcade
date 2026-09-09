@@ -480,7 +480,7 @@ public class ApiV1MemberProfileControllerTest {
     }
 
     @Test
-    @DisplayName("내 정보 수정: 닉네임이 빈 문자열이면 400-1을 반환한다")
+    @DisplayName("내 정보 수정: 닉네임이 공백뿐이면 400-1을 반환한다 (전각 공백 포함)")
     @WithUserDetails("user1@test.com")
     void modifyProfileWithBlankNickname() throws Exception {
         mvc.perform(patch("/api/v1/members/me")
@@ -490,12 +490,7 @@ public class ApiV1MemberProfileControllerTest {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.resultCode").value("400-1"));
-    }
 
-    @Test
-    @DisplayName("내 정보 수정: 전각 공백뿐인 닉네임도 400-1이다")
-    @WithUserDetails("user1@test.com")
-    void modifyProfileWithUnicodeBlankNickname() throws Exception {
         mvc.perform(patch("/api/v1/members/me")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{ \"nickname\": \"\u3000\" }"))

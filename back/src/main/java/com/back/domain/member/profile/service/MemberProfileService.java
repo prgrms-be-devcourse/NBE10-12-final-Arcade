@@ -67,18 +67,12 @@ public class MemberProfileService {
         return new MemberProfileDto(profile);
     }
 
-    /**
-     * 프로필이 없으면 만들어 돌려준다.
-     *
-     * 마이페이지가 열리면 조회(GET /me)와 자동저장(PATCH /me)이 거의 동시에 들어오는데,
-     * 둘 다 없는 프로필을 각자 INSERT 하면 member 유니크 제약에 걸려 500 이 나간다.
-     * 없을 때만 회원 행을 잠가 최초 생성을 한 줄로 세운다 - 이미 있으면 잠그지 않으니
-     * 거의 모든 화면이 부르는 조회 경로에는 잠금이 걸리지 않는다.
-     */
+    // 조회(GET /me)와 자동저장(PATCH /me)이 동시에 들어와 각자 INSERT 하면 member 유니크 제약에 걸린다.
+    // 없을 때만 회원 행을 잠가 최초 생성을 한 줄로 세운다 - 있으면 잠그지 않는다.
     private MemberProfile getOrCreateProfile(Member actor) {
         return memberProfileRepository.findByMember(actor)
                 .orElseGet(() -> {
-                    memberRepository.findByIdForUpdate(actor.getId()).orElseThrow();
+                    memberRepository.findByIdForUpdate(actor.getId());
 
                     return memberProfileRepository.findByMember(actor)
                             .orElseGet(() -> memberProfileRepository.save(new MemberProfile(actor)));
