@@ -25,8 +25,7 @@ RUN java -Djarmode=tools -jar app.jar extract --layers --launcher --destination 
 # ---------- 3. 런타임 ----------
 FROM eclipse-temurin:25-jre-alpine AS runtime
 
-RUN apk add --no-cache tzdata \
- && addgroup -S app \
+RUN addgroup -S app \
  && adduser -S app -G app
 
 ENV TZ=Asia/Seoul \
@@ -40,6 +39,8 @@ COPY --from=extract --chown=app:app /extract/layers/spring-boot-loader/ ./
 COPY --from=extract --chown=app:app /extract/layers/snapshot-dependencies/ ./
 COPY --from=extract --chown=app:app /extract/layers/application/ ./
 
+# 위에서 생성한 사용자를 이름으로 명시해 COPY --chown 설정과 일치시킨다.
+# hadolint ignore=DL3066
 USER app
 EXPOSE 8080
 
