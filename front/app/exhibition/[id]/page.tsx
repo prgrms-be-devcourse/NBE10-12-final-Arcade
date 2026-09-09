@@ -17,6 +17,13 @@ export default async function ExhibitionDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  /**
+   * 이 화면의 project 는 GET /parties/{id}/showcase 응답이라 **id 와 sourcePartyId 가 모두 partyId** 다
+   * (toExhibitionDetail 이 둘 다 dto.partyId 로 채운다). 그래서 아래에서 어느 쪽을 넘겨도 같다.
+   *
+   * 전시관 '목록' 카드는 다르다 - toExhibitionProject 의 id 는 **goal id** 이고 partyId 는
+   * sourcePartyId 에 따로 담긴다. 목록 쪽 규칙을 여기 적용하지 말 것.
+   */
   const [project, commits] = await Promise.all([
     fetchExhibition(id),
     fetchExhibitionCommits(id) as Promise<
@@ -56,6 +63,7 @@ export default async function ExhibitionDetailPage({
                   {/* 좋아요 · 북마크는 대회 상세와 같은 공용 컴포넌트를 쓴다 */}
                   <DetailActions
                     target="party"
+                    // 위 주석대로 project.id 와 같은 값이다. 공용 타입에서 optional 이라 ?? 만 붙여 둔다
                     id={project.sourcePartyId ?? project.id}
                     likeCount={project.likeCount}
                     likedByMe={project.likedByMe}
@@ -78,6 +86,7 @@ export default async function ExhibitionDetailPage({
                 }
               />
 
+              {/* 전시 수정은 /exhibition/create?partyId= 로 여는데, 여기 id 가 곧 partyId 다 */}
               <ExhibitionActions
                 exhibitionId={project.id}
                 owner={project.leader}
