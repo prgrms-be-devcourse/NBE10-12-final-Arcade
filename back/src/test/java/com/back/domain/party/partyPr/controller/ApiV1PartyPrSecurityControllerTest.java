@@ -57,10 +57,9 @@ class ApiV1PartyPrSecurityControllerTest {
 
     private Party saveParty(String ownerEmail) {
         Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
-        MemberProfile ownerProfile = memberProfileRepository.findByMember(owner)
-                .orElseGet(() -> new MemberProfile(owner));
-        ownerProfile.changePosition(PositionType.BACK);
-        memberProfileRepository.save(ownerProfile);
+        if (memberProfileRepository.findByMember(owner).isEmpty()) {
+            memberProfileRepository.save(new MemberProfile(owner, null, null, PositionType.BACK, List.of()));
+        }
 
         long partyId = partyService.create(
                 owner, "PR 팀", "PR 테스트", "설명", null, null, null,
