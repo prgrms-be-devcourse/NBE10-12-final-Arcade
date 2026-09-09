@@ -13,9 +13,9 @@ export type ID = string;
 
 /**
  * 포지션 — 고정 enum. 자유 입력 문자열을 쓰지 않는다 (기획서 2.1).
- * UIUX·PM 은 이번 스코프에서 쓰지 않기로 해 제외했다.
+ * 백엔드 PositionType(BACK/FRONT/UIUX/PM)과 값이 같다.
  */
-export type PositionType = 'BACK' | 'FRONT';
+export type PositionType = 'BACK' | 'FRONT' | 'UIUX' | 'PM';
 
 /** 파티 주제 유형 — 공모전·해커톤은 '대회(CONTEST)' 하나로 묶는다 (기획서 3.5) */
 export type TopicType = 'CONTEST' | 'PROJECT' | 'STUDY' | 'ETC';

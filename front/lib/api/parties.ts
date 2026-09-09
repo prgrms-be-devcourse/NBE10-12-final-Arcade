@@ -26,11 +26,10 @@ import { ApiError, USE_MOCK, http, mockResponse } from './client';
 /* ---------- 백엔드 응답 타입 ---------- */
 
 type PartyTag = 'WEB' | 'APP' | 'GAME' | 'ETC';
-type ServerPositionType = 'BACK' | 'FRONT' | 'UIUX' | 'PM';
 
 interface PositionResponse {
   id: number;
-  type: ServerPositionType;
+  type: PositionType;
   capacity: number;
   filledCount: number;
 }
@@ -89,7 +88,7 @@ interface PartyApplicationResponse {
   applicantId: number;
   applicantName: string;
   positionId: number;
-  positionType: ServerPositionType;
+  positionType: PositionType;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   message: string | null;
   createDate: string;
@@ -104,11 +103,6 @@ interface LikeResponse {
 }
 
 /* ---------- 매퍼 ---------- */
-
-/** 화면 PositionType 은 이번 스코프에서 BACK/FRONT 만 쓴다(lib/types.ts). 나머지는 BACK 으로 접는다 */
-function toPositionType(value: ServerPositionType): PositionType {
-  return value === 'FRONT' ? 'FRONT' : 'BACK';
-}
 
 /** 화면 필터가 쓰는 한글 분야 라벨 ↔ 서버 PartyTag */
 const TAG_TO_LABEL: Record<PartyTag, string> = {
@@ -146,7 +140,7 @@ function toParty(dto: PartyListItemResponse): Party {
     contestFormat: dto.contestFormat ?? undefined,
     subCategory: TAG_TO_LABEL[dto.partyTag],
     positions: dto.positions.map((position) => ({
-      type: toPositionType(position.type),
+      type: position.type,
       capacity: position.capacity,
       filledCount: position.filledCount,
     })),
@@ -203,7 +197,7 @@ function toApplicant(dto: PartyApplicationResponse, partyName = ''): Applicant {
     id: String(dto.id),
     partyId: String(dto.partyId),
     partyName,
-    position: toPositionType(dto.positionType),
+    position: dto.positionType,
     source: 'SELF_REPORTED',
     user: toUserSummary(String(dto.applicantId), dto.applicantName),
     appliedAt: dto.createDate,
