@@ -11,6 +11,7 @@ import { toPositionType } from '@/lib/constants';
 import { MOCK_CURRENT_USER_ID, MOCK_PROFILES, MOCK_USER_SUMMARIES } from '@/lib/mock';
 import { CONTEST_FORMAT_LABELS, GOAL_SOURCE_LABELS, positionLabel } from '@/lib/constants';
 import { ApiError, USE_MOCK, http, mockResponse } from './client';
+import { toDateText } from './time';
 import { type ContestResponse, toContest } from './contests';
 import { type ShowcaseGoalResponse, toExhibitionProject } from './exhibitions';
 import { type PartyListItemResponse, toParty } from './parties';
@@ -268,7 +269,7 @@ interface MyBookmarkResponse {
  * 각 모듈의 매퍼를 재사용해 화면 도메인 객체로 옮긴 뒤 공통 필드만 뽑는다.
  */
 function toBookmarkItem(dto: MyBookmarkResponse): BookmarkItem {
-  const savedAt = dto.bookmarkedAt.slice(0, 10).replace(/-/g, '.');
+  const savedAt = toDateText(dto.bookmarkedAt);
 
   if (dto.targetType === 'PARTY') {
     const party = toParty(dto.target as PartyListItemResponse);

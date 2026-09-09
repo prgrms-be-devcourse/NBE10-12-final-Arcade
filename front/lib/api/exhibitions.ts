@@ -15,6 +15,7 @@ import {
 } from '@/lib/mock';
 import { GOAL_TYPE_LABELS } from '@/lib/constants';
 import { USE_MOCK as USE_API_MOCK, http, mockResponse } from './client';
+import { toDateText } from './time';
 
 /**
  * 이 모듈에서 **아직 서버가 없는 기능**만 데모 데이터로 고정하는 스위치다.
@@ -159,7 +160,7 @@ function toExhibitionDetail(dto: PartyShowcaseResponse): ExhibitionDetail {
     description,
     members: dto.memberNames.map(nameOnlyUser),
     links: dto.githubRepoUrl ? [{ id: 'github', label: 'GitHub', url: dto.githubRepoUrl }] : [],
-    period: dto.publishedAt ? `${dto.publishedAt.slice(0, 10).replace(/-/g, '.')} 게시` : '',
+    period: dto.publishedAt ? `${toDateText(dto.publishedAt)} 게시` : '',
     comments: [],
   };
 }

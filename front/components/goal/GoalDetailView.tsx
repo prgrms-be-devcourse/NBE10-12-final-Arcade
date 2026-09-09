@@ -13,6 +13,7 @@ import {
   type PartyPrResponse,
   type TodoContextResponse,
 } from '@/lib/api/goals';
+import { toDateText } from '@/lib/api/time';
 import {
   GOAL_STATUS_LABELS,
   GOAL_TYPE_LABELS,
@@ -20,16 +21,10 @@ import {
   todoCategoryLabel,
 } from '@/lib/constants';
 
-/** yyyy-MM-dd 또는 ISO 문자열 → 2026.08.01 */
-function formatDate(value?: string | null): string {
-  if (!value) return '';
-  return value.slice(0, 10).replace(/-/g, '.');
-}
-
 /** ISO 문자열 → 2026.08.20 23:59 */
 function formatDateTime(value?: string | null): string {
   if (!value) return '';
-  const date = formatDate(value);
+  const date = toDateText(value);
   const time = value.slice(11, 16);
   return time ? `${date} ${time}` : date;
 }
@@ -120,7 +115,7 @@ export function GoalDetailView({ goal, viewerId }: GoalDetailViewProps) {
               <p className="goal-owner-line">
                 <Link href={`/profile/${goal.ownerId}`}>{goal.ownerName}</Link>
                 <span className="goal-dot">·</span>
-                등록 {formatDate(goal.createDate)}
+                등록 {toDateText(goal.createDate)}
               </p>
 
               {/* 자동기록 성취는 사용자가 만든 게 아니라는 걸 화면에서도 알려준다 (기획서 2.5) */}
@@ -149,8 +144,8 @@ export function GoalDetailView({ goal, viewerId }: GoalDetailViewProps) {
                   rows={[
                     ['유형', GOAL_TYPE_LABELS[goal.type]],
                     ['상태', GOAL_STATUS_LABELS[goal.status]],
-                    ['등록일', formatDate(goal.createDate)],
-                    ['최근 수정', formatDate(goal.modifyDate)],
+                    ['등록일', toDateText(goal.createDate)],
+                    ['최근 수정', toDateText(goal.modifyDate)],
                   ]}
                 />
               </SideCard>
@@ -197,7 +192,7 @@ function ProjectSection({ goal, isOwner }: { goal: GoalDetailResponse; isOwner: 
   }
 
   const period = detail.startDate
-    ? `${formatDate(detail.startDate)} ~ ${detail.endDate ? formatDate(detail.endDate) : '진행중'}`
+    ? `${toDateText(detail.startDate)} ~ ${detail.endDate ? toDateText(detail.endDate) : '진행중'}`
     : '';
 
   return (
@@ -287,8 +282,8 @@ function ProjectSection({ goal, isOwner }: { goal: GoalDetailResponse; isOwner: 
                     <span className="goal-pr-author">@{pr.authorLogin}</span>
                     <span className="goal-dot">·</span>
                     {pr.merged
-                      ? `머지 ${formatDate(pr.mergedAt)}`
-                      : `등록 ${formatDate(pr.openedAt)}`}
+                      ? `머지 ${toDateText(pr.mergedAt)}`
+                      : `등록 ${toDateText(pr.openedAt)}`}
                   </p>
                 </li>
               );
@@ -325,7 +320,7 @@ function ContestSection({ goal }: { goal: GoalDetailResponse }) {
             ['대회명', detail.title],
             ['참가 형태', detail.isTeam == null ? '' : detail.isTeam ? '팀 참가' : '개인 참가'],
             ['수상 결과', detail.result],
-            ['수상일', formatDate(detail.awardDate)],
+            ['수상일', toDateText(detail.awardDate)],
             [
               '대회 링크',
               detail.contestUrl ? (
@@ -387,7 +382,7 @@ function ChecklistSection({ goal }: { goal: GoalDetailResponse }) {
         <InfoList
           rows={[
             ['목표', detail.title],
-            ['목표일', formatDate(detail.targetDate)],
+            ['목표일', toDateText(detail.targetDate)],
           ]}
         />
         {detail.memo ? (
@@ -436,7 +431,7 @@ function TodoProgressBlock({ todo }: { todo?: TodoContextResponse }) {
           {todo.items.map((item) => (
             <div key={item.id} className="achv-item" data-status="달성">
               <div className="achv-item-top">
-                <span className="achv-date">{formatDate(item.doneAt)}</span>
+                <span className="achv-date">{toDateText(item.doneAt)}</span>
               </div>
               <h5>{item.content}</h5>
             </div>

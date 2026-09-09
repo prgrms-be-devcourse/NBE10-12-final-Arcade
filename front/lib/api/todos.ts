@@ -2,6 +2,7 @@ import type { ChecklistItem, GoalStatus, TodoItem } from '@/lib/types';
 import { MOCK_SOLO_SPACES, MOCK_TODOS } from '@/lib/mock';
 import { todoCategoryLabel } from '@/lib/constants';
 import { USE_MOCK, http, mockResponse } from './client';
+import { toDateText } from './time';
 
 /** 개인 TODO 상세 화면(솔로 팀 스페이스)이 쓰는 모양. */
 export interface SoloSpaceDetail {
@@ -46,9 +47,6 @@ interface PersonalTodoDetailResponse extends PersonalTodoResponse {
   items: PersonalTodoItemResponse[];
   hasMoreItems: boolean;
 }
-
-/** 서버 LocalDateTime 을 목록 '생성일' 칸 문구로 줄인다 (lib/api/time.ts 와 같은 표기) */
-const toDateText = (value: string) => value.slice(0, 10).replace(/-/g, '.');
 
 function toTodoItem(dto: PersonalTodoResponse): TodoItem {
   return {
