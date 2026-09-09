@@ -29,12 +29,14 @@ public class ApiV1GithubAppSetupController {
             return ResponseEntity.status(HttpStatus.FOUND).location(frontendUri("github-app/installed")).build();
         }
         PartyGithubConnectionService.InstallCompletion completion = connectionService.completeInstall(state, installationId);
-        String path = completion.redirectPath() == null ? "/parties/" + completion.partyId() : completion.redirectPath();
-        return ResponseEntity.status(HttpStatus.FOUND).location(frontendUri(path.substring(1))).build();
+        String path = completion.redirectPath();
+        if (path == null || path.isBlank()) path = "/parties/" + completion.partyId();
+        return ResponseEntity.status(HttpStatus.FOUND).location(frontendUri(path)).build();
     }
 
     private URI frontendUri(String path) {
         String base = frontendBaseUrl.endsWith("/") ? frontendBaseUrl : frontendBaseUrl + "/";
-        return URI.create(base).resolve(path);
+        String normalizedPath = path == null ? "" : path.replaceFirst("^/+", "");
+        return URI.create(base).resolve(normalizedPath);
     }
 }

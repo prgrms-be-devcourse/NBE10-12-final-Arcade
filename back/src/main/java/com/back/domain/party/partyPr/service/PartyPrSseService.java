@@ -60,7 +60,7 @@ public class PartyPrSseService {
         members.forEach((emitterId, subscription) -> {
             if (!subscription.acceptsPullRequest(pullRequest)) return;
             try {
-                subscription.emitter().send(SseEmitter.event().id(pullRequest.id() + ":" + pullRequest.githubUpdatedAt())
+                subscription.send(SseEmitter.event().id(pullRequest.id() + ":" + pullRequest.githubUpdatedAt())
                         .name("pull-request").data(pullRequest));
             } catch (IOException | IllegalStateException exception) {
                 log.debug("Party PR SSE emitter disconnected: partyId={}, emitterId={}", partyId, emitterId);
@@ -76,7 +76,7 @@ public class PartyPrSseService {
         subscriptions.forEach((emitterId, subscription) -> {
             if (subscription.type() != SubscriptionType.GROUPED) return;
             try {
-                subscription.emitter().send(SseEmitter.event().name("pull-request-group").data(group));
+                subscription.send(SseEmitter.event().name("pull-request-group").data(group));
             } catch (IOException | IllegalStateException exception) {
                 log.debug("Party PR SSE emitter disconnected: partyId={}, emitterId={}", partyId, emitterId);
                 remove(groupedSubscriptionsByPartyId, partyId, emitterId);
@@ -95,7 +95,7 @@ public class PartyPrSseService {
         if (subscriptions == null) return;
         subscriptions.values().forEach(subscription -> {
             try {
-                subscription.emitter().send(SseEmitter.event().name("party-complete").data("completed"));
+                subscription.send(SseEmitter.event().name("party-complete").data("completed"));
             } catch (IOException | IllegalStateException ignored) {
                 // 이미 끊긴 연결도 정상 종료 처리한다.
             }
@@ -110,14 +110,14 @@ public class PartyPrSseService {
 
     private void heartbeat(Map<Long, Map<String, Subscription>> store) {
         store.forEach((partyId, subscriptions) -> subscriptions.forEach((id, subscription) -> {
-            try { subscription.emitter().send(SseEmitter.event().name("heartbeat").data("ping")); }
+            try { subscription.send(SseEmitter.event().name("heartbeat").data("ping")); }
             catch (IOException | IllegalStateException exception) { remove(store, partyId, id); }
         }));
     }
 
     private void send(Map<Long, Map<String, Subscription>> store, Map<String, Subscription> subscriptions, long partyId, PartyPrDto pullRequest) {
         if (subscriptions == null) return;
-        subscriptions.forEach((id, subscription) -> { try { subscription.emitter().send(SseEmitter.event().id(pullRequest.id()+":"+pullRequest.githubUpdatedAt()).name("pull-request").data(pullRequest)); }
+        subscriptions.forEach((id, subscription) -> { try { subscription.send(SseEmitter.event().id(pullRequest.id()+":"+pullRequest.githubUpdatedAt()).name("pull-request").data(pullRequest)); }
             catch (IOException | IllegalStateException exception) { remove(store, partyId, id); } });
     }
 
@@ -131,6 +131,9 @@ public class PartyPrSseService {
     private enum SubscriptionType { ALL, GROUPED, MEMBER }
 
     private record Subscription(SseEmitter emitter, SubscriptionType type, Long githubUserId) {
+        private synchronized void send(SseEmitter.SseEventBuilder event) throws IOException {
+            emitter.send(event);
+        }
         private boolean acceptsPullRequest(PartyPrDto pullRequest) {
             if (type == SubscriptionType.GROUPED) return false;
             if (type == SubscriptionType.ALL) return true;
