@@ -9,6 +9,13 @@ datasources:
     type: prometheus
     uid: prometheus
     access: proxy
-    url: http://prometheus:9090
+    # 스택마다 다르다. compose 가 PROMETHEUS_URL 로 넘긴다.
+    #   앱과 함께  http://prometheus:9090/prometheus   (route-prefix 적용)
+    #   단독 실행  http://prometheus:9090
+    url: $PROMETHEUS_URL
+    basicAuth: $PROMETHEUS_BASIC_AUTH_ENABLED
+    basicAuthUser: $PROMETHEUS_BASIC_AUTH_USER
+    secureJsonData:
+      basicAuthPassword: $PROMETHEUS_BASIC_AUTH_PASSWORD
     isDefault: true
     editable: false
