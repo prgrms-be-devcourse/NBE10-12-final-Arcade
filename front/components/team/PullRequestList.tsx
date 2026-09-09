@@ -2,9 +2,12 @@
 
 import { useState } from 'react';
 import {
+  applyPullRequestToGroups,
+  groupLabel,
   isServerPartyId,
+  parsePartyPrGroups,
   parsePartyPullRequest,
-  parsePartyPullRequests,
+  type PartyPrGroup,
   type PartyPullRequest,
 } from '@/lib/api';
 import { useServerEvents } from '@/lib/hooks/useServerEvents';
@@ -33,39 +36,62 @@ function timeLine(pr: PartyPullRequest): string {
   return `${formatDateTime(pr.openedAt)} 등록`;
 }
 
+function PullRequestRow({ pr }: { pr: PartyPullRequest }) {
+  const badge = badgeOf(pr);
+  return (
+    <li className="pr-item">
+      <div className="pr-top">
+        <span className="pr-badge" data-tone={badge.tone}>
+          {badge.label}
+        </span>
+        <a className="pr-title" href={pr.htmlUrl} target="_blank" rel="noopener noreferrer">
+          {pr.title} ↗
+        </a>
+      </div>
+      <p className="pr-meta">
+        <span className="pr-number">#{pr.number}</span>
+        <span>{pr.authorLogin}</span>
+        <span className="pr-branch">
+          {pr.headBranch} → {pr.baseBranch}
+        </span>
+        <span>{timeLine(pr)}</span>
+      </p>
+    </li>
+  );
+}
+
 /**
- * 파티 저장소에서 동기화된 PR 목록.
+ * 파티 저장소에서 동기화된 PR 을 담당자별로 묶어 보여준다 (ARC-108).
  *
- * 서버가 웹훅으로 받아 쌓아둔 값을 그대로 보여준다. 작성자는 GitHub 로그인명이고
- * 아직 크루온 회원과 연결되지 않는다 - 프로필에 GitHub 사용자명을 담는 필드가 서버에 없다.
+ * 서버가 PR 작성자의 GitHub 계정 id 와 회원의 연동 계정을 맞춰 묶어주므로, 크루온 회원이면
+ * 이름으로 뜬다. 파티원과 연결되지 않은 작성자는 GitHub 로그인명 그대로 남는다 -
+ * **파티원이 GitHub 을 연동하지 않았으면 본인 이름 묶음은 0건이고 로그인명 묶음이 따로 생긴다.**
  */
 export function PullRequestList({
   partyId,
-  pullRequests: initial,
+  groups: initial,
 }: {
   partyId: string;
-  pullRequests: PartyPullRequest[];
+  groups: PartyPrGroup[];
 }) {
-  const [pullRequests, setPullRequests] = useState(initial);
+  const [groups, setGroups] = useState(initial);
 
   // 웹훅이 PR을 받으면 서버가 곧바로 밀어준다. 목 슬러그 파티는 서버 경로가 없어 구독하지 않는다.
-  useServerEvents(isServerPartyId(partyId) ? `/parties/${partyId}/pull-requests/stream` : null, {
-    // 연결·재연결 때마다 서버가 현재 목록 전체를 먼저 보낸다. 끊긴 동안의 빈 구간이 여기서 메꿔진다.
-    snapshot: (data) => setPullRequests(parsePartyPullRequests(data)),
-    'pull-request': (data) => {
-      const incoming = parsePartyPullRequest(data);
-      setPullRequests((prev) => {
-        const index = prev.findIndex((pr) => pr.id === incoming.id);
-        if (index < 0) return [incoming, ...prev];
-        // 같은 PR의 갱신(리뷰·머지 등)이라 자리를 옮기지 않고 내용만 바꾼다
-        const next = [...prev];
-        next[index] = incoming;
-        return next;
-      });
+  useServerEvents(
+    isServerPartyId(partyId)
+      ? `/parties/${partyId}/pull-requests/grouped-by-member/stream`
+      : null,
+    {
+      // 연결·재연결 때마다 서버가 현재 묶음 전체를 먼저 보낸다. 끊긴 동안의 빈 구간이 여기서 메꿔진다.
+      snapshot: (data) => setGroups(parsePartyPrGroups(data)),
+      // 갱신 이벤트는 묶음이 아니라 PR 한 건이라, 어느 묶음 것인지 화면이 찾아 넣어야 한다.
+      'pull-request': (data) =>
+        setGroups((prev) => applyPullRequestToGroups(prev, parsePartyPullRequest(data))),
     },
-  });
+  );
 
-  if (pullRequests.length === 0) {
+  const total = groups.reduce((count, group) => count + group.pullRequests.length, 0);
+  if (total === 0) {
     return (
       <p className="goal-empty">
         아직 동기화된 PR이 없어요. 저장소를 연결하고 PR을 올리면 여기에 쌓입니다.
@@ -74,30 +100,27 @@ export function PullRequestList({
   }
 
   return (
-    <ul className="pr-list">
-      {pullRequests.map((pr) => {
-        const badge = badgeOf(pr);
-        return (
-          <li key={pr.id} className="pr-item">
-            <div className="pr-top">
-              <span className="pr-badge" data-tone={badge.tone}>
-                {badge.label}
-              </span>
-              <a className="pr-title" href={pr.htmlUrl} target="_blank" rel="noopener noreferrer">
-                {pr.title} ↗
-              </a>
-            </div>
-            <p className="pr-meta">
-              <span className="pr-number">#{pr.number}</span>
-              <span>{pr.authorLogin}</span>
-              <span className="pr-branch">
-                {pr.headBranch} → {pr.baseBranch}
-              </span>
-              <span>{timeLine(pr)}</span>
-            </p>
-          </li>
-        );
-      })}
-    </ul>
+    <div className="pr-groups">
+      {groups.map((group) => (
+        <section key={group.memberId ?? group.githubLogin ?? 'unknown'} className="pr-group">
+          <div className="position-group-head">
+            <h4>
+              {groupLabel(group)}
+              {group.owner ? ' · 파티장' : ''}
+            </h4>
+            <span className="frac">PR {group.pullRequests.length}건</span>
+          </div>
+          {group.pullRequests.length > 0 ? (
+            <ul className="pr-list">
+              {group.pullRequests.map((pr) => (
+                <PullRequestRow key={pr.id} pr={pr} />
+              ))}
+            </ul>
+          ) : (
+            <p className="checklist-note">아직 올린 PR이 없어요.</p>
+          )}
+        </section>
+      ))}
+    </div>
   );
 }
