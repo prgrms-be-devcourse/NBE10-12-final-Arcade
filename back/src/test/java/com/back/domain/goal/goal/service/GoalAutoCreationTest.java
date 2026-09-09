@@ -70,7 +70,7 @@ public class GoalAutoCreationTest {
                 owner, partyName, partyName + " 모집", "설명",
                 null, null, null,
                 TopicType.PROJECT, PartyTag.WEB,
-                null, 1,
+                null,
                 LocalDateTime.now().plusDays(7)
         );
         party.addPosition(new Position(PositionType.BACK, 3));

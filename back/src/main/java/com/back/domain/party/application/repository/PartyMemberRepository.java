@@ -25,9 +25,9 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
 
     boolean existsByPartyAndMemberAndStatus(Party party, Member member, PartyMemberStatus status);
 
-    // 파티 삭제 전 "승인된 파티원이 하나도 없어야 하는지" 확인할 때 쓴다.
-    // 파티장은 여기 들어오지 않지만, 파티장을 생성 시점에 APPROVED로 넣던 시절(ARC-97)에 만들어진
-    // 파티에는 그 행이 남아 있다. 그걸 세면 파티장이 자기 파티를 못 지우므로 빼고 센다.
+    // 파티 삭제 전 "파티장을 제외한 승인된 파티원이 하나도 없어야 하는지" 확인할 때 쓴다.
+    // 파티 생성 시 파티장도 PartyMember 로 들어가고, 파티장을 APPROVED 로 넣던 시절(ARC-97)에
+    // 만들어진 파티에는 그 행이 남아 있다. 그걸 세면 파티장이 자기 파티를 못 지우므로 빼고 센다.
     boolean existsByPartyAndStatusAndMemberNot(Party party, PartyMemberStatus status, Member member);
 
 

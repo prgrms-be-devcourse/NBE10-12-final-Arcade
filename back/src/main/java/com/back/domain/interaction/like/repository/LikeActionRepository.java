@@ -10,11 +10,8 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 
 public interface LikeActionRepository extends JpaRepository<LikeAction, Long> {
-    Optional<LikeAction> findByMemberAndTargetTypeAndTargetId(Member member, TargetType targetType, long targetId);
-
     boolean existsByMemberAndTargetTypeAndTargetId(Member member, TargetType targetType, long targetId);
 
     @Query("select la.targetId from LikeAction la where la.member = :member and la.targetType = :targetType and la.targetId in :targetIds")

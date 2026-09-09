@@ -226,7 +226,7 @@ public class ApiV1MyBookmarkControllerTest {
 
         Party party = new Party(
                 owner, "북마크 테스트용 파티", "북마크 테스트용 파티 모집", "설명",
-                null, null, null, TopicType.PROJECT, PartyTag.WEB, null, 1,
+                null, null, null, TopicType.PROJECT, PartyTag.WEB, null,
                 LocalDateTime.now().plusDays(7)
         );
         party.addPosition(new Position(PositionType.BACK, 2));
@@ -274,5 +274,24 @@ public class ApiV1MyBookmarkControllerTest {
         project.complete(LocalDate.now());
 
         return goalRepository.save(project).getId();
+    }
+
+    @Test
+    @DisplayName("북마크함: PROJECT 성취(PARTY_SHOWCASE로 저장된 북마크)도 500 없이 GOAL 카드로 노출된다")
+    @WithUserDetails("user1@test.com")
+    void getMyBookmarksIncludesPartyShowcaseBookmarkAsGoalCard() throws Exception {
+        long goalId = saveExhibitedGoal();
+        Project project = (Project) goalRepository.findById(goalId).orElseThrow();
+        long showcaseId = project.getPartyShowcase().getId();
+
+        // bookmarkGoal()이 실제로 만드는 상태를 그대로 흉내낸다 - PARTY_SHOWCASE 타깃으로 저장.
+        bookmark(actor(), TargetType.PARTY_SHOWCASE, showcaseId);
+
+        mvc.perform(get(URL))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                // 내부 저장은 PARTY_SHOWCASE지만 응답 targetType은 GOAL로 정규화돼야 한다.
+                .andExpect(jsonPath("$.data.content[0].targetType").value("GOAL"))
+                .andExpect(jsonPath("$.data.content[0].target.detail.title").value("정산 자동화 API"));
     }
 }
