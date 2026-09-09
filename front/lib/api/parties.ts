@@ -176,6 +176,7 @@ function toUserSummary(id: string, name: string): UserSummary {
 export function toParty(dto: PartyListItemResponse): Party {
   return {
     id: String(dto.id),
+    partyName: dto.partyName,
     title: dto.title,
     summary: '',
     topicType: dto.topicType,
@@ -596,6 +597,20 @@ export async function decideApplicant(
   await http.patch<PartyApplicationResponse>(`/parties/${partyId}/applications/${id}`, {
     pending: status === 'accepted' ? 'APPROVED' : 'REJECTED',
   });
+}
+
+/**
+ * POST /api/v1/parties/{partyId}/applications/{applicationId}/cancel-approval
+ *
+ * 승인을 되돌린다. 서버는 PENDING 이 아니라 **REJECTED** 로 바꾸고 정원 한 자리를 돌려준다
+ * (PartyMember.cancelApproval). 승인된 건이 아니면 409-1 이다.
+ */
+export async function cancelApplicantApproval(id: string, partyId?: string): Promise<void> {
+  if (USE_MOCK || !partyId) return mockResponse(undefined as void);
+
+  await http.post<PartyApplicationResponse>(
+    `/parties/${partyId}/applications/${id}/cancel-approval`,
+  );
 }
 
 /**

@@ -171,6 +171,8 @@ export interface PartyPosition {
 
 export interface Party {
   id: ID;
+  /** 팀 이름(최대 10자). 모집글 제목(title)과 다른 값이다. 데모 데이터에는 없다 */
+  partyName?: string;
   title: string;
   summary: string;
   /** 주제 유형 — 공모전·해커톤은 CONTEST 하나로 묶인다 */

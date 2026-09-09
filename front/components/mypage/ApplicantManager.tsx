@@ -6,9 +6,17 @@ import { Avatar } from '@/components/ui/Avatar';
 import { SendMessageButton } from '@/components/message/SendMessageButton';
 import { FormGroup, SelectField } from '@/components/ui/Field';
 import { ChipRow, SkillChip } from '@/components/ui/Tag';
-import { decideApplicant } from '@/lib/api';
+import { cancelApplicantApproval, decideApplicant } from '@/lib/api';
 import { POSITION_LABELS, POSITION_TYPES } from '@/lib/constants';
 import type { Applicant, ApplicantStatus, PositionType } from '@/lib/types';
+
+/** 서버는 상태로 거르지 않고 다 내려준다 — 대기 · 승인 · 거절을 화면에서 나눠 본다 */
+const STATUS_FILTERS = ['pending', 'accepted', 'rejected'] as const;
+const STATUS_LABELS: Record<(typeof STATUS_FILTERS)[number], string> = {
+  pending: '승인 대기',
+  accepted: '승인됨',
+  rejected: '거절됨',
+};
 
 interface ApplicantManagerProps {
   applicants: Applicant[];
@@ -20,16 +28,17 @@ export function ApplicantManager({ applicants: initial, parties }: ApplicantMana
   const [applicants, setApplicants] = useState(initial);
   const [partyId, setPartyId] = useState('전체');
   const [position, setPosition] = useState<PositionType | '전체'>('전체');
+  const [status, setStatus] = useState<ApplicantStatus>('pending');
 
   const visible = useMemo(
     () =>
       applicants.filter(
         (applicant) =>
-          applicant.status === 'pending' &&
+          applicant.status === status &&
           (partyId === '전체' || applicant.partyId === partyId) &&
           (position === '전체' || applicant.position === position),
       ),
-    [applicants, partyId, position],
+    [applicants, partyId, position, status],
   );
 
   /** 파티 + 포지션 단위로 묶어 보여준다 */
@@ -42,14 +51,27 @@ export function ApplicantManager({ applicants: initial, parties }: ApplicantMana
     return Array.from(map.entries());
   }, [visible]);
 
-  const decide = async (id: string, status: ApplicantStatus) => {
-    // 서버 승인/거절 경로가 파티에 종속돼 있어 partyId 를 함께 넘긴다
+  /** 낙관적으로 상태를 바꾸고, 실패하면 되돌린다 */
+  const move = async (id: string, next: ApplicantStatus, call: (partyId?: string) => Promise<void>) => {
+    const previous = applicants;
     const target = applicants.find((applicant) => applicant.id === id);
     setApplicants((prev) =>
-      prev.map((applicant) => (applicant.id === id ? { ...applicant, status } : applicant)),
+      prev.map((applicant) => (applicant.id === id ? { ...applicant, status: next } : applicant)),
     );
-    await decideApplicant(id, status, target?.partyId);
+    try {
+      await call(target?.partyId);
+    } catch {
+      setApplicants(previous);
+    }
   };
+
+  // 서버 승인/거절 경로가 파티에 종속돼 있어 partyId 를 함께 넘긴다
+  const decide = (id: string, next: ApplicantStatus) =>
+    move(id, next, (party) => decideApplicant(id, next, party));
+
+  /** 승인 취소는 대기중이 아니라 거절로 되돌아간다 (서버 PartyMember.cancelApproval) */
+  const cancelApproval = (id: string) =>
+    move(id, 'rejected', (party) => cancelApplicantApproval(id, party));
 
   return (
     <>
@@ -78,6 +100,19 @@ export function ApplicantManager({ applicants: initial, parties }: ApplicantMana
             {POSITION_TYPES.map((type) => (
               <option key={type} value={type}>
                 {POSITION_LABELS[type]}
+              </option>
+            ))}
+          </SelectField>
+        </FormGroup>
+        <FormGroup label="상태" htmlFor="mgmtStatusSelect">
+          <SelectField
+            id="mgmtStatusSelect"
+            value={status}
+            onChange={(event) => setStatus(event.target.value as ApplicantStatus)}
+          >
+            {STATUS_FILTERS.map((value) => (
+              <option key={value} value={value}>
+                {STATUS_LABELS[value]}
               </option>
             ))}
           </SelectField>
@@ -120,22 +155,36 @@ export function ApplicantManager({ applicants: initial, parties }: ApplicantMana
                       ))}
                     </ChipRow>
                     <div className="applicant-card-actions">
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        style={{ padding: '0.5rem 0.875rem' }}
-                        onClick={() => decide(applicant.id, 'rejected')}
-                      >
-                        거절
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        style={{ padding: '0.5rem 0.875rem' }}
-                        onClick={() => decide(applicant.id, 'accepted')}
-                      >
-                        승인
-                      </button>
+                      {applicant.status === 'pending' ? (
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            style={{ padding: '0.5rem 0.875rem' }}
+                            onClick={() => decide(applicant.id, 'rejected')}
+                          >
+                            거절
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            style={{ padding: '0.5rem 0.875rem' }}
+                            onClick={() => decide(applicant.id, 'accepted')}
+                          >
+                            승인
+                          </button>
+                        </>
+                      ) : null}
+                      {applicant.status === 'accepted' ? (
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          style={{ padding: '0.5rem 0.875rem' }}
+                          onClick={() => cancelApproval(applicant.id)}
+                        >
+                          승인 취소
+                        </button>
+                      ) : null}
                       <SendMessageButton recipient={applicant.user} variant="icon" />
                       <Link className="card-link" href={`/profile/${applicant.user.id}`}>
                         자세히 보기 →
