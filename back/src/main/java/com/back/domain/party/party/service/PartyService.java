@@ -273,7 +273,7 @@ public class PartyService {
     public PartyDto getDetail(long partyId) {
         Party party = findByIdOrThrow(partyId);
         party.increaseViewCount();
-        return new PartyDto(party);
+        return new PartyDto(party, partyMemberRepository.countApplicantsByPartyId(partyId));
     }
 
     // delete()만 부르면 좋아요/북마크 삭제가 별도 트랜잭션으로 빠져 원자성이 깨질 수 있어서

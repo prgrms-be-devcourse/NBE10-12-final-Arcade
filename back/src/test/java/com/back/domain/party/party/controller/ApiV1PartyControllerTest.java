@@ -523,7 +523,30 @@ public class ApiV1PartyControllerTest {
                 .andExpect(jsonPath("$.data.id").value(party.getId()))
                 .andExpect(jsonPath("$.data.ownerName").isNotEmpty())
                 .andExpect(jsonPath("$.data.dDay").isNumber())
+                .andExpect(jsonPath("$.data.applicantCount").value(0))
                 .andExpect(jsonPath("$.data.positions[0].type").value("BACK"));
+    }
+
+    @Test
+    @DisplayName("파티 상세 조회: 대회 연결 파티는 contestFormat, 지원자 있으면 applicantCount를 반환한다")
+    @WithUserDetails("user1@test.com")
+    void getPartyDetailIncludesContestFormatAndApplicantCount() throws Exception {
+        long contestId = writeContest("오락실 해커톤");
+
+        mvc.perform(post("/api/v1/parties")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(createPartyWithContestRequestJson(contestId)));
+        Party party = partyRepository.findAll().stream()
+                .filter(p -> "오락실 팀".equals(p.getPartyName()))
+                .findFirst().orElseThrow();
+
+        Member applicant = memberRepository.findByEmail("user2@test.com").orElseThrow();
+        partyMemberRepository.save(new PartyMember(party, applicant, party.getPositions().get(0), "잘 하겠습니다"));
+
+        mvc.perform(get("/api/v1/parties/" + party.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.contestFormat").value("HACKATHON"))
+                .andExpect(jsonPath("$.data.applicantCount").value(1));
     }
 
     @Test
