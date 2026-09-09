@@ -18,6 +18,7 @@ public class CustomConfigProperties {
     private Cookie cookie = new Cookie();
     private Cors cors = new Cors();
     private Storage storage = new Storage();
+    private AdminAccount adminAccount = new AdminAccount();
 
     @Getter
     @Setter
@@ -72,5 +73,13 @@ public class CustomConfigProperties {
             /** MinIO 는 버킷을 서브도메인이 아니라 경로로 받는다. */
             private boolean pathStyleAccess = true;
         }
+    }
+
+    @Getter
+    @Setter
+    public static class AdminAccount {
+        private String email = "admin@test.com";
+        private String password = "1234";
+        private String nickname = "관리자";
     }
 }
