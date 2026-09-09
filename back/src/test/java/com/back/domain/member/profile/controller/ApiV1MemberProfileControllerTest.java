@@ -2,7 +2,9 @@ package com.back.domain.member.profile.controller;
 
 import com.back.RedisTestContainerConfig;
 import com.back.domain.goal.goal.entity.GoalStatus;
+import com.back.domain.goal.goal.entity.PersonalChecklist;
 import com.back.domain.goal.goal.entity.PersonalContest;
+import com.back.domain.goal.goal.entity.Project;
 import com.back.domain.goal.goal.repository.GoalRepository;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
@@ -87,7 +89,9 @@ public class ApiV1MemberProfileControllerTest {
                 .andExpect(jsonPath("$.data.exhibitions").value(0))
                 .andExpect(jsonPath("$.data.streakDays").value(0))
                 .andExpect(jsonPath("$.data.activityHeatmap.length()").value(56))
-                .andExpect(jsonPath("$.data.badges").isEmpty());
+                .andExpect(jsonPath("$.data.badges").isEmpty())
+                // '크루온 활동 N개월째' 는 가입일부터 센다 - 활동이 없어도 값이 있어야 한다
+                .andExpect(jsonPath("$.data.joinedAt").exists());
     }
 
     @Test
@@ -727,5 +731,96 @@ public class ApiV1MemberProfileControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.position").value("UIUX"))
                 .andExpect(jsonPath("$.data.nickname").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("공개 프로필: 로그인 없이 열리고 email 은 내려주지 않는다")
+    void publicProfileWithoutLogin() throws Exception {
+        Member target = memberRepository.findByEmail("user1@test.com").orElseThrow();
+
+        mvc.perform(get("/api/v1/members/" + target.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resultCode").value("200-1"))
+                .andExpect(jsonPath("$.data.id").value(target.getId()))
+                // 본인 화면 전용 값이라 공개 응답에는 없다
+                .andExpect(jsonPath("$.data.email").doesNotExist())
+                .andExpect(jsonPath("$.data.githubLinked").doesNotExist())
+                // 프로필을 한 번도 저장한 적 없어도 404 가 아니다
+                .andExpect(jsonPath("$.data.techStacks").isEmpty())
+                .andExpect(jsonPath("$.data.streakDays").value(0))
+                .andExpect(jsonPath("$.data.activityHeatmap.length()").value(56))
+                .andExpect(jsonPath("$.data.joinedAt").exists());
+    }
+
+    @Test
+    @DisplayName("공개 프로필: 연속 활동일·히트맵과 수상 성취가 함께 실린다")
+    @WithUserDetails("user1@test.com")
+    void publicProfileCarriesStreakAndAchievements() throws Exception {
+        Member target = memberRepository.findByEmail("user1@test.com").orElseThrow();
+        Member owner = memberRepository.findByEmail("user2@test.com").orElseThrow();
+
+        // 파티 지원은 기획서 2.9 의 활동이라 오늘 자 기록이 남는다
+        Party party = partyRepository.save(newParty(owner));
+        mvc.perform(post("/api/v1/parties/" + party.getId() + "/applications")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{ \"positionId\": %d }".formatted(
+                                party.getPositions().getFirst().getId())))
+                .andExpect(status().isCreated());
+
+        goalRepository.save(new PersonalContest(
+                target, GoalStatus.ACHIEVED, "공모전 대상", false, "대상", LocalDate.now(), null));
+        // 아직 달성 전 - 목록·건수 모두에서 빠져야 한다
+        goalRepository.save(new PersonalContest(
+                target, GoalStatus.WANT, "지원 예정 공모전", false, null, null, null));
+
+        mvc.perform(get("/api/v1/members/" + target.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.streakDays").value(1))
+                // 히트맵은 오래된 날부터라 오늘이 마지막 칸이다
+                .andExpect(jsonPath("$.data.activityHeatmap[55]").value(1))
+                .andExpect(jsonPath("$.data.awards").value(1))
+                .andExpect(jsonPath("$.data.achievements.length()").value(1))
+                .andExpect(jsonPath("$.data.achievements[0].detail.title").value("공모전 대상"));
+    }
+
+    @Test
+    @DisplayName("공개 프로필: 성취는 달성한 것만, 타입은 가리지 않는다(기획서 3.7)")
+    @WithUserDetails("user1@test.com")
+    void publicProfileCarriesCompletedProjectsOnly() throws Exception {
+        Member target = memberRepository.findByEmail("user1@test.com").orElseThrow();
+
+        // 파티 확정 때 참여자 전원에게 생기고, 파티 완료 때 ACHIEVED 가 된다
+        Project done = new Project(
+                target, null, 1L, "완료한 파티", PositionType.BACK, LocalDate.now().minusMonths(2));
+        done.complete(LocalDate.now());
+        goalRepository.save(done);
+
+        // 아직 진행 중인 파티 - 상태 조건이 빠지면 여기서 수가 늘어난다
+        goalRepository.save(new Project(
+                target, null, 2L, "진행 중인 파티", PositionType.BACK, LocalDate.now()));
+
+        // 체크리스트도 성취다 - 기획서 3.7 이 공개 여부 필드를 두지 않기로 해 타입으로 거르지 않는다
+        goalRepository.save(new PersonalChecklist(
+                target, GoalStatus.ACHIEVED, "개인 목표", "메모", LocalDate.now()));
+
+        mvc.perform(get("/api/v1/members/" + target.getId()))
+                .andExpect(status().isOk())
+                // 완료한 PROJECT + 체크리스트 = 2건. 진행 중인 파티만 빠진다
+                .andExpect(jsonPath("$.data.achievements.length()").value(2))
+                .andExpect(jsonPath("$.data.achievements[?(@.type == 'PROJECT')].detail.title")
+                        .value("완료한 파티"))
+                .andExpect(jsonPath("$.data.achievements[?(@.type == 'PROJECT')].detail.exhibited")
+                        .value(false))
+                .andExpect(jsonPath("$.data.achievements[?(@.type == 'CHECKLIST')].detail.title")
+                        .value("개인 목표"));
+    }
+
+    @Test
+    @DisplayName("공개 프로필: 없는 회원이면 404")
+    @WithUserDetails("user1@test.com")
+    void publicProfileNotFound() throws Exception {
+        mvc.perform(get("/api/v1/members/99999999"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.resultCode").value("404-1"));
     }
 }

@@ -1,8 +1,11 @@
 package com.back.domain.member.profile.service;
 
+import com.back.domain.goal.goal.entity.GoalStatus;
+import com.back.domain.goal.goal.service.GoalService;
 import com.back.domain.member.profile.dtos.CareerCommand;
 import com.back.domain.member.profile.dtos.LinkCommand;
 import com.back.domain.member.profile.dtos.MemberProfileDto;
+import com.back.domain.member.profile.dtos.MemberPublicProfileDto;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.member.repository.MemberRepository;
@@ -32,6 +35,8 @@ public class MemberProfileService {
 
     private final MemberProfileRepository memberProfileRepository;
     private final MemberRepository memberRepository;
+    private final MemberSummaryService memberSummaryService;
+    private final GoalService goalService;
     private final FileStorage fileStorage;
     private final CustomConfigProperties customConfigProperties;
 
@@ -40,6 +45,29 @@ public class MemberProfileService {
 
         return new MemberProfileDto(getOrCreateProfile(actor));
 
+    }
+
+    /**
+     * 남이 보는 공개 프로필. 지원자 심사·전시에서 이름을 눌렀을 때 열린다.
+     *
+     * GET /me 와 달리 프로필 행을 만들지 않는다 - 로그인 없이 열리는 경로라 남의 조회가 남의 행을 쓰면 안 된다.
+     * 한 번도 프로필을 연 적 없는 회원은 회원 정보만으로 빈 프로필을 그린다.
+     */
+    public MemberPublicProfileDto publicProfile(long memberId) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new ServiceException("404-1", "회원을 찾을 수 없습니다."));
+
+        MemberProfile profile = memberProfileRepository.findByMember(member)
+                .orElseGet(() -> new MemberProfile(member));
+
+        // 달성한 성취는 타입을 가리지 않고 전부 싣는다 - 기획서 3.7 이 "성취에는 공개 여부 필드를 두지 않는다,
+        // 모든 Goal 이 기본적으로 전체 공개" 라고 못박았다. 파티장이 이력을 빠짐없이 보는 게 목적이다(2.5).
+        // 화면이 CONTEST 를 '수상', PROJECT 를 '참여한 프로젝트' 로 나눠 그릴 뿐 서버가 골라내지 않는다.
+        return new MemberPublicProfileDto(
+                profile,
+                memberSummaryService.summary(member),
+                goalService.getMyGoals(member, GoalStatus.ACHIEVED, null, null, null, null)
+        );
     }
 
     @Transactional
