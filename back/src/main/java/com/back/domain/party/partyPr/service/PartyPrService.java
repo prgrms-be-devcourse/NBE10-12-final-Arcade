@@ -65,7 +65,10 @@ public class PartyPrService {
     public List<PartyPrByMemberDto> getByPartyIdGroupedByMember(long partyId, Member actor) {
         Party party = party(partyId);
         ensureReadable(party, actor);
+        return groupedByMember(party);
+    }
 
+    private List<PartyPrByMemberDto> groupedByMember(Party party) {
         var members = new LinkedHashMap<Long, Member>();
         members.put(party.getOwner().getId(), party.getOwner());
         partyMemberRepository.findAllByParty(party).stream()
@@ -75,7 +78,7 @@ public class PartyPrService {
         Map<Long, List<PartyPrDto>> pullRequestsByGithubUserId = new LinkedHashMap<>();
         List<PartyPrDto> unknownAuthorPullRequests = new ArrayList<>();
         Map<Long, String> githubLoginByUserId = new LinkedHashMap<>();
-        for (PartyPr pullRequest : partyPrRepository.findAllByPartyIdOrderByGithubUpdatedAtDesc(partyId)) {
+        for (PartyPr pullRequest : partyPrRepository.findAllByPartyIdOrderByGithubUpdatedAtDesc(party.getId())) {
             PartyPrDto dto = new PartyPrDto(pullRequest);
             Long githubUserId = pullRequest.getAuthorGithubUserId();
             if (githubUserId == null) {
@@ -94,7 +97,10 @@ public class PartyPrService {
                     ? List.of()
                     : pullRequestsByGithubUserId.getOrDefault(githubUserId, List.of());
             if (githubUserId != null) matchedGithubUserIds.add(githubUserId);
-            result.add(PartyPrByMemberDto.member(member, party.isOwnedBy(member), pullRequests));
+            result.add(PartyPrByMemberDto.member(
+                    member, party.isOwnedBy(member),
+                    githubUserId == null ? null : githubLoginByUserId.get(githubUserId), pullRequests
+            ));
         }
 
         pullRequestsByGithubUserId.forEach((githubUserId, pullRequests) -> {
@@ -132,7 +138,8 @@ public class PartyPrService {
                         .map(PartyPrDto::new)
                         .toList();
 
-        return PartyPrByMemberDto.member(member, party.isOwnedBy(member), pullRequests);
+        String githubLogin = pullRequests.isEmpty() ? null : pullRequests.getFirst().authorLogin();
+        return PartyPrByMemberDto.member(member, party.isOwnedBy(member), githubLogin, pullRequests);
     }
 
     public List<PartyPrDto> getMyPullRequests(Member actor) {
@@ -186,7 +193,9 @@ public class PartyPrService {
             && data.githubUpdatedAt().isBefore(partyPr.getGithubUpdatedAt())) return;
         partyPr.update(data);
         partyPrRepository.save(partyPr);
-        publishAfterCommit(party.getId(), new PartyPrDto(partyPr));
+        PartyPrDto pullRequest = new PartyPrDto(partyPr);
+        PartyPrByMemberDto group = groupFor(party, pullRequest);
+        publishAfterCommit(party.getId(), pullRequest, group);
     }
 
     /** GitHub 외부 DTO를 PartyPr이 이해하는 내부 snapshot으로 변환하면서 필수 필드를 검증한다. */
@@ -241,15 +250,51 @@ public class PartyPrService {
                 || partyMemberRepository.existsByPartyAndMemberAndStatus(party, actor, PartyMemberStatus.APPROVED));
     }
 
-    private void publishAfterCommit(long partyId, PartyPrDto pullRequest) {
+    private PartyPrByMemberDto groupFor(Party party, PartyPrDto pullRequest) {
+        Long githubUserId = pullRequest.authorGithubUserId();
+        List<PartyPrDto> pullRequests = githubUserId == null
+                ? partyPrRepository.findAllByPartyIdAndAuthorGithubUserIdIsNullOrderByGithubUpdatedAtDesc(party.getId())
+                        .stream().map(PartyPrDto::new).toList()
+                : partyPrRepository.findAllByPartyIdAndAuthorGithubUserIdOrderByGithubUpdatedAtDesc(
+                        party.getId(), githubUserId
+                ).stream().map(PartyPrDto::new).toList();
+
+        if (githubUserId == null) {
+            return PartyPrByMemberDto.external(null, null, pullRequests);
+        }
+
+        String githubLogin = pullRequests.isEmpty() ? pullRequest.authorLogin() : pullRequests.getFirst().authorLogin();
+        Member member = memberForGithubUserId(party, githubUserId);
+        return member == null
+                ? PartyPrByMemberDto.external(githubUserId, githubLogin, pullRequests)
+                : PartyPrByMemberDto.member(member, party.isOwnedBy(member), githubLogin, pullRequests);
+    }
+
+    /**
+     * SSE 증분 이벤트는 변경된 작성자 그룹만 갱신하면 된다.
+     * 전체 파티원/PR 목록을 다시 그룹화하지 않도록 작성자와 승인 멤버만 조회한다.
+     */
+    private Member memberForGithubUserId(Party party, Long githubUserId) {
+        if (githubUserId.equals(party.getOwner().getGithubUserId())) {
+            return party.getOwner();
+        }
+        return partyMemberRepository
+                .findByPartyAndMember_GithubUserIdAndStatus(party, githubUserId, PartyMemberStatus.APPROVED)
+                .map(PartyMember::getMember)
+                .orElse(null);
+    }
+
+    private void publishAfterCommit(long partyId, PartyPrDto pullRequest, PartyPrByMemberDto group) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
             partyPrSseService.publish(partyId, pullRequest);
+            partyPrSseService.publishGrouped(partyId, group);
             return;
         }
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
                 partyPrSseService.publish(partyId, pullRequest);
+                partyPrSseService.publishGrouped(partyId, group);
             }
         });
     }

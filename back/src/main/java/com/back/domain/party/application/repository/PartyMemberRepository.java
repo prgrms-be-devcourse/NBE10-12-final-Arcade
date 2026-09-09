@@ -44,6 +44,13 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
             PartyMemberStatus status
     );
 
+    @EntityGraph(attributePaths = {"member"})
+    Optional<PartyMember> findByPartyAndMember_GithubUserIdAndStatus(
+            Party party,
+            Long githubUserId,
+            PartyMemberStatus status
+    );
+
     @EntityGraph(attributePaths = {"member", "position"})
     List<PartyMember> findAllByParty(Party party);
 
