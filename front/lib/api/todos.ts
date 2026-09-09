@@ -111,17 +111,21 @@ export async function createTodo(payload: {
 /* ---------- 상세 ---------- */
 
 const ITEM_PAGE_SIZE = 100;
+/** 개인 TODO 항목이 이걸 넘을 일은 없다. 백엔드 페이지네이션이 오작동해도 무한 루프에 빠지지 않도록 상한을 둔다. */
+const MAX_ITEM_PAGES = 20;
 
 /** GET /todos/{id}/items — 상세 응답의 items 는 첫 20건뿐이라, 남으면 여기서 끝까지 받는다 */
 async function fetchAllTodoItems(id: string): Promise<PersonalTodoItemResponse[]> {
   const all: PersonalTodoItemResponse[] = [];
-  for (let page = 0; ; page += 1) {
-    const res = await http.get<{ content: PersonalTodoItemResponse[] }>(`/todos/${id}/items`, {
-      query: { page, size: ITEM_PAGE_SIZE },
-    });
+  for (let page = 0; page < MAX_ITEM_PAGES; page += 1) {
+    const res = await http.get<{ content: PersonalTodoItemResponse[]; last?: boolean }>(
+      `/todos/${id}/items`,
+      { query: { page, size: ITEM_PAGE_SIZE } },
+    );
     all.push(...res.content);
-    if (res.content.length < ITEM_PAGE_SIZE) break;
+    if (res.last === true || res.content.length < ITEM_PAGE_SIZE) return all;
   }
+  console.warn(`할 일 항목이 ${MAX_ITEM_PAGES * ITEM_PAGE_SIZE}건을 넘어 일부만 불러왔습니다 (todo ${id})`);
   return all;
 }
 
