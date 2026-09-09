@@ -10,7 +10,9 @@ import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.party.service.PartyService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.springframework.http.MediaType;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -24,9 +26,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,6 +54,14 @@ class ApiV1AdminPartyControllerTest {
 
     @Autowired
     private PartyService partyService;
+
+    private long partyId;
+
+    @BeforeEach
+    void setUp() {
+        Member owner = saveMember("adm-ctrl-hidden-owner@test.com");
+        partyId = createParty(owner, "숨김 컨트롤러 테스트 파티").id();
+    }
 
     @Test
     @DisplayName("관리자 파티 목록: 관리자가 조회하면 200이다")
@@ -82,33 +93,68 @@ class ApiV1AdminPartyControllerTest {
     }
 
     @Test
-    @DisplayName("파티 숨김: 관리자가 요청하면 hidden이 true가 되고, 일반 목록에서 사라진다")
     @WithUserDetails("admin")
     void hideByAdmin() throws Exception {
-        Member owner = saveMember("adm-ctrl-hide-owner@test.com");
-        PartyDto created = createParty(owner, "컨트롤러 숨김 테스트 파티");
+        ResultActions resultActions = mvc.perform(
+                patch("/api/v1/adm/parties/%d/hidden".formatted(partyId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"hidden": true}
+                            """)
+        ).andDo(print());
 
-        mvc.perform(put("/api/v1/adm/parties/" + created.id() + "/hidden"))
-                .andExpect(status().isOk())
+        resultActions.andExpect(status().isOk())
                 .andExpect(jsonPath("$.resultCode").value("200-1"));
 
-        assertThat(partyRepository.findById(created.id())).hasValueSatisfying(
-                party -> assertThat(party.isHidden()).isTrue());
+        assertThat(partyRepository.findById(partyId).orElseThrow().isHidden()).isTrue();
     }
 
     @Test
-    @DisplayName("파티 숨김: 관리자가 아니면 403-1이다")
+    @WithUserDetails("admin")
+    void unhideByAdmin() throws Exception {
+        partyService.hide(partyId);
+
+        ResultActions resultActions = mvc.perform(
+                patch("/api/v1/adm/parties/%d/hidden".formatted(partyId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"hidden": false}
+                            """)
+        ).andDo(print());
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.resultCode").value("200-1"));
+
+        assertThat(partyRepository.findById(partyId).orElseThrow().isHidden()).isFalse();
+    }
+
+    @Test
     @WithUserDetails("user1@test.com")
     void hideByNonAdmin() throws Exception {
-        Member owner = saveMember("adm-ctrl-hide-nonadmin-owner@test.com");
-        PartyDto created = createParty(owner, "컨트롤러 숨김 권한 테스트 파티");
+        ResultActions resultActions = mvc.perform(
+                patch("/api/v1/adm/parties/%d/hidden".formatted(partyId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {"hidden": true}
+                            """)
+        ).andDo(print());
 
-        mvc.perform(put("/api/v1/adm/parties/" + created.id() + "/hidden"))
-                .andExpect(status().isForbidden())
+        resultActions.andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.resultCode").value("403-1"));
 
-        assertThat(partyRepository.findById(created.id())).hasValueSatisfying(
-                party -> assertThat(party.isHidden()).isFalse());
+        assertThat(partyRepository.findById(partyId).orElseThrow().isHidden()).isFalse();
+    }
+
+    @Test
+    @WithUserDetails("admin")
+    void updateHiddenWithoutBodyReturns400() throws Exception {
+        ResultActions resultActions = mvc.perform(
+                patch("/api/v1/adm/parties/%d/hidden".formatted(partyId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}")
+        ).andDo(print());
+
+        resultActions.andExpect(status().isBadRequest());
     }
 
     @Test
