@@ -178,7 +178,7 @@ public class ApiV1MemberProfileController {
             summary = "대표 포지션만 수정",
             description = """
                     대표 포지션 하나만 바꾼다. 나머지 항목은 건드리지 않는다.
-                    프로필이 없으면 만들어서 저장한다.
+                    프로필이 없으면 만들어서 저장
 
                     GitHub 로 처음 가입하면 닉네임이 없어 PATCH /me 를 쓸 수 없다(nickname 필수).
                     가입 직후 포지션을 고르게 하는 화면은 이 API 를 쓴다.
