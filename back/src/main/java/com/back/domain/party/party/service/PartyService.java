@@ -7,9 +7,6 @@ import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.interaction.like.service.LikeInteractionPort;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
-import com.back.domain.member.profile.entity.MemberProfile;
-import com.back.domain.member.profile.repository.MemberProfileRepository;
-import com.back.domain.party.application.entity.PartyMember;
 import com.back.domain.party.application.entity.PartyMemberStatus;
 import com.back.domain.party.application.repository.PartyMemberRepository;
 import com.back.domain.party.party.dtos.PartyDto;
@@ -52,7 +49,6 @@ public class PartyService {
     private final ContestLookupPort contestLookupPort;
     private final PartySearchKeywordPort partySearchKeywordPort;
     private final ApplicationEventPublisher eventPublisher;
-    private final MemberProfileRepository memberProfileRepository;
     private final PartyMemberRepository partyMemberRepository;
     private final ActivityLogService activityLogService;
     private final PartyShowcaseRepository partyShowcaseRepository;
@@ -74,7 +70,6 @@ public class PartyService {
         TopicType topicType,
         PartyTag partyTag,
         String githubRepoUrl,
-        int checklistRequiredApprovals,
         LocalDateTime deadline,
         List<PositionCreateSpec> positionSpecs
     ) {
@@ -107,7 +102,6 @@ public class PartyService {
             topicType,
             partyTag,
             githubRepoUrl,
-            checklistRequiredApprovals,
             deadline
         );
 
@@ -115,36 +109,12 @@ public class PartyService {
             party.addPosition(new Position(spec.type(), spec.capacity()))
         );
 
-        Position ownerPosition = seatForOwner(party, owner);
-
         Party savedParty = partyRepository.save(party);
-        partyMemberRepository.save(PartyMember.owner(savedParty, owner, ownerPosition));
 
         activityLogService.record(owner);
         eventPublisher.publishEvent(new PartySearchIndexRequestedEvent(savedParty.getId()));
 
         return new PartyDto(savedParty);
-    }
-
-    /**
-     * 파티장이 앉을 자리를 고른다. 파티장은 모집 대상이 아니라 정원(filledCount)은 건드리지 않는다.
-     * 같은 포지션을 모집 중이면 그 자리를 가리키고, 아니면 모집하지 않는 자리(정원 0)를 만들어 붙인다.
-     */
-    private Position seatForOwner(Party party, Member owner) {
-        PositionType ownerType = memberProfileRepository.findByMember(owner)
-                .map(MemberProfile::getPosition)
-                .orElseThrow(() -> new ServiceException(
-                        "400-4", "프로필에 대표 포지션을 먼저 설정해야 파티를 만들 수 있습니다."));
-
-        return party.getPositions().stream()
-                .filter(position -> position.getType() == ownerType)
-                .findFirst()
-                .orElseGet(() -> {
-                    Position seat = new Position(ownerType, 0);
-                    party.addPosition(seat);
-
-                    return seat;
-                });
     }
 
     public record PositionCapacityUpdateSpec(
@@ -242,13 +212,14 @@ public class PartyService {
         }
         party.checkDeletable();
 
-        // 파티장을 제외한 다른 승인된 멤머가 없을 시 삭제가 가능합니다.
+        // 파티장을 제외한 다른 승인된 파티원이 없어야 삭제할 수 있다.
+        // 파티장은 이제 PartyMember 로 들어가지 않지만, ARC-97 시절 파티에는 그 행이 남아 있어 빼고 센다.
         if (partyMemberRepository.existsByPartyAndStatusAndMemberNot(
                 party, PartyMemberStatus.APPROVED, party.getOwner())) {
             throw new ServiceException("409-3", "승인된 파티원이 있는 파티는 삭제할 수 없습니다. 먼저 승인을 취소해주세요.");
         }
 
-        // 남은 기록(파티장 + PENDING/REJECTED 지원)은 position 을 참조하므로
+        // 남은 지원 기록(PENDING/REJECTED)은 position 을 참조하므로
         // 파티(와 position)보다 먼저 지워야 FK 제약에 걸리지 않는다.
         partyMemberRepository.deleteAllByParty(party);
         partyMemberRepository.flush();

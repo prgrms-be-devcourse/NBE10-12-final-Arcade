@@ -43,11 +43,11 @@ class PartyMatchQueryLikeServiceEscapingTest {
         Member owner = memberRepository.save(new Member("like-escape-owner@test.com", "pw", "owner", null));
         Party literalMatch = partyRepository.save(new Party(
                 owner, "파티명1", "제목1", null, null, "외부 대회", "https://example.com",
-                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7)
+                TopicType.STUDY, PartyTag.WEB, null, LocalDateTime.now().plusDays(7)
         ));
         Party wildcardOnlyMatch = partyRepository.save(new Party(
                 owner, "파티명2", "제목2", null, null, "외부 대회", "https://example.com",
-                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7)
+                TopicType.STUDY, PartyTag.WEB, null, LocalDateTime.now().plusDays(7)
         ));
         partySearchKeywordRepository.save(new PartySearchKeyword(literalMatch, "a%b 스터디"));
         partySearchKeywordRepository.save(new PartySearchKeyword(wildcardOnlyMatch, "aXXXb 스터디"));

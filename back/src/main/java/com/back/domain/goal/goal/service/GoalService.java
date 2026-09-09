@@ -19,7 +19,6 @@ import com.back.domain.goal.goal.repository.GoalRepository;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.member.repository.MemberRepository;
-import com.back.domain.party.application.repository.PartyMemberRepository;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.showcase.entity.PartyShowcase;
@@ -51,7 +50,6 @@ public class GoalService {
 
     // PROJECT 성취 상세는 내용이 전부 파티에 있어서, 조회 시점에 파티 쪽을 함께 읽어 조립한다.
     private final PartyRepository partyRepository;
-    private final PartyMemberRepository partyMemberRepository;
     private final PartyPrRepository partyPrRepository;
 
     // 전시 게시글. PROJECT 성취가 FK 로 가리키고, 게시 이벤트를 받아 채운다.
@@ -195,10 +193,9 @@ public class GoalService {
         if (party == null) return null;
 
         boolean partyOwner = party.isOwnedBy(goal.getOwner());
-        PositionType myPositionType = partyMemberRepository
-                .findByPartyAndMember(party, goal.getOwner())
-                .map(pm -> pm.getPosition().getType())
-                .orElse(null);
+
+        // 확정 시점의 포지션은 성취에 이미 복사돼 있다. 파티장은 PartyMember가 없어 파티를 다시 뒤져도 안 나온다.
+        PositionType myPositionType = goal instanceof Project project ? project.getPositionType() : null;
 
         List<PartyPrDto> pullRequests = actor != null && goal.isOwnedBy(actor)
                 ? partyPrRepository.findAllByPartyIdOrderByGithubUpdatedAtDesc(party.getId()).stream()

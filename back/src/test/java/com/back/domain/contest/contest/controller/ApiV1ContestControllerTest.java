@@ -85,7 +85,6 @@ public class ApiV1ContestControllerTest {
                 TopicType.CONTEST,
                 PartyTag.WEB,
                 null,
-                1,
                 LocalDateTime.now().plusDays(7)
         );
 

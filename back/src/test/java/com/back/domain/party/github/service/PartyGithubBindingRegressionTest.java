@@ -77,7 +77,7 @@ class PartyGithubBindingRegressionTest {
     private Fixture createFixture() {
         Member owner = members.findByEmail("user1@test.com").orElseThrow();
         Party party = parties.save(new Party(owner, "연결 테스트", "테스트", "설명", null, null, null,
-                TopicType.PROJECT, PartyTag.WEB, null, 1, LocalDateTime.now().plusDays(7)));
+                TopicType.PROJECT, PartyTag.WEB, null, LocalDateTime.now().plusDays(7)));
         GithubAppInstallation installation = installations.save(new GithubAppInstallation(
                 IDS.incrementAndGet(), 123L, "org", "Organization", null));
         GithubInstallationRepository first = repositories.save(new GithubInstallationRepository(installation, IDS.incrementAndGet(), "org/first"));

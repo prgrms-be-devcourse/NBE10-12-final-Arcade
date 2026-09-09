@@ -25,11 +25,9 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
 
     boolean existsByPartyAndMemberAndStatus(Party party, Member member, PartyMemberStatus status);
 
-    // 파티 삭제 전 "승인된 파티원이 하나도 없어야 하는지" 확인할 때 쓴다.
-    boolean existsByPartyAndStatus(Party party, PartyMemberStatus status);
-
-    // 위와 같지만 특정 회원(파티장)은 뺀다.
-    // 파티가 생성시 파티장이 Member로 들어가지는 구조
+    // 파티 삭제 전 "파티장을 제외한 승인된 파티원이 하나도 없어야 하는지" 확인할 때 쓴다.
+    // 파티 생성 시 파티장도 PartyMember 로 들어가고, 파티장을 APPROVED 로 넣던 시절(ARC-97)에
+    // 만들어진 파티에는 그 행이 남아 있다. 그걸 세면 파티장이 자기 파티를 못 지우므로 빼고 센다.
     boolean existsByPartyAndStatusAndMemberNot(Party party, PartyMemberStatus status, Member member);
 
 
@@ -57,7 +55,8 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
     // 마이페이지 '파티 관리' 목록. 내가 파티장인 파티들에 들어온 지원을 한 번에 본다.
     // partyId·positionType 은 선택 필터라 null 이면 조건이 없는 것으로 친다.
     // 여기도 전체 건수를 쓰지 않는 화면이라 Slice 다.
-    // 파티장 본인의 APPROVED 행은 지원이 아니므로 뺀다.
+    // pm.member <> :owner 는 옛 데이터 방어다 - ARC-97 시절 파티에는 파티장의 APPROVED 행이 남아 있어
+    // 그냥 두면 파티장이 자기 파티의 지원자로 보인다.
     @EntityGraph(attributePaths = {"member", "position", "party"})
     @Query("""
             select pm from PartyMember pm
@@ -75,7 +74,7 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
 
     // 목록 카드의 '지원자 N명'. 승인 인원(Position.filledCount)과 다른 값이라 따로 센다 -
     // 거절된 건까지 포함한, 그 파티에 지원한 사람 수 전체다.
-    // 파티장은 파티 생성 시 APPROVED 행으로 들어가지만 지원자가 아니므로 뺀다.
+    // pm.member <> pm.party.owner 는 옛 데이터 방어다 (findAllByPartyOwner 와 같은 이유).
     @Query("""
             select new com.back.domain.party.application.dtos.PartyApplicantCount(pm.party.id, count(pm))
             from PartyMember pm

@@ -8,6 +8,8 @@ import com.back.domain.goal.goal.entity.GoalStatus;
 import com.back.domain.goal.goal.entity.PersonalChecklist;
 import com.back.domain.goal.goal.entity.Project;
 import com.back.domain.goal.goal.repository.GoalRepository;
+import com.back.domain.interaction.bookmark.repository.BookmarkRepository;
+import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.member.repository.MemberRepository;
@@ -32,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -60,6 +63,9 @@ public class ApiV1BookmarkControllerTest {
 
     @Autowired
     private PartyShowcaseRepository partyShowcaseRepository;
+
+    @Autowired
+    private BookmarkRepository bookmarkRepository;
 
     private long saveContest() {
         Member admin = memberRepository.findByEmail("admin").orElseThrow();
@@ -201,7 +207,6 @@ public class ApiV1BookmarkControllerTest {
                 TopicType.PROJECT,
                 PartyTag.WEB,
                 null,
-                1,
                 LocalDateTime.now().plusDays(7)
         );
         party.addPosition(new Position(PositionType.BACK, 2));
@@ -349,7 +354,6 @@ public class ApiV1BookmarkControllerTest {
                 TopicType.PROJECT,
                 PartyTag.WEB,
                 null,
-                1,
                 LocalDateTime.now().plusDays(7)
         );
         party.addPosition(new Position(PositionType.BACK, 2));
@@ -519,5 +523,65 @@ public class ApiV1BookmarkControllerTest {
         mvc.perform(post("/api/v1/goals/" + goalId + "/bookmarks"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.bookmarked").value(true));
+    }
+
+    // 같은 파티의 전시글을 공유하는 팀원 두 명분 Project - 한쪽은 partyAssembleToMemberId만 다르게 준다
+    private long[] savePublishedProjectGoalsForTwoMembers(String ownerEmail, String teammateEmail) {
+        Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
+        Member teammate = memberRepository.findByEmail(teammateEmail).orElseThrow();
+        Party party = savePartyForGoal(ownerEmail);
+
+        PartyShowcase showcase = new PartyShowcase(party);
+        showcase.publish("정산 자동화 API", "설명");
+        partyShowcaseRepository.save(showcase);
+
+        Project ownerProject = new Project(
+                owner, 301L, party.getId(), "정산 자동화 API", PositionType.BACK, LocalDate.now());
+        ownerProject.complete(LocalDate.now());
+        ownerProject.linkShowcase(showcase);
+
+        Project teammateProject = new Project(
+                teammate, 302L, party.getId(), "정산 자동화 API", PositionType.FRONT, LocalDate.now());
+        teammateProject.complete(LocalDate.now());
+        teammateProject.linkShowcase(showcase);
+
+        return new long[]{
+                goalRepository.save(ownerProject).getId(),
+                goalRepository.save(teammateProject).getId()
+        };
+    }
+
+    @Test
+    @DisplayName("성취 북마크: PROJECT는 GOAL이 아니라 PARTY_SHOWCASE 대상으로 실제 저장된다")
+    @WithUserDetails("user1@test.com")
+    void bookmarkGoalProjectRoutesToPartyShowcase() throws Exception {
+        long goalId = savePublishedProjectGoal("user2@test.com", 203L);
+        Project project = (Project) goalRepository.findById(goalId).orElseThrow();
+        long showcaseId = project.getPartyShowcase().getId();
+
+        mvc.perform(post("/api/v1/goals/" + goalId + "/bookmarks"))
+                .andExpect(status().isCreated());
+
+        Member actor = memberRepository.findByEmail("user1@test.com").orElseThrow();
+        assertThat(bookmarkRepository.existsByMemberAndTargetTypeAndTargetId(
+                actor, TargetType.PARTY_SHOWCASE, showcaseId)).isTrue();
+        assertThat(bookmarkRepository.existsByMemberAndTargetTypeAndTargetId(
+                actor, TargetType.GOAL, goalId)).isFalse();
+    }
+
+    @Test
+    @DisplayName("성취 북마크: 같은 전시글을 공유하는 팀원의 다른 goalId를 북마크하면 같은 대상이라 409-1이다")
+    @WithUserDetails("user1@test.com")
+    void bookmarkGoalProjectSharesTargetAcrossTeammates() throws Exception {
+        long[] goalIds = savePublishedProjectGoalsForTwoMembers("user2@test.com", "user3@test.com");
+
+        mvc.perform(post("/api/v1/goals/" + goalIds[0] + "/bookmarks"))
+                .andExpect(status().isCreated());
+
+        // 다른 goalId지만 같은 파티의 같은 전시글을 가리키므로 이미 북마크한 것으로 취급돼야 한다.
+        ResultActions resultActions = mvc.perform(post("/api/v1/goals/" + goalIds[1] + "/bookmarks"));
+
+        resultActions.andExpect(status().isConflict())
+                .andExpect(jsonPath("$.resultCode").value("409-1"));
     }
 }

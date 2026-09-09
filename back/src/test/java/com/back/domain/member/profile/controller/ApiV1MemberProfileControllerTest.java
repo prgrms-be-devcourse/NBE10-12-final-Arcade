@@ -8,14 +8,16 @@ import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.member.repository.MemberRepository;
 import com.back.domain.member.profile.service.MemberProfileService;
-import com.back.domain.party.application.entity.PartyMember;
-import com.back.domain.party.application.repository.PartyMemberRepository;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.position.entity.Position;
 import com.back.domain.party.showcase.entity.PartyShowcase;
+import com.back.domain.party.assemble.entity.PartyAssemble;
+import com.back.domain.party.assemble.entity.PartyAssembleToMember;
+import com.back.domain.party.assemble.repository.PartyAssembleRepository;
+import com.back.domain.party.assemble.repository.PartyAssembleToMemberRepository;
 import com.back.domain.party.showcase.repository.PartyShowcaseRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -60,8 +62,12 @@ public class ApiV1MemberProfileControllerTest {
     @Autowired
     private PartyRepository partyRepository;
 
+
     @Autowired
-    private PartyMemberRepository partyMemberRepository;
+    private PartyAssembleRepository partyAssembleRepository;
+
+    @Autowired
+    private PartyAssembleToMemberRepository partyAssembleToMemberRepository;
 
     @Autowired
     private PartyShowcaseRepository partyShowcaseRepository;
@@ -108,29 +114,25 @@ public class ApiV1MemberProfileControllerTest {
     }
 
     @Test
-    @DisplayName("내 활동 요약: 승인된 완료 파티만 세고, 거절되거나 진행 중인 건은 빼고 센다")
+    @DisplayName("내 활동 요약: 확정 명단에 든 완료 파티만 세고, 확정에서 빠졌거나 진행 중인 건은 빼고 센다")
     @WithUserDetails("user1@test.com")
     void summary() throws Exception {
         Member actor = memberRepository.findByEmail("user1@test.com").orElseThrow();
         Member owner = memberRepository.findByEmail("user2@test.com").orElseThrow();
 
-        // 승인 + 완료 + 전시 게시 -> completedParties 1, exhibitions 1
+        // 확정 명단 + 완료 + 전시 게시 -> completedParties 1, exhibitions 1
         Party completed = partyRepository.save(completedParty(owner));
-        partyMemberRepository.save(partyMember(completed, actor, true));
-        PartyShowcase showcase = new PartyShowcase(completed);
-        showcase.publish("전시 제목", "설명");
-        partyShowcaseRepository.save(showcase);
+        assemble(completed, actor);
+        publishShowcase(completed, "전시 제목");
 
-        // 완료됐지만 거절당한 파티 - 상태 조건이 빠지면 여기서 수가 늘어난다
-        Party rejected = partyRepository.save(completedParty(owner));
-        partyMemberRepository.save(partyMember(rejected, actor, false));
-        PartyShowcase rejectedShowcase = new PartyShowcase(rejected);
-        rejectedShowcase.publish("남의 전시", "설명");
-        partyShowcaseRepository.save(rejectedShowcase);
+        // 완료됐지만 내가 확정 명단에 없는 파티 - 명단 조건이 빠지면 여기서 수가 늘어난다
+        Party notMine = partyRepository.save(completedParty(owner));
+        assemble(notMine, owner);
+        publishShowcase(notMine, "남의 전시");
 
-        // 승인됐지만 아직 모집중인 파티 - 파티 상태 조건이 빠지면 여기서 수가 늘어난다
-        Party recruiting = partyRepository.save(newParty(owner));
-        partyMemberRepository.save(partyMember(recruiting, actor, true));
+        // 확정 명단에 들었지만 아직 진행 중인 파티 - 파티 상태 조건이 빠지면 여기서 수가 늘어난다
+        Party inProgress = partyRepository.save(assembledParty(owner));
+        assemble(inProgress, actor);
 
         goalRepository.save(new PersonalContest(
                 actor, GoalStatus.ACHIEVED, "공모전 대상", false, "대상", LocalDate.now(), null));
@@ -145,6 +147,35 @@ public class ApiV1MemberProfileControllerTest {
                 .andExpect(jsonPath("$.data.exhibitions").value(1));
     }
 
+    @Test
+    @DisplayName("내 활동 요약: 내가 파티장인 파티도 완료·전시 건수에 잡힌다")
+    @WithUserDetails("user1@test.com")
+    void summaryCountsPartiesIOwn() throws Exception {
+        Member actor = memberRepository.findByEmail("user1@test.com").orElseThrow();
+
+        // 파티장은 PartyMember 로 남지 않는다 - 확정 명단만 보고 세야 잡힌다
+        Party myParty = partyRepository.save(completedParty(actor));
+        assemble(myParty, actor);
+        publishShowcase(myParty, "내가 연 전시");
+
+        mvc.perform(get("/api/v1/members/me/summary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.completedParties").value(1))
+                .andExpect(jsonPath("$.data.exhibitions").value(1));
+    }
+
+    /** 확정 명단에 한 명 올린다. 실제 마감(closeRecruiting)이 남기는 기록과 같은 모양. */
+    private void assemble(Party party, Member member) {
+        PartyAssemble partyAssemble = partyAssembleRepository.save(new PartyAssemble(party));
+        partyAssembleToMemberRepository.save(new PartyAssembleToMember(partyAssemble, member));
+    }
+
+    private void publishShowcase(Party party, String title) {
+        PartyShowcase showcase = new PartyShowcase(party);
+        showcase.publish(title, "설명");
+        partyShowcaseRepository.save(showcase);
+    }
+
     private Party completedParty(Member owner) {
         Party party = newParty(owner);
         party.closeRecruiting();
@@ -153,23 +184,21 @@ public class ApiV1MemberProfileControllerTest {
         return party;
     }
 
-    private Party newParty(Member owner) {
-        Party party = new Party(
-                owner, "파티", "제목", "설명", null, null, null,
-                TopicType.PROJECT, PartyTag.WEB, null, 1,
-                LocalDateTime.now().plusDays(7));
-        party.addPosition(new Position(PositionType.BACK, 3));
+    private Party assembledParty(Member owner) {
+        Party party = newParty(owner);
+        party.closeRecruiting();
 
         return party;
     }
 
-    private PartyMember partyMember(Party party, Member member, boolean approved) {
-        PartyMember partyMember = new PartyMember(party, member, party.getPositions().getFirst(), null);
+    private Party newParty(Member owner) {
+        Party party = new Party(
+                owner, "파티", "제목", "설명", null, null, null,
+                TopicType.PROJECT, PartyTag.WEB, null,
+                LocalDateTime.now().plusDays(7));
+        party.addPosition(new Position(PositionType.BACK, 3));
 
-        if (approved) partyMember.approve();
-        else partyMember.reject();
-
-        return partyMember;
+        return party;
     }
 
     @Test

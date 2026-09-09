@@ -56,7 +56,6 @@ public class ApiV1PartyController {
             @NotNull TopicType topicType,
             @NotNull PartyTag partyTag,
             String githubRepoUrl,
-            int checklistRequiredApprovals,
             @NotNull LocalDateTime deadline,
             @NotEmpty List<@Valid PositionReqBody> positions
     ) {
@@ -84,7 +83,6 @@ public class ApiV1PartyController {
                 request.topicType(),
                 request.partyTag(),
                 request.githubRepoUrl(),
-                request.checklistRequiredApprovals(),
                 request.deadline(),
                 positionSpecs
         );

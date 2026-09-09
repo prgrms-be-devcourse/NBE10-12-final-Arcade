@@ -12,11 +12,8 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 
 public interface BookmarkRepository extends JpaRepository<Bookmark, Long> {
-    Optional<Bookmark> findByMemberAndTargetTypeAndTargetId(Member member, TargetType targetType, long targetId);
-
     // 북마크함 목록. 최근에 담은 것부터 보여준다.
     Page<Bookmark> findAllByMemberOrderByCreateDateDesc(Member member, Pageable pageable);
 

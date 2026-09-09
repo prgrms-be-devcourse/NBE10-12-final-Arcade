@@ -2,7 +2,6 @@ package com.back.domain.party.party.service;
 
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
-import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.member.repository.MemberRepository;
 import com.back.domain.member.profile.entity.MemberProfile;
 import com.back.domain.member.profile.repository.MemberProfileRepository;
@@ -40,11 +39,11 @@ class PartyServiceSearchIndexingTest {
 
     @Test
     void creatingAPartyIndexesItForSearch() {
-        Member owner = ownerWithPosition("index-owner1@test.com");
+        Member owner = saveOwner("index-owner1@test.com");
 
         PartyDto created = partyService.create(
                 owner, "파티명", "백엔드 스터디원 모집", null, null, "외부 대회", "https://example.com",
-                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7),
+                TopicType.STUDY, PartyTag.WEB, null, LocalDateTime.now().plusDays(7),
                 List.of(new PartyService.PositionCreateSpec(PositionType.BACK, 3))
         );
 
@@ -55,10 +54,10 @@ class PartyServiceSearchIndexingTest {
 
     @Test
     void updatingTitleReindexes() {
-        Member owner = ownerWithPosition("index-owner2@test.com");
+        Member owner = saveOwner("index-owner2@test.com");
         PartyDto created = partyService.create(
                 owner, "파티명", "백엔드 스터디원 모집", null, null, "외부 대회", "https://example.com",
-                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7),
+                TopicType.STUDY, PartyTag.WEB, null, LocalDateTime.now().plusDays(7),
                 List.of(new PartyService.PositionCreateSpec(PositionType.BACK, 3))
         );
 
@@ -75,10 +74,10 @@ class PartyServiceSearchIndexingTest {
 
     @Test
     void deletingPartyRemovesSearchIndex() {
-        Member owner = ownerWithPosition("index-owner3@test.com");
+        Member owner = saveOwner("index-owner3@test.com");
         PartyDto created = partyService.create(
                 owner, "파티명", "백엔드 스터디원 모집", null, null, "외부 대회", "https://example.com",
-                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7),
+                TopicType.STUDY, PartyTag.WEB, null, LocalDateTime.now().plusDays(7),
                 List.of(new PartyService.PositionCreateSpec(PositionType.BACK, 3))
         );
 
@@ -87,8 +86,7 @@ class PartyServiceSearchIndexingTest {
         assertThat(partySearchKeywordRepository.findByParty_Id(created.id())).isEmpty();
     }
 
-    /** 파티장은 프로필에 대표 포지션이 있어야 파티를 만들 수 있다. */
-    private Member ownerWithPosition(String email) {
+    private Member saveOwner(String email) {
         Member owner = memberRepository.save(new Member(email, "pw", "owner", null));
         memberProfileRepository.save(
                 new MemberProfile(owner, null, null, PositionType.BACK, List.of()));

@@ -44,7 +44,7 @@ class ApiV1PartyPrSecurityControllerTest {
     private Party saveParty(String ownerEmail) {
         Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
         Party party = new Party(owner, "PR 팀", "PR 테스트", "설명", null, null, null,
-                TopicType.PROJECT, PartyTag.WEB, null, 1, LocalDateTime.now().plusDays(7));
+                TopicType.PROJECT, PartyTag.WEB, null, LocalDateTime.now().plusDays(7));
         party.addPosition(new Position(PositionType.BACK, 2));
         Party saved = partyRepository.save(party);
         partyPrRepository.save(new PartyPr(saved, new GithubPullRequestSnapshot(

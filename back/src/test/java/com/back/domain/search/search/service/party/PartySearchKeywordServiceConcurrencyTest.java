@@ -58,7 +58,7 @@ class PartySearchKeywordServiceConcurrencyTest {
         Member owner = memberRepository.save(new Member("concurrency-owner@test.com", "pw", "owner", null));
         Party party = partyRepository.save(new Party(
                 owner, "파티명", "제목", null, null, "외부 대회", "https://example.com",
-                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7)
+                TopicType.STUDY, PartyTag.WEB, null, LocalDateTime.now().plusDays(7)
         ));
 
         int threadCount = 8;
