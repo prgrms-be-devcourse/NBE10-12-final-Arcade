@@ -34,6 +34,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -55,7 +56,7 @@ public class PartyPrService {
     private final PartyPrSseService partyPrSseService;
     // 같은 JVM에서 initial sync와 webhook이 동시에 같은 신규 PR을 INSERT하는 경합을 막는다.
     // DB unique constraint는 다중 인스턴스 환경의 최종 안전망으로 유지한다.
-    private final Map<String, Object> insertLocks = new ConcurrentHashMap<>();
+    private final Map<String, InsertLock> insertLocks = new ConcurrentHashMap<>();
 
     public List<PartyPrDto> getByPartyId(long partyId, Member actor) {
         Party party = party(partyId);
@@ -213,8 +214,13 @@ public class PartyPrService {
 
     private void upsert(Party party, GithubPullRequestSnapshot data) {
         String key = party.getId() + ":" + data.githubPrId();
-        Object lock = insertLocks.computeIfAbsent(key, ignored -> new Object());
-        synchronized (lock) {
+        InsertLock lock = insertLocks.compute(key, (ignored, current) -> {
+            InsertLock acquired = current == null ? new InsertLock() : current;
+            acquired.users++;
+            return acquired;
+        });
+        lock.lock.lock();
+        try {
             PartyPr partyPr = partyPrRepository
                     .findByPartyIdAndGithubPrId(party.getId(), data.githubPrId())
                     .orElseGet(() -> new PartyPr(party, data));
@@ -226,7 +232,19 @@ public class PartyPrService {
             PartyPrDto pullRequest = new PartyPrDto(partyPr);
             PartyPrByMemberDto group = groupFor(party, pullRequest);
             publishAfterCommit(party.getId(), pullRequest, group);
+        } finally {
+            lock.lock.unlock();
+            // compute 안에서 참조 수를 줄여, 새 사용자가 같은 락을 획득한 직후 제거되는 경쟁을 막는다.
+            insertLocks.compute(key, (ignored, current) -> {
+                if (current != lock) return current;
+                return --lock.users == 0 ? null : lock;
+            });
         }
+    }
+
+    private static final class InsertLock {
+        private final ReentrantLock lock = new ReentrantLock();
+        private int users;
     }
 
     /** GitHub 외부 DTO를 PartyPr이 이해하는 내부 snapshot으로 변환하면서 필수 필드를 검증한다. */
