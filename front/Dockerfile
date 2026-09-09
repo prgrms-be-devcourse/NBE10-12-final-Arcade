@@ -55,6 +55,8 @@ COPY --from=builder --chown=node:node /app/.next/standalone ./
 COPY --from=builder --chown=node:node /app/.next/static ./.next/static
 COPY --from=builder --chown=node:node /app/public ./public
 
+# 공식 Node 이미지가 제공하는 사용자를 이름으로 명시한다.
+# hadolint ignore=DL3066
 USER node
 EXPOSE 3000
 
