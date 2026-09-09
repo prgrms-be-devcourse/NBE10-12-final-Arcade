@@ -86,7 +86,7 @@ class PartyNotificationEventListenerTest {
     }
 
     @Test
-    @DisplayName("파티 구성 완료 시 이벤트의 승인 회원에게 알림하고 파티장은 중복 제외한다")
+    @DisplayName("파티 모집 완료는 파티장에게, 매칭 확정은 승인된 지원자에게 알림한다")
     void assembled() {
         prepareOwnerAndMemberReferences();
 
@@ -94,10 +94,10 @@ class PartyNotificationEventListenerTest {
                 new PartyAssembledEvent.ApprovedMember(10L, 100L, PositionType.BACK),
                 new PartyAssembledEvent.ApprovedMember(20L, 200L, PositionType.BACK))));
 
-        verify(notificationService).create(owner, NotificationType.PARTY_ASSEMBLED,
-                "테스트 파티 모집이 마감되어 활동이 시작되었습니다.");
-        verify(notificationService).create(participant, NotificationType.PARTY_ASSEMBLED,
-                "테스트 파티 모집이 마감되어 활동이 시작되었습니다.");
+        verify(notificationService).create(owner, NotificationType.PARTY_RECRUITMENT_COMPLETED,
+                "테스트 파티 모집이 완료되었습니다.");
+        verify(notificationService).create(participant, NotificationType.PARTY_MATCHING_CONFIRMED,
+                "테스트 파티 매칭이 확정되어 활동이 시작되었습니다.");
         verifyNoMoreInteractions(notificationService);
         verifyNoInteractions(partyAssembleToMemberRepository);
     }
