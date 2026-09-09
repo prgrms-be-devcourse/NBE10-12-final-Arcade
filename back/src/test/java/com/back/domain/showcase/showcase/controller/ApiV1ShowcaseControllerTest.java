@@ -93,7 +93,6 @@ public class ApiV1ShowcaseControllerTest {
                 TopicType.PROJECT,
                 PartyTag.WEB,
                 null,
-                1,
                 LocalDateTime.now().plusDays(7)
         );
         party.addPosition(new Position(PositionType.BACK, 2));
@@ -243,5 +242,25 @@ public class ApiV1ShowcaseControllerTest {
         resultActions.andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.size").value(2))
                 .andExpect(jsonPath("$.data.content.length()").value(2));
+    }
+
+    @Test
+    @DisplayName("전시 성취 목록: PROJECT는 partyShowcase.likeCount 기준으로 POPULAR 정렬된다")
+    void getShowcaseGoalsSortedByPopularWithProject() throws Exception {
+        // 먼저 만들어서 id가 더 작은 쪽에 좋아요를 더 많이 준다.
+        // id.desc() 2차 정렬만 따르면 이 항목은 뒤로 밀려야 정상 - 그런데도 앞에 나와야
+        // likeCount 기준 정렬이 실제로 동작한다는 뜻이 된다.
+        long highLikeProjectId = savePublishedProject("user1@test.com", "좋아요 많은 프로젝트", 401L);
+        long lowLikeProjectId = savePublishedProject("user1@test.com", "좋아요 적은 프로젝트", 402L);
+
+        Project highLikeProject = (Project) goalRepository.findById(highLikeProjectId).orElseThrow();
+        partyShowcaseRepository.increaseLikeCount(highLikeProject.getPartyShowcase().getId());
+        partyShowcaseRepository.increaseLikeCount(highLikeProject.getPartyShowcase().getId());
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/showcase/goals")
+                .param("sort", "POPULAR"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].id").value(highLikeProjectId));
     }
 }

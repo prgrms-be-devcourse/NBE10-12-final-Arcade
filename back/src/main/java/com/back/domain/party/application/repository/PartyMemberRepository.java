@@ -25,10 +25,7 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
 
     boolean existsByPartyAndMemberAndStatus(Party party, Member member, PartyMemberStatus status);
 
-    // 파티 삭제 전 "승인된 파티원이 하나도 없어야 하는지" 확인할 때 쓴다.
-    boolean existsByPartyAndStatus(Party party, PartyMemberStatus status);
-
-    // 위와 같지만 특정 회원(파티장)은 뺀다.
+    // 파티 삭제 전 "파티장을 제외한 승인된 파티원이 하나도 없어야 하는지" 확인할 때 쓴다.
     // 파티가 생성시 파티장이 Member로 들어가지는 구조
     boolean existsByPartyAndStatusAndMemberNot(Party party, PartyMemberStatus status, Member member);
 

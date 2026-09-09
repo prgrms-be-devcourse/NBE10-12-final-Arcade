@@ -55,7 +55,7 @@ class PartySearchServiceFtsIntegrationTest {
         Member owner = memberRepository.save(new Member("fts-e2e-owner@test.com", "pw", "owner", null));
         Party party = partyRepository.save(new Party(
                 owner, "파티명", "백엔드 스터디원 모집", null, null, "외부 대회", "https://example.com",
-                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7)
+                TopicType.STUDY, PartyTag.WEB, null, LocalDateTime.now().plusDays(7)
         ));
         partySearchKeywordRepository.save(new PartySearchKeyword(party, "백엔드 스터디"));
 
@@ -70,7 +70,7 @@ class PartySearchServiceFtsIntegrationTest {
         Member owner = memberRepository.save(new Member("fts-e2e-owner2@test.com", "pw", "owner2", null));
         Party party = partyRepository.save(new Party(
                 owner, "파티명", "자바스크립트 스터디원 모집", null, null, "외부 대회", "https://example.com",
-                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7)
+                TopicType.STUDY, PartyTag.WEB, null, LocalDateTime.now().plusDays(7)
         ));
         partySearchKeywordRepository.save(new PartySearchKeyword(party, "자바스크립트 스터디"));
 

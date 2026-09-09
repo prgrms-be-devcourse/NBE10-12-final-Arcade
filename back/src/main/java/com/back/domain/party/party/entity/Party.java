@@ -68,9 +68,6 @@ public class Party extends BaseEntity {
     private String githubRepoUrl;
 
     @Column(nullable = false)
-    private int checklistRequiredApprovals;
-
-    @Column(nullable = false)
     private int likeCount;
 
     @Column(nullable = false)
@@ -98,7 +95,6 @@ public class Party extends BaseEntity {
         TopicType topicType,
         PartyTag partyTag,
         String githubRepoUrl,
-        int checklistRequiredApprovals,
         LocalDateTime deadline
     ) {
         this.owner = owner;
@@ -111,7 +107,6 @@ public class Party extends BaseEntity {
         this.topicType = topicType;
         this.partyTag = partyTag;
         this.githubRepoUrl = githubRepoUrl;
-        this.checklistRequiredApprovals = checklistRequiredApprovals;
         this.deadline = deadline;
         this.status = PartyStatus.RECRUITING;
         this.likeCount = 0;
