@@ -6,6 +6,7 @@ import com.back.domain.member.profile.dtos.CareerCommand;
 import com.back.domain.member.profile.dtos.LinkCommand;
 import com.back.domain.member.profile.dtos.MemberProfileDto;
 import com.back.domain.member.profile.dtos.MemberPublicProfileDto;
+import com.back.domain.member.profile.dtos.MemberShowcaseDto;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.member.repository.MemberRepository;
@@ -13,6 +14,7 @@ import com.back.domain.member.profile.entity.MemberProfile;
 import com.back.domain.member.profile.repository.MemberProfileRepository;
 import com.back.global.app.CustomConfigProperties;
 import com.back.global.exception.ServiceException;
+import com.back.domain.party.showcase.repository.PartyShowcaseRepository;
 import com.back.global.storage.FileStorage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -36,6 +38,7 @@ public class MemberProfileService {
     private final MemberProfileRepository memberProfileRepository;
     private final MemberRepository memberRepository;
     private final MemberSummaryService memberSummaryService;
+    private final PartyShowcaseRepository partyShowcaseRepository;
     private final GoalService goalService;
     private final FileStorage fileStorage;
     private final CustomConfigProperties customConfigProperties;
@@ -68,6 +71,22 @@ public class MemberProfileService {
                 memberSummaryService.summary(member),
                 goalService.getMyGoals(member, GoalStatus.ACHIEVED, null, null, null, null)
         );
+    }
+
+    /**
+     * 공개 프로필의 '참여한 프로젝트'.
+     *
+     * 프로필 본문과 나눠 둔 것은 성격이 달라서다 - 이쪽은 전시글 목록이고, 전시가 없는 회원이 대부분이다.
+     * 요약의 '자동기록' 건수와 같은 조건(파티 확정 명단 + 게시됨)이라 카드 수와 그 숫자가 어긋나지 않는다.
+     */
+    public List<MemberShowcaseDto> publicShowcases(long memberId) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new ServiceException("404-1", "회원을 찾을 수 없습니다."));
+
+        return partyShowcaseRepository.findPublishedByAssembledMember(member)
+                .stream()
+                .map(MemberShowcaseDto::new)
+                .toList();
     }
 
     @Transactional

@@ -27,6 +27,9 @@ public record GoalDetailDto(
          *
          * 완료(ACHIEVED)만으로는 부족하다 - 전시를 올리지 않은 완료 파티에 '전시 페이지 보기' 를 달면
          * 빈 초안이 열린다. 판정은 `Project.isExhibited()` 하나를 쓴다(전시관 노출·좋아요와 같은 기준).
+         *
+         * 목록 매핑 중에 불려도 추가 쿼리가 없다 - LAZY 연관의 null 여부는 PROJECT 행이 이미 들고 있는
+         * FK 컬럼으로 판정되고, 프록시는 초기화되지 않는다.
          */
         Boolean exhibited,
 

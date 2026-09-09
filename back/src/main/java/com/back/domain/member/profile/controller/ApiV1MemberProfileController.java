@@ -5,6 +5,7 @@ import com.back.domain.member.profile.dtos.CareerCommand;
 import com.back.domain.member.profile.dtos.LinkCommand;
 import com.back.domain.member.profile.dtos.MemberProfileDto;
 import com.back.domain.member.profile.dtos.MemberPublicProfileDto;
+import com.back.domain.member.profile.dtos.MemberShowcaseDto;
 import com.back.domain.member.profile.dtos.MemberSummaryDto;
 import com.back.domain.member.profile.dtos.ProfileImageDto;
 import com.back.domain.member.profile.service.MemberProfileService;
@@ -121,6 +122,28 @@ public class ApiV1MemberProfileController {
                 "200-1",
                 "공개 프로필 조회 성공",
                 memberProfileService.publicProfile(memberId)
+        );
+    }
+
+    @GetMapping("/{memberId:\\d+}/showcases")
+    @Operation(
+            summary = "공개 프로필의 참여한 프로젝트",
+            description = """
+                    그 회원이 참여한 파티 중 전시가 게시된 것을 최근 게시순으로 돌려준다.
+                    공개 프로필과 같이 로그인 없이 열린다.
+
+                    기준은 파티 확정 명단(PARTY_ASSEMBLE_TO_MEMBER)이다.
+                    id 는 goal id 가 아니라 **partyId** 다 - 전시는 파티에 종속이라 상세 경로도 파티 기준이다.
+
+                    예외
+                    - 404-1 : 없는 회원
+                    """
+    )
+    public RsData<List<MemberShowcaseDto>> publicShowcases(@PathVariable long memberId) {
+        return new RsData<>(
+                "200-1",
+                "참여한 프로젝트 조회 성공",
+                memberProfileService.publicShowcases(memberId)
         );
     }
 

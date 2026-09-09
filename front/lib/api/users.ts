@@ -1,6 +1,8 @@
 import type {
   BookmarkItem,
   CareerItem,
+  ExhibitionProject,
+  ID,
   MemberRole,
   PositionType,
   ProfileLink,
@@ -9,7 +11,12 @@ import type {
 } from '@/lib/types';
 import { toPositionType } from '@/lib/constants';
 import { MOCK_CURRENT_USER_ID, MOCK_PROFILES, MOCK_USER_SUMMARIES } from '@/lib/mock';
-import { CONTEST_FORMAT_LABELS, GOAL_SOURCE_LABELS, positionLabel } from '@/lib/constants';
+import {
+  CONTEST_FORMAT_LABELS,
+  GOAL_SOURCE_LABELS,
+  GOAL_TYPE_LABELS,
+  positionLabel,
+} from '@/lib/constants';
 import { ApiError, USE_MOCK, http, mockResponse } from './client';
 import { toDateText } from './time';
 import { type ContestResponse, toContest } from './contests';
@@ -200,6 +207,58 @@ export async function fetchUserProfile(id: string): Promise<UserProfile | null> 
     };
   } catch (error) {
     if (error instanceof ApiError && (error.status === 404 || error.status === 401)) return null;
+    throw error;
+  }
+}
+
+/** 백엔드 MemberShowcaseDto — GET /api/v1/members/{id}/showcases 응답 한 칸 */
+export interface MemberShowcaseResponse {
+  /** 전시 상세 경로가 쓰는 값. goal id 가 아니라 partyId 다 */
+  partyId: number;
+  partyName: string;
+  /** 파티장이 제목을 안 붙였으면 null */
+  title: string | null;
+  publishedAt: string | null;
+  viewCount: number;
+  likeCount: number;
+}
+
+/**
+ * GET /api/v1/members/{id}/showcases — 그 회원이 참여한 전시.
+ *
+ * 전시관 목록(GET /showcase/goals)으로는 만들 수 없다. 응답에 소유자가 없어 회원으로 거를 수 없고,
+ * 같은 전시글이 팀원 수만큼 겹치는 걸 막으려 파티당 대표 1건만 남기기 때문에
+ * 대표가 아닌 참여자는 자기가 참여한 전시가 통째로 빠진다.
+ *
+ * 기준은 파티 확정 명단이라 프로필 카드의 '자동기록 N건' 과 카드 수가 맞는다.
+ */
+export async function fetchMemberShowcases(id: string): Promise<ExhibitionProject[]> {
+  if (USE_MOCK) {
+    const { MOCK_EXHIBITIONS } = await import('@/lib/mock');
+    return mockResponse(MOCK_EXHIBITIONS.slice(0, 2));
+  }
+
+  try {
+    const rows = await http.get<MemberShowcaseResponse[]>(`/members/${id}/showcases`);
+
+    return rows.map((row) => ({
+      id: String(row.partyId) as ID,
+      title: row.title || row.partyName,
+      summary: '',
+      partyName: row.partyName,
+      // 전시 목록 응답과 마찬가지로 포지션·기술스택·대표 사진이 없다
+      role: 'BACK' as PositionType,
+      category: GOAL_TYPE_LABELS.PROJECT,
+      source: 'PLATFORM_VERIFIED' as const,
+      skills: [],
+      viewCount: row.viewCount,
+      likeCount: row.likeCount,
+      sourcePartyId: String(row.partyId) as ID,
+      thumbnailLabel: GOAL_TYPE_LABELS.PROJECT,
+    }));
+  } catch (error) {
+    // 없는 회원(404)이면 프로필 자체가 안 열린다. 여기서는 빈 목록이면 충분하다
+    if (error instanceof ApiError && (error.status === 404 || error.status === 401)) return [];
     throw error;
   }
 }

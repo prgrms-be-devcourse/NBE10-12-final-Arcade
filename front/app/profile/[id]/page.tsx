@@ -6,13 +6,13 @@ import { ProjectCard } from '@/components/exhibition/ProjectCard';
 import { BackLink } from '@/components/ui/BackLink';
 import { Block, SideCard } from '@/components/ui/Block';
 import { ChipRow, SkillChip } from '@/components/ui/Tag';
-import { fetchExhibitions, fetchMyProfileOrNull, fetchUserProfile } from '@/lib/api';
+import { fetchMemberShowcases, fetchMyProfileOrNull, fetchUserProfile } from '@/lib/api';
 
 export default async function PublicProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [profile, exhibitions, me] = await Promise.all([
+  const [profile, myProjects, me] = await Promise.all([
     fetchUserProfile(id),
-    fetchExhibitions(),
+    fetchMemberShowcases(id),
     fetchMyProfileOrNull(),
   ]);
 
@@ -30,19 +30,6 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
 
   const isMe = profile.id === me?.id;
   const awards = profile.achievements.filter((item) => item.type === 'CONTEST');
-
-  // 참여한 프로젝트는 전시 목록이 아니라 **성취**에서 고른다.
-  // 전시 목록에는 소유자 id 가 없어(ownerName 뿐) 예전의 leader.id 비교는 늘 빈 배열이었고,
-  // 파티장 기준이라 맞았더라도 참여자는 빠졌다. PROJECT 성취는 확정된 파티원 전원에게 생긴다.
-  // exhibited 가 true 인 것만 - 전시글이 게시돼야 전시관 카드가 존재한다.
-  const exhibitedPartyIds = new Set(
-    profile.achievements
-      .filter((item) => item.type === 'PROJECT' && item.exhibited && item.sourcePartyId)
-      .map((item) => item.sourcePartyId),
-  );
-  const myProjects = exhibitions.filter(
-    (project) => project.sourcePartyId && exhibitedPartyIds.has(project.sourcePartyId),
-  );
 
   return (
     <main>

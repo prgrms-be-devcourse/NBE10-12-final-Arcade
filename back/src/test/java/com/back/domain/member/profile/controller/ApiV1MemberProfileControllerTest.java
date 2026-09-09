@@ -174,6 +174,14 @@ public class ApiV1MemberProfileControllerTest {
         partyAssembleToMemberRepository.save(new PartyAssembleToMember(partyAssemble, member));
     }
 
+    /** 한 파티의 확정 명단에 여러 명을 올린다. PARTY_ASSEMBLE 은 파티당 하나라 명단을 나눠 만들 수 없다. */
+    private void assembleAll(Party party, Member... members) {
+        PartyAssemble partyAssemble = partyAssembleRepository.save(new PartyAssemble(party));
+        for (Member member : members) {
+            partyAssembleToMemberRepository.save(new PartyAssembleToMember(partyAssemble, member));
+        }
+    }
+
     private void publishShowcase(Party party, String title) {
         PartyShowcase showcase = new PartyShowcase(party);
         showcase.publish(title, "설명");
@@ -813,6 +821,54 @@ public class ApiV1MemberProfileControllerTest {
                         .value(false))
                 .andExpect(jsonPath("$.data.achievements[?(@.type == 'CHECKLIST')].detail.title")
                         .value("개인 목표"));
+    }
+
+    @Test
+    @DisplayName("참여한 프로젝트: 파티장이 아닌 참여자도 자기가 참여한 전시를 본다")
+    void publicShowcasesIncludeNonOwnerParticipant() throws Exception {
+        Member participant = memberRepository.findByEmail("user1@test.com").orElseThrow();
+        Member leader = memberRepository.findByEmail("user2@test.com").orElseThrow();
+
+        // 파티장이 연 파티에 참여자로 확정돼 있고, 전시는 파티장이 게시했다.
+        // 전시관 목록 규칙(파티당 대표 1건)으로 고르면 여기서 참여자의 카드가 사라진다.
+        Party party = partyRepository.save(completedParty(leader));
+        assembleAll(party, leader, participant);
+        publishShowcase(party, "우리 팀 전시");
+
+        // 전시를 올리지 않은 완료 파티 - 게시 조건이 빠지면 여기서 수가 늘어난다
+        Party notPublished = partyRepository.save(completedParty(leader));
+        assemble(notPublished, participant);
+
+        mvc.perform(get("/api/v1/members/" + participant.getId() + "/showcases"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resultCode").value("200-1"))
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].title").value("우리 팀 전시"))
+                // 전시 상세는 파티 기준이라 goal id 가 아니라 partyId 다
+                .andExpect(jsonPath("$.data[0].partyId").value(party.getId()));
+    }
+
+    @Test
+    @DisplayName("참여한 프로젝트: 확정 명단에 없으면 남의 전시는 안 나온다")
+    void publicShowcasesExcludeOtherParties() throws Exception {
+        Member outsider = memberRepository.findByEmail("user1@test.com").orElseThrow();
+        Member leader = memberRepository.findByEmail("user2@test.com").orElseThrow();
+
+        Party party = partyRepository.save(completedParty(leader));
+        assemble(party, leader);
+        publishShowcase(party, "남의 전시");
+
+        mvc.perform(get("/api/v1/members/" + outsider.getId() + "/showcases"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isEmpty());
+    }
+
+    @Test
+    @DisplayName("참여한 프로젝트: 없는 회원이면 404")
+    void publicShowcasesNotFound() throws Exception {
+        mvc.perform(get("/api/v1/members/99999999/showcases"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.resultCode").value("404-1"));
     }
 
     @Test
