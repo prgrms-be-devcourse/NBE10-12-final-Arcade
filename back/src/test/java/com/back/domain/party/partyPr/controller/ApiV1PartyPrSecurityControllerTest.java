@@ -99,6 +99,18 @@ class ApiV1PartyPrSecurityControllerTest {
                 .andExpect(status().isForbidden()).andExpect(jsonPath("$.resultCode").value("403-1"));
         mvc.perform(get("/api/v1/parties/" + party.getId() + "/pull-requests/stream"))
                 .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/parties/" + party.getId() + "/pull-requests/grouped-by-member"))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.resultCode").value("403-1"));
+        mvc.perform(get("/api/v1/parties/" + party.getId() + "/pull-requests/members/me"))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.resultCode").value("403-1"));
+        mvc.perform(get("/api/v1/parties/" + party.getId() + "/pull-requests/members/" + party.getOwner().getId()))
+                .andExpect(status().isForbidden()).andExpect(jsonPath("$.resultCode").value("403-1"));
+        mvc.perform(get("/api/v1/parties/" + party.getId() + "/pull-requests/grouped-by-member/stream"))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/parties/" + party.getId() + "/pull-requests/members/me/stream"))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/parties/" + party.getId() + "/pull-requests/members/" + party.getOwner().getId() + "/stream"))
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -134,9 +146,11 @@ class ApiV1PartyPrSecurityControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].memberId").value(owner.getId()))
                 .andExpect(jsonPath("$.data[0].owner").value(true))
+                .andExpect(jsonPath("$.data[0].githubLogin").value("owner-login"))
                 .andExpect(jsonPath("$.data[0].pullRequests[0].title").value("파티장 PR"))
                 .andExpect(jsonPath("$.data[1].memberId").value(approvedMember.getId()))
                 .andExpect(jsonPath("$.data[1].owner").value(false))
+                .andExpect(jsonPath("$.data[1].githubLogin").value("member-login"))
                 .andExpect(jsonPath("$.data[1].pullRequests[0].title").value("승인 멤버 PR"));
     }
 
@@ -217,5 +231,76 @@ class ApiV1PartyPrSecurityControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("\"githubUserId\":14001")))
                 .andExpect(content().string(containsString("\"githubUserId\":14002")));
+    }
+
+    @Test
+    @DisplayName("담당자별 PR SSE의 증분 이벤트도 그룹 DTO로 전달한다")
+    @WithUserDetails("user1@test.com")
+    void groupedStreamPublishesGroupedEvent() throws Exception {
+        Party party = saveParty("user2@test.com");
+        Member actor = memberRepository.findByEmail("user1@test.com").orElseThrow();
+        actor.linkGithubAppUserId(15002L);
+        approve(party, actor);
+
+        MvcResult stream = mvc.perform(get(
+                        "/api/v1/parties/{partyId}/pull-requests/grouped-by-member/stream", party.getId()))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+        PartyPr pullRequest = savePullRequest(party, 6001L, 15002L, "actor-login", "그룹 SSE 증분 PR");
+        partyPrSseService.publishGrouped(party.getId(), new com.back.domain.party.partyPr.dtos.PartyPrByMemberDto(
+                actor.getId(), actor.getName(), 15002L, "actor-login", false, List.of(new PartyPrDto(pullRequest))));
+        partyPrSseService.completeParty(party.getId());
+
+        mvc.perform(asyncDispatch(stream))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("event:pull-request-group")))
+                .andExpect(content().string(containsString("\"memberId\":" + actor.getId())))
+                .andExpect(content().string(containsString("\"githubLogin\":\"actor-login\"")));
+    }
+
+    @Test
+    @DisplayName("GitHub 미연동 멤버는 빈 그룹으로, 외부 작성자는 별도 그룹으로 반환한다")
+    @WithUserDetails("user1@test.com")
+    void returnsUnlinkedMemberAndExternalAuthorGroups() throws Exception {
+        Party party = saveParty("user2@test.com");
+        Member actor = memberRepository.findByEmail("user1@test.com").orElseThrow();
+        approve(party, actor);
+        savePullRequest(party, 7001L, 17001L, "external-login", "외부 PR");
+
+        mvc.perform(get("/api/v1/parties/{partyId}/pull-requests/grouped-by-member", party.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].memberId").value(party.getOwner().getId()))
+                .andExpect(jsonPath("$.data[0].githubLogin").doesNotExist())
+                .andExpect(content().string(containsString("\"githubLogin\":\"external-login\"")));
+    }
+
+    @Test
+    @DisplayName("GitHub 작성자 ID가 없는 PR은 unknown external 그룹으로 보존한다")
+    @WithUserDetails("user1@test.com")
+    void preservesUnknownAuthorGroup() throws Exception {
+        Party party = saveParty("user2@test.com");
+        Member actor = memberRepository.findByEmail("user1@test.com").orElseThrow();
+        approve(party, actor);
+        partyPrRepository.save(new PartyPr(party, new GithubPullRequestSnapshot(
+                8001L, 8001, "작성자 미상 PR", "https://github.com/org/repo/pull/8001", "open", null,
+                null, false, false, "main", "feature", OffsetDateTime.now(), null, null, OffsetDateTime.now())));
+
+        mvc.perform(get("/api/v1/parties/{partyId}/pull-requests/grouped-by-member", party.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[?(@.memberId == null && @.githubUserId == null)].pullRequests[?(@.title == '작성자 미상 PR')]")
+                        .exists());
+    }
+
+    @Test
+    @DisplayName("승인되지 않은 멤버 ID의 PR 조회는 404-2를 반환한다")
+    @WithUserDetails("user1@test.com")
+    void rejectsUnapprovedMemberId() throws Exception {
+        Party party = saveParty("user2@test.com");
+        Member actor = memberRepository.findByEmail("user1@test.com").orElseThrow();
+        approve(party, actor);
+
+        mvc.perform(get("/api/v1/parties/{partyId}/pull-requests/members/{memberId}", party.getId(), 999999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.resultCode").value("404-2"));
     }
 }
