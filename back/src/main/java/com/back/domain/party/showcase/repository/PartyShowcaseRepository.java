@@ -1,7 +1,6 @@
 package com.back.domain.party.showcase.repository;
 
 import com.back.domain.member.member.entity.Member;
-import com.back.domain.party.application.entity.PartyMemberStatus;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.showcase.entity.PartyShowcase;
@@ -32,19 +31,16 @@ public interface PartyShowcaseRepository extends JpaRepository<PartyShowcase, Lo
         """)
     List<PartyShowcase> findPublishedOrderByViewCountDesc(Pageable pageable);
 
-    // 마이페이지 요약의 '전시' 건수 - 내가 승인된 파티원인 파티 중 전시가 게시된 것.
+    // 마이페이지 요약의 '전시' 건수 - 내가 확정 명단에 든 파티 중 전시가 게시된 것.
     @Query("""
             select count(ps) from PartyShowcase ps
             where ps.published = true
               and ps.party in (
-                  select pm.party from PartyMember pm
-                  where pm.member = :member and pm.status = :status
+                  select atm.partyAssemble.party from PartyAssembleToMember atm
+                  where atm.member = :member
               )
             """)
-    long countPublishedByMemberAndStatus(
-            @Param("member") Member member,
-            @Param("status") PartyMemberStatus status
-    );
+    long countPublishedByAssembledMember(@Param("member") Member member);
 
     // 전시관 목록 - 게시된 것만 분야(partyTag) 필터는 null이면 전체
     // party/owner를 fetch join해서 목록 페이지에서 파티마다 추가 쿼리 나가는 걸 막는다

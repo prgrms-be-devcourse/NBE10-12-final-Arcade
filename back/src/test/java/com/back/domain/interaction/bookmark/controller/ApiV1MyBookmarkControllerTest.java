@@ -12,8 +12,6 @@ import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.member.repository.MemberRepository;
-import com.back.domain.party.application.entity.PartyMember;
-import com.back.domain.party.application.repository.PartyMemberRepository;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
@@ -65,8 +63,6 @@ public class ApiV1MyBookmarkControllerTest {
     @Autowired
     private PartyRepository partyRepository;
 
-    @Autowired
-    private PartyMemberRepository partyMemberRepository;
 
     @Autowired
     private GoalRepository goalRepository;
@@ -235,11 +231,6 @@ public class ApiV1MyBookmarkControllerTest {
         );
         party.addPosition(new Position(PositionType.BACK, 2));
         partyRepository.save(party);
-
-        // 운영 경로(PartyService.createParty)와 같은 상태 - 파티장도 APPROVED 행을 갖는다.
-        // 이게 있어야 아래 applicantCount 단언이 '파티장은 지원자가 아니다'를 실제로 검증한다.
-        partyMemberRepository.save(PartyMember.owner(
-                party, owner, party.getPositions().getFirst()));
 
         return party;
     }

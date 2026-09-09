@@ -4,11 +4,10 @@ import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.member.repository.MemberRepository;
 import com.back.domain.notification.notification.entity.NotificationType;
-import com.back.domain.party.application.entity.PartyMember;
-import com.back.domain.party.application.entity.PartyMemberStatus;
 import com.back.domain.party.application.event.PartyApplicationApprovedEvent;
 import com.back.domain.party.application.event.PartyApplicationReceivedEvent;
-import com.back.domain.party.application.repository.PartyMemberRepository;
+import com.back.domain.party.assemble.entity.PartyAssembleToMember;
+import com.back.domain.party.assemble.repository.PartyAssembleToMemberRepository;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.event.PartyAssembledEvent;
 import com.back.domain.party.party.event.PartyCompletedEvent;
@@ -42,7 +41,7 @@ class PartyNotificationEventListenerTest {
     private MemberRepository memberRepository;
 
     @Mock
-    private PartyMemberRepository partyMemberRepository;
+    private PartyAssembleToMemberRepository partyAssembleToMemberRepository;
 
     @Mock
     private Party party;
@@ -100,13 +99,13 @@ class PartyNotificationEventListenerTest {
         verify(notificationService).create(participant, NotificationType.PARTY_ASSEMBLED,
                 "테스트 파티 모집이 마감되어 활동이 시작되었습니다.");
         verifyNoMoreInteractions(notificationService);
-        verifyNoInteractions(partyMemberRepository);
+        verifyNoInteractions(partyAssembleToMemberRepository);
     }
 
     @Test
-    @DisplayName("파티 활동 완료 시 파티장과 승인 회원에게만 중복 없이 알림한다")
+    @DisplayName("파티 활동 완료 시 확정 명단에 든 회원에게 알림한다")
     void completed() {
-        preparePartyMembers();
+        prepareAssembledMembers();
 
         listener.completed(new PartyCompletedEvent(1L, LocalDateTime.now()));
 
@@ -118,9 +117,9 @@ class PartyNotificationEventListenerTest {
     }
 
     @Test
-    @DisplayName("파티 성과 게시 시 파티장과 승인 회원에게만 중복 없이 알림한다")
+    @DisplayName("파티 성과 게시 시 확정 명단에 든 회원에게 알림한다")
     void showcasePublished() {
-        preparePartyMembers();
+        prepareAssembledMembers();
 
         listener.showcasePublished(new PartyShowcasePublishedEvent(1L, "성과", "설명"));
 
@@ -131,15 +130,23 @@ class PartyNotificationEventListenerTest {
         verifyNoMoreInteractions(notificationService);
     }
 
-    private void preparePartyMembers() {
-        prepareOwnerAndMemberReferences();
-        when(participant.getId()).thenReturn(20L);
-        PartyMember ownerMember = partyMember(owner, PartyMemberStatus.APPROVED);
-        PartyMember approvedMember = partyMember(participant, PartyMemberStatus.APPROVED);
-        PartyMember pendingMember = partyMember(null, PartyMemberStatus.PENDING);
-        PartyMember rejectedMember = partyMember(null, PartyMemberStatus.REJECTED);
-        when(partyMemberRepository.findAllByParty(party)).thenReturn(
-                List.of(ownerMember, approvedMember, pendingMember, rejectedMember));
+    // 파티장은 확정 명단 맨 앞에 이미 들어 있다 - 따로 붙이지 않는다
+    private void prepareAssembledMembers() {
+        when(memberRepository.getReferenceById(10L)).thenReturn(owner);
+        when(memberRepository.getReferenceById(20L)).thenReturn(participant);
+        // when(...) 안에서 다른 mock 을 스터빙하면 UnfinishedStubbingException 이 난다 - 명단부터 만든다
+        List<PartyAssembleToMember> assembled = List.of(assembledMember(10L), assembledMember(20L));
+        when(partyAssembleToMemberRepository.findAllByPartyAssemble_PartyOrderByIdAsc(party))
+                .thenReturn(assembled);
+    }
+
+    private PartyAssembleToMember assembledMember(long memberId) {
+        PartyAssembleToMember assembleToMember = mock(PartyAssembleToMember.class);
+        Member member = mock(Member.class);
+        when(assembleToMember.getMember()).thenReturn(member);
+        when(member.getId()).thenReturn(memberId);
+
+        return assembleToMember;
     }
 
     private void prepareOwnerAndMemberReferences() {
@@ -147,14 +154,5 @@ class PartyNotificationEventListenerTest {
         when(owner.getId()).thenReturn(10L);
         when(memberRepository.getReferenceById(10L)).thenReturn(owner);
         when(memberRepository.getReferenceById(20L)).thenReturn(participant);
-    }
-
-    private PartyMember partyMember(Member member, PartyMemberStatus status) {
-        PartyMember partyMember = mock(PartyMember.class);
-        when(partyMember.getStatus()).thenReturn(status);
-        if (status == PartyMemberStatus.APPROVED) {
-            when(partyMember.getMember()).thenReturn(member);
-        }
-        return partyMember;
     }
 }

@@ -4,6 +4,7 @@ import com.back.domain.member.member.entity.Member;
 import com.back.domain.party.application.entity.PartyMember;
 import com.back.domain.party.application.entity.PartyMemberStatus;
 import com.back.domain.party.application.repository.PartyMemberRepository;
+import com.back.domain.party.assemble.repository.PartyAssembleToMemberRepository;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.repository.PartyRepository;
@@ -33,6 +34,8 @@ import java.util.stream.Collectors;
 public class PartyShowcaseService {
 
     private final PartyRepository partyRepository;
+    private final PartyAssembleToMemberRepository partyAssembleToMemberRepository;
+    // 전시 초안 열람 권한만 아직 지원 기록 기준이다(권한 정책은 별건).
     private final PartyMemberRepository partyMemberRepository;
     private final PartyShowcaseRepository partyShowcaseRepository;
     private final PartyPrRepository partyPrRepository;
@@ -59,7 +62,7 @@ public class PartyShowcaseService {
             showcase = partyShowcaseRepository.findByParty(party).orElseThrow();
         }
 
-        List<String> memberNames = getApprovedMemberNames(party);
+        List<String> memberNames = getAssembledMemberNames(party);
         List<PartyShowcaseDto.PrSummary> pullRequests = getPrSummaries(party.getId());
 
         return toDto(party, showcase, memberNames, pullRequests);
@@ -84,7 +87,7 @@ public class PartyShowcaseService {
         // 성취(Goal) 도메인이 이 이벤트를 구독해서 처리하면 되므로 여기서는 발행까지만
         eventPublisher.publishEvent(new PartyShowcasePublishedEvent(party.getId(), title, description));
 
-        List<String> memberNames = getApprovedMemberNames(party);
+        List<String> memberNames = getAssembledMemberNames(party);
         List<PartyShowcaseDto.PrSummary> pullRequests = getPrSummaries(party.getId());
 
         return toDto(party, showcase, memberNames, pullRequests);
@@ -103,11 +106,11 @@ public class PartyShowcaseService {
         List<Party> parties = showcases.stream().map(PartyShowcase::getParty).toList();
         List<Long> partyIds = parties.stream().map(Party::getId).toList();
 
-        Map<Long, List<String>> memberNamesByPartyId = partyMemberRepository.findAllByPartyIn(parties).stream()
-                .filter(pm -> pm.getStatus() == PartyMemberStatus.APPROVED)
+        Map<Long, List<String>> memberNamesByPartyId = partyAssembleToMemberRepository
+                .findAllByPartyAssemble_PartyInOrderByIdAsc(parties).stream()
                 .collect(Collectors.groupingBy(
-                        pm -> pm.getParty().getId(),
-                        Collectors.mapping(pm -> pm.getMember().getName(), Collectors.toList())
+                        atm -> atm.getPartyAssemble().getParty().getId(),
+                        Collectors.mapping(atm -> atm.getMember().getName(), Collectors.toList())
                 ));
 
         Map<Long, List<PartyShowcaseDto.PrSummary>> pullRequestsByPartyId = partyPrRepository
@@ -127,10 +130,10 @@ public class PartyShowcaseService {
                 .toList();
     }
 
-    private List<String> getApprovedMemberNames(Party party) {
-        return partyMemberRepository.findAllByParty(party).stream()
-                .filter(pm -> pm.getStatus() == PartyMemberStatus.APPROVED)
-                .map(pm -> pm.getMember().getName())
+    /** 확정 명단이 곧 참여자다. 파티장이 맨 앞에 저장돼 있어 따로 붙일 필요가 없다. */
+    private List<String> getAssembledMemberNames(Party party) {
+        return partyAssembleToMemberRepository.findAllByPartyAssemble_PartyOrderByIdAsc(party).stream()
+                .map(atm -> atm.getMember().getName())
                 .toList();
     }
 
