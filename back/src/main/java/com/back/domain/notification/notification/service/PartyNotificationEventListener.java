@@ -16,9 +16,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.LinkedHashSet;
-import java.util.Set;
-
 @Component
 @RequiredArgsConstructor
 @Transactional(propagation = Propagation.MANDATORY)
@@ -44,14 +41,13 @@ public class PartyNotificationEventListener {
     @EventListener
     public void assembled(PartyAssembledEvent event) {
         Party party = findParty(event.partyId());
-        Set<Long> recipients = new LinkedHashSet<>();
-        recipients.add(party.getOwner().getId());
-
+        long ownerId = party.getOwner().getId();
+        notify(party, ownerId, NotificationType.PARTY_RECRUITMENT_COMPLETED,
+                " 파티 모집이 완료되었습니다.");
         event.approvedMembers()
-                .forEach(
-                        member -> recipients.add(member.memberId()));
-        recipients.forEach(id -> notify(party, id, NotificationType.PARTY_ASSEMBLED,
-                " 파티 모집이 마감되어 활동이 시작되었습니다."));
+                .filter(member -> member.memberId() != ownerId)
+                .forEach(member -> notify(party, member.memberId(), NotificationType.PARTY_MATCHING_CONFIRMED,
+                        " 파티 매칭이 확정되어 활동이 시작되었습니다."));
     }
 
     @EventListener
