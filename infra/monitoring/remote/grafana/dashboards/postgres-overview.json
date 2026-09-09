@@ -1,0 +1,111 @@
+{
+  "annotations": { "list": [] },
+  "editable": false,
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] } }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showPercentChange": false, "textMode": "auto", "wideLayout": true },
+      "targets": [{ "expr": "pg_up{instance=\"$instance\"}", "refId": "A" }],
+      "title": "PostgreSQL exporter UP",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "id": 2,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showPercentChange": false, "textMode": "auto", "wideLayout": true },
+      "targets": [{ "expr": "pg_stat_database_numbackends{instance=\"$instance\", datname=\"$datname\"}", "refId": "A" }],
+      "title": "Active DB connections",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "id": 3,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showPercentChange": false, "textMode": "auto", "wideLayout": true },
+      "targets": [{ "expr": "rate(pg_stat_database_xact_commit{instance=\"$instance\", datname=\"$datname\"}[$__rate_interval]) + rate(pg_stat_database_xact_rollback{instance=\"$instance\", datname=\"$datname\"}[$__rate_interval])", "refId": "A" }],
+      "title": "Transactions / second",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "max": 100, "min": 0, "unit": "percent" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "id": 4,
+      "options": { "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showPercentChange": false, "textMode": "auto", "wideLayout": true },
+      "targets": [{ "expr": "100 * pg_stat_database_blks_hit{instance=\"$instance\", datname=\"$datname\"} / clamp_min(pg_stat_database_blks_hit{instance=\"$instance\", datname=\"$datname\"} + pg_stat_database_blks_read{instance=\"$instance\", datname=\"$datname\"}, 1)", "refId": "A" }],
+      "title": "Buffer cache hit ratio",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "id": 5,
+      "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } },
+      "targets": [
+        { "expr": "rate(pg_stat_database_xact_commit{instance=\"$instance\", datname=\"$datname\"}[$__rate_interval])", "legendFormat": "commit", "refId": "A" },
+        { "expr": "rate(pg_stat_database_xact_rollback{instance=\"$instance\", datname=\"$datname\"}[$__rate_interval])", "legendFormat": "rollback", "refId": "B" }
+      ],
+      "title": "Transaction outcomes",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "id": 6,
+      "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } },
+      "targets": [
+        { "expr": "rate(pg_stat_database_tup_inserted{instance=\"$instance\", datname=\"$datname\"}[$__rate_interval])", "legendFormat": "inserted", "refId": "A" },
+        { "expr": "rate(pg_stat_database_tup_updated{instance=\"$instance\", datname=\"$datname\"}[$__rate_interval])", "legendFormat": "updated", "refId": "B" },
+        { "expr": "rate(pg_stat_database_tup_deleted{instance=\"$instance\", datname=\"$datname\"}[$__rate_interval])", "legendFormat": "deleted", "refId": "C" },
+        { "expr": "rate(pg_stat_database_tup_fetched{instance=\"$instance\", datname=\"$datname\"}[$__rate_interval])", "legendFormat": "fetched", "refId": "D" }
+      ],
+      "title": "Tuple activity",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 12 },
+      "id": 7,
+      "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "none" } },
+      "targets": [
+        { "expr": "increase(pg_stat_database_deadlocks{instance=\"$instance\", datname=\"$datname\"}[$__rate_interval])", "legendFormat": "deadlocks", "refId": "A" },
+        { "expr": "increase(pg_stat_database_conflicts{instance=\"$instance\", datname=\"$datname\"}[$__rate_interval])", "legendFormat": "conflicts", "refId": "B" }
+      ],
+      "title": "Deadlocks and conflicts",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 12 },
+      "id": 8,
+      "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single", "sort": "none" } },
+      "targets": [{ "expr": "pg_database_size_bytes{instance=\"$instance\", datname=\"$datname\"}", "legendFormat": "{{datname}}", "refId": "A" }],
+      "title": "Database size",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["arcade", "postgresql", "load-test"],
+  "templating": {
+    "list": [
+      { "current": {}, "datasource": { "type": "prometheus", "uid": "prometheus" }, "definition": "label_values(pg_up,instance)", "hide": 0, "includeAll": false, "label": "PostgreSQL target", "multi": false, "name": "instance", "options": [], "query": { "query": "label_values(pg_up,instance)", "refId": "PrometheusVariableQueryEditor-VariableQuery" }, "refresh": 1, "regex": "", "skipUrlSync": false, "sort": 1, "type": "query" },
+      { "current": {}, "datasource": { "type": "prometheus", "uid": "prometheus" }, "definition": "label_values(pg_stat_database_numbackends{instance=\"$instance\"},datname)", "hide": 0, "includeAll": false, "label": "Database", "multi": false, "name": "datname", "options": [], "query": { "query": "label_values(pg_stat_database_numbackends{instance=\"$instance\"},datname)", "refId": "PrometheusVariableQueryEditor-VariableQuery" }, "refresh": 1, "regex": "/^(?!template0$|template1$).*/", "skipUrlSync": false, "sort": 1, "type": "query" }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timezone": "browser",
+  "title": "PostgreSQL — Arcade Dev",
+  "uid": "arcade-postgres",
+  "version": 1
+}
