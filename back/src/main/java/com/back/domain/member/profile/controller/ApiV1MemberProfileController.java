@@ -14,7 +14,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -84,7 +84,10 @@ public class ApiV1MemberProfileController {
     }
 
     public record ModifyProfileReqBody(
-            @NotNull String nickname,
+            // 보내지 않으면 그대로 둔다. 다만 빈 문자열은 실수로 지우는 경우라 막는다.
+            // (?U) 없이는 \S 가 ASCII 공백만 부정해 전각 공백(U+3000) 한 글자짜리 닉네임이 통과한다.
+            @Pattern(regexp = "(?U).*\\S.*", message = "닉네임은 공백일 수 없습니다.")
+            String nickname,
             String webpage,
             String profileImageUrl,
             String bio,
@@ -102,22 +105,25 @@ public class ApiV1MemberProfileController {
             description = """
                     로그인한 회원의 닉네임, 웹페이지, 프로필 이미지, 소개,
                     희망 포지션, 기술 스택, 경력, 링크를 수정한다.
-                    nickname 외에는 모두 선택이고, 보낸 값이 곧 저장될 값이다 -
-                    생략하면 그 항목이 비워진다. 화면이 폼 전체를 보내오는 것을 전제로 한 규칙이다.
+
+                    **보낸 항목만 바뀐다.** 생략하거나 null 을 보내면 그 항목은 그대로 둔다 -
+                    화면이 폼 전체를 들고 있지 않아도 되고, 다루지 않는 필드가 저장할 때마다 지워지지 않는다.
+                    전부 선택이라 { "bio": "..." } 처럼 한 필드만 보내도 된다.
+
+                    **비우려면 빈 값을 명시한다** - 문자열은 ""(webpage·bio·profileImageUrl),
+                    목록은 [](techStacks·careers·links). position 은 비울 수 없다(값 하나를 골라 바꾸기만 한다).
 
                     position은 대표 포지션 하나이고 BACK/FRONT/UIUX/PM 중 하나다.
                     techStacks의 원소는 빈 문자열이면 400-1이다.
 
-                    careers·links는 보낸 목록이 곧 저장될 목록이다 - 생략하거나 빈 배열을 보내면 전부 지운다.
+                    careers·links는 목록을 보내면 통째로 교체한다.
                     role(경력) 또는 label·url(링크)이 비어 있는 항목은 무시한다.
 
                     profileImageUrl은 직접 올린 이미지만 담는다. 조회 응답은 이 값과 githubAvatarUrl을
                     합치지 않고 그대로 내려주니, 화면이 profileImageUrl ?? githubAvatarUrl로 고르면 된다.
-                    githubAvatarUrl을 수정 요청에 실으면 아바타 주소가 '직접 올린 것'으로 굳어
-                    GitHub에서 바꿔도 반영되지 않으니 넣지 말 것.
 
                     예외
-                    - 400-1 : nickname 누락 또는 techStacks 원소가 빈 문자열
+                    - 400-1 : nickname 이 빈 문자열이거나 techStacks 원소가 빈 문자열
                     - 400-2 : position이 정의된 값이 아님
                     - 401-1 : 미로그인
                     - 409-1 : 이미 사용 중인 닉네임
@@ -149,7 +155,7 @@ public class ApiV1MemberProfileController {
             description = """
                     이미지를 저장하고 그 URL 을 돌려준다. 프로필에 반영되지는 않으니,
                     화면은 받은 profileImageUrl 을 수정 요청(PATCH /me)의 같은 이름 필드에 실어 보내야 한다.
-                    이미지를 바꾸지 않는 수정이라면 이 요청 없이 PATCH 만 보내면 된다.
+                    이미지를 바꾸지 않는 수정이라면 이 요청 없이, profileImageUrl 을 빼고 PATCH 만 보내면 된다.
 
                     jpg, png 만 받고 5MB 까지다. 화면의 업로드 컴포넌트와 같은 기준이다.
 
@@ -165,38 +171,6 @@ public class ApiV1MemberProfileController {
                 "201-1",
                 "프로필 이미지 업로드 성공",
                 new ProfileImageDto(memberProfileService.uploadProfileImage(file))
-        );
-    }
-
-    public record ModifyPositionReqBody(
-            @NotNull PositionType position
-    ) {
-    }
-
-    @PatchMapping("/me/position")
-    @Operation(
-            summary = "대표 포지션만 수정",
-            description = """
-                    대표 포지션 하나만 바꾼다. 나머지 항목은 건드리지 않는다.
-                    프로필이 없으면 만들어서 저장
-
-                    GitHub 로 처음 가입하면 닉네임이 없어 PATCH /me 를 쓸 수 없다(nickname 필수).
-                    가입 직후 포지션을 고르게 하는 화면은 이 API 를 쓴다.
-                    포지션을 골랐는지는 조회 응답의 position 이 null 인지로 판단하면 된다.
-
-                    예외
-                    - 400-1 : position 누락
-                    - 400-2 : position 이 정의된 값이 아님
-                    - 401-1 : 미로그인
-                    """
-    )
-    public RsData<MemberProfileDto> modifyPosition(
-            @Valid @RequestBody ModifyPositionReqBody request
-    ) {
-        return new RsData<>(
-                "200-1",
-                "대표 포지션 수정 성공",
-                memberProfileService.modifyPosition(rq.getActorFromDb(), request.position)
         );
     }
 }
