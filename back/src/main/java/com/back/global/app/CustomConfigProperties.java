@@ -2,8 +2,13 @@ package com.back.global.app;
 
 import lombok.Getter;
 import lombok.Setter;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
+import org.springframework.validation.annotation.Validated;
 
 import org.springframework.util.unit.DataSize;
 
@@ -11,14 +16,81 @@ import java.util.List;
 
 @Component
 @ConfigurationProperties(prefix = "custom")
+@Validated
 @Getter
 @Setter
 public class CustomConfigProperties {
     private List<NotProdMember> notProdMembers;
+    @Valid
     private Cookie cookie = new Cookie();
+    @Valid
     private Cors cors = new Cors();
+    @Valid
     private Storage storage = new Storage();
+    @Valid
     private AdminAccount adminAccount = new AdminAccount();
+    @Valid
+    private Password password = new Password();
+    @Valid
+    private PasswordReset passwordReset = new PasswordReset();
+    @Valid
+    private RateLimit rateLimit = new RateLimit();
+    @Valid
+    private Session session = new Session();
+
+    @Getter
+    @Setter
+    public static class Password {
+        @Min(1)
+        private int minLength = 8;
+        @Min(1)
+        private int maxLength = 64;
+        private boolean requireLetter = true;
+        private boolean requireNumber = true;
+        private boolean requireSpecialCharacter = true;
+        private boolean allowWhitespace = false;
+
+        @AssertTrue(message = "custom.password.min-length must not exceed max-length")
+        public boolean isLengthRangeValid() {
+            return minLength <= maxLength;
+        }
+    }
+
+    @Getter
+    @Setter
+    public static class PasswordReset {
+        @Min(1)
+        private long expirationSeconds = 1800;
+    }
+
+    @Getter
+    @Setter
+    public static class RateLimit {
+        @Valid
+        private PasswordResetRequest passwordResetRequest = new PasswordResetRequest();
+
+        @Getter
+        @Setter
+        public static class PasswordResetRequest {
+            @Min(1)
+            private int emailMaxRequests = 3;
+            @Min(1)
+            private int ipMaxRequests = 10;
+            @Min(1)
+            private long windowSeconds = 3600;
+        }
+    }
+
+    @Getter
+    @Setter
+    public static class Session {
+        /**
+         * 현재 선택한 최소안: 비밀번호 변경 시 refresh token만 폐기하고 기존 access token은 만료까지 허용한다.
+         * 즉시 무효화가 필요해지면 auth-version 전략을 구현한 뒤 이 값을 변경한다.
+         */
+        @NotBlank
+        private String accessTokenInvalidation = "refresh-token-only";
+    }
 
     @Getter
     @Setter
