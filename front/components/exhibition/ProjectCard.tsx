@@ -55,7 +55,10 @@ export function ProjectCard({ project, rank, showLeader = true }: ProjectCardPro
           ))}
         </ChipRow>
         {showLeader && project.leader ? (
-          <LeaderRow user={project.leader} href={`/profile/${project.leader.id}`} />
+          <LeaderRow
+            user={project.leader}
+            href={project.leader.id ? `/profile/${project.leader.id}` : undefined}
+          />
         ) : null}
       </div>
     </article>

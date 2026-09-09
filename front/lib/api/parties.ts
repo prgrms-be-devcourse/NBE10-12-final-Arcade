@@ -82,11 +82,12 @@ interface PartyResponse extends Omit<PartyListItemResponse, 'ownerName'> {
   ownerId: number;
   ownerName: string;
   description: string | null;
-  targetContestId: number | null;
-  contestName: string | null;
+  /** 크루온에 등록된 대회와 연결된 경우에만 온다 (ContestSummaryDto) */
+  targetContest: { id: number; title: string } | null;
+  /** 대회 이름. 미등록 외부 대회는 직접 입력한 값이 여기 담긴다 */
+  contestTitle: string | null;
   contestLinkUrl: string | null;
   githubRepoUrl: string | null;
-  checklistRequiredApprovals: number;
 }
 
 /** PartyApplicationDto */
@@ -212,11 +213,11 @@ function toPartyDetail(dto: PartyResponse): PartyDetail {
     leader: toUserSummary(String(dto.ownerId), dto.ownerName),
     summary: dto.description ?? '',
     description: dto.description ?? '',
-    contestId: dto.targetContestId != null ? String(dto.targetContestId) : undefined,
-    contestName: dto.contestName ?? undefined,
+    contestId: dto.targetContest ? String(dto.targetContest.id) : undefined,
+    // 등록 대회면 그쪽 제목이 최신이다. 미등록 외부 대회는 직접 입력한 이름만 있다
+    contestName: dto.targetContest?.title ?? dto.contestTitle ?? undefined,
     contestLinkUrl: dto.contestLinkUrl ?? undefined,
     githubRepoUrl: dto.githubRepoUrl ?? undefined,
-    checklistRequiredApprovals: dto.checklistRequiredApprovals,
     schedule: '',
     meetingType: '',
     members: [],
@@ -437,6 +438,8 @@ export interface PartyFormPayload {
   contestName?: string;
   /** 원본 대회 링크 — 등록 여부와 무관하게 항상 받는다 (기획서 3.5) */
   contestLinkUrl?: string;
+  /** 팀 이름. 서버가 10자로 막는다 (모집글 제목과 다른 값이다) */
+  partyName: string;
   title: string;
   description: string;
   /** 대표 사진 1장 — 목록 카드·상세 상단에 쓰인다 */
@@ -444,11 +447,6 @@ export interface PartyFormPayload {
   positions: { type: PositionType; capacity: number }[];
   repositoryUrl?: string;
 
-  /**
-   * 아래 셋은 서버가 필수로 받는 값인데 파티 생성 폼이 아직 입력받지 않는다.
-   * 넘기지 않으면 임시값으로 채워 보내므로, 폼에 입력칸을 추가하는 게 맞다.
-   */
-  partyName?: string;
   /** 분야 — 화면 라벨('웹 개발' 등) 그대로 넘기면 서버 enum 으로 변환한다 */
   subCategory?: string;
   /** 모집 기한 ISO 문자열. 없으면 30일 뒤로 잡는다 */
@@ -460,19 +458,16 @@ function toPartyRequestBody(payload: PartyFormPayload) {
     payload.deadline ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 19);
 
   return {
-    // 서버는 파티 이름과 모집글 제목을 따로 받는다. 폼에 이름 칸이 없어 제목을 그대로 쓴다.
-    partyName: payload.partyName ?? payload.title,
+    // 서버는 파티 이름(10자)과 모집글 제목(20자)을 따로 받는다.
+    partyName: payload.partyName,
     title: payload.title,
     description: payload.description,
     targetContestId: payload.contestId ? Number(payload.contestId) : null,
-    contestName: payload.contestName ?? null,
+    contestTitle: payload.contestName ?? null,
     contestLinkUrl: payload.contestLinkUrl ?? null,
     topicType: payload.topicType,
     partyTag: toPartyTag(payload.subCategory) ?? 'ETC',
     githubRepoUrl: payload.repositoryUrl ?? null,
-    // 서버 요청 record 의 int 필드라 값을 빼면 본문 파싱 자체가 실패한다(400-2).
-    // 진행 기록 방식이 커밋 기반으로 바뀌는 중이라 폼에 입력칸이 없어, 최소값 1 로 보낸다.
-    checklistRequiredApprovals: 1,
     deadline,
     positions: payload.positions.map((position) => ({
       name: position.type,

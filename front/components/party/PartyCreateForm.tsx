@@ -24,6 +24,10 @@ import {
 } from '@/lib/constants';
 import type { Contest, ContestFormat, PositionType, TopicType } from '@/lib/types';
 
+/** 서버 PartyCreateReqBody 의 @Size 와 같은 값 */
+const PARTY_NAME_MAX = 10;
+const TITLE_MAX = 20;
+
 interface PositionRow {
   key: string;
   type: PositionType;
@@ -37,6 +41,7 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
   const [topicType, setTopicType] = useState<TopicType>('CONTEST');
   const [contestFormat, setContestFormat] = useState<ContestFormat>('COMPETITION');
   const [contestLinkUrl, setContestLinkUrl] = useState('');
+  const [partyName, setPartyName] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [repositoryUrl, setRepositoryUrl] = useState('');
@@ -103,7 +108,13 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
 
   const validate = () => {
     const next: Record<string, string> = {};
+    // 서버 PartyCreateReqBody 가 파티 이름 10자·모집글 제목 20자로 막는다. 넘기면 400 이라 여기서 먼저 잡는다
+    if (!partyName.trim()) next.partyName = '파티 이름을 입력해 주세요.';
+    else if (partyName.trim().length > PARTY_NAME_MAX)
+      next.partyName = `파티 이름은 ${PARTY_NAME_MAX}자까지 입력할 수 있어요.`;
     if (!title.trim()) next.title = '모집글 제목을 입력해 주세요.';
+    else if (title.trim().length > TITLE_MAX)
+      next.title = `모집글 제목은 ${TITLE_MAX}자까지 입력할 수 있어요.`;
     if (!description.trim()) next.description = '파티 소개를 입력해 주세요.';
     if (positionRequired) {
       const filled = positions.filter((row) => Number(row.capacity) > 0);
@@ -117,6 +128,7 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
     if (!validate()) return;
     setSubmitting(true);
     const payload = {
+      partyName,
       topicType,
       contestFormat: topicType === 'CONTEST' ? contestFormat : undefined,
       contestId: pickedContest?.id,
@@ -242,9 +254,27 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
         </>
       ) : null}
 
-      <FormGroup label="모집글 제목" required error={errors.title}>
+      <FormGroup
+        label="파티 이름"
+        required
+        hint={`팀 이름처럼 짧게 — ${PARTY_NAME_MAX}자 이내`}
+        error={errors.partyName}
+      >
         <TextField
-          placeholder="예: 프로그래머스 오락실 공모전 참여하실분"
+          placeholder="예: 오락실크루"
+          maxLength={PARTY_NAME_MAX}
+          value={partyName}
+          onChange={(event) => {
+            setPartyName(event.target.value);
+            setErrors((prev) => ({ ...prev, partyName: '' }));
+          }}
+        />
+      </FormGroup>
+
+      <FormGroup label="모집글 제목" required hint={`${TITLE_MAX}자 이내`} error={errors.title}>
+        <TextField
+          placeholder="예: 오락실 공모전 같이 나가요"
+          maxLength={TITLE_MAX}
           value={title}
           onChange={(event) => {
             setTitle(event.target.value);

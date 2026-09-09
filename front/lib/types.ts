@@ -205,8 +205,6 @@ export interface PartyDetail extends Party {
   description: string;
   /** 파티 등록 시 입력한 GitHub 저장소 주소 */
   githubRepoUrl?: string;
-  /** 커밋 동료 승인 정족수 */
-  checklistRequiredApprovals?: number;
   schedule: string;
   meetingType: string;
   members: UserSummary[];
