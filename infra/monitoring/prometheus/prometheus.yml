@@ -3,15 +3,22 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
+  # 앱 스택의 /prometheus 경로에서 자기 지표를 수집한다.
   - job_name: prometheus
+    metrics_path: /prometheus/metrics
     static_configs:
       - targets: ["localhost:9090"]
 
+  # 루트 Compose와 공유하는 Docker DNS로 backend에 연결한다.
   - job_name: arcade-backend
     metrics_path: /actuator/prometheus
     static_configs:
-      - targets: ["host.docker.internal:8080"]
-        labels:
-          application: arcade-backend
+      - targets: ["backend:8080"]
 
+  - job_name: nginx
+    static_configs:
+      - targets: ["nginx-exporter:9113"]
 
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres-exporter:9187"]

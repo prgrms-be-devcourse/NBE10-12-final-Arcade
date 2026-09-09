@@ -1,0 +1,38 @@
+# 로컬 Grafana에서 운영 Prometheus를 조회한다.
+#   docker compose -p arcade-monitoring \
+#     -f infra/monitoring/remote/docker-compose.yml \
+#     --env-file infra/monitoring/remote/.env up -d --force-recreate grafana
+
+services:
+  grafana:
+    image: grafana/grafana:13.2.1
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GOMEMLIMIT: ${GRAFANA_GOMEMLIMIT:-320MiB}
+      PROMETHEUS_URL: ${GRAFANA_PROMETHEUS_URL:-https://metrics.crewon.cloud/prometheus}
+      PROMETHEUS_BASIC_AUTH_ENABLED: "true"
+      PROMETHEUS_BASIC_AUTH_USER: ${METRICS_BASIC_AUTH_USER:?METRICS_BASIC_AUTH_USER is required}
+      PROMETHEUS_BASIC_AUTH_PASSWORD: ${METRICS_BASIC_AUTH_PASSWORD:?METRICS_BASIC_AUTH_PASSWORD is required}
+    mem_limit: ${GRAFANA_MEM_LIMIT:-384m}
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:${GRAFANA_HOST_PORT:-3001}:3000"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://127.0.0.1:3000/api/health > /dev/null || exit 1",
+        ]
+      interval: 30s
+      timeout: 3s
+      start_period: 20s
+      retries: 3
+
+volumes:
+  grafana-data:
