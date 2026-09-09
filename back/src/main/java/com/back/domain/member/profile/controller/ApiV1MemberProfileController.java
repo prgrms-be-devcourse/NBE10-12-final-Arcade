@@ -121,8 +121,6 @@ public class ApiV1MemberProfileController {
 
                     profileImageUrl은 직접 올린 이미지만 담는다. 조회 응답은 이 값과 githubAvatarUrl을
                     합치지 않고 그대로 내려주니, 화면이 profileImageUrl ?? githubAvatarUrl로 고르면 된다.
-                    githubAvatarUrl을 수정 요청에 실으면 아바타 주소가 '직접 올린 것'으로 굳어
-                    GitHub에서 바꿔도 반영되지 않으니 넣지 말 것.
 
                     예외
                     - 400-1 : nickname 이 빈 문자열이거나 techStacks 원소가 빈 문자열
