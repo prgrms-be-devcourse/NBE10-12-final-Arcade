@@ -45,6 +45,7 @@ public class PartyNotificationEventListener {
         notify(party, ownerId, NotificationType.PARTY_RECRUITMENT_COMPLETED,
                 " 파티 모집이 완료되었습니다.");
         event.approvedMembers()
+                .stream()
                 .filter(member -> member.memberId() != ownerId)
                 .forEach(member -> notify(party, member.memberId(), NotificationType.PARTY_MATCHING_CONFIRMED,
                         " 파티 매칭이 확정되어 활동이 시작되었습니다."));
