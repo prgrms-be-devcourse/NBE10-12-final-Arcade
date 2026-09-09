@@ -393,10 +393,10 @@ public class ApiV1BookmarkControllerTest {
     }
 
     @Test
-    @DisplayName("성취 북마크: 201-1과 bookmarked=true를 반환한다 (자기신고, 완료 상태)")
+    @DisplayName("성취 북마크: 게시된 PROJECT 전시글이면 201-1과 bookmarked=true를 반환한다")
     @WithUserDetails("user1@test.com")
     void bookmarkGoal() throws Exception {
-        long goalId = saveAchievedGoal("user2@test.com");
+        long goalId = savePublishedProjectGoal("user2@test.com", 1001L);
 
         ResultActions resultActions = mvc.perform(post("/api/v1/goals/" + goalId + "/bookmarks"));
 
@@ -405,6 +405,18 @@ public class ApiV1BookmarkControllerTest {
                 .andExpect(jsonPath("$.data.targetType").value("GOAL"))
                 .andExpect(jsonPath("$.data.targetId").value(goalId))
                 .andExpect(jsonPath("$.data.bookmarked").value(true));
+    }
+
+    @Test
+    @DisplayName("성취 북마크: 자기신고 성취(완료)는 전시·북마크 대상이 아니라 404-1이다")
+    @WithUserDetails("user1@test.com")
+    void bookmarkGoalSelfReported() throws Exception {
+        long goalId = saveAchievedGoal("user2@test.com");
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/goals/" + goalId + "/bookmarks"));
+
+        resultActions.andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.resultCode").value("404-1"));
     }
 
     @Test
@@ -457,7 +469,7 @@ public class ApiV1BookmarkControllerTest {
     @DisplayName("성취 북마크: 이미 북마크한 성취에 재요청하면 409-1이다")
     @WithUserDetails("user1@test.com")
     void bookmarkGoalTwice() throws Exception {
-        long goalId = saveAchievedGoal("user2@test.com");
+        long goalId = savePublishedProjectGoal("user2@test.com", 1001L);
 
         mvc.perform(post("/api/v1/goals/" + goalId + "/bookmarks"))
                 .andExpect(status().isCreated());
@@ -483,7 +495,7 @@ public class ApiV1BookmarkControllerTest {
     @DisplayName("성취 북마크 취소: 204-1")
     @WithUserDetails("user1@test.com")
     void unbookmarkGoal() throws Exception {
-        long goalId = saveAchievedGoal("user2@test.com");
+        long goalId = savePublishedProjectGoal("user2@test.com", 1001L);
 
         mvc.perform(post("/api/v1/goals/" + goalId + "/bookmarks"))
                 .andExpect(status().isCreated());
@@ -499,7 +511,7 @@ public class ApiV1BookmarkControllerTest {
     @DisplayName("성취 북마크 취소: 북마크하지 않은 성취를 취소하면 409-1이다")
     @WithUserDetails("user1@test.com")
     void unbookmarkGoalWithoutBookmarking() throws Exception {
-        long goalId = saveAchievedGoal("user2@test.com");
+        long goalId = savePublishedProjectGoal("user2@test.com", 1001L);
 
         ResultActions resultActions = mvc.perform(delete("/api/v1/goals/" + goalId + "/bookmarks"));
 
@@ -511,7 +523,7 @@ public class ApiV1BookmarkControllerTest {
     @DisplayName("성취 북마크: 북마크→취소→재북마크를 반복해도 매번 정상 토글된다")
     @WithUserDetails("user1@test.com")
     void bookmarkGoalToggleCycle() throws Exception {
-        long goalId = saveAchievedGoal("user2@test.com");
+        long goalId = savePublishedProjectGoal("user2@test.com", 1001L);
 
         mvc.perform(post("/api/v1/goals/" + goalId + "/bookmarks"))
                 .andExpect(status().isCreated())

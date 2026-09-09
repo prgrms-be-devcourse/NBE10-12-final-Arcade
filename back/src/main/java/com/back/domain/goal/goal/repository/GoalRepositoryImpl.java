@@ -13,7 +13,6 @@ import com.back.domain.party.showcase.entity.QPartyShowcase;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
-import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
@@ -124,14 +123,10 @@ public class GoalRepositoryImpl implements GoalRepositoryCustom {
     @Override
     public Page<Goal> searchShowcaseGoals(GoalType type, ShowcaseSort sort, Pageable pageable) {
         BooleanBuilder where = new BooleanBuilder()
-                .and(goal.status.eq(GoalStatus.ACHIEVED))
                 .and(eqType(type))
-                // PROJECT는 파티장이 전시글을 게시해야 노출된다
-                // 그 외 타입은 완료면 그 자체로 전시 대상이라 이 조건에서 걸릴 게 없다
-                .and(partyShowcase.isNotNull().or(goal.type.ne(GoalType.PROJECT)))
-                // 파티 확정 시 승인된 참여자 수만큼 PROJECT Goal이 각각 생기므로 같은 전시글이 팀원 수만큼 목록에 중복으로 뜬다.
-                // 그래서 PROJECT는 partyShowcase당 대표 1건만 남기고 그 외 타입은 그대로 둔다.
-                .and(goal.type.ne(GoalType.PROJECT).or(goal.id.in(representativeProjectIdsPerShowcase())));
+                // 전시관은 게시된 파티 결과물(PROJECT)만 대상이다. 서브쿼리가 status=ACHIEVED, partyShowcase 연결까지 걸러준다.
+                // 파티 확정 시 승인된 참여자 수만큼 PROJECT Goal이 생겨 같은 전시글이 팀원 수만큼 중복되므로, partyShowcase당 대표 1건만 남긴다.
+                .and(goal.id.in(representativeProjectIdsPerShowcase()));
         List<Goal> content = withSubTypes(queryFactory.selectFrom(goal))
                 .leftJoin(project.partyShowcase, partyShowcase)
                 .where(where)
@@ -142,8 +137,6 @@ public class GoalRepositoryImpl implements GoalRepositoryCustom {
 
         Long total = queryFactory.select(goal.count())
                 .from(goal)
-                .leftJoin(project).on(project.id.eq(goal.id))
-                .leftJoin(project.partyShowcase, partyShowcase)
                 .where(where)
                 .fetchOne();
 
@@ -152,12 +145,7 @@ public class GoalRepositoryImpl implements GoalRepositoryCustom {
 
     private OrderSpecifier<?>[] orderBy(ShowcaseSort sort) {
         if (sort == ShowcaseSort.POPULAR) {
-            NumberExpression<Integer> likeCountForSort = new CaseBuilder()
-                    .when(goal.type.eq(GoalType.PROJECT))
-                    .then(partyShowcase.likeCount)
-                    .otherwise(goal.likeCount);
-
-            return new OrderSpecifier<?>[]{likeCountForSort.desc(), goal.id.desc()};
+            return new OrderSpecifier<?>[]{partyShowcase.likeCount.desc(), goal.id.desc()};
         }
         return new OrderSpecifier<?>[]{goal.createDate.desc(), goal.id.desc()};
     }

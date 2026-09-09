@@ -68,7 +68,7 @@ public class ApiV1MemberProfileController {
                     - completedParties : 승인된 파티원으로 속한 파티 중 COMPLETED 인 건
                     - awards           : 달성한 CONTEST 성취 건수
                     - exhibitions      : 승인된 파티원으로 속한 파티 중 전시가 게시된 건
-                    - streakDays       : 일자별 활동 기록 도메인이 없어 아직 0 고정
+                    - streakDays       : ACTIVITY_LOG 기준 연속 활동일. 오늘이 비어 있으면 어제까지의 연속
                     - badges           : 배지 도메인이 없어 아직 빈 배열
 
                     예외
