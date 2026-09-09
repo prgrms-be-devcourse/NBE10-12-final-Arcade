@@ -85,6 +85,8 @@ export function toUserProfile(
   return {
     id: String(dto.id),
     name: displayName,
+    // 표시명(displayName)과 달리 대체 문구를 넣지 않는다 - 수정 폼이 이 값을 초기값으로 쓴다
+    nickname: dto.nickname?.trim() || undefined,
     initial: displayName.charAt(0) || 'C',
     // 서버가 둘을 합치지 않고 그대로 내려주므로 화면이 고른다
     avatarUrl: dto.profileImageUrl ?? dto.githubAvatarUrl ?? undefined,
@@ -186,7 +188,6 @@ export async function uploadProfileImage(file: File): Promise<string> {
 }
 
 export interface ProfileUpdatePayload {
-  nickname: string;
   position: PositionType;
   bio: string;
   /**
@@ -194,6 +195,8 @@ export interface ProfileUpdatePayload {
    * 생략(undefined)하면 서버가 지금 값을 그대로 둔다. 지우려면 null 을 준다(빈 문자열로 보낸다).
    */
   profileImageUrl?: string | null;
+  /** undefined 면 닉네임을 그대로 둔다. 서버가 빈 문자열을 거절하므로(400-1) 비울 수는 없다 */
+  nickname?: string;
   skills: string[];
   careers: CareerItem[];
   links: ProfileLink[];
@@ -214,8 +217,9 @@ export async function updateMyProfile(payload: ProfileUpdatePayload): Promise<Us
     const current = MOCK_PROFILES[MOCK_CURRENT_USER_ID];
     return mockResponse({
       ...current,
-      name: payload.nickname,
-      initial: payload.nickname.charAt(0),
+      name: payload.nickname ?? current.name,
+      nickname: payload.nickname ?? current.nickname,
+      initial: (payload.nickname ?? current.name).charAt(0),
       position: payload.position,
       bio: payload.bio,
       skills: payload.skills,
@@ -226,7 +230,6 @@ export async function updateMyProfile(payload: ProfileUpdatePayload): Promise<Us
   }
 
   const updated = await http.patch<MemberProfileResponse>('/members/me', {
-    nickname: payload.nickname,
     bio: payload.bio,
     position: payload.position,
     techStacks: payload.skills,
@@ -238,6 +241,8 @@ export async function updateMyProfile(payload: ProfileUpdatePayload): Promise<Us
       description: career.description,
     })),
     links: payload.links.map((link) => ({ label: link.label, url: link.url })),
+    // 닉네임은 비울 수 없다(@Pattern). 안 바꿨으면 키를 빼서 서버가 그대로 두게 한다
+    ...(payload.nickname === undefined ? {} : { nickname: payload.nickname }),
     // undefined 면 키 자체가 빠져 서버가 지금 이미지를 유지한다. null 은 '지워 달라'라서 '' 로 보낸다
     ...(payload.profileImageUrl === undefined
       ? {}

@@ -140,12 +140,10 @@ export async function signup(
   });
 
   // 서버는 대표 포지션 하나를 position 으로 받는다. positions 배열은 지금 계약에 없다.
+  // 보낸 항목만 바뀐다(ARC-120). 화면에 없는 webpage·profileImageUrl 은 싣지 않는다
   await http.patch<MemberProfileResponse>("/members/me", {
     nickname: payload.nickname,
-    webpage: null,
-    profileImageUrl: null,
     position: payload.position,
-    techStacks: [],
   });
 
   return loadAuthUser(role);

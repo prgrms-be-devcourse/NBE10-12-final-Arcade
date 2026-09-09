@@ -30,7 +30,9 @@ interface ProfileEditPanelProps {
 /** 마이페이지 프로필 수정 패널 (경력 · 링크 인라인 에디터 포함) */
 export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPanelProps) {
   const { confirm, dialog } = useConfirm();
-  const [nickname, setNickname] = useState(profile.name);
+  // 표시명(profile.name)이 아니라 실제 저장된 닉네임으로 시작한다.
+  // 표시명에는 닉네임이 없을 때 쓰는 대체 문구가 들어 있어, 그대로 저장하면 그게 닉네임이 된다.
+  const [nickname, setNickname] = useState(profile.nickname ?? '');
   const [position, setPosition] = useState(profile.position);
   const [bio, setBio] = useState(profile.bio);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -45,6 +47,13 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
     setCareers((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
 
   const save = async () => {
+    const trimmedNickname = nickname.trim();
+    // 서버가 빈 닉네임을 400-1 로 거절한다. 이미 정해둔 닉네임을 지우려는 것이라면 여기서 막는다
+    if (!trimmedNickname && profile.nickname) {
+      setSaveError('닉네임은 비울 수 없어요.');
+      return;
+    }
+
     setSaving(true);
     setSaveError(null);
     try {
@@ -53,7 +62,8 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
       const profileImageUrl = avatarFile ? await uploadProfileImage(avatarFile) : undefined;
 
       const updated = await updateMyProfile({
-        nickname,
+        // 아직 닉네임이 없는 회원이 칸을 비워둔 채 저장하면 키를 빼서 그대로 둔다
+        nickname: trimmedNickname || undefined,
         position,
         bio,
         profileImageUrl,
@@ -97,8 +107,12 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
         <FormGroup label="닉네임" htmlFor="editNickname">
           <TextField
             id="editNickname"
+            placeholder={profile.nickname ? undefined : '닉네임을 정해 주세요'}
             value={nickname}
-            onChange={(event) => setNickname(event.target.value)}
+            onChange={(event) => {
+              setNickname(event.target.value);
+              setSaveError(null);
+            }}
           />
         </FormGroup>
         <FormGroup label="대표 포지션" htmlFor="editPosition">

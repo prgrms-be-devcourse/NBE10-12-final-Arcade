@@ -129,6 +129,12 @@ export interface BadgeItem {
 }
 
 export interface UserProfile extends UserSummary {
+  /**
+   * 실제로 저장된 닉네임. 아직 정하지 않았으면 없다.
+   * UserSummary.name 은 화면에 뿌릴 표시명이라 비었을 때 대체 문구가 들어가 있어,
+   * 수정 폼의 초기값으로 쓰면 그 문구가 진짜 닉네임으로 저장된다.
+   */
+  nickname?: string;
   /** GitHub OAuth 계정 연동 여부. 연동 버튼 노출 여부에만 사용한다. */
   githubLinked?: boolean;
   /**
