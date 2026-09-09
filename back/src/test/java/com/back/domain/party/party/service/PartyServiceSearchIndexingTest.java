@@ -44,7 +44,7 @@ class PartyServiceSearchIndexingTest {
 
         PartyDto created = partyService.create(
                 owner, "파티명", "백엔드 스터디원 모집", null, null, "외부 대회", "https://example.com",
-                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7),
+                TopicType.STUDY, PartyTag.WEB, null, LocalDateTime.now().plusDays(7),
                 List.of(new PartyService.PositionCreateSpec(PositionType.BACK, 3))
         );
 
@@ -58,7 +58,7 @@ class PartyServiceSearchIndexingTest {
         Member owner = ownerWithPosition("index-owner2@test.com");
         PartyDto created = partyService.create(
                 owner, "파티명", "백엔드 스터디원 모집", null, null, "외부 대회", "https://example.com",
-                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7),
+                TopicType.STUDY, PartyTag.WEB, null, LocalDateTime.now().plusDays(7),
                 List.of(new PartyService.PositionCreateSpec(PositionType.BACK, 3))
         );
 
@@ -78,7 +78,7 @@ class PartyServiceSearchIndexingTest {
         Member owner = ownerWithPosition("index-owner3@test.com");
         PartyDto created = partyService.create(
                 owner, "파티명", "백엔드 스터디원 모집", null, null, "외부 대회", "https://example.com",
-                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7),
+                TopicType.STUDY, PartyTag.WEB, null, LocalDateTime.now().plusDays(7),
                 List.of(new PartyService.PositionCreateSpec(PositionType.BACK, 3))
         );
 

@@ -93,7 +93,6 @@ public class ApiV1ShowcaseControllerTest {
                 TopicType.PROJECT,
                 PartyTag.WEB,
                 null,
-                1,
                 LocalDateTime.now().plusDays(7)
         );
         party.addPosition(new Position(PositionType.BACK, 2));

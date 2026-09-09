@@ -89,11 +89,11 @@ public class DevInitData {
         createInProgressParty(user2, "user2 진행 파티", "user2의 GitHub App 설치 테스트 파티", "https://github.com/example/user2-in-progress", now.plusDays(30));
         createInProgressParty(user3, "user3 진행 파티", "user3의 GitHub App 설치 테스트 파티", "https://github.com/example/user3-in-progress", now.plusDays(30));
 
-        partyService.create(user1, "AI 크루", "AI 해커톤 MVP를 함께 만들 팀원을 찾습니다", "RAG 기반 학습 코치 서비스를 만들 예정입니다. 주 2회 온라인 미팅, 데모까지 함께해요.", aiHackathon.id(), null, null, TopicType.CONTEST, PartyTag.WEB, "https://github.com/example/ai-crew", 2, now.plusDays(12), List.of(new PartyService.PositionCreateSpec(PositionType.BACK, 1), new PartyService.PositionCreateSpec(PositionType.FRONT, 2), new PartyService.PositionCreateSpec(PositionType.UIUX, 1)));
-        partyService.create(user2, "데이터 탐험대", "공공데이터 분석 경진대회 팀원 모집", "분석 결과를 시민이 이해하기 쉬운 대시보드로 보여줄 팀입니다.", dataContest.id(), null, null, TopicType.CONTEST, PartyTag.WEB, "https://github.com/example/data-explorers", 1, now.plusDays(5), List.of(new PartyService.PositionCreateSpec(PositionType.BACK, 1), new PartyService.PositionCreateSpec(PositionType.FRONT, 1), new PartyService.PositionCreateSpec(PositionType.PM, 1)));
-        partyService.create(user3, "금융 UX 스프린트", "핀테크 UX 챌린지 프로토타입 팀", "Figma부터 모바일 프로토타입까지 빠르게 검증할 분을 찾습니다.", fintechContest.id(), null, null, TopicType.CONTEST, PartyTag.APP, null, 2, now.plusDays(20), List.of(new PartyService.PositionCreateSpec(PositionType.UIUX, 2), new PartyService.PositionCreateSpec(PositionType.FRONT, 1), new PartyService.PositionCreateSpec(PositionType.PM, 1)));
-        partyService.create(user1, "스프링 스터디", "실전 코드리뷰 중심 Spring Boot 스터디", "매주 한 주제씩 구현하고 PR 리뷰를 진행합니다.", null, null, null, TopicType.STUDY, PartyTag.WEB, "https://github.com/example/spring-study", 1, now.plusDays(9), List.of(new PartyService.PositionCreateSpec(PositionType.BACK, 3), new PartyService.PositionCreateSpec(PositionType.PM, 1)));
-        partyService.create(user2, "주말 인디게임", "2주 안에 완성하는 캐주얼 게임 프로젝트", "Unity 경험이 없어도 기획과 아트, 개발을 함께 배우며 진행합니다.", null, "2026 인디게임 공모전", "https://example.com/contests/indie-game", TopicType.CONTEST, PartyTag.GAME, null, 1, now.plusDays(14), List.of(new PartyService.PositionCreateSpec(PositionType.BACK, 1), new PartyService.PositionCreateSpec(PositionType.UIUX, 2), new PartyService.PositionCreateSpec(PositionType.PM, 1)));
+        partyService.create(user1, "AI 크루", "AI 해커톤 MVP를 함께 만들 팀원을 찾습니다", "RAG 기반 학습 코치 서비스를 만들 예정입니다. 주 2회 온라인 미팅, 데모까지 함께해요.", aiHackathon.id(), null, null, TopicType.CONTEST, PartyTag.WEB, "https://github.com/example/ai-crew", now.plusDays(12), List.of(new PartyService.PositionCreateSpec(PositionType.BACK, 1), new PartyService.PositionCreateSpec(PositionType.FRONT, 2), new PartyService.PositionCreateSpec(PositionType.UIUX, 1)));
+        partyService.create(user2, "데이터 탐험대", "공공데이터 분석 경진대회 팀원 모집", "분석 결과를 시민이 이해하기 쉬운 대시보드로 보여줄 팀입니다.", dataContest.id(), null, null, TopicType.CONTEST, PartyTag.WEB, "https://github.com/example/data-explorers", now.plusDays(5), List.of(new PartyService.PositionCreateSpec(PositionType.BACK, 1), new PartyService.PositionCreateSpec(PositionType.FRONT, 1), new PartyService.PositionCreateSpec(PositionType.PM, 1)));
+        partyService.create(user3, "금융 UX 스프린트", "핀테크 UX 챌린지 프로토타입 팀", "Figma부터 모바일 프로토타입까지 빠르게 검증할 분을 찾습니다.", fintechContest.id(), null, null, TopicType.CONTEST, PartyTag.APP, null, now.plusDays(20), List.of(new PartyService.PositionCreateSpec(PositionType.UIUX, 2), new PartyService.PositionCreateSpec(PositionType.FRONT, 1), new PartyService.PositionCreateSpec(PositionType.PM, 1)));
+        partyService.create(user1, "스프링 스터디", "실전 코드리뷰 중심 Spring Boot 스터디", "매주 한 주제씩 구현하고 PR 리뷰를 진행합니다.", null, null, null, TopicType.STUDY, PartyTag.WEB, "https://github.com/example/spring-study", now.plusDays(9), List.of(new PartyService.PositionCreateSpec(PositionType.BACK, 3), new PartyService.PositionCreateSpec(PositionType.PM, 1)));
+        partyService.create(user2, "주말 인디게임", "2주 안에 완성하는 캐주얼 게임 프로젝트", "Unity 경험이 없어도 기획과 아트, 개발을 함께 배우며 진행합니다.", null, "2026 인디게임 공모전", "https://example.com/contests/indie-game", TopicType.CONTEST, PartyTag.GAME, null, now.plusDays(14), List.of(new PartyService.PositionCreateSpec(PositionType.BACK, 1), new PartyService.PositionCreateSpec(PositionType.UIUX, 2), new PartyService.PositionCreateSpec(PositionType.PM, 1)));
 
         // GitHub App 설치·팀 공간을 확인할 수 있도록, 각 개발 계정이 파티장인 진행 중 파티를 만든다.
         // 생성 후 정식 모집 마감 흐름을 태워야 status가 IN_PROGRESS로 전환된다.
@@ -120,7 +120,6 @@ public class DevInitData {
                 TopicType.STUDY,
                 PartyTag.WEB,
                 githubRepoUrl,
-                1,
                 deadline,
                 List.of(new PartyService.PositionCreateSpec(PositionType.BACK, 1))
         );

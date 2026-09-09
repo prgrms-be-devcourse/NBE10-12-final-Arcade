@@ -74,7 +74,6 @@ public class PartyService {
         TopicType topicType,
         PartyTag partyTag,
         String githubRepoUrl,
-        int checklistRequiredApprovals,
         LocalDateTime deadline,
         List<PositionCreateSpec> positionSpecs
     ) {
@@ -107,7 +106,6 @@ public class PartyService {
             topicType,
             partyTag,
             githubRepoUrl,
-            checklistRequiredApprovals,
             deadline
         );
 

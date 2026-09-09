@@ -65,7 +65,7 @@ class PartyMatchQueryFtsServiceTsqueryEscapingTest {
         Member owner = memberRepository.save(new Member("fts-escape-" + suffix + "@test.com", "pw", "owner" + suffix, null));
         Party party = new Party(
                 owner, "파티명" + suffix, "제목" + suffix, null, null, "외부 대회", "https://example.com",
-                topicType, partyTag, null, 0, LocalDateTime.now().plusDays(7)
+                topicType, partyTag, null, LocalDateTime.now().plusDays(7)
         );
         party.addPosition(new Position(PositionType.BACK, 2));
         party = partyRepository.save(party);
@@ -137,7 +137,7 @@ class PartyMatchQueryFtsServiceTsqueryEscapingTest {
         Member owner = memberRepository.save(new Member("fts-position-owner@test.com", "pw", "owner", null));
         Party backParty = new Party(
                 owner, "파티명-back", "제목-back", null, null, "외부 대회", "https://example.com",
-                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7)
+                TopicType.STUDY, PartyTag.WEB, null, LocalDateTime.now().plusDays(7)
         );
         backParty.addPosition(new Position(PositionType.BACK, 2));
         backParty = partyRepository.save(backParty);
@@ -145,7 +145,7 @@ class PartyMatchQueryFtsServiceTsqueryEscapingTest {
 
         Party frontParty = new Party(
                 owner, "파티명-front", "제목-front", null, null, "외부 대회", "https://example.com",
-                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7)
+                TopicType.STUDY, PartyTag.WEB, null, LocalDateTime.now().plusDays(7)
         );
         frontParty.addPosition(new Position(PositionType.FRONT, 2));
         frontParty = partyRepository.save(frontParty);

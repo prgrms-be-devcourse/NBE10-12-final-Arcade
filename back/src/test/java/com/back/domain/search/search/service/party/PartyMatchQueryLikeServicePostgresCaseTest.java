@@ -66,7 +66,7 @@ class PartyMatchQueryLikeServicePostgresCaseTest {
         Member owner = memberRepository.save(new Member("like-case-owner@test.com", "pw", "owner", null));
         Party party = partyRepository.save(new Party(
                 owner, "파티명", "인공지능 스터디", null, null, "외부 대회", "https://example.com",
-                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7)
+                TopicType.STUDY, PartyTag.WEB, null, LocalDateTime.now().plusDays(7)
         ));
         partySearchKeywordRepository.save(new PartySearchKeyword(party, "ai 스터디"));
 
@@ -82,11 +82,11 @@ class PartyMatchQueryLikeServicePostgresCaseTest {
         Member owner = memberRepository.save(new Member("like-tag-owner@test.com", "pw", "owner", null));
         Party webParty = partyRepository.save(new Party(
                 owner, "파티명W", "백엔드 스터디W", null, null, "외부 대회", "https://example.com",
-                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7)
+                TopicType.STUDY, PartyTag.WEB, null, LocalDateTime.now().plusDays(7)
         ));
         Party appParty = partyRepository.save(new Party(
                 owner, "파티명A", "백엔드 스터디A", null, null, "외부 대회", "https://example.com",
-                TopicType.STUDY, PartyTag.APP, null, 0, LocalDateTime.now().plusDays(7)
+                TopicType.STUDY, PartyTag.APP, null, LocalDateTime.now().plusDays(7)
         ));
         partySearchKeywordRepository.save(new PartySearchKeyword(webParty, "백엔드 스터디"));
         partySearchKeywordRepository.save(new PartySearchKeyword(appParty, "백엔드 스터디"));
@@ -105,11 +105,11 @@ class PartyMatchQueryLikeServicePostgresCaseTest {
         Member owner = memberRepository.save(new Member("like-topic-owner@test.com", "pw", "owner", null));
         Party studyParty = partyRepository.save(new Party(
                 owner, "파티명S", "백엔드 스터디S", null, null, "외부 대회", "https://example.com",
-                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7)
+                TopicType.STUDY, PartyTag.WEB, null, LocalDateTime.now().plusDays(7)
         ));
         Party contestParty = partyRepository.save(new Party(
                 owner, "파티명C", "백엔드 스터디C", null, null, "외부 대회", "https://example.com",
-                TopicType.CONTEST, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7)
+                TopicType.CONTEST, PartyTag.WEB, null, LocalDateTime.now().plusDays(7)
         ));
         partySearchKeywordRepository.save(new PartySearchKeyword(studyParty, "백엔드 스터디"));
         partySearchKeywordRepository.save(new PartySearchKeyword(contestParty, "백엔드 스터디"));
@@ -128,7 +128,7 @@ class PartyMatchQueryLikeServicePostgresCaseTest {
         Member owner = memberRepository.save(new Member("like-position-owner@test.com", "pw", "owner", null));
         Party backParty = new Party(
                 owner, "파티명-back", "백엔드 스터디-back", null, null, "외부 대회", "https://example.com",
-                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7)
+                TopicType.STUDY, PartyTag.WEB, null, LocalDateTime.now().plusDays(7)
         );
         backParty.addPosition(new Position(PositionType.BACK, 2));
         backParty = partyRepository.save(backParty);
@@ -136,7 +136,7 @@ class PartyMatchQueryLikeServicePostgresCaseTest {
 
         Party frontParty = new Party(
                 owner, "파티명-front", "백엔드 스터디-front", null, null, "외부 대회", "https://example.com",
-                TopicType.STUDY, PartyTag.WEB, null, 0, LocalDateTime.now().plusDays(7)
+                TopicType.STUDY, PartyTag.WEB, null, LocalDateTime.now().plusDays(7)
         );
         frontParty.addPosition(new Position(PositionType.FRONT, 2));
         frontParty = partyRepository.save(frontParty);

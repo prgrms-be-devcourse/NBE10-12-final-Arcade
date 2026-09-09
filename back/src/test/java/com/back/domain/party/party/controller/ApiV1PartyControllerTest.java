@@ -104,7 +104,6 @@ public class ApiV1PartyControllerTest {
                 "targetContestId": %d,
                 "topicType": "CONTEST",
                 "partyTag": "WEB",
-                "checklistRequiredApprovals": 1,
                 "deadline": "%s",
                 "positions": [
                     { "name": "BACK", "capacity": 2 }
@@ -121,7 +120,6 @@ public class ApiV1PartyControllerTest {
                 "description": "테스트용 파티 설명입니다",
                 "topicType": "PROJECT",
                 "partyTag": "WEB",
-                "checklistRequiredApprovals": 1,
                 "deadline": "%s",
                 "positions": [
                     { "name": "BACK", "capacity": %d }
@@ -197,7 +195,6 @@ public class ApiV1PartyControllerTest {
                 "title": "오락실 공모전 팀원 모집",
                 "topicType": "PROJECT",
                 "partyTag": "WEB",
-                "checklistRequiredApprovals": 1,
                 "deadline": "%s",
                 "positions": []
             }
@@ -224,7 +221,6 @@ public class ApiV1PartyControllerTest {
                 TopicType.PROJECT,
                 PartyTag.WEB,
                 null,
-                1,
                 LocalDateTime.now().plusDays(7)
         );
         party.addPosition(new Position(PositionType.BACK, capacity));
@@ -432,7 +428,6 @@ public class ApiV1PartyControllerTest {
                 TopicType.PROJECT,
                 partyTag,
                 null,
-                1,
                 deadlineAt
         );
         party.addPosition(new Position(positionType, capacity));
@@ -618,7 +613,6 @@ public class ApiV1PartyControllerTest {
                   "description": "설명",
                   "topicType": "STUDY",
                   "partyTag": "WEB",
-                  "checklistRequiredApprovals": 1,
                   "deadline": "%s",
                   "positions": [{ "name": "BACK", "capacity": 2 }]
                 }
