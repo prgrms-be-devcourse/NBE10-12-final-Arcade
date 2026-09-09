@@ -11,6 +11,11 @@ public interface PartyPrRepository extends JpaRepository<PartyPr, Long> {
 
     List<PartyPr> findAllByPartyIdOrderByGithubUpdatedAtDesc(Long partyId);
 
+    List<PartyPr> findAllByPartyIdAndAuthorGithubUserIdOrderByGithubUpdatedAtDesc(
+            Long partyId,
+            Long authorGithubUserId
+    );
+
     List<PartyPr> findAllByAuthorGithubUserIdOrderByGithubUpdatedAtDesc(Long authorGithubUserId);
 
     // 여러 파티의 PR을 한 번에 조회 - TOP3처럼 파티가 여러 개일 때 파티마다 쿼리 날리는 걸 방지

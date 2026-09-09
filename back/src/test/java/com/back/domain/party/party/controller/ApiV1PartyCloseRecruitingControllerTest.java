@@ -31,6 +31,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -160,9 +161,8 @@ public class ApiV1PartyCloseRecruitingControllerTest {
     void closeRecruitingAddsOwnerToAssemble() throws Exception {
         Party party = saveParty("user1@test.com");
         Member owner = memberRepository.findByEmail("user1@test.com").orElseThrow();
-        memberProfileRepository.findByMember(owner)
-                .orElseGet(() -> memberProfileRepository.save(new MemberProfile(owner)))
-                .changePosition(PositionType.FRONT);
+        memberProfileRepository.save(
+                new MemberProfile(owner, null, null, PositionType.FRONT, List.of()));
 
         mvc.perform(post("/api/v1/parties/" + party.getId() + "/close-recruiting"))
                 .andExpect(status().isCreated());
@@ -200,7 +200,7 @@ public class ApiV1PartyCloseRecruitingControllerTest {
     void closeRecruitingAllowsOwnerWithoutPosition() throws Exception {
         Party party = saveParty("user2@test.com");
         Member owner = memberRepository.findByEmail("user2@test.com").orElseThrow();
-        memberProfileRepository.findByMember(owner).ifPresent(profile -> profile.changePosition(null));
+        // 프로필을 만들지 않는다 - 대표 포지션이 없는 상태가 그대로 이 테스트의 조건이다.
 
         mvc.perform(post("/api/v1/parties/" + party.getId() + "/close-recruiting"))
                 .andExpect(status().isCreated());

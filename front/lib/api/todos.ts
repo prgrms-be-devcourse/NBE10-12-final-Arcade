@@ -128,6 +128,24 @@ export async function createTodo(payload: {
   return toTodoItem(await http.post<PersonalTodoResponse>('/todos', payload));
 }
 
+/**
+ * GET /todos/{id}/items — 할 일 목록 한 페이지.
+ * 서버가 Spring Page 를 그대로 내려줘 껍데기가 다르다(page 가 아니라 number). content 만 쓴다.
+ */
+const ITEMS_PAGE_SIZE = 100; // 서버 상한
+
+async function fetchRemainingItems(id: string): Promise<PersonalTodoItemResponse[]> {
+  const items: PersonalTodoItemResponse[] = [];
+  // ponytail: 전부 받을 때까지 순차 요청. 항목이 수백 개면 왕복이 늘어난다 - 화면에 더보기가 붙으면 그때 페이지 단위로 바꾸면 된다
+  for (let page = 0; ; page += 1) {
+    const chunk = await http.get<{ content: PersonalTodoItemResponse[] }>(`/todos/${id}/items`, {
+      query: { page, size: ITEMS_PAGE_SIZE },
+    });
+    items.push(...chunk.content);
+    if (chunk.content.length < ITEMS_PAGE_SIZE) return items;
+  }
+}
+
 /** GET /todos/{id} — 개인 TODO 상세(솔로 팀 스페이스) */
 export async function fetchSoloSpace(id: string): Promise<SoloSpaceData> {
   if (USE_MOCK) {
@@ -152,6 +170,8 @@ export async function fetchSoloSpace(id: string): Promise<SoloSpaceData> {
     });
   }
   const dto = await http.get<PersonalTodoDetailResponse>(`/todos/${id}`);
+  // 상세에는 첫 페이지만 실려 온다. 나머지가 있으면 항목 API 로 전부 받아야 화면에서 체크할 수 있다
+  const items = dto.hasMoreItems ? await fetchRemainingItems(id) : dto.items;
   return {
     id: String(dto.id),
     title: dto.title,
@@ -160,7 +180,7 @@ export async function fetchSoloSpace(id: string): Promise<SoloSpaceData> {
     memo: dto.memo ?? '',
     totalCount: dto.totalCount,
     doneCount: dto.doneCount,
-    checklist: dto.items.map(toChecklistItem),
+    checklist: items.map(toChecklistItem),
   };
 }
 

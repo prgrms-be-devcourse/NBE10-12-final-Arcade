@@ -82,6 +82,28 @@ function toDirectMessage(dto: MessageListResponse, box: MessageBoxName): DirectM
   };
 }
 
+/** 백엔드 MessageDetailDto — 단건 조회 응답 */
+interface MessageDetailResponse {
+  id: number;
+  sender: MessageMemberResponse;
+  recipient: MessageMemberResponse;
+  content: string;
+  isRead: boolean;
+  createAt: string;
+}
+
+/**
+ * GET /api/v1/members/me/messages/{messageId} — 쪽지 한 건.
+ *
+ * **수신자가 부르면 서버가 그 자리에서 읽음 처리한다.** 목록의 contentPreview 에 이미 본문이
+ * 통째로 들어 있어 내용 때문에 부를 일은 없고, '쪽지를 열었다'를 서버에 알리는 경로다.
+ * 여러 건을 한꺼번에 읽음 처리할 때는 markMessagesRead(PATCH)를 쓴다.
+ */
+export async function openMessage(id: string): Promise<void> {
+  if (USE_MOCK) return mockResponse(undefined as void);
+  await http.get<MessageDetailResponse>(`/members/me/messages/${id}`);
+}
+
 /** 서버로 보낼 id 만 남긴다 — 중복은 400, 숫자가 아닌 값은 애초에 서버 id 가 아니다 */
 function toServerIds(ids: string[]): number[] {
   return [...new Set(ids)].map(Number).filter((id) => Number.isFinite(id));

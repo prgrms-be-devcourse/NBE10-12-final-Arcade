@@ -1,6 +1,7 @@
 package com.back.domain.party.partyPr.service;
 
 import com.back.domain.party.partyPr.dtos.PartyPrDto;
+import com.back.domain.party.partyPr.dtos.PartyPrByMemberDto;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -16,12 +17,26 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class PartyPrSseService {
     private static final long TIMEOUT_MILLIS = 30 * 60 * 1000L;
-    private final Map<Long, Map<String, SseEmitter>> emittersByPartyId = new ConcurrentHashMap<>();
+    private final Map<Long, Map<String, Subscription>> subscriptionsByPartyId = new ConcurrentHashMap<>();
 
     public SseEmitter subscribe(long partyId, List<PartyPrDto> snapshot) {
+        return subscribe(partyId, snapshot, false, null);
+    }
+
+    public SseEmitter subscribeGrouped(long partyId, List<PartyPrByMemberDto> snapshot) {
+        return subscribe(partyId, snapshot, false, null);
+    }
+
+    public SseEmitter subscribeMember(long partyId, Long githubUserId, PartyPrByMemberDto snapshot) {
+        return subscribe(partyId, snapshot, true, githubUserId);
+    }
+
+    private SseEmitter subscribe(long partyId, Object snapshot, boolean memberOnly, Long githubUserId) {
         SseEmitter emitter = new SseEmitter(TIMEOUT_MILLIS);
         String emitterId = UUID.randomUUID().toString();
-        emittersByPartyId.computeIfAbsent(partyId, ignored -> new ConcurrentHashMap<>()).put(emitterId, emitter);
+        Subscription subscription = new Subscription(emitter, memberOnly, githubUserId);
+        subscriptionsByPartyId.computeIfAbsent(partyId, ignored -> new ConcurrentHashMap<>())
+                .put(emitterId, subscription);
         emitter.onCompletion(() -> remove(partyId, emitterId));
         emitter.onTimeout(() -> remove(partyId, emitterId));
         emitter.onError(ignored -> remove(partyId, emitterId));
@@ -36,11 +51,12 @@ public class PartyPrSseService {
     }
 
     public void publish(long partyId, PartyPrDto pullRequest) {
-        Map<String, SseEmitter> emitters = emittersByPartyId.get(partyId);
-        if (emitters == null) return;
-        emitters.forEach((emitterId, emitter) -> {
+        Map<String, Subscription> subscriptions = subscriptionsByPartyId.get(partyId);
+        if (subscriptions == null) return;
+        subscriptions.forEach((emitterId, subscription) -> {
+            if (!subscription.accepts(pullRequest)) return;
             try {
-                emitter.send(SseEmitter.event().id(pullRequest.id() + ":" + pullRequest.githubUpdatedAt())
+                subscription.emitter().send(SseEmitter.event().id(pullRequest.id() + ":" + pullRequest.githubUpdatedAt())
                         .name("pull-request").data(pullRequest));
             } catch (IOException | IllegalStateException exception) {
                 log.debug("Party PR SSE emitter disconnected: partyId={}, emitterId={}", partyId, emitterId);
@@ -51,22 +67,29 @@ public class PartyPrSseService {
 
     /** Party 종료 뒤 연결된 브라우저에 종료 사실을 알리고 stream을 닫는다. */
     public void completeParty(long partyId) {
-        Map<String, SseEmitter> emitters = emittersByPartyId.remove(partyId);
-        if (emitters == null) return;
-        emitters.values().forEach(emitter -> {
+        Map<String, Subscription> subscriptions = subscriptionsByPartyId.remove(partyId);
+        if (subscriptions == null) return;
+        subscriptions.values().forEach(subscription -> {
             try {
-                emitter.send(SseEmitter.event().name("party-complete").data("completed"));
+                subscription.emitter().send(SseEmitter.event().name("party-complete").data("completed"));
             } catch (IOException | IllegalStateException ignored) {
                 // 이미 끊긴 연결도 정상 종료 처리한다.
             }
-            emitter.complete();
+            subscription.emitter().complete();
         });
     }
 
     private void remove(long partyId, String emitterId) {
-        emittersByPartyId.computeIfPresent(partyId, (ignored, emitters) -> {
-            emitters.remove(emitterId);
-            return emitters.isEmpty() ? null : emitters;
+        subscriptionsByPartyId.computeIfPresent(partyId, (ignored, subscriptions) -> {
+            subscriptions.remove(emitterId);
+            return subscriptions.isEmpty() ? null : subscriptions;
         });
+    }
+
+    private record Subscription(SseEmitter emitter, boolean memberOnly, Long githubUserId) {
+        private boolean accepts(PartyPrDto pullRequest) {
+            if (!memberOnly) return true;
+            return githubUserId != null && githubUserId.equals(pullRequest.authorGithubUserId());
+        }
     }
 }

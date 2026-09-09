@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/icons/Icon';
-import { fetchMessages, markMessagesRead } from '@/lib/api';
+import { fetchMessages, markMessagesRead, openMessage as readMessage } from '@/lib/api';
 import { useRefreshOnVisible } from '@/lib/hooks/useRefreshOnVisible';
 import type { DirectMessage } from '@/lib/types';
 
@@ -60,6 +60,7 @@ export function MessagePanel() {
     }
   };
 
+  /** 한 건을 열 때는 단건 조회로 읽음 처리한다 — 서버가 수신자 조회 시점에 읽음으로 바꾼다 */
   const openMessage = async (id: string) => {
     setOpen(false);
     router.push('/mypage?tab=messages');
@@ -72,7 +73,7 @@ export function MessagePanel() {
       prev.map((message) => (message.id === id ? { ...message, unread: false } : message)),
     );
     try {
-      await markMessagesRead([id]);
+      await readMessage(id);
     } catch {
       setMessages(previous);
     }
