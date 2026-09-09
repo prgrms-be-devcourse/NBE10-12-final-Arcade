@@ -5,6 +5,7 @@ import com.back.domain.member.profile.dtos.LinkCommand;
 import com.back.domain.member.profile.dtos.MemberProfileDto;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
+import com.back.domain.member.member.repository.MemberRepository;
 import com.back.domain.member.profile.entity.MemberProfile;
 import com.back.domain.member.profile.repository.MemberProfileRepository;
 import com.back.global.app.CustomConfigProperties;
@@ -30,16 +31,14 @@ public class MemberProfileService {
             List.of("image/jpeg", "image/png");
 
     private final MemberProfileRepository memberProfileRepository;
+    private final MemberRepository memberRepository;
     private final FileStorage fileStorage;
     private final CustomConfigProperties customConfigProperties;
 
     @Transactional
     public MemberProfileDto me(Member actor) {
 
-        MemberProfile profile = memberProfileRepository.findByMember(actor)
-                .orElseGet(() -> memberProfileRepository.save(new MemberProfile(actor)));
-
-        return new MemberProfileDto(profile);
+        return new MemberProfileDto(getOrCreateProfile(actor));
 
     }
 
@@ -50,8 +49,7 @@ public class MemberProfileService {
             PositionType position, List<String> techStacks,
             List<CareerCommand> careers, List<LinkCommand> links) {
 
-        MemberProfile profile = memberProfileRepository.findByMember(actor)
-                .orElseGet(() -> memberProfileRepository.save(new MemberProfile(actor)));
+        MemberProfile profile = getOrCreateProfile(actor);
 
         profile.modify(nickname, webpage, profileImageUrl, bio,
                 position, techStacks, careers, links);
@@ -69,18 +67,16 @@ public class MemberProfileService {
         return new MemberProfileDto(profile);
     }
 
-    /**
-     * 대표 포지션만 바꾼다. GitHub 로 처음 가입하면 닉네임이 없어
-     * nickname 이 필수인 modifyProfile 로는 포지션을 저장할 수 없다.
-     */
-    @Transactional
-    public MemberProfileDto modifyPosition(Member actor, PositionType position) {
-        MemberProfile profile = memberProfileRepository.findByMember(actor)
-                .orElseGet(() -> memberProfileRepository.save(new MemberProfile(actor)));
+    // 조회(GET /me)와 자동저장(PATCH /me)이 동시에 들어와 각자 INSERT 하면 member 유니크 제약에 걸린다.
+    // 없을 때만 회원 행을 잠가 최초 생성을 한 줄로 세운다 - 있으면 잠그지 않는다.
+    private MemberProfile getOrCreateProfile(Member actor) {
+        return memberProfileRepository.findByMember(actor)
+                .orElseGet(() -> {
+                    memberRepository.findByIdForUpdate(actor.getId());
 
-        profile.changePosition(position);
-
-        return new MemberProfileDto(profile);
+                    return memberProfileRepository.findByMember(actor)
+                            .orElseGet(() -> memberProfileRepository.save(new MemberProfile(actor)));
+                });
     }
 
     /** 저장만 하고 URL 을 돌려준다. 프로필에 반영하는 건 수정 요청의 몫이다. */
