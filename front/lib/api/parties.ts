@@ -27,6 +27,12 @@ import { ApiError, USE_MOCK, http, mockResponse } from './client';
 /* ---------- 백엔드 응답 타입 ---------- */
 
 type PartyTag = 'WEB' | 'APP' | 'GAME' | 'ETC';
+/** 서버 ContestFormat. 화면은 공모전을 COMPETITION 으로 부른다 (contests.ts 와 같은 짝) */
+type ServerContestFormat = 'CONTEST' | 'HACKATHON';
+const FORMAT_TO_CLIENT: Record<ServerContestFormat, ContestFormat> = {
+  CONTEST: 'COMPETITION',
+  HACKATHON: 'HACKATHON',
+};
 /** 서버 PositionType 과 화면 PositionType 이 같은 4종이라 그대로 쓴다 */
 type ServerPositionType = PositionType;
 
@@ -44,12 +50,19 @@ export interface PartyListItemResponse {
   partyName: string;
   title: string;
   topicType: TopicType;
+  /** 연결된 등록 대회의 형식. 대회 파티가 아니거나 미등록 외부 대회면 null */
+  contestFormat?: ServerContestFormat | null;
   status: PartyStatus;
   partyTag: PartyTag;
   deadline: string;
   dDay: number;
   likeCount: number;
   viewCount: number;
+  /**
+   * 지원한 사람 수 전체. 승인 인원(positions[].filledCount)과는 다른 값이다.
+   * 지원자 수를 세지 않는 조회(홈 TOP3)는 null 로 온다. 상세(PartyDto)에는 아예 없다.
+   */
+  applicantCount?: number | null;
   positions: PositionResponse[];
 }
 
@@ -154,9 +167,10 @@ function toUserSummary(id: string, name: string): UserSummary {
  *
  * 목록 응답에 없어서 비워 두는 값:
  * - summary, tags   : 서버 목록 DTO 에 본문·태그가 없다
- * - applicants      : 지원자 수 필드가 없다 (filledCount 는 승인 인원이라 다른 값이다)
  * - createdAt       : 서버가 생성일을 내려주지 않는다
  * - leader.id       : 목록 DTO 에 ownerId 가 없다 (상세에는 있다)
+ *
+ * 상세(PartyDto)로 부를 때는 contestFormat·applicantCount 가 없어 태그가 빠지고 지원자 수가 0 이 된다.
  */
 export function toParty(dto: PartyListItemResponse): Party {
   return {
@@ -164,13 +178,14 @@ export function toParty(dto: PartyListItemResponse): Party {
     title: dto.title,
     summary: '',
     topicType: dto.topicType,
+    contestFormat: dto.contestFormat ? FORMAT_TO_CLIENT[dto.contestFormat] : undefined,
     subCategory: TAG_TO_LABEL[dto.partyTag],
     positions: dto.positions.map((position) => ({
       type: position.type,
       capacity: position.capacity,
       filledCount: position.filledCount,
     })),
-    applicants: 0,
+    applicants: dto.applicantCount ?? 0,
     dday: dto.dDay >= 0 ? `D-${dto.dDay}` : '마감',
     deadline: dto.deadline,
     createdAt: '',

@@ -64,8 +64,7 @@ export async function fetchPopularExhibitions(): Promise<ExhibitionProject[]> {
 interface PartyShowcaseResponse {
   partyId: number;
   partyName: string;
-  /** 백엔드가 제공하는 파티장 회원 ID. 배포 전 응답과의 호환을 위해 선택값으로 둔다. */
-  ownerId?: number;
+  /** 파티장 이름. PartyShowcaseDto 에 회원 id 는 없어 프로필 링크는 걸 수 없다 */
   ownerName: string;
   title: string | null;
   description: string | null;
@@ -88,7 +87,8 @@ function toExhibitionProject(showcase: PartyShowcaseResponse): ExhibitionProject
     likeCount: showcase.likeCount,
     sourcePartyId: String(showcase.partyId),
     leader: {
-      id: String(showcase.ownerId ?? showcase.partyId),
+      // id 가 없다. partyId 를 넣으면 남의 프로필로 가는 링크가 걸린다
+      id: '',
       name: showcase.ownerName,
       initial: showcase.ownerName.charAt(0) || 'C',
       role: '',

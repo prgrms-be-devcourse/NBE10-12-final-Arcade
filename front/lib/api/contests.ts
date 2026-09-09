@@ -6,6 +6,7 @@
  */
 import type { Contest, ContestDetail, ContestFormat, ContestTag } from '@/lib/types';
 import { MOCK_CONTESTS, MOCK_CONTEST_DETAILS, MOCK_HOST_COMPANY } from '@/lib/mock';
+import { type PartyListItemResponse, toParty } from './parties';
 import { USE_MOCK, http, mockResponse } from './client';
 
 /* ---------- 백엔드 응답 타입 ---------- */
@@ -33,6 +34,10 @@ export interface ContestResponse {
   bookmarkedByMe: boolean;
   likedByMe: boolean;
   createDate: string;
+  /** 이 대회를 연동한 파티 수. 목록·상세 모두 채워 온다 */
+  teams: number;
+  /** 연동된 파티 목록. 상세에서만 채워지고 목록에서는 빈 배열이다 */
+  relatedParties: PartyListItemResponse[];
 }
 
 interface LikeResponse {
@@ -100,7 +105,6 @@ function toStatus(endDate: string): Contest['status'] {
  *
  * 서버에 없어서 비워 두는 값:
  * - host  : 주최측 이름이 응답에 없다. hostId·creatorMemberId 만 온다
- * - teams : 참가팀 수 필드가 없다
  */
 export function toContest(dto: ContestResponse): Contest {
   return {
@@ -119,19 +123,16 @@ export function toContest(dto: ContestResponse): Contest {
     likeCount: dto.likeCount ?? 0,
     likedByMe: dto.likedByMe,
     bookmarkedByMe: dto.bookmarkedByMe,
-    teams: 0,
+    teams: dto.teams,
   };
 }
 
-/**
- * ContestResponseDto → ContestDetail.
- * relatedParties(참가팀 목록, 기획서 9.5)는 상세 응답에 아직 없어 비워 둔다.
- */
+/** ContestResponseDto → ContestDetail. relatedParties 는 파티 목록 카드와 같은 매퍼를 그대로 쓴다 */
 function toContestDetailResponse(dto: ContestResponse): ContestDetail {
   return {
     ...toContest(dto),
     description: dto.description ?? '',
-    relatedParties: [],
+    relatedParties: dto.relatedParties.map(toParty),
   };
 }
 
