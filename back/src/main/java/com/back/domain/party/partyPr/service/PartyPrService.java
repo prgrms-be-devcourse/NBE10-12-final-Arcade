@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -50,6 +51,9 @@ public class PartyPrService {
     private final PartyRepository partyRepository;
     private final PartyMemberRepository partyMemberRepository;
     private final PartyPrSseService partyPrSseService;
+    // 같은 JVM에서 initial sync와 webhook이 동시에 같은 신규 PR을 INSERT하는 경합을 막는다.
+    // DB unique constraint는 다중 인스턴스 환경의 최종 안전망으로 유지한다.
+    private final Map<String, Object> insertLocks = new ConcurrentHashMap<>();
 
     public List<PartyPrDto> getByPartyId(long partyId, Member actor) {
         Party party = party(partyId);
@@ -185,17 +189,21 @@ public class PartyPrService {
     }
 
     private void upsert(Party party, GithubPullRequestSnapshot data) {
-        PartyPr partyPr = partyPrRepository
-                .findByPartyIdAndGithubPrId(party.getId(), data.githubPrId())
-                .orElseGet(() -> new PartyPr(party, data));
-        // 초기 sync와 webhook이 경합해도 더 오래된 GitHub 상태가 최신 상태를 덮어쓰지 못하게 한다.
-        if (partyPr.getId() != null && partyPr.getGithubUpdatedAt() != null && data.githubUpdatedAt() != null
-            && data.githubUpdatedAt().isBefore(partyPr.getGithubUpdatedAt())) return;
-        partyPr.update(data);
-        partyPrRepository.save(partyPr);
-        PartyPrDto pullRequest = new PartyPrDto(partyPr);
-        PartyPrByMemberDto group = groupFor(party, pullRequest);
-        publishAfterCommit(party.getId(), pullRequest, group);
+        String key = party.getId() + ":" + data.githubPrId();
+        Object lock = insertLocks.computeIfAbsent(key, ignored -> new Object());
+        synchronized (lock) {
+            PartyPr partyPr = partyPrRepository
+                    .findByPartyIdAndGithubPrId(party.getId(), data.githubPrId())
+                    .orElseGet(() -> new PartyPr(party, data));
+            // 초기 sync와 webhook이 경합해도 더 오래된 GitHub 상태가 최신 상태를 덮어쓰지 못하게 한다.
+            if (partyPr.getId() != null && data.githubUpdatedAt().isBefore(partyPr.getGithubUpdatedAt())) return;
+            if (partyPr.getId() != null && partyPr.hasSameContent(data)) return;
+            partyPr.update(data);
+            partyPrRepository.save(partyPr);
+            PartyPrDto pullRequest = new PartyPrDto(partyPr);
+            PartyPrByMemberDto group = groupFor(party, pullRequest);
+            publishAfterCommit(party.getId(), pullRequest, group);
+        }
     }
 
     /** GitHub 외부 DTO를 PartyPr이 이해하는 내부 snapshot으로 변환하면서 필수 필드를 검증한다. */
@@ -209,7 +217,7 @@ public class PartyPrService {
             Boolean.TRUE.equals(pr.draft()),
             Boolean.TRUE.equals(pr.merged()) || pr.mergedAt() != null,
             pr.base() == null ? null : pr.base().ref(), pr.head() == null ? null : pr.head().ref(),
-            date(pr.createdAt()), date(pr.closedAt()), date(pr.mergedAt()), date(pr.updatedAt())
+            date(pr.createdAt()), date(pr.closedAt()), date(pr.mergedAt()), requiredDate(pr.updatedAt(), "updated_at")
         );
     }
 
@@ -234,6 +242,14 @@ public class PartyPrService {
 
     private OffsetDateTime date(String value) {
         return value == null || value.isBlank() ? null : OffsetDateTime.parse(value);
+    }
+
+    private OffsetDateTime requiredDate(String value, String field) {
+        OffsetDateTime parsed = date(value);
+        if (parsed == null) {
+            throw new ServiceException("400-2", "GitHub 웹훅 필수 값이 없습니다: " + field);
+        }
+        return parsed;
     }
 
     private Party party(long partyId) {
