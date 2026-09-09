@@ -218,13 +218,57 @@ public class PartyService {
                 party, PartyMemberStatus.APPROVED, party.getOwner())) {
             throw new ServiceException("409-3", "승인된 파티원이 있는 파티는 삭제할 수 없습니다. 먼저 승인을 취소해주세요.");
         }
+        removePartyRow(party);
+    }
 
-        // 남은 지원 기록(PENDING/REJECTED)은 position 을 참조하므로
-        // 파티(와 position)보다 먼저 지워야 FK 제약에 걸리지 않는다.
+    // 신고·정책 위반 대응이 목적이라 소유자·상태(checkDeletable)·승인된 파티원 존재 여부를
+    // 전혀 따지지 않는다 - 일반 사용자 delete()와 달리 관리자는 어떤 상태의 파티든 강제로 지울 수 있어야 한다.
+    @Transactional
+    public void deleteAsAdmin(long partyId) {
+        Party party = partyRepository.findById(partyId).orElse(null);
+        if (party == null) return; // 이미 없으면 성공으로 간주(멱등)
+
+        partySearchKeywordPort.deleteKeywordParty(partyId);
+
+        partyShowcaseRepository.findByParty(party).ifPresent(showcase -> {
+            likeInteractionPort.deleteAllLikesForTarget(TargetType.PARTY_SHOWCASE, showcase.getId());
+            bookmarkInteractionPort.deleteAllBookmarksForTarget(TargetType.PARTY_SHOWCASE, showcase.getId());
+        });
+
+        removePartyRow(party);
+
+        likeInteractionPort.deleteAllLikesForTarget(TargetType.PARTY, partyId);
+        bookmarkInteractionPort.deleteAllBookmarksForTarget(TargetType.PARTY, partyId);
+    }
+
+    // 남은 지원 기록(PENDING/REJECTED/APPROVED)은 position 을 참조하므로
+    // 파티(와 position)보다 먼저 지워야 FK 제약에 걸리지 않는다.
+    private void removePartyRow(Party party) {
         partyMemberRepository.deleteAllByParty(party);
         partyMemberRepository.flush();
 
         partyRepository.delete(party);
+    }
+
+    @Transactional
+    public void hide(long partyId) {
+        findByIdOrThrow(partyId).hide();
+    }
+
+    @Transactional
+    public void unhide(long partyId) {
+        findByIdOrThrow(partyId).unhide();
+    }
+
+    // 관리자 목록 - hidden 여부와 무관하게(또는 hidden 파라미터로 필터링해) 전부 조회
+    public Page<PartyListItemDto> getListForAdmin(String keyword, Boolean hidden, Pageable pageable) {
+        Page<Party> parties = partyRepository.searchForAdmin(keyword, hidden, pageable);
+
+        Map<Long, Long> applicantCounts = partyMemberRepository.countApplicantsByPartyIds(
+                parties.getContent().stream().map(Party::getId).toList());
+
+        return parties.map(party ->
+                new PartyListItemDto(party, applicantCounts.getOrDefault(party.getId(), 0L)));
     }
 
     private Party findByIdOrThrow(long partyId) {
@@ -272,6 +316,10 @@ public class PartyService {
     @Transactional
     public PartyDto getDetail(long partyId) {
         Party party = findByIdOrThrow(partyId);
+        // 관리자가 숨긴 파티는 목록뿐 아니라 상세 직접 접근도 막는다 - 삭제된 것과 동일하게 404 처리.
+        if (party.isHidden()) {
+            throw new ServiceException("404-1", "존재하지 않는 파티입니다.");
+        }
         party.increaseViewCount();
         return new PartyDto(party, partyMemberRepository.countApplicantsByPartyId(partyId));
     }
