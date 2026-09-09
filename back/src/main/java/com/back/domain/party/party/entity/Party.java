@@ -73,6 +73,10 @@ public class Party extends BaseEntity {
     @Column(nullable = false)
     private int viewCount;
 
+    // 관리자가 신고·정책 위반 파티를 목록/상세에서 숨길 때 쓴다. 삭제와 달리 데이터는 그대로 남는다.
+    @Column(nullable = false)
+    private boolean hidden;
+
     @Column(nullable = false)
     private LocalDateTime deadline;
 
@@ -111,6 +115,7 @@ public class Party extends BaseEntity {
         this.status = PartyStatus.RECRUITING;
         this.likeCount = 0;
         this.viewCount = 0;
+        this.hidden = false;
     }
 
     public void addPosition(Position position) {
@@ -124,6 +129,14 @@ public class Party extends BaseEntity {
 
     public boolean isOwnedBy(Member member) {
         return this.owner.getId().equals(member.getId());
+    }
+
+    public void hide() {
+        this.hidden = true;
+    }
+
+    public void unhide() {
+        this.hidden = false;
     }
 
     public void checkModifiable() {

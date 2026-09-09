@@ -19,7 +19,8 @@ import java.util.Optional;
 public interface PartyRepository extends JpaRepository<Party, Long>,PartyContestLookupPort{
     @Query("""
         select p from Party p
-        where (:keyword is null or p.partyName like concat('%', cast(:keyword as string), '%') or p.title like concat('%', cast(:keyword as string), '%'))
+        where p.hidden = false
+          and (:keyword is null or p.partyName like concat('%', cast(:keyword as string), '%') or p.title like concat('%', cast(:keyword as string), '%'))
           and (:partyTag is null or p.partyTag = :partyTag)
           and (:positionType is null or exists (
               select 1 from Position pos where pos.party = p and pos.type = :positionType
@@ -32,13 +33,26 @@ public interface PartyRepository extends JpaRepository<Party, Long>,PartyContest
             Pageable pageable
     );
 
+    // 관리자 목록 - 숨김 여부와 무관하게 전부 조회 대상. hidden이 null이면 전체, 값이 있으면 그 값으로 필터.
+    @Query("""
+    select p from Party p
+    where (:hidden is null or p.hidden = :hidden)
+      and (:keyword is null or p.partyName like concat('%', cast(:keyword as string), '%') or p.title like concat('%', cast(:keyword as string), '%'))
+    """)
+    Page<Party> searchForAdmin(
+            @Param("keyword") String keyword,
+            @Param("hidden") Boolean hidden,
+            Pageable pageable
+    );
+
     // 빈자리 합산(capacity-filledCount) 기준 정렬 - 집계라 Pageable Sort로 못 하고 쿼리에 직접 ORDER BY
     // 호출 시 Pageable은 반드시 Sort.unsorted()로 넘겨야 함 (안 그러면 Pageable Sort가 뒤에 덧붙어 충돌)
     @Query(
             value = """
             select p from Party p
             left join p.positions pos
-            where (:keyword is null or p.partyName like concat('%', cast(:keyword as string), '%') or p.title like concat('%', cast(:keyword as string), '%'))
+            where p.hidden = false
+              and (:keyword is null or p.partyName like concat('%', cast(:keyword as string), '%') or p.title like concat('%', cast(:keyword as string), '%'))
               and (:partyTag is null or p.partyTag = :partyTag)
               and (:positionType is null or exists (
                   select 1 from Position pos2 where pos2.party = p and pos2.type = :positionType
@@ -48,7 +62,8 @@ public interface PartyRepository extends JpaRepository<Party, Long>,PartyContest
             """,
             countQuery = """
             select count(p) from Party p
-            where (:keyword is null or p.partyName like concat('%', cast(:keyword as string), '%') or p.title like concat('%', cast(:keyword as string), '%'))
+            where p.hidden = false
+              and (:keyword is null or p.partyName like concat('%', cast(:keyword as string), '%') or p.title like concat('%', cast(:keyword as string), '%'))
               and (:partyTag is null or p.partyTag = :partyTag)
               and (:positionType is null or exists (
                   select 1 from Position pos2 where pos2.party = p and pos2.type = :positionType
@@ -83,7 +98,7 @@ public interface PartyRepository extends JpaRepository<Party, Long>,PartyContest
     @Query("""
         select p from Party p
         join fetch p.owner
-        where p.status = :status
+        where p.status = :status and p.hidden = false
         order by p.likeCount desc, p.id desc
         """)
     List<Party> findTopByStatusOrderByLikeCountDesc(@Param("status") PartyStatus status, Pageable pageable);
