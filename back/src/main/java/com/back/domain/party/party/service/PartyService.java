@@ -54,24 +54,24 @@ public class PartyService {
     private final PartyShowcaseRepository partyShowcaseRepository;
 
     public record PositionCreateSpec(
-        PositionType type,
-        int capacity
+            PositionType type,
+            int capacity
     ) { }
 
     @Transactional
     public PartyDto create(
-        Member owner,
-        String partyName,
-        String title,
-        String description,
-        Long targetContestId,
-        String contestTitle,
-        String contestLinkUrl,
-        TopicType topicType,
-        PartyTag partyTag,
-        String githubRepoUrl,
-        LocalDateTime deadline,
-        List<PositionCreateSpec> positionSpecs
+            Member owner,
+            String partyName,
+            String title,
+            String description,
+            Long targetContestId,
+            String contestTitle,
+            String contestLinkUrl,
+            TopicType topicType,
+            PartyTag partyTag,
+            String githubRepoUrl,
+            LocalDateTime deadline,
+            List<PositionCreateSpec> positionSpecs
     ) {
         if (positionSpecs == null || positionSpecs.isEmpty()) {
             throw new ServiceException("400-4", "포지션 정원은 1명 이상이어야 합니다.");
@@ -92,21 +92,21 @@ public class PartyService {
         }
 
         Party party = new Party(
-            owner,
-            partyName,
-            title,
-            description,
-            targetContest,
-            contestTitle,
-            contestLinkUrl,
-            topicType,
-            partyTag,
-            githubRepoUrl,
-            deadline
+                owner,
+                partyName,
+                title,
+                description,
+                targetContest,
+                contestTitle,
+                contestLinkUrl,
+                topicType,
+                partyTag,
+                githubRepoUrl,
+                deadline
         );
 
         positionSpecs.forEach(spec ->
-            party.addPosition(new Position(spec.type(), spec.capacity()))
+                party.addPosition(new Position(spec.type(), spec.capacity()))
         );
 
         Party savedParty = partyRepository.save(party);
@@ -171,10 +171,10 @@ public class PartyService {
         if (positionCapacityUpdates != null) {
             positionCapacityUpdates.forEach(spec -> {
                 if (spec.capacity() <= 0) {
-                throw new ServiceException("400-4", "포지션 정원은 1명 이상이어야 합니다.");
-            }
-            party.findPosition(spec.positionId()).changeCapacity(spec.capacity());
-        });
+                    throw new ServiceException("400-4", "포지션 정원은 1명 이상이어야 합니다.");
+                }
+                party.findPosition(spec.positionId()).changeCapacity(spec.capacity());
+            });
         }
 
         if (!previousTitle.equals(title)) {
