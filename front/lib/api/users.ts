@@ -13,6 +13,7 @@ import { CONTEST_FORMAT_LABELS, GOAL_SOURCE_LABELS, positionLabel } from '@/lib/
 import { ApiError, USE_MOCK, http, mockResponse } from './client';
 import { toDateText } from './time';
 import { type ContestResponse, toContest } from './contests';
+import { type GoalResponse, toAchievement } from './goals';
 import { type ShowcaseGoalResponse, toExhibitionProject } from './exhibitions';
 import { type PartyListItemResponse, toParty } from './parties';
 
@@ -147,23 +148,57 @@ export async function fetchMyProfileOrNull(): Promise<UserProfile | null> {
   }
 }
 
+/** 백엔드 MemberPublicProfileDto — GET /api/v1/members/{id} 응답 */
+export interface MemberPublicProfileResponse
+  extends Omit<MemberProfileResponse, 'email' | 'githubLinked'> {
+  completedParties: number;
+  awards: number;
+  exhibitions: number;
+  /** 연속 활동일 */
+  streakDays: number;
+  /** 최근 8주(56일) 활동 농도 0~3 */
+  activityHeatmap: number[];
+  /** 달성한 CONTEST 성취 */
+  achievements: GoalResponse[];
+  /** 가입 시각(ISO). '크루온 활동 N개월째' 를 여기서 센다 */
+  joinedAt: string;
+}
+
 /**
  * GET /api/v1/members/{id} — 특정 회원의 공개 프로필.
  *
  * 성취는 별도 비공개 설정 없이 전체 공개라(기획서 2.5) 파티장이 지원자 이력을 여기서 확인한다.
- * **SecurityConfig 는 이 경로를 permitAll 로 열어 뒀지만 컨트롤러가 아직 없다** -
- * 생기는 순간 이 호출이 그대로 살아난다.
  *
- * 그때까지는 데모 데이터를 진짜 프로필인 척 보여주지 않고 null 을 돌려준다 -
- * 남의 프로필 자리에 남의 것이 아닌 값이 뜨는 편이 훨씬 위험하다.
+ * 내 프로필과 달리 집계·성취가 한 응답에 함께 온다 - 남의 프로필을 열 때만 부르는 경로라
+ * /me 처럼 나눌 이유가 없다. email·githubLinked 는 본인 화면 전용이라 응답에 없다.
+ *
+ * 로그인 없이 열린다 - 조회는 비인증이 기획서 9.x 의 규칙이라 파티·전시 조회와 같은 취급이다.
+ * 공개해선 안 되는 값은 인가가 아니라 응답에서 빠져 있다(email·githubLinked).
+ *
+ * 없는 회원이면 404, 인가 규칙이 바뀌면 401 이 온다. 둘 다 '볼 수 없음' 이라 null 이다.
  */
 export async function fetchUserProfile(id: string): Promise<UserProfile | null> {
   if (USE_MOCK) return mockResponse(MOCK_PROFILES[id] ?? fallbackProfile(id));
 
   try {
-    return toUserProfile(await http.get<MemberProfileResponse>(`/members/${id}`));
+    const dto = await http.get<MemberPublicProfileResponse>(`/members/${id}`);
+
+    return {
+      // 공개 응답에 없는 두 값만 채워 내 프로필과 같은 변환을 그대로 쓴다
+      ...toUserProfile({ ...dto, email: '', githubLinked: false }),
+      stats: {
+        completedParties: dto.completedParties,
+        awards: dto.awards,
+        exhibitions: dto.exhibitions,
+        // 승인/거절 이력을 집계하는 값이 서버에 아직 없다(내 요약도 마찬가지다)
+        approvalRate: 0,
+      },
+      streakDays: dto.streakDays,
+      activityHeatmap: dto.activityHeatmap,
+      achievements: dto.achievements.map(toAchievement),
+      joinedAt: dto.joinedAt,
+    };
   } catch (error) {
-    // 컨트롤러가 없으면 404, 인가 규칙이 바뀌어 있으면 401 이 온다. 둘 다 '아직 볼 수 없음' 이다
     if (error instanceof ApiError && (error.status === 404 || error.status === 401)) return null;
     throw error;
   }
@@ -324,12 +359,14 @@ export interface MemberSummaryResponse {
   activityHeatmap: number[];
   /** 배지 도메인이 없어 아직 빈 배열이다 */
   badges: string[];
+  /** 가입 시각(ISO). '크루온 활동 N개월째' 를 여기서 센다 */
+  joinedAt: string;
 }
 
 /** UserProfile 에서 요약 API 가 채우는 부분 */
 export type ProfileSummary = Pick<
   UserProfile,
-  'stats' | 'streakDays' | 'activityHeatmap' | 'badges'
+  'stats' | 'streakDays' | 'activityHeatmap' | 'badges' | 'joinedAt'
 >;
 
 /**
@@ -348,6 +385,7 @@ export async function fetchMySummary(): Promise<ProfileSummary> {
       streakDays: mock.streakDays,
       activityHeatmap: mock.activityHeatmap,
       badges: mock.badges,
+      joinedAt: mock.joinedAt,
     });
   }
 
@@ -363,6 +401,7 @@ export async function fetchMySummary(): Promise<ProfileSummary> {
     activityHeatmap: dto.activityHeatmap,
     // 서버가 배지 이름만 준다. 도메인이 생기기 전까지는 아이콘·획득 여부를 알 수 없다
     badges: dto.badges.map((label) => ({ id: label, label, icon: 'star', earned: true })),
+    joinedAt: dto.joinedAt,
   };
 }
 
