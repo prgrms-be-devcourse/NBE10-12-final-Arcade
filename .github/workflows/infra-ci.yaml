@@ -1,0 +1,79 @@
+# 인프라 변경만 감지해 필수 검사와 참고 리포트를 분리한다.
+
+name: Infra CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths: &infra_paths
+      - "infra/**"
+      - "docker-compose*.yml"
+      - "back/Dockerfile"
+      - "front/Dockerfile"
+      - ".github/workflows/infra-ci.yaml"
+      - ".github/workflows/infra-cd.yaml"
+  push:
+    branches: [main, develop]
+    paths: *infra_paths
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # 검증한 도구 버전
+  ACTIONLINT: rhysd/actionlint:1.7.12
+  TERRAFORM: hashicorp/terraform:1.16.1
+  TFLINT: ghcr.io/terraform-linters/tflint:v0.64.0
+  HADOLINT: hadolint/hadolint:v2.15.1-alpine
+
+jobs:
+  # 실패하면 머지를 막는다.
+  blocking:
+    name: 차단 검사
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      # 서식 검사
+      - name: terraform fmt
+        run: |
+          docker run --rm -v "$PWD/infra/terraform":/tf -w /tf "$TERRAFORM" \
+            fmt -check -recursive -no-color
+      # 문법, 속성 타입, 리소스 간 참조 등 확인
+      - name: terraform validate
+        # 원격 상태와 자격증명 없이 검증한다.
+        run: |
+          docker run --rm -v "$PWD/infra/terraform":/tf -w /tf --entrypoint /bin/sh "$TERRAFORM" -c \
+            'terraform init -backend=false -input=false -no-color && terraform validate -no-color'
+
+      - name: actionlint
+        run: docker run --rm -v "$PWD":/repo -w /repo "$ACTIONLINT" -no-color
+
+  # 기존 경고는 보여주되 머지를 막지 않는다.
+  report:
+    name: 리포트 (차단 안 함)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: tflint
+        # 기본 규칙과 AWS 제공자 규칙을 함께 검사한다.
+        continue-on-error: true
+        run: |
+          docker run --rm -v "$PWD/infra/terraform":/data -w /data \
+            --entrypoint /bin/sh "$TFLINT" -c 'tflint --init && tflint --no-color'
+
+      - name: hadolint
+        # 수용한 경고가 있어 리포트로만 실행한다.
+        continue-on-error: true
+        run: |
+          for f in back/Dockerfile front/Dockerfile; do
+            echo "== $f"
+            docker run --rm -i "$HADOLINT" hadolint --no-color - < "$f" || true
+          done
