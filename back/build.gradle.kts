@@ -54,6 +54,10 @@ dependencies {
     runtimeOnly("com.h2database:h2")
     runtimeOnly("org.postgresql:postgresql")
 
+    // Flyway (DB 마이그레이션)
+    implementation("org.flywaydb:flyway-core")
+    implementation("org.flywaydb:flyway-database-postgresql")
+
     // S3 호환 파일 저장소 (S3, MinIO)
     implementation("software.amazon.awssdk:s3:2.31.78")
 
