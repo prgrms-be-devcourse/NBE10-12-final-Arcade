@@ -83,6 +83,8 @@ public interface GoalRepository extends JpaRepository<Goal, Long>, GoalRepositor
     // id가 가장 작은 것을 대표로 고정한다
     @Query("""
         select p from Project p
+        join fetch p.partyShowcase ps
+        join fetch ps.party
         where p.id in (
             select min(p2.id) from Project p2
             where p2.partyShowcase.id in :showcaseIds
