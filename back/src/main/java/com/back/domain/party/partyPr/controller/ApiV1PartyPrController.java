@@ -2,33 +2,20 @@ package com.back.domain.party.partyPr.controller;
 
 import com.back.domain.party.partyPr.dtos.PartyPrDto;
 import com.back.domain.party.partyPr.dtos.PartyPrByMemberDto;
-import com.back.domain.party.partyPr.service.PartyPrService;
 import com.back.domain.party.partyPr.service.PartyPrQueryService;
 import com.back.domain.party.github.service.PartyGithubConnectionService;
-import com.back.domain.party.github.service.GithubInstallationInventoryService;
-import com.back.global.github.service.GithubWebhookService;
 import com.back.domain.party.github.dtos.PartyGithubConnectionDto;
 import com.back.domain.party.github.dtos.GithubAppInstallUrlDto;
-import com.back.domain.party.partyPr.service.PartyPrSseService;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
-import com.back.global.exception.ServiceException;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.net.URI;
 import java.util.List;
 
 @RestController
@@ -37,13 +24,7 @@ import java.util.List;
 public class ApiV1PartyPrController {
     private final PartyPrQueryService partyPrQueryService;
     private final PartyGithubConnectionService githubConnectionService;
-    private final GithubInstallationInventoryService githubInstallationInventoryService;
-    private final GithubWebhookService githubWebhookService;
-    private final PartyPrSseService partyPrSseService;
     private final Rq rq;
-
-    @Value("${custom.frontend.base-url:/}")
-    private String frontendBaseUrl;
 
     @GetMapping("/parties/{partyId}/github-connection")
     public RsData<PartyGithubConnectionDto> getGithubConnection(
