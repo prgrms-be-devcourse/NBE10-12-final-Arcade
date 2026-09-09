@@ -114,13 +114,11 @@ public class PartyPrService {
         Party party = party(partyId);
         ensureReadable(party, actor);
 
-        Member member = partyMemberRepository
-                .findAllByParty(party)
-                .stream()
-                .filter(partyMember -> partyMember.getMember().getId() == memberId)
-                .filter(partyMember -> partyMember.getStatus() == PartyMemberStatus.APPROVED)
+        Member member = party.getOwner().getId() == memberId
+                ? party.getOwner()
+                : partyMemberRepository
+                .findByParty_IdAndMember_IdAndStatus(partyId, memberId, PartyMemberStatus.APPROVED)
                 .map(PartyMember::getMember)
-                .findFirst()
                 .orElseThrow(() -> new ServiceException(
                         "404-2", "파티장 또는 승인된 파티원을 찾을 수 없습니다."
                 ));
