@@ -3,6 +3,7 @@ package com.back.domain.party.partyPr.controller;
 import com.back.domain.party.partyPr.dtos.PartyPrDto;
 import com.back.domain.party.partyPr.dtos.PartyPrByMemberDto;
 import com.back.domain.party.partyPr.service.PartyPrService;
+import com.back.domain.party.partyPr.service.PartyPrQueryService;
 import com.back.domain.party.github.service.PartyGithubConnectionService;
 import com.back.domain.party.github.service.GithubInstallationInventoryService;
 import com.back.global.github.service.GithubWebhookService;
@@ -34,7 +35,7 @@ import java.util.List;
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class ApiV1PartyPrController {
-    private final PartyPrService partyPrService;
+    private final PartyPrQueryService partyPrQueryService;
     private final PartyGithubConnectionService githubConnectionService;
     private final GithubInstallationInventoryService githubInstallationInventoryService;
     private final GithubWebhookService githubWebhookService;
@@ -99,7 +100,7 @@ public class ApiV1PartyPrController {
         return new RsData<>(
                 "200-1",
                 "PR 목록 조회 성공",
-                partyPrService.getByPartyId(partyId, rq.getActorFromDb())
+                partyPrQueryService.getByPartyId(partyId, rq.getActorFromDb())
         );
     }
 
@@ -109,7 +110,7 @@ public class ApiV1PartyPrController {
         return new RsData<>(
                 "200-1",
                 "담당자별 PR 목록 조회 성공",
-                partyPrService.getByPartyIdGroupedByMember(partyId, rq.getActorFromDb())
+                partyPrQueryService.getByPartyIdGroupedByMember(partyId, rq.getActorFromDb())
         );
     }
 
@@ -120,7 +121,7 @@ public class ApiV1PartyPrController {
         return new RsData<>(
                 "200-1",
                 "파티 내 PR 목록 조회 성공",
-                partyPrService.getByPartyIdAndMemberId(partyId, actor.getId(), actor)
+                partyPrQueryService.getByPartyIdAndMemberId(partyId, actor.getId(), actor)
         );
     }
 
@@ -132,80 +133,14 @@ public class ApiV1PartyPrController {
         return new RsData<>(
                 "200-1",
                 "파티원 PR 목록 조회 성공",
-                partyPrService.getByPartyIdAndMemberId(partyId, memberId, rq.getActorFromDb())
+                partyPrQueryService.getByPartyIdAndMemberId(partyId, memberId, rq.getActorFromDb())
         );
-    }
-
-    @GetMapping(value = "/parties/{partyId}/pull-requests/stream", produces = "text/event-stream")
-    public SseEmitter streamPullRequests(
-            @PathVariable long partyId,
-            HttpServletResponse response) {
-        // snapshot 조회에서 Party 권한을 먼저 검증하고, 같은 snapshot을 첫 SSE 이벤트로 전달한다.
-        try {
-            List<PartyPrDto> snapshot = partyPrService.getByPartyId(partyId, rq.getActorFromDb());
-            return partyPrSseService.subscribe(partyId, snapshot);
-        } catch (ServiceException exception) {
-            // EventSource의 Accept: text/event-stream에서는 JSON 예외 응답의 content negotiation이 실패할 수 있다.
-            // 연결 자체를 HTTP 오류로 끝내면 브라우저는 onerror를 호출하고 stream을 열지 않는다.
-            response.setStatus(exception.getRsData().statusCode());
-            SseEmitter emitter = new SseEmitter(0L);
-            emitter.complete();
-            return emitter;
-        }
-    }
-
-    @GetMapping(value = "/parties/{partyId}/pull-requests/grouped-by-member/stream", produces = "text/event-stream")
-    public SseEmitter streamPullRequestsGroupedByMember(
-            @PathVariable long partyId,
-            HttpServletResponse response) {
-        try {
-            List<PartyPrByMemberDto> snapshot =
-                    partyPrService.getByPartyIdGroupedByMember(partyId, rq.getActorFromDb());
-            return partyPrSseService.subscribeGrouped(partyId, snapshot);
-        } catch (ServiceException exception) {
-            return rejectedStream(response, exception);
-        }
-    }
-
-    @GetMapping(value = "/parties/{partyId}/pull-requests/members/me/stream", produces = "text/event-stream")
-    public SseEmitter streamMyPullRequestsInParty(
-            @PathVariable long partyId,
-            HttpServletResponse response) {
-        try {
-            var actor = rq.getActor();
-            PartyPrByMemberDto snapshot =
-                    partyPrService.getByPartyIdAndMemberId(partyId, actor.getId(), actor);
-            return partyPrSseService.subscribeMember(partyId, snapshot.githubUserId(), snapshot);
-        } catch (ServiceException exception) {
-            return rejectedStream(response, exception);
-        }
-    }
-
-    @GetMapping(value = "/parties/{partyId}/pull-requests/members/{memberId:\\d+}/stream", produces = "text/event-stream")
-    public SseEmitter streamPullRequestsByMember(
-            @PathVariable long partyId,
-            @PathVariable long memberId,
-            HttpServletResponse response) {
-        try {
-            PartyPrByMemberDto snapshot = partyPrService.getByPartyIdAndMemberId(
-                    partyId, memberId, rq.getActorFromDb());
-            return partyPrSseService.subscribeMember(partyId, snapshot.githubUserId(), snapshot);
-        } catch (ServiceException exception) {
-            return rejectedStream(response, exception);
-        }
-    }
-
-    private SseEmitter rejectedStream(HttpServletResponse response, ServiceException exception) {
-        response.setStatus(exception.getRsData().statusCode());
-        SseEmitter emitter = new SseEmitter(0L);
-        emitter.complete();
-        return emitter;
     }
 
     @GetMapping("/pull-requests/me")
     public RsData<List<PartyPrDto>> getMyPullRequests() {
         return new RsData<>("200-1", "내 GitHub PR 목록 조회 성공",
-                partyPrService.getMyPullRequests(rq.getActorFromDb()));
+                partyPrQueryService.getMyPullRequests(rq.getActorFromDb()));
     }
 
     @PostMapping("/github/webhook")
