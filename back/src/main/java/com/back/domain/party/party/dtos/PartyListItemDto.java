@@ -30,7 +30,9 @@ public record PartyListItemDto(
          * 이 값을 세지 않는 조회(홈 TOP3)에서는 null - 0(지원자 없음)과 구분된다.
          */
         Long applicantCount,
-        List<PositionDto> positions
+        List<PositionDto> positions,
+        // 관리자 목록에서만 의미 있게 쓰인다. 일반 목록 조회는 애초에 hidden=true를 제외하고 가져오므로 항상 false.
+        boolean hidden
 ) {
     // 지원자 수를 세지 않는 조회용. 세는 쪽은 아래 생성자로 값을 넘긴다.
     public PartyListItemDto(Party party) {
@@ -52,7 +54,8 @@ public record PartyListItemDto(
                 party.getLikeCount(),
                 party.getViewCount(),
                 applicantCount,
-                party.getPositions().stream().map(PositionDto::new).toList()
+                party.getPositions().stream().map(PositionDto::new).toList(),
+                party.isHidden()
         );
     }
 }
