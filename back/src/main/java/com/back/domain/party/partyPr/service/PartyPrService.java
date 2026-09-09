@@ -232,14 +232,18 @@ public class PartyPrService {
             PartyPrDto pullRequest = new PartyPrDto(partyPr);
             PartyPrByMemberDto group = groupFor(party, pullRequest);
             publishAfterCommit(party.getId(), pullRequest, group);
-        } finally {
+        } finally { releaseAfterTransaction(key, lock); }
+    }
+
+    private void releaseAfterTransaction(String key, InsertLock lock) {
+        Runnable release = () -> {
             lock.lock.unlock();
-            // compute 안에서 참조 수를 줄여, 새 사용자가 같은 락을 획득한 직후 제거되는 경쟁을 막는다.
-            insertLocks.compute(key, (ignored, current) -> {
-                if (current != lock) return current;
-                return --lock.users == 0 ? null : lock;
-            });
-        }
+            insertLocks.compute(key, (ignored, current) -> current != lock ? current : --lock.users == 0 ? null : lock);
+        };
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) { release.run(); return; }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCompletion(int status) { release.run(); }
+        });
     }
 
     private static final class InsertLock {

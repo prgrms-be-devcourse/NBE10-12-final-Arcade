@@ -77,8 +77,8 @@ public class PartyPrQueryService {
 
     public List<PartyPrDto> getMyPullRequests(Member actor) {
         if (actor == null || actor.getGithubUserId() == null) throw new ServiceException("400-20", "GITHUB_ACCOUNT_LINK_REQUIRED");
-        return partyPrRepository.findAllByAuthorGithubUserIdOrderByGithubUpdatedAtDesc(actor.getGithubUserId()).stream()
-                .filter(pr -> canRead(pr.getParty(), actor)).map(PartyPrDto::new).toList();
+        return partyPrRepository.findReadableByAuthorGithubUserId(actor.getGithubUserId(), actor)
+                .stream().map(PartyPrDto::new).toList();
     }
 
     private Party readableParty(long partyId, Member actor) {
