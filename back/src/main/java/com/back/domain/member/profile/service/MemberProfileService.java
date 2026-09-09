@@ -5,6 +5,7 @@ import com.back.domain.member.profile.dtos.LinkCommand;
 import com.back.domain.member.profile.dtos.MemberProfileDto;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
+import com.back.domain.member.member.repository.MemberRepository;
 import com.back.domain.member.profile.entity.MemberProfile;
 import com.back.domain.member.profile.repository.MemberProfileRepository;
 import com.back.global.app.CustomConfigProperties;
@@ -30,16 +31,14 @@ public class MemberProfileService {
             List.of("image/jpeg", "image/png");
 
     private final MemberProfileRepository memberProfileRepository;
+    private final MemberRepository memberRepository;
     private final FileStorage fileStorage;
     private final CustomConfigProperties customConfigProperties;
 
     @Transactional
     public MemberProfileDto me(Member actor) {
 
-        MemberProfile profile = memberProfileRepository.findByMember(actor)
-                .orElseGet(() -> memberProfileRepository.save(new MemberProfile(actor)));
-
-        return new MemberProfileDto(profile);
+        return new MemberProfileDto(getOrCreateProfile(actor));
 
     }
 
@@ -50,8 +49,7 @@ public class MemberProfileService {
             PositionType position, List<String> techStacks,
             List<CareerCommand> careers, List<LinkCommand> links) {
 
-        MemberProfile profile = memberProfileRepository.findByMember(actor)
-                .orElseGet(() -> memberProfileRepository.save(new MemberProfile(actor)));
+        MemberProfile profile = getOrCreateProfile(actor);
 
         profile.modify(nickname, webpage, profileImageUrl, bio,
                 position, techStacks, careers, links);
@@ -67,6 +65,24 @@ public class MemberProfileService {
         }
 
         return new MemberProfileDto(profile);
+    }
+
+    /**
+     * 프로필이 없으면 만들어 돌려준다.
+     *
+     * 마이페이지가 열리면 조회(GET /me)와 자동저장(PATCH /me)이 거의 동시에 들어오는데,
+     * 둘 다 없는 프로필을 각자 INSERT 하면 member 유니크 제약에 걸려 500 이 나간다.
+     * 없을 때만 회원 행을 잠가 최초 생성을 한 줄로 세운다 - 이미 있으면 잠그지 않으니
+     * 거의 모든 화면이 부르는 조회 경로에는 잠금이 걸리지 않는다.
+     */
+    private MemberProfile getOrCreateProfile(Member actor) {
+        return memberProfileRepository.findByMember(actor)
+                .orElseGet(() -> {
+                    memberRepository.findByIdForUpdate(actor.getId()).orElseThrow();
+
+                    return memberProfileRepository.findByMember(actor)
+                            .orElseGet(() -> memberProfileRepository.save(new MemberProfile(actor)));
+                });
     }
 
     /** 저장만 하고 URL 을 돌려준다. 프로필에 반영하는 건 수정 요청의 몫이다. */
