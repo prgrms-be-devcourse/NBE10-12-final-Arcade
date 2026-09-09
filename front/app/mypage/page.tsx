@@ -10,7 +10,6 @@ import {
   fetchMyPartyApplicants,
   fetchMyProfileOrNull,
   fetchMySummaryOrEmpty,
-  fetchPublishedPartyIds,
   fetchTodos,
 } from '@/lib/api';
 import type { Applicant } from '@/lib/types';
@@ -48,14 +47,6 @@ export default async function MyPage({
       fetchMyBookmarks(),
     ]);
 
-  // 전시가 게시된 파티만 히스토리에 '전시 페이지 보기' 를 단다(기획서 2.11).
-  // 완료된 파티만 확인한다 - 진행중이면 전시 자체가 없다.
-  const publishedPartyIds = await fetchPublishedPartyIds(
-    achievements
-      .filter((goal) => goal.type === 'PROJECT' && goal.status === 'ACHIEVED')
-      .map((goal) => goal.sourcePartyId ?? ''),
-  );
-
   // 로그인해야 볼 수 있는 화면이다
   // 로그인해야 볼 수 있는 화면이지만 로그인 화면으로 밀어내지 않고 메인으로 돌려보낸다.
   // 로그인 없이도 둘러볼 수 있는 서비스라 로그인을 강요하는 인상을 주지 않게 한다.
@@ -73,7 +64,6 @@ export default async function MyPage({
       messageTotalPages={messages.totalPages}
       bookmarks={bookmarks}
       myParties={toMyParties(applicants)}
-      publishedPartyIds={publishedPartyIds}
     />
   );
 }

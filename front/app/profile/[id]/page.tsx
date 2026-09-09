@@ -6,32 +6,28 @@ import { ProjectCard } from '@/components/exhibition/ProjectCard';
 import { BackLink } from '@/components/ui/BackLink';
 import { Block, SideCard } from '@/components/ui/Block';
 import { ChipRow, SkillChip } from '@/components/ui/Tag';
-import { fetchExhibitions, fetchMyProfileOrNull, fetchUserProfile } from '@/lib/api';
+import { fetchMemberShowcases, fetchMyProfileOrNull, fetchUserProfile } from '@/lib/api';
 
 export default async function PublicProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [profile, exhibitions, me] = await Promise.all([
+  const [profile, myProjects, me] = await Promise.all([
     fetchUserProfile(id),
-    fetchExhibitions(),
+    fetchMemberShowcases(id),
     fetchMyProfileOrNull(),
   ]);
 
-  // 공개 프로필 조회(GET /members/{id})가 아직 서버에 없다.
-  // 데모 데이터로 화면을 채우면 남의 프로필 자리에 남의 것이 아닌 값이 뜬다.
+  // 없는 회원(404)이다. 데모 데이터로 채우면 남의 프로필 자리에 남의 것이 아닌 값이 뜬다.
   if (!profile) {
     return (
       <main>
         <div className="profile-view-wrap">
           <BackLink />
-          <p className="notif-empty">
-            이 회원의 공개 프로필은 아직 준비 중이에요. 궁금한 점은 쪽지로 물어봐 주세요.
-          </p>
+          <p className="notif-empty">찾을 수 없는 회원이에요. 주소를 다시 확인해 주세요.</p>
         </div>
       </main>
     );
   }
 
-  const myProjects = exhibitions.filter((project) => project.leader?.id === profile.id);
   const isMe = profile.id === me?.id;
   const awards = profile.achievements.filter((item) => item.type === 'CONTEST');
 
@@ -51,7 +47,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
           </div>
         )}
 
-        <HeroStats streakDays={profile.streakDays} />
+        <HeroStats streakDays={profile.streakDays} activityHeatmap={profile.activityHeatmap} />
 
         <Block>
           <div className="history-panel">

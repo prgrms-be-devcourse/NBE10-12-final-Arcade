@@ -42,6 +42,21 @@ public interface PartyShowcaseRepository extends JpaRepository<PartyShowcase, Lo
             """)
     long countPublishedByAssembledMember(@Param("member") Member member);
 
+    // 공개 프로필 '참여한 프로젝트' 목록 - 위 건수 쿼리와 **같은 조건**이어야 한다.
+    // 기준이 갈리면 같은 화면에서 '자동기록 3건' 인데 카드가 2장 뜨는 일이 생긴다.
+    // party 를 fetch join 해서 카드마다 파티를 다시 읽지 않게 한다.
+    @Query("""
+            select ps from PartyShowcase ps
+            join fetch ps.party
+            where ps.published = true
+              and ps.party in (
+                  select atm.partyAssemble.party from PartyAssembleToMember atm
+                  where atm.member = :member
+              )
+            order by ps.publishedAt desc
+            """)
+    List<PartyShowcase> findPublishedByAssembledMember(@Param("member") Member member);
+
     // 전시관 목록 - 게시된 것만 분야(partyTag) 필터는 null이면 전체
     // party/owner를 fetch join해서 목록 페이지에서 파티마다 추가 쿼리 나가는 걸 막는다
     @Query("""

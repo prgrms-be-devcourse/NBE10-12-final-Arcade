@@ -1,5 +1,6 @@
 package com.back.domain.member.profile.dtos;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -21,6 +22,8 @@ public record MemberSummaryDto(
         /** 최근 8주(56일) 활동 농도를 오래된 날부터 늘어놓은 0~3 값. 마이페이지 히트맵이 쓴다. */
         List<Integer> activityHeatmap,
         /** 획득 배지. 배지 도메인이 없어 아직 빈 배열이다. */
-        List<String> badges
+        List<String> badges,
+        /** 가입 시각. 히어로의 '크루온 활동 N개월째' */
+        LocalDateTime joinedAt
 ) {
 }

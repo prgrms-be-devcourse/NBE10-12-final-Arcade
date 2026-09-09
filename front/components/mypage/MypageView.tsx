@@ -41,8 +41,6 @@ interface MypageViewProps {
   messageTotalPages: number;
   bookmarks: BookmarkItem[];
   myParties: { id: string; title: string }[];
-  /** 전시가 게시된 파티 id. 게시된 것만 '전시 페이지 보기' 를 단다(기획서 2.11) */
-  publishedPartyIds: string[];
 }
 
 export function MypageView({
@@ -56,7 +54,6 @@ export function MypageView({
   messageTotalPages,
   bookmarks,
   myParties,
-  publishedPartyIds,
 }: MypageViewProps) {
   const router = useRouter();
   const [profile, setProfile] = useState(initialProfile);
@@ -101,7 +98,7 @@ export function MypageView({
             <MypageTabs active={activeTab} onChange={changeTab} />
 
             {activeTab === 'identity' ? (
-              <IdentityTab profile={profile} publishedPartyIds={publishedPartyIds} />
+              <IdentityTab profile={profile} />
             ) : null}
 
             {activeTab === 'todo' ? (
@@ -192,16 +189,9 @@ export function MypageView({
 }
 
 /** 프로필(정체성) 탭 */
-function IdentityTab({
-  profile,
-  publishedPartyIds,
-}: {
-  profile: UserProfile;
-  publishedPartyIds: string[];
-}) {
+function IdentityTab({ profile }: { profile: UserProfile }) {
   // 참여 파티 이력은 PROJECT 성취다 (GET /goals/me 로 이미 받아온 목록에서 고른다)
   const partyHistory = profile.achievements.filter((item) => item.type === 'PROJECT');
-  const published = new Set(publishedPartyIds);
   return (
     <div className="mypage-tab-panel">
       <DetailGrid
@@ -235,7 +225,7 @@ function IdentityTab({
                           >
                             팀 페이지 보기 →
                           </Link>
-                          {published.has(project.sourcePartyId) ? (
+                          {project.exhibited ? (
                             <>
                               {' · '}
                               <Link

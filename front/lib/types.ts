@@ -98,6 +98,11 @@ export interface Achievement {
   sourcePartyId?: ID;
   /** PROJECT 에서 그 파티에 맡았던 포지션 문구. 참여 파티 히스토리에 쓴다 */
   positionLabel?: string;
+  /**
+   * PROJECT 에서 파티장이 전시글을 실제로 게시했는지. 그 외 타입은 없다.
+   * 완료(ACHIEVED)만 보고 '전시 페이지 보기' 를 달면 전시를 올리지 않은 파티에서 빈 초안이 열린다.
+   */
+  exhibited?: boolean;
 }
 
 export interface CareerItem {
@@ -160,6 +165,11 @@ export interface UserProfile extends UserSummary {
   /** 최근 8주(56일) 활동 농도 0~3. GET /members/me/summary 가 준다 */
   activityHeatmap?: number[];
   badges: BadgeItem[];
+  /**
+   * 가입 시각(ISO). 프로필 카드의 '크루온 활동 N개월째' 를 여기서 센다.
+   * 요약 API 가 주기 전(비로그인·목)에는 없어서, 없으면 그 문구를 아예 그리지 않는다.
+   */
+  joinedAt?: string;
   achievements: Achievement[];
   careers: CareerItem[];
   links: ProfileLink[];
