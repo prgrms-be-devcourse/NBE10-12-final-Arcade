@@ -9,7 +9,7 @@ import { MOCK_PARTY_GITHUB_CONNECTION, MOCK_PARTY_PULL_REQUESTS } from '@/lib/mo
 import type { PartyPrGroup } from './partyPrGroups';
 import { ApiError, USE_MOCK, http, mockResponse } from './client';
 
-export { applyPullRequestToGroups, groupLabel, type PartyPrGroup } from './partyPrGroups';
+export { groupLabel, replacePrGroup, type PartyPrGroup } from './partyPrGroups';
 
 /**
  * 백엔드 PartyGithubConnectionStatus.
@@ -98,14 +98,6 @@ function toPullRequest(dto: PartyPrResponse): PartyPullRequest {
  */
 export function isServerPartyId(partyId: string): boolean {
   return /^\d+$/.test(partyId);
-}
-
-/**
- * SSE 로 받은 PR 한 건을 화면 타입으로 옮긴다. 목록 조회와 같은 매퍼를 써서 두 경로가 어긋나지 않게 한다.
- * 담당자별 stream 은 `snapshot`(묶음 목록)과 `pull-request`(PR 한 건)를 보낸다.
- */
-export function parsePartyPullRequest(json: string): PartyPullRequest {
-  return toPullRequest(JSON.parse(json) as PartyPrResponse);
 }
 
 /** GET /api/v1/parties/{partyId}/github-connection — 연결 상태 */
@@ -200,6 +192,11 @@ export async function fetchPartyPrGroupsOrEmpty(partyId: string): Promise<PartyP
 /** 담당자별 SSE 의 snapshot 이벤트. 같은 매퍼를 써서 목록 조회와 어긋나지 않게 한다 */
 export function parsePartyPrGroups(json: string): PartyPrGroup[] {
   return (JSON.parse(json) as PartyPrGroupResponse[]).map(toPrGroup);
+}
+
+/** 담당자별 SSE 의 pull-request-group 이벤트 — 바뀐 작성자 묶음 하나가 통째로 온다 */
+export function parsePartyPrGroup(json: string): PartyPrGroup {
+  return toPrGroup(JSON.parse(json) as PartyPrGroupResponse);
 }
 
 /** 팀원 목록용 — 크루온 회원인 묶음만, 파티장을 앞에 둔다 */

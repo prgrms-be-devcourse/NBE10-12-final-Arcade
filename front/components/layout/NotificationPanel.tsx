@@ -19,13 +19,12 @@ const NOTIF_ICONS: Record<NotificationType, IconName> = {
 };
 
 const NOTIF_ROUTES: Record<NotificationTarget, string> = {
-  team: '/party/paybridge/team',
-  detail: '/party/oakroom',
   mypageManage: '/mypage?tab=manage',
   mypageMessages: '/mypage?tab=messages',
   mypageIdentity: '/mypage?tab=identity',
   mypageBookmarks: '/mypage?tab=bookmarks',
   contests: '/contests',
+  exhibition: '/exhibition',
 };
 
 /** 한 번에 읽어오는 건수. 서버 기본값과 같지만 화면이 정한 값임을 드러낸다 */

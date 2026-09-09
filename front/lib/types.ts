@@ -407,13 +407,12 @@ export type NotificationType =
   | 'comment';
 
 export type NotificationTarget =
-  | 'team'
-  | 'detail'
   | 'mypageManage'
   | 'mypageMessages'
   | 'mypageIdentity'
+  | 'mypageBookmarks'
   | 'contests'
-  | 'mypageBookmarks';
+  | 'exhibition';
 
 export interface AppNotification {
   id: ID;

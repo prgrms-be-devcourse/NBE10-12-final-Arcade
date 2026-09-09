@@ -2,11 +2,11 @@
 
 import { useState } from 'react';
 import {
-  applyPullRequestToGroups,
   groupLabel,
   isServerPartyId,
+  parsePartyPrGroup,
   parsePartyPrGroups,
-  parsePartyPullRequest,
+  replacePrGroup,
   type PartyPrGroup,
   type PartyPullRequest,
 } from '@/lib/api';
@@ -84,9 +84,9 @@ export function PullRequestList({
     {
       // 연결·재연결 때마다 서버가 현재 묶음 전체를 먼저 보낸다. 끊긴 동안의 빈 구간이 여기서 메꿔진다.
       snapshot: (data) => setGroups(parsePartyPrGroups(data)),
-      // 갱신 이벤트는 묶음이 아니라 PR 한 건이라, 어느 묶음 것인지 화면이 찾아 넣어야 한다.
-      'pull-request': (data) =>
-        setGroups((prev) => applyPullRequestToGroups(prev, parsePartyPullRequest(data))),
+      // 갱신도 snapshot 과 같은 묶음 형태로 온다 (ARC-130). 바뀐 작성자 묶음만 갈아 끼운다.
+      'pull-request-group': (data) =>
+        setGroups((prev) => replacePrGroup(prev, parsePartyPrGroup(data))),
     },
   );
 
