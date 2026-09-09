@@ -23,10 +23,18 @@ export const POSITION_LABELS: Record<PositionType, string> = {
   BACK: '백엔드',
   FRONT: '프론트엔드',
   UIUX: 'UI/UX',
-  PM: 'PM',
+  PM: '기획·PM',
 };
 
 export const positionLabel = (type: PositionType) => POSITION_LABELS[type];
+
+/**
+ * 서버가 준 포지션 문자열을 화면 타입으로 옮긴다.
+ * 모르는 값(신규 enum·레거시 데이터)은 BACK 으로 둔다 — POSITION_LABELS 조회가 undefined 로 깨지지 않도록.
+ */
+export function toPositionType(value: string | undefined | null): PositionType {
+  return POSITION_TYPES.includes(value as PositionType) ? (value as PositionType) : 'BACK';
+}
 
 /* ---------- 파티 주제 유형 (기획서 3.5) ---------- */
 

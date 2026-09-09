@@ -4,7 +4,7 @@ import { todoCategoryLabel } from '@/lib/constants';
 import { USE_MOCK, http, mockResponse } from './client';
 
 /** 개인 TODO 상세 화면(솔로 팀 스페이스)이 쓰는 모양. */
-export interface SoloSpaceData {
+export interface SoloSpaceDetail {
   id: string;
   title: string;
   /** 화면에 보여줄 분류 문구. 서버 TodoCategory 를 한글로 옮긴 값이다 */
@@ -62,18 +62,11 @@ function toTodoItem(dto: PersonalTodoResponse): TodoItem {
   };
 }
 
-/**
- * 개인 TODO 항목에는 담당자·승인 정족수 개념이 없다.
- * ChecklistItem 은 팀 체크리스트와 공유하는 타입이라 그 자리를 비워 둔다.
- */
 function toChecklistItem(item: PersonalTodoItemResponse): ChecklistItem {
   return {
     id: String(item.id),
     content: item.content,
     state: item.done ? 'done' : 'open',
-    assignee: null,
-    approvals: 0,
-    quorum: 0,
   };
 }
 
@@ -147,7 +140,7 @@ async function fetchRemainingItems(id: string): Promise<PersonalTodoItemResponse
 }
 
 /** GET /todos/{id} — 개인 TODO 상세(솔로 팀 스페이스) */
-export async function fetchSoloSpace(id: string): Promise<SoloSpaceData> {
+export async function fetchSoloSpace(id: string): Promise<SoloSpaceDetail> {
   if (USE_MOCK) {
     const found = MOCK_SOLO_SPACES[id];
     if (found) {
@@ -197,9 +190,6 @@ export async function createSoloItem(id: string, content: string): Promise<Check
       id: `solo-${Date.now()}`,
       content,
       state: 'open',
-      assignee: '정하늘',
-      approvals: 0,
-      quorum: 0,
     });
   }
   return toChecklistItem(
@@ -218,9 +208,6 @@ export async function updateSoloItem(
       id: itemId,
       content,
       state: 'open',
-      assignee: null,
-      approvals: 0,
-      quorum: 0,
     });
   }
   return toChecklistItem(
@@ -236,18 +223,11 @@ export async function deleteSoloItem(id: string, itemId: string): Promise<void> 
 
 /**
  * POST /todos/{id}/items/{itemId}/complete — 할 일 완료.
- *
- * 서버에 되돌리기 API 가 없다(화면에도 되돌리기 UI 가 없다). 그래서 해제는 아무것도 하지 않는다.
+ * 서버에 되돌리기 API 가 없어 완료만 있다(화면에도 되돌리기 UI 가 없다).
  */
-export async function toggleSoloItem(
-  id: string,
-  itemId: string,
-  done: boolean,
-): Promise<void> {
+export async function completeSoloItem(id: string, itemId: string): Promise<void> {
   if (USE_MOCK) return mockResponse(undefined as void);
-  if (done) {
-    await http.post<void>(`/todos/${id}/items/${itemId}/complete`);
-  }
+  await http.post<void>(`/todos/${id}/items/${itemId}/complete`);
 }
 
 /** PATCH /todos/{id} — TODO 완료 상태 변경 */

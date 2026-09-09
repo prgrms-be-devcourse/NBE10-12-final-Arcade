@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { finishParty } from '@/lib/api';
+import { completeParty } from '@/lib/api';
 
 export function FinishPartyButton({ partyId }: { partyId: string }) {
   const [done, setDone] = useState(false);
@@ -11,7 +11,7 @@ export function FinishPartyButton({ partyId }: { partyId: string }) {
     <div className="side-card leader-tools">
       <h4>파티장 도구</h4>
       <p className="leader-tools-note">
-        작업을 마치면 파티를 완료 처리할 수 있어요. 완료하면 결과물과 커밋 기록이 참여자 전원의
+        작업을 마치면 파티를 완료 처리할 수 있어요. 완료하면 결과물과 PR 기록이 참여자 전원의
         성취 프로필에 자동 저장됩니다.
       </p>
       <button
@@ -19,7 +19,7 @@ export function FinishPartyButton({ partyId }: { partyId: string }) {
         className="btn btn-primary"
         disabled={done}
         onClick={async () => {
-      await finishParty(partyId);
+          await completeParty(partyId);
           setDone(true);
         }}
       >

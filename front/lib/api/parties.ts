@@ -15,6 +15,7 @@ import type {
   TopicType,
   UserSummary,
 } from '@/lib/types';
+import { toPositionType } from '@/lib/constants';
 import {
   MOCK_APPLICANTS,
   MOCK_PARTIES,
@@ -33,12 +34,10 @@ const FORMAT_TO_CLIENT: Record<ServerContestFormat, ContestFormat> = {
   CONTEST: 'COMPETITION',
   HACKATHON: 'HACKATHON',
 };
-/** 서버 PositionType 과 화면 PositionType 이 같은 4종이라 그대로 쓴다 */
-type ServerPositionType = PositionType;
 
 interface PositionResponse {
   id: number;
-  type: ServerPositionType;
+  type: PositionType;
   capacity: number;
   filledCount: number;
 }
@@ -50,8 +49,8 @@ export interface PartyListItemResponse {
   partyName: string;
   title: string;
   topicType: TopicType;
-  /** 연결된 등록 대회의 형식. 대회 파티가 아니거나 미등록 외부 대회면 null */
-  contestFormat?: ServerContestFormat | null;
+  /** 연동된 등록 대회의 형식. 대회 파티가 아니거나 미등록 외부 대회면 null */
+  contestFormat: ServerContestFormat | null;
   status: PartyStatus;
   partyTag: PartyTag;
   deadline: string;
@@ -59,10 +58,10 @@ export interface PartyListItemResponse {
   likeCount: number;
   viewCount: number;
   /**
-   * 지원한 사람 수 전체. 승인 인원(positions[].filledCount)과는 다른 값이다.
-   * 지원자 수를 세지 않는 조회(홈 TOP3)는 null 로 온다. 상세(PartyDto)에는 아예 없다.
+   * 지원한 사람 수 전체(거절 포함). 승인 인원(positions[].filledCount)과는 다른 값이다.
+   * 세지 않는 응답(홈 TOP3·검색·생성·수정·마감·완료)에서는 null 로 온다.
    */
-  applicantCount?: number | null;
+  applicantCount: number | null;
   positions: PositionResponse[];
 }
 
@@ -77,7 +76,10 @@ interface PartySearchResponse {
   totalPages: number;
 }
 
-/** PartyDto — 상세. 목록보다 필드가 많다 */
+/**
+ * PartyDto — 상세. 목록보다 필드가 많지만 contestFormat·applicantCount 는 빠져 있어,
+ * toParty 가 그 둘을 기본값으로 채운다.
+ */
 interface PartyResponse extends Omit<PartyListItemResponse, 'ownerName'> {
   ownerId: number;
   ownerName: string;
@@ -97,7 +99,7 @@ interface PartyApplicationResponse {
   applicantId: number;
   applicantName: string;
   positionId: number;
-  positionType: ServerPositionType;
+  positionType: PositionType;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   message: string | null;
   createDate: string;
@@ -183,7 +185,7 @@ export function toParty(dto: PartyListItemResponse): Party {
     contestFormat: dto.contestFormat ? FORMAT_TO_CLIENT[dto.contestFormat] : undefined,
     subCategory: TAG_TO_LABEL[dto.partyTag],
     positions: dto.positions.map((position) => ({
-      type: position.type,
+      type: toPositionType(position.type),
       capacity: position.capacity,
       filledCount: position.filledCount,
     })),
@@ -519,7 +521,7 @@ export async function closePartyRecruit(id: string): Promise<void> {
   await http.post<PartyResponse>(`/parties/${id}/close-recruiting`);
 }
 
-/** POST /api/v1/parties/{partyId}/complete — 파티 완료 판정 */
+/** POST /api/v1/parties/{partyId}/complete — 파티 진행 완료 */
 export async function completeParty(id: string): Promise<void> {
   if (USE_MOCK) return mockResponse(undefined as void);
   await http.post<PartyResponse>(`/parties/${id}/complete`);

@@ -5,7 +5,12 @@ import { Icon } from '@/components/icons/Icon';
 import { FormGroup, TextField } from '@/components/ui/Field';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
-import { createSoloItem, deleteSoloItem, toggleSoloItem, updateSoloItem } from '@/lib/api';
+import {
+  completeSoloItem,
+  createSoloItem,
+  deleteSoloItem,
+  updateSoloItem,
+} from '@/lib/api';
 import type { ChecklistItem } from '@/lib/types';
 
 interface ChecklistProps {
@@ -16,10 +21,8 @@ interface ChecklistProps {
 }
 
 /**
- * 개인 TODO 체크리스트 — 성취(Goal)의 CHECKLIST 타입 항목이다 (기획서 2.5).
- *
- * 혼자 관리하는 목록이라 담당자는 생성자로 고정되고, 동료 승인 절차 없이 바로 완료 처리된다.
- * (팀 파티의 진행 기록은 GitHub 커밋 내역 + 커밋 동료 승인으로 대체됐다)
+ * 개인 TODO 체크리스트 — 백엔드 PersonalTodoItem(`/api/v1/todos/{id}/items/**`).
+ * 혼자 관리하는 목록이라 담당자·동료 승인 없이 바로 완료 처리된다.
  */
 export function Checklist({ todoId, items: initialItems, ownerName }: ChecklistProps) {
   const { confirm, dialog } = useConfirm();
@@ -79,7 +82,7 @@ export function Checklist({ todoId, items: initialItems, ownerName }: ChecklistP
 
   const complete = async (item: ChecklistItem) => {
     setItems((prev) => prev.map((row) => (row.id === item.id ? { ...row, state: 'done' } : row)));
-    await toggleSoloItem(todoId, item.id, true);
+    await completeSoloItem(todoId, item.id);
   };
 
   return (

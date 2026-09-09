@@ -99,6 +99,7 @@ export const MOCK_PARTIES: Party[] = [
     positions: [
       { type: 'FRONT', capacity: 1, filledCount: 1 },
       { type: 'BACK', capacity: 1, filledCount: 1 },
+      { type: 'UIUX', capacity: 1, filledCount: 0 },
     ],
     applicants: 3,
     dday: 'D-20',
@@ -122,6 +123,8 @@ export const MOCK_PARTIES: Party[] = [
     positions: [
       { type: 'BACK', capacity: 1, filledCount: 1 },
       { type: 'FRONT', capacity: 3, filledCount: 1 },
+      { type: 'PM', capacity: 1, filledCount: 0 },
+      { type: 'UIUX', capacity: 2, filledCount: 1 },
     ],
     applicants: 21,
     dday: 'D-1',

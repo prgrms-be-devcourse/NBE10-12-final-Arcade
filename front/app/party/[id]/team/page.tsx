@@ -11,19 +11,24 @@ import { DDay, Tag, TagRow } from '@/components/ui/Tag';
 import {
   fetchParty,
   fetchPartyGithubConnectionOrNull,
-  fetchPartyPullRequestsOrEmpty,
+  fetchPartyPrGroupsOrEmpty,
+  membersOf,
 } from '@/lib/api';
 
 export default async function TeamSpacePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [party, githubConnection, pullRequests] = await Promise.all([
+  const [party, githubConnection, prGroups] = await Promise.all([
     fetchParty(id),
     fetchPartyGithubConnectionOrNull(id),
-    fetchPartyPullRequestsOrEmpty(id),
+    fetchPartyPrGroupsOrEmpty(id),
   ]);
 
-  // 파티 상세 API에는 팀원 목록이 아직 없어, 확실히 제공되는 파티장만 표시한다.
   const leader = party.leader;
+  /**
+   * 파티원 목록 API 는 아직 없다. 담당자별 PR 응답이 파티장과 승인 파티원을
+   * PR 0건이어도 모두 담아 주므로(ARC-108) 그 목록을 팀원 블록에 그대로 쓴다.
+   */
+  const members = membersOf(prGroups);
 
   return (
     <main>
@@ -69,22 +74,43 @@ export default async function TeamSpacePage({ params }: { params: Promise<{ id: 
 
               <Block title="팀원">
                 <div className="member-list">
-                  <div className="member-row">
-                    <LeaderRow user={leader} href={`/profile/${leader.id}`} />
-                    <span className="member-row-right">
-                      <Tag accent>파티장</Tag>
-                      <SendMessageButton recipient={leader} variant="icon" />
-                    </span>
-                  </div>
+                  {members.length > 0 ? (
+                    members.map((member) => {
+                      // 이름만 있고 포지션은 이 응답에 없어 role 을 비운다
+                      const user = {
+                        id: member.memberId ?? '',
+                        name: member.memberName ?? '',
+                        initial: (member.memberName ?? '?').charAt(0),
+                        role: '',
+                      };
+                      return (
+                        <div key={member.memberId} className="member-row">
+                          <LeaderRow user={user} href={`/profile/${user.id}`} />
+                          <span className="member-row-right">
+                            {member.owner ? <Tag accent>파티장</Tag> : null}
+                            <SendMessageButton recipient={user} variant="icon" />
+                          </span>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    // 목록을 못 읽었을 때(비로그인·권한 없음)라도 확실히 아는 파티장은 보여준다
+                    <div className="member-row">
+                      <LeaderRow user={leader} href={`/profile/${leader.id}`} />
+                      <span className="member-row-right">
+                        <Tag accent>파티장</Tag>
+                        <SendMessageButton recipient={leader} variant="icon" />
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <p className="checklist-note">팀원 전체 목록 API가 추가되면 승인된 팀원을 함께 표시합니다.</p>
               </Block>
 
               <Block
                 title="진행 기록 · Pull Request"
                 description="연결된 GitHub 저장소의 PR을 웹훅으로 받아 쌓아둔 목록이에요. 파티가 끝나면 이 기록이 참여자 성취의 근거가 됩니다."
               >
-                <PullRequestList partyId={id} pullRequests={pullRequests} />
+                <PullRequestList partyId={id} groups={prGroups} />
               </Block>
 
               <Block title="진행 기록 · 커밋">

@@ -1531,6 +1531,8 @@ button.party-mini:hover{border-color:var(--accent);}
 .editor-add svg{width:0.8125rem;height:0.8125rem;}
 
 /* ===== 팀 스페이스 — PR 목록 · GitHub 연결 상태 ===== */
+/* 담당자별 묶음. 머리글은 지원자 관리의 .position-group-head 를 그대로 쓴다 */
+.pr-groups{display:flex;flex-direction:column;gap:1.5rem;}
 .pr-list{display:flex;flex-direction:column;gap:0.5rem;}
 .pr-item{
   display:flex;flex-direction:column;gap:0.375rem;padding:0.75rem 0.875rem;

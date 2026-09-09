@@ -7,6 +7,7 @@ import type {
   TargetType,
   UserProfile,
 } from '@/lib/types';
+import { toPositionType } from '@/lib/constants';
 import { MOCK_CURRENT_USER_ID, MOCK_PROFILES, MOCK_USER_SUMMARIES } from '@/lib/mock';
 import { CONTEST_FORMAT_LABELS, GOAL_SOURCE_LABELS, positionLabel } from '@/lib/constants';
 import { ApiError, USE_MOCK, http, mockResponse } from './client';
@@ -97,7 +98,8 @@ export function toUserProfile(
     githubLinked: dto.githubLinked,
     bio: dto.bio ?? '',
     // 고르지 않았으면 null 이 온다. 화면 select 의 기본값을 BACK 으로 둔다
-    position: dto.position ?? 'BACK',
+    // (role 은 위에서 따로 본다 - 안 고른 사람에게 '백엔드' 라고 적으면 안 되기 때문이다)
+    position: toPositionType(dto.position),
     skills: dto.techStacks,
     stats: { completedParties: 0, awards: 0, exhibitions: 0, approvalRate: 0 },
     streakDays: 0,
