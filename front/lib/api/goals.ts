@@ -43,6 +43,11 @@ export interface GoalDetailFields {
   positionType?: GoalPositionType;
   startDate?: string;
   endDate?: string;
+  /**
+   * PROJECT — 파티장이 전시글을 실제로 게시했는지.
+   * 완료(ACHIEVED)와 다르다. 이 값이 true 인 파티만 전시 페이지가 열린다.
+   */
+  exhibited?: boolean;
   /** CONTEST */
   isTeam?: boolean;
   awardDate?: string;
@@ -321,6 +326,7 @@ export function toAchievement(goal: GoalResponse): Achievement {
     positionLabel: goal.detail.positionType
       ? GOAL_POSITION_LABELS[goal.detail.positionType]
       : undefined,
+    exhibited: goal.detail.exhibited,
   };
 }
 

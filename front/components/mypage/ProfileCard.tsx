@@ -10,7 +10,22 @@ interface ProfileCardProps {
   onChangePassword?: () => void;
   /** GitHub OAuth로 계정을 연동한다 */
   onConnectGithub?: () => void;
-  months?: number;
+}
+
+/**
+ * 가입일로부터 '크루온 활동 N개월째'(기획서 2.11 총 활동 기간).
+ *
+ * 가입 당월이 1개월째다 - 가입 첫날 '0개월째' 라고 적히지 않게 한다.
+ * 첫 활동일이 아니라 가입일을 쓴다: 활동 로그는 활동한 날만 남아, 오래된 로그를 정리하면
+ * 이미 보여준 기간이 줄어든다.
+ */
+function activeMonths(joinedAt: string): number {
+  const joined = new Date(joinedAt);
+  const now = new Date();
+  const months =
+    (now.getFullYear() - joined.getFullYear()) * 12 + (now.getMonth() - joined.getMonth());
+
+  return Math.max(0, months) + 1;
 }
 
 export function ProfileCard({
@@ -18,7 +33,6 @@ export function ProfileCard({
   onEdit,
   onChangePassword,
   onConnectGithub,
-  months = 10,
 }: ProfileCardProps) {
   return (
     <section className="profile-card">
@@ -35,9 +49,12 @@ export function ProfileCard({
         <p className="profile-role">{profile.role} · 대표 포지션</p>
         <p className="profile-bio">{profile.bio}</p>
         <div className="hero-meta-row">
-          <span className="hero-meta-item">
-            크루온 활동 <b>{months}개월째</b>
-          </span>
+          {/* 가입일을 모르면(비로그인 폴백) 지어내지 않고 문구를 빼 둔다 */}
+          {profile.joinedAt ? (
+            <span className="hero-meta-item">
+              크루온 활동 <b>{activeMonths(profile.joinedAt)}개월째</b>
+            </span>
+          ) : null}
           <span className="hero-meta-item">
             연속 활동 <b>{profile.streakDays}일째</b>
           </span>
