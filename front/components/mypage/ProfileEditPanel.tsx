@@ -11,11 +11,9 @@ import {
   TextAreaField,
   TextField,
 } from '@/components/ui/Field';
-import { ChipRow, SkillChip } from '@/components/ui/Tag';
 import { POSITION_LABELS, POSITION_TYPES } from '@/lib/constants';
 import { updateMyProfile, uploadProfileImage } from '@/lib/api';
-import { isEnterCommit } from '@/lib/ime';
-import { TECH_STACKS, isKnownTechStack, normalizeTechStack } from '@/lib/techStacks';
+import { SkillField } from './SkillField';
 import type {
   CareerItem,
   PositionType,
@@ -40,9 +38,6 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [skills, setSkills] = useState<string[]>(profile.skills);
-  const [skillInput, setSkillInput] = useState('');
-  /** 목록에 없는 기술을 넣었을 때의 안내. 막지는 않고 알려만 준다 */
-  const [skillNotice, setSkillNotice] = useState('');
   const [careers, setCareers] = useState<CareerItem[]>(profile.careers);
   const [links, setLinks] = useState<ProfileLink[]>(profile.links);
   const [saving, setSaving] = useState(false);
@@ -143,53 +138,8 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
         />
       </FormGroup>
 
-      <FormGroup label="스킬">
-        <ChipRow>
-          {skills.map((skill) => (
-            <button
-              key={skill}
-              type="button"
-              style={{ background: 'none', border: 'none', padding: 0 }}
-              aria-label={`${skill} 삭제`}
-              onClick={() => setSkills((prev) => prev.filter((value) => value !== skill))}
-            >
-              <SkillChip>{skill} ×</SkillChip>
-            </button>
-          ))}
-        </ChipRow>
-        <TextField
-          placeholder="스킬을 입력하고 Enter (예: Spring Boot)"
-          list="tech-stacks"
-          autoComplete="off"
-          value={skillInput}
-          onChange={(event) => {
-            setSkillInput(event.target.value);
-            setSkillNotice('');
-          }}
-          onKeyDown={(event) => {
-            if (!isEnterCommit(event)) return;
-            event.preventDefault();
-            if (!skillInput.trim()) return;
-
-            // 표기를 목록 기준으로 맞춘다 - java·JAVA·자바 가 서로 다른 값으로 저장되면
-            // 나중에 스킬로 검색·매칭을 붙일 때 못 쓰는 데이터가 된다
-            const value = normalizeTechStack(skillInput);
-            setSkillNotice(
-              isKnownTechStack(value)
-                ? ''
-                : `'${value}' 는 등록된 기술 목록에 없어요. 입력한 그대로 저장됩니다.`,
-            );
-            if (!skills.includes(value)) setSkills((prev) => [...prev, value]);
-            setSkillInput('');
-          }}
-        />
-        {/* 브라우저가 기본 제공하는 자동완성이라 라이브러리가 필요 없다 */}
-        <datalist id="tech-stacks">
-          {TECH_STACKS.map((tech) => (
-            <option key={tech} value={tech} />
-          ))}
-        </datalist>
-        {skillNotice ? <p className="form-hint">{skillNotice}</p> : null}
+      <FormGroup label="스킬" hint="목록에서 고르거나 직접 입력하고 Enter 를 누르세요.">
+        <SkillField skills={skills} onChange={setSkills} />
       </FormGroup>
 
       <EditorBlock

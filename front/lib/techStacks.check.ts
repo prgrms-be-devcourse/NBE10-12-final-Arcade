@@ -25,7 +25,7 @@ assert.equal(isKnownTechStack('java'), true);
 // 4. 스크린샷에서 문제가 됐던 조각들은 목록 밖이라 경고가 뜬다
 ['아', '킬', '짜'].forEach((s) => assert.equal(isKnownTechStack(s), false, s));
 
-// 5. 목록에 중복이 없다 (datalist 가 같은 값을 두 번 띄우지 않도록)
+// 5. 목록에 중복이 없다 (자동완성이 같은 값을 두 번 띄우지 않도록)
 assert.equal(new Set(TECH_STACKS).size, TECH_STACKS.length);
 
 console.log(`techStacks: ${TECH_STACKS.length}개, 5 checks passed`);

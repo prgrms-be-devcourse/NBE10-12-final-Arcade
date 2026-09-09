@@ -2,15 +2,15 @@
 
 import { useCallback, useLayoutEffect, useSyncExternalStore } from 'react';
 import { Icon } from '@/components/icons/Icon';
+import { THEME_STORAGE_KEY } from '@/lib/constants';
 
 type Theme = 'dark' | 'light';
 
-export const THEME_STORAGE_KEY = 'crewon-theme';
 const THEME_EVENT = 'crewon:theme-change';
 
 /**
  * 테마는 html[data-theme] 하나만을 진실의 원천으로 삼는다.
- * (초기값은 layout.tsx 의 ThemeScript 가 하이드레이션 전에 세팅한다)
+ * (초기값은 layout.tsx 의 인라인 스크립트가 하이드레이션 전에 세팅한다)
  */
 function subscribe(onChange: () => void) {
   window.addEventListener(THEME_EVENT, onChange);
@@ -26,7 +26,7 @@ export function ThemeToggle() {
   const theme = useSyncExternalStore(subscribe, getSnapshot, () => 'dark' as Theme);
 
   // 개발 모드에서 StrictMode 가 컴포넌트를 한 번 리마운트하면서 html 속성을 JSX 기준으로 되돌린다.
-  // 그때 ThemeScript 가 심어둔 값이 지워지므로 다시 적용한다. 프로덕션에서는 아무 일도 하지 않는다.
+  // 그때 인라인 스크립트가 심어둔 값이 지워지므로 다시 적용한다. 프로덕션에서는 아무 일도 하지 않는다.
   useLayoutEffect(() => {
     try {
       const stored = window.localStorage.getItem(THEME_STORAGE_KEY);

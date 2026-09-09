@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Gothic_A1, Press_Start_2P } from 'next/font/google';
 import { AppShell } from '@/components/layout/AppShell';
 import { IconSprite } from '@/components/icons/IconSprite';
-import { ThemeScript } from '@/components/layout/ThemeScript';
+import { THEME_STORAGE_KEY } from '@/lib/constants';
 import './globals.css';
 
 const gothicA1 = Gothic_A1({
@@ -30,11 +30,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="ko"
       data-theme="dark"
       className={`${gothicA1.variable} ${pressStart.variable}`}
-      // ThemeScript 가 하이드레이션 전에 data-theme 을 바꾸므로, DOM 값을 그대로 인정한다
+      // 아래 스크립트가 하이드레이션 전에 data-theme 을 바꾸므로, DOM 값을 그대로 인정한다
       suppressHydrationWarning
     >
       <head>
-        <ThemeScript />
+        {/*
+          저장된 테마를 브라우저가 HTML 을 파싱하는 동안 동기로 적용해 새로고침 시 번쩍임을 막는다.
+          컴포넌트로 감싸면 React 가 "렌더 중에 script 태그를 만났다" 고 경고하므로
+          Next 공식 가이드(preventing-flash-before-hydration)대로 head 에 그대로 둔다.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(t==='light'||t==='dark'){document.documentElement.dataset.theme=t}}catch(e){}})()`,
+          }}
+        />
       </head>
       <body>
         <IconSprite />

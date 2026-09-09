@@ -1812,6 +1812,24 @@ button.party-mini:hover{border-color:var(--accent);}
 .picker-meta .psub{margin-top:0.1875rem;font-size:.74rem;color:var(--text-dim);}
 .picker-pick{font-size:.76rem;font-weight:800;color:var(--accent);flex-shrink:0;}
 .picker-empty{padding:1rem;font-size:.8rem;color:var(--text-dim);text-align:center;}
+
+/* 스킬 자동완성 - 공모전 picker 와 같은 껍데기를 쓰되 한 줄짜리라 항목만 따로 둔다.
+   브라우저 기본 <datalist> 는 색을 맞출 수 없고 위/아래로 제멋대로 열려서 직접 그린다. */
+.skill-picker .picker-results{max-height:15rem;}
+.skill-option{
+  width:100%;display:block;padding:0.5625rem 0.875rem;text-align:left;
+  background:none;border:none;border-bottom:0.125rem solid var(--border);
+  font-family:var(--font-body);font-size:.85rem;font-weight:700;color:var(--text);cursor:pointer;
+}
+.skill-option:last-child{border-bottom:none;}
+.skill-option.is-active{background:var(--surface-2);color:var(--accent);}
+
+/* 칩 전체가 삭제 버튼이라, 누를 수 있다는 걸 × 색으로 알린다 */
+.skill-chip-remove{background:none;border:none;padding:0;cursor:pointer;}
+.skill-chip-x{margin-left:0.4375rem;font-weight:800;color:var(--text-dim);}
+.skill-chip-remove:hover .skill-chip{border-color:var(--gold);}
+.skill-chip-remove:hover .skill-chip-x{color:var(--gold);}
+.skill-chip-remove:focus-visible{outline:0.125rem solid var(--accent);outline-offset:0.125rem;}
 .picked-card{
   margin-top:0.625rem;display:flex;align-items:center;gap:0.75rem;padding:0.8125rem;
   border:0.125rem solid var(--accent);background:var(--accent-soft);
