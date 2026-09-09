@@ -19,5 +19,6 @@ export * from './messages';
 export * from './notifications';
 export * from './parties';
 export * from './partyGithub';
+export * from './time';
 export * from './todos';
 export * from './users';

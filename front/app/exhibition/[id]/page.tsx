@@ -17,6 +17,13 @@ export default async function ExhibitionDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  /**
+   * 이 화면의 project 는 GET /parties/{id}/showcase 응답이라 **id 와 sourcePartyId 가 모두 partyId** 다
+   * (toExhibitionDetail 이 둘 다 dto.partyId 로 채운다). 그래서 아래에서 어느 쪽을 넘겨도 같다.
+   *
+   * 전시관 '목록' 카드는 다르다 - toExhibitionProject 의 id 는 **goal id** 이고 partyId 는
+   * sourcePartyId 에 따로 담긴다. 목록 쪽 규칙을 여기 적용하지 말 것.
+   */
   const [project, commits] = await Promise.all([
     fetchExhibition(id),
     fetchExhibitionCommits(id) as Promise<
@@ -55,8 +62,9 @@ export default async function ExhibitionDetailPage({
                   </span>
                   {/* 좋아요 · 북마크는 대회 상세와 같은 공용 컴포넌트를 쓴다 */}
                   <DetailActions
-                    target="exhibition"
-                    id={project.id}
+                    target="party"
+                    // 위 주석대로 project.id 와 같은 값이다. 공용 타입에서 optional 이라 ?? 만 붙여 둔다
+                    id={project.sourcePartyId ?? project.id}
                     likeCount={project.likeCount}
                     likedByMe={project.likedByMe}
                     bookmarkedByMe={project.bookmarkedByMe}
@@ -78,9 +86,9 @@ export default async function ExhibitionDetailPage({
                 }
               />
 
+              {/* 전시 수정은 /exhibition/create?partyId= 로 여는데, 여기 id 가 곧 partyId 다 */}
               <ExhibitionActions
                 exhibitionId={project.id}
-                exhibitionTitle={project.title}
                 owner={project.leader}
                 githubUrl={githubUrl}
               />
@@ -116,6 +124,12 @@ export default async function ExhibitionDetailPage({
                 </Block>
               ) : null}
 
+              {/*
+                화면은 그대로 두고 서버 연동만 아직 하지 않은 상태다.
+                댓글 API 가 없어(docs/마이페이지-요약API_백엔드_요청.md ⑦) 목록은 항상 비어 있고,
+                작성한 댓글은 새로고침하면 사라진다 - lib/api/exhibitions.ts 의 댓글 함수들이
+                목 모드로 고정돼 있기 때문이다. 서버가 생기면 그쪽만 열면 된다.
+              */}
               <CommentSection
                 exhibitionId={project.id}
                 comments={project.comments}
@@ -126,11 +140,12 @@ export default async function ExhibitionDetailPage({
           side={
             <SideCard title="참여 팀원">
               {project.members.map((member) => (
-                <div key={member.id} className="member-contact-row">
-                  <LeaderRow user={member} href={`/profile/${member.id}`} card />
-                  {member.id === MOCK_CURRENT_USER_ID ? null : (
+                <div key={member.id || member.name} className="member-contact-row">
+                  {/* 서버 전시 상세는 참여자를 이름 목록으로만 준다 - id 가 없으면 링크를 걸지 않는다 */}
+                  <LeaderRow user={member} href={member.id ? `/profile/${member.id}` : undefined} card />
+                  {member.id && member.id !== MOCK_CURRENT_USER_ID ? (
                     <SendMessageButton recipient={member} variant="icon" />
-                  )}
+                  ) : null}
                 </div>
               ))}
               <p className="leader-stat-line">진행 기간 {project.period}</p>

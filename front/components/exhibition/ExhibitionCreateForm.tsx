@@ -1,88 +1,94 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CoverUpload } from '@/components/ui/CoverUpload';
-import {
-  FormActions,
-  FormGroup,
-  FormRow,
-  Options,
-  SelectField,
-  TextAreaField,
-  TextField,
-} from '@/components/ui/Field';
-import { RadioChipGroup } from '@/components/ui/RadioChipGroup';
-import { ChipRow, SkillChip } from '@/components/ui/Tag';
-import { createExhibition, updateExhibition } from '@/lib/api';
-import type { ExhibitionFormPayload } from '@/lib/api/exhibitions';
+import { useLeaveTo } from '@/lib/navigation';
+import Link from 'next/link';
+import { FormActions, FormGroup, TextAreaField, TextField } from '@/components/ui/Field';
+import { ApiError, fetchExhibition, publishPartyShowcase } from '@/lib/api';
 
-const SOURCES = ['파티 연동', '자기신고'] as const;
-const CATEGORIES = ['웹 개발', '게임 개발', '앱 개발', '데이터', '기타'] as const;
-
-/** 완료한 파티 목록 — 실제 연동 시 GET /me/parties?status=done 로 대체 */
-const COMPLETED_PARTIES = [
-  '페이브릿지 해커톤 도전팀 (2026.08 완료)',
-  '그린테크 챌린지 참가팀 (2025.11 완료)',
-  '결제 API 안정화 해커톤 (2025.06 완료)',
-] as const;
-
-export function ExhibitionCreateForm({ editId }: { editId?: string }) {
+/**
+ * 전시 게시 폼.
+ *
+ * 전시는 파티에 종속이라(POST /api/v1/parties/{partyId}/showcase) 파티를 고르는 화면이 아니라
+ * **파티에서 들어오는** 화면이다. 팀 스페이스의 '전시 게시' 버튼이 partyId 를 달고 보낸다.
+ *
+ * 서버가 받는 값은 title · description 뿐이다. 대표 이미지 · 분야 · 기술스택 · 링크는
+ * 서버에 담을 자리가 없어 뺐다 (docs/마이페이지-요약API_백엔드_요청.md ⑥).
+ *
+ * 이미 게시된 파티에 다시 보내면 제목·설명이 갱신된다 — 등록과 수정이 같은 호출이다.
+ */
+export function ExhibitionCreateForm({ partyId }: { partyId?: string }) {
   const router = useRouter();
-  const [source, setSource] = useState<string>(SOURCES[0]);
-  const [partyId, setPartyId] = useState('');
+  // 취소는 왔던 화면(파티 상세·팀 스페이스)으로 되돌아간다
+  const leave = useLeaveTo('/exhibition');
   const [title, setTitle] = useState('');
-  const [coverFileName, setCoverFileName] = useState<string | null>(null);
-  const [summary, setSummary] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('');
-  const [link, setLink] = useState('');
-  const [skills, setSkills] = useState<string[]>([]);
-  const [skillInput, setSkillInput] = useState('');
+  const [partyName, setPartyName] = useState('');
+  const [published, setPublished] = useState(false);
+  const [loading, setLoading] = useState(Boolean(partyId));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
-  const addSkill = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed || skills.includes(trimmed)) return;
-    setSkills((prev) => [...prev, trimmed]);
-    setErrors((prev) => ({ ...prev, skills: '' }));
-  };
+  // 초안을 읽어 이미 적어둔 값을 채운다. 게시 전 초안은 파티원만 볼 수 있다(403).
+  useEffect(() => {
+    if (!partyId) return;
+    let alive = true;
 
-  const validate = () => {
-    const next: Record<string, string> = {};
-    // 자기신고는 연동할 파티가 없다
-    if (source === '파티 연동' && !partyId) next.partyId = '연동할 파티를 선택해 주세요.';
-    if (!title.trim()) next.title = '전시 제목을 입력해 주세요.';
-    if (!coverFileName) next.cover = '대표 이미지를 1장 등록해 주세요.';
-    if (!summary.trim()) next.summary = '한 줄 소개를 입력해 주세요.';
-    if (!description.trim()) next.description = '프로젝트 설명을 입력해 주세요.';
-    if (!category) next.category = '분야를 선택해 주세요.';
-    if (!link.trim()) next.link = 'GitHub · 데모 링크를 입력해 주세요.';
-    if (skills.length === 0) next.skills = '사용 기술을 한 개 이상 추가해 주세요.';
-    setErrors(next);
-    return Object.keys(next).length === 0;
-  };
+    fetchExhibition(partyId)
+      .then((draft) => {
+        if (!alive) return;
+        setTitle(draft.title);
+        setDescription(draft.description);
+        setPartyName(draft.partyName);
+        setPublished(draft.period !== '');
+      })
+      .catch((error) => {
+        if (!alive) return;
+        setErrors({
+          load: error instanceof ApiError ? error.message : '전시 정보를 불러오지 못했어요.',
+        });
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [partyId]);
+
+  if (!partyId) {
+    return (
+      <p className="notif-empty">
+        전시는 파티 단위로 게시해요. 팀 스페이스에서 <b>전시 게시</b>를 눌러 들어와 주세요.{' '}
+        <Link href="/exhibition">전시관으로 돌아가기</Link>
+      </p>
+    );
+  }
+
+  if (loading) return <p className="notif-empty">전시 정보를 불러오는 중이에요.</p>;
+  if (errors.load) return <p className="notif-empty">{errors.load}</p>;
 
   const submit = async () => {
-    if (!validate()) return;
+    const next: Record<string, string> = {};
+    if (!title.trim()) next.title = '전시 제목을 입력해 주세요.';
+    if (!description.trim()) next.description = '프로젝트 설명을 입력해 주세요.';
+    setErrors(next);
+    if (Object.keys(next).length > 0) return;
+
     setSubmitting(true);
-    const payload: ExhibitionFormPayload = {
-      source: source as ExhibitionFormPayload['source'],
-      partyId: partyId || undefined,
-      title,
-      coverFileName: coverFileName ?? undefined,
-      summary,
-      description,
-      category,
-      link: link || undefined,
-      skills,
-    };
     try {
-      const result = editId
-        ? await updateExhibition(editId, payload)
-        : await createExhibition(payload);
+      const result = await publishPartyShowcase(partyId, {
+        title: title.trim(),
+        description: description.trim(),
+      });
       router.push(`/exhibition/${result.id}`);
+    } catch (error) {
+      // 파티장이 아니면 403, 없는 파티면 404 로 온다. 서버 문구를 그대로 보여준다.
+      setErrors({
+        submit: error instanceof ApiError ? error.message : '게시하지 못했어요. 잠시 후 다시 시도해 주세요.',
+      });
     } finally {
       setSubmitting(false);
     }
@@ -90,68 +96,28 @@ export function ExhibitionCreateForm({ editId }: { editId?: string }) {
 
   return (
     <form onSubmit={(event) => event.preventDefault()}>
-      <FormGroup
-        label="출처"
-        hint="파티 연동을 고르면 완료한 파티를 선택해 체크리스트 스냅샷을 함께 전시할 수 있어요."
-      >
-        <RadioChipGroup options={SOURCES} value={source} onChange={setSource} />
-      </FormGroup>
-
-      {source === '파티 연동' ? (
-        <FormGroup label="연동할 파티" required error={errors.partyId}>
-          <SelectField
-            value={partyId}
-            onChange={(event) => {
-              setPartyId(event.target.value);
-              setErrors((prev) => ({ ...prev, partyId: '' }));
-            }}
-          >
-            <option value="">파티를 선택하세요</option>
-            <Options values={COMPLETED_PARTIES} />
-          </SelectField>
-        </FormGroup>
+      {partyName ? (
+        <p className="form-hint" style={{ marginTop: 0 }}>
+          <b>{partyName}</b> 파티를 전시관에 공개해요. 참여 팀원과 GitHub 저장소는 파티 정보에서
+          자동으로 따라옵니다.
+        </p>
       ) : null}
 
       <FormGroup label="전시 제목" required error={errors.title}>
         <TextField
-          placeholder="예: 정산 자동화 API"
+          placeholder="예: 결제 API 안정화 프로젝트"
           value={title}
           onChange={(event) => {
             setTitle(event.target.value);
             setErrors((prev) => ({ ...prev, title: '' }));
           }}
-        />
-      </FormGroup>
-
-      <FormGroup label="메인 사진" required error={errors.cover}>
-        <CoverUpload
-          onChange={(name) => {
-            setCoverFileName(name);
-            setErrors((prev) => ({ ...prev, cover: '' }));
-          }}
-          hint={
-            <>
-              전시관 목록 카드와 상세 상단에 노출돼요. <b>1장만</b> 등록할 수 있고, 새로 올리면 기존
-              사진은 교체됩니다.
-            </>
-          }
-        />
-      </FormGroup>
-
-      <FormGroup label="한 줄 소개" required error={errors.summary}>
-        <TextField
-          placeholder="예: 페이브릿지 해커톤 도전팀 · 백엔드"
-          value={summary}
-          onChange={(event) => {
-            setSummary(event.target.value);
-            setErrors((prev) => ({ ...prev, summary: '' }));
-          }}
+          autoFocus
         />
       </FormGroup>
 
       <FormGroup label="프로젝트 설명" required error={errors.description}>
         <TextAreaField
-          placeholder="어떤 문제를 어떻게 풀었는지, 맡은 역할은 무엇이었는지 적어주세요."
+          placeholder="어떤 문제를 어떻게 풀었는지 적어주세요."
           value={description}
           onChange={(event) => {
             setDescription(event.target.value);
@@ -160,64 +126,13 @@ export function ExhibitionCreateForm({ editId }: { editId?: string }) {
         />
       </FormGroup>
 
-      <FormRow>
-        <FormGroup label="분야" required error={errors.category}>
-          <SelectField
-            value={category}
-            onChange={(event) => {
-              setCategory(event.target.value);
-              setErrors((prev) => ({ ...prev, category: '' }));
-            }}
-          >
-            <option value="">분야를 선택하세요</option>
-            <Options values={CATEGORIES} />
-          </SelectField>
-        </FormGroup>
-        <FormGroup label="GitHub · 데모 링크" required error={errors.link}>
-          <TextField
-            placeholder="https://github.com/..."
-            value={link}
-            onChange={(event) => {
-              setLink(event.target.value);
-              setErrors((prev) => ({ ...prev, link: '' }));
-            }}
-          />
-        </FormGroup>
-      </FormRow>
-
-      <FormGroup label="사용 기술" required error={errors.skills}>
-        <ChipRow>
-          {skills.map((skill) => (
-            <button
-              key={skill}
-              type="button"
-              onClick={() => setSkills((prev) => prev.filter((value) => value !== skill))}
-              style={{ background: 'none', border: 'none', padding: 0 }}
-              aria-label={`${skill} 삭제`}
-            >
-              <SkillChip>{skill} ×</SkillChip>
-            </button>
-          ))}
-        </ChipRow>
-        <TextField
-          placeholder="기술을 입력하고 Enter"
-          value={skillInput}
-          onChange={(event) => setSkillInput(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.preventDefault();
-              addSkill(skillInput);
-              setSkillInput('');
-            }
-          }}
-        />
-      </FormGroup>
+      {errors.submit ? <p className="form-hint">{errors.submit}</p> : null}
 
       <FormActions>
         <button type="button" className="btn btn-primary" onClick={submit} disabled={submitting}>
-          {submitting ? '등록 중…' : editId ? '수정 저장' : '전시 등록'}
+          {submitting ? '게시 중…' : published ? '전시 수정' : '전시 게시'}
         </button>
-        <button type="button" className="btn btn-ghost" onClick={() => router.push('/exhibition')}>
+        <button type="button" className="btn btn-ghost" onClick={leave}>
           취소
         </button>
       </FormActions>

@@ -15,6 +15,7 @@ import {
 import { RadioChipGroup } from '@/components/ui/RadioChipGroup';
 import { createContest, updateContest } from '@/lib/api';
 import { CONTEST_FORMATS, CONTEST_FORMAT_LABELS, CONTEST_TAGS } from '@/lib/constants';
+import { useLeaveTo } from '@/lib/navigation';
 import type { ContestFormat, ContestTag } from '@/lib/types';
 
 /**
@@ -24,6 +25,8 @@ import type { ContestFormat, ContestTag } from '@/lib/types';
  */
 export function ContestCreateForm({ editId }: { editId?: string }) {
   const router = useRouter();
+  // 수정이면 그 대회로, 신규 작성 취소면 목록으로
+  const leave = useLeaveTo(editId ? `/contests/${editId}` : '/contests');
 
   const [title, setTitle] = useState('');
   const [format, setFormat] = useState<ContestFormat>('COMPETITION');
@@ -65,7 +68,13 @@ export function ContestCreateForm({ editId }: { editId?: string }) {
     };
     try {
       const result = editId ? await updateContest(editId, payload) : await createContest(payload);
-      router.push(`/contests/${result.id}`);
+      if (editId) {
+        leave();
+        router.refresh();
+      } else {
+        // 새로 만든 대회로 가는 건 앞으로 가는 이동이라 히스토리에 쌓는 게 맞다
+        router.push(`/contests/${result.id}`);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -185,7 +194,7 @@ export function ContestCreateForm({ editId }: { editId?: string }) {
         <button type="button" className="btn btn-primary" onClick={submit} disabled={submitting}>
           {submitting ? '신청 중…' : editId ? '수정 저장' : '등록 신청'}
         </button>
-        <button type="button" className="btn btn-ghost" onClick={() => router.push('/contests')}>
+        <button type="button" className="btn btn-ghost" onClick={leave}>
           취소
         </button>
       </FormActions>

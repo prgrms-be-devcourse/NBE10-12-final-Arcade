@@ -7,7 +7,7 @@ export const MOCK_NOTIFICATIONS: AppNotification[] = [
     text: "윤소민님이 '대시보드 API 연결' 완료를 요청했어요. 승인해 주세요.",
     time: '3분 전',
     unread: true,
-    target: 'team',
+    target: 'mypageManage',
   },
   {
     id: 'n2',
@@ -23,7 +23,7 @@ export const MOCK_NOTIFICATIONS: AppNotification[] = [
     text: "'대시보드 API 연결' 체크리스트에 새 댓글이 달렸어요.",
     time: '52분 전',
     unread: true,
-    target: 'team',
+    target: 'mypageManage',
   },
   {
     id: 'n4',
@@ -31,7 +31,7 @@ export const MOCK_NOTIFICATIONS: AppNotification[] = [
     text: "'프로그래머스 오락실 공모전 참여하실분' 지원 마감이 3일 남았어요.",
     time: '1시간 전',
     unread: true,
-    target: 'detail',
+    target: 'mypageManage',
   },
   {
     id: 'n5',
@@ -71,7 +71,7 @@ export const MOCK_NOTIFICATIONS: AppNotification[] = [
     text: "'정산 자동화 API' 체크리스트 항목이 모두 완료 처리됐어요.",
     time: '3일 전',
     unread: false,
-    target: 'team',
+    target: 'mypageManage',
   },
   {
     id: 'n10',

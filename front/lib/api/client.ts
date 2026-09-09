@@ -182,14 +182,18 @@ export async function request<T>(
 
   const cookie = await serverCookieHeader();
 
+  // FormData 는 그대로 보낸다. Content-Type 을 직접 넣으면 multipart 경계(boundary)가 빠져
+  // 서버가 파트를 못 읽으므로, 그 헤더는 fetch 가 정하게 둔다.
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+
   const response = await fetch(buildUrl(path, query), {
     ...rest,
     headers: {
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(cookie ? { Cookie: cookie } : {}),
       ...headers,
     },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : isFormData ? body : JSON.stringify(body),
     credentials: "include",
   });
 

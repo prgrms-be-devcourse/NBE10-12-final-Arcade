@@ -34,7 +34,10 @@ export function PartyCard({ party }: { party: Party }) {
       </div>
 
       <div className="pboard-footer">
-        <LeaderRow user={party.leader} href={`/profile/${party.leader.id}`} />
+        <LeaderRow
+          user={party.leader}
+          href={party.leader.id ? `/profile/${party.leader.id}` : undefined}
+        />
         <Link className="card-link" href={`/party/${party.id}`}>
           자세히 보기 →
         </Link>

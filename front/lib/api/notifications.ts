@@ -10,7 +10,14 @@ import { USE_MOCK, http, mockResponse } from './client';
 import { timeAgo } from './time';
 
 /** 백엔드 NotificationType. 지금은 파티 지원 승인 한 종류뿐이고 앞으로 늘어난다 */
-export type ServerNotificationType = 'PARTY_APPLICATION_APPROVED';
+/** 백엔드 NotificationType (ARC-127 에서 PARTY_ASSEMBLED 가 모집마감·매칭확정 둘로 갈렸다) */
+export type ServerNotificationType =
+  | 'PARTY_APPLICATION_RECEIVED'
+  | 'PARTY_APPLICATION_APPROVED'
+  | 'PARTY_RECRUITMENT_COMPLETED'
+  | 'PARTY_MATCHING_CONFIRMED'
+  | 'PARTY_COMPLETED'
+  | 'PARTY_SHOWCASE_PUBLISHED';
 
 /** 백엔드 NotificationDto */
 export interface NotificationResponse {
@@ -33,17 +40,28 @@ export interface NotificationPageResponse {
 
 /** 서버 타입 → 화면 아이콘 구분 */
 const NOTIFICATION_TYPES: Record<ServerNotificationType, NotificationType> = {
+  PARTY_APPLICATION_RECEIVED: 'applicant',
   PARTY_APPLICATION_APPROVED: 'approval',
+  PARTY_RECRUITMENT_COMPLETED: 'deadline',
+  PARTY_MATCHING_CONFIRMED: 'applicant',
+  PARTY_COMPLETED: 'achievement',
+  PARTY_SHOWCASE_PUBLISHED: 'contest',
 };
 
 /**
  * 서버 타입 → 눌렀을 때 갈 곳.
  *
- * 승인 알림은 지원한 사람이 받으므로 마이페이지 관리 탭('내 지원')으로 보낸다.
- * 응답에 파티 id 가 없어 해당 파티 상세로 바로 보낼 수는 없다.
+ * **응답에 파티 id 가 없어 해당 파티로 바로 보낼 수 없다.** 그래서 파티 관련 알림은 전부
+ * 마이페이지 관리 탭으로 모은다 - 지원·승인·모집마감·매칭확정·완료가 다 거기서 보인다.
+ * 전시 게시만 파티와 무관한 목록(전시관)으로 보낼 수 있다.
  */
 const NOTIFICATION_TARGETS: Record<ServerNotificationType, NotificationTarget> = {
+  PARTY_APPLICATION_RECEIVED: 'mypageManage',
   PARTY_APPLICATION_APPROVED: 'mypageManage',
+  PARTY_RECRUITMENT_COMPLETED: 'mypageManage',
+  PARTY_MATCHING_CONFIRMED: 'mypageManage',
+  PARTY_COMPLETED: 'mypageManage',
+  PARTY_SHOWCASE_PUBLISHED: 'exhibition',
 };
 
 /**
@@ -72,19 +90,25 @@ function toServerIds(ids: string[]): number[] {
  *
  * 최신순으로 페이지 단위로 온다. 알림 드롭다운은 첫 페이지만 쓰므로 기본값을 그대로 둔다.
  */
+/** 서버가 페이지 단위로 주므로 목록과 전체 페이지 수를 함께 돌려준다 */
+export interface NotificationPage {
+  items: AppNotification[];
+  totalPages: number;
+}
+
 export async function fetchNotifications(options?: {
   /** 읽음 여부 필터. 생략하면 전부 */
   isRead?: boolean;
   page?: number;
   size?: number;
-}): Promise<AppNotification[]> {
-  if (USE_MOCK) return mockResponse(MOCK_NOTIFICATIONS);
+}): Promise<NotificationPage> {
+  if (USE_MOCK) return mockResponse({ items: MOCK_NOTIFICATIONS, totalPages: 1 });
 
   const result = await http.get<NotificationPageResponse>('/notifications', {
     query: { isRead: options?.isRead, page: options?.page, size: options?.size },
   });
 
-  return result.content.map(toAppNotification);
+  return { items: result.content.map(toAppNotification), totalPages: result.totalPages };
 }
 
 /**

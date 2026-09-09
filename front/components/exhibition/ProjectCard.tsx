@@ -13,10 +13,19 @@ interface ProjectCardProps {
 
 /** 전시관 프로젝트 카드 */
 export function ProjectCard({ project, rank, showLeader = true }: ProjectCardProps) {
+  /*
+   * 전시 상세는 두 갈래다.
+   * - PROJECT : 파티에 종속이라 파티 전시 상세로 (GET /parties/{partyId}/showcase)
+   * - 그 외   : 개인 성취라 파티가 없다. 성취 상세로 (GET /goals/{goalId})
+   */
+  const href = project.sourcePartyId
+    ? `/exhibition/${project.sourcePartyId}`
+    : `/goals/${project.id}`;
+
   return (
     <article className="project-card">
       <Link
-        href={`/exhibition/${project.id}`}
+        href={href}
         className={project.coverImageUrl ? 'project-thumb has-cover' : 'project-thumb'}
         style={
           project.coverImageUrl ? { backgroundImage: `url(${project.coverImageUrl})` } : undefined
@@ -37,7 +46,7 @@ export function ProjectCard({ project, rank, showLeader = true }: ProjectCardPro
       <div className="project-body">
         <SourceBadge source={project.source} />
         <h5>
-          <Link href={`/exhibition/${project.id}`}>{project.title}</Link>
+          <Link href={href}>{project.title}</Link>
         </h5>
         <p className="sub">{project.summary}</p>
         <ChipRow>
@@ -45,8 +54,11 @@ export function ProjectCard({ project, rank, showLeader = true }: ProjectCardPro
             <SkillChip key={skill}>{skill}</SkillChip>
           ))}
         </ChipRow>
-        {showLeader ? (
-          <LeaderRow user={project.leader} href={`/profile/${project.leader.id}`} />
+        {showLeader && project.leader ? (
+          <LeaderRow
+            user={project.leader}
+            href={project.leader.id ? `/profile/${project.leader.id}` : undefined}
+          />
         ) : null}
       </div>
     </article>

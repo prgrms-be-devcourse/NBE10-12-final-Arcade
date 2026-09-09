@@ -30,5 +30,7 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  // *.check.ts 는 node --experimental-strip-types 로 직접 돌리는 자체 점검이라
+  // 확장자까지 적은 import 를 쓴다(Node 요구). 앱 빌드 대상이 아니다.
+  "exclude": ["node_modules", "**/*.check.ts"]
 }

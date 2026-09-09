@@ -30,10 +30,13 @@ export function DetailActions({
   likedByMe,
   bookmarkedByMe,
 }: DetailActionsProps) {
-  const like = (liked: boolean) => {
+  const like = (liked: boolean, currentCount: number) => {
     if (target === 'party') return togglePartyLike(id, liked);
     if (target === 'contest') return toggleContestLike(id, liked);
-    return toggleExhibitionLike(id, liked).then((result) => ({ likeCount: result.likes }));
+    // 전시는 취소 응답에 수가 없어 화면이 들고 있는 수를 넘긴다
+    return toggleExhibitionLike(id, liked, currentCount).then((result) => ({
+      likeCount: result.likes,
+    }));
   };
 
   const bookmark = (bookmarked: boolean) => {

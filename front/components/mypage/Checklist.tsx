@@ -12,6 +12,7 @@ import {
   updateSoloItem,
 } from '@/lib/api';
 import type { ChecklistItem } from '@/lib/types';
+import { isEnterCommit } from '@/lib/ime';
 
 interface ChecklistProps {
   /** 개인 TODO id */
@@ -29,24 +30,32 @@ export function Checklist({ todoId, items: initialItems, ownerName }: ChecklistP
   const [items, setItems] = useState<ChecklistItem[]>(initialItems);
   const [content, setContent] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
+  // 저장이 끝나기 전에 한 번 더 누르면 같은 내용이 두 건 등록된다. 그 사이를 막는다.
+  const [submitting, setSubmitting] = useState(false);
 
   const done = useMemo(() => items.filter((item) => item.state === 'done').length, [items]);
 
   const submitForm = async () => {
     const text = content.trim();
-    if (!text) return;
+    if (!text || submitting) return;
 
-    if (editingId) {
-      setItems((prev) =>
-        prev.map((item) => (item.id === editingId ? { ...item, content: text } : item)),
-      );
-      await updateSoloItem(todoId, editingId, text);
-      setEditingId(null);
-    } else {
-      const created = await createSoloItem(todoId, text);
-      setItems((prev) => [...prev, created]);
+    setSubmitting(true);
+    try {
+      if (editingId) {
+        setItems((prev) =>
+          prev.map((item) => (item.id === editingId ? { ...item, content: text } : item)),
+        );
+        await updateSoloItem(todoId, editingId, text);
+        setEditingId(null);
+      } else {
+        // id 는 서버가 정한다. 화면에서 만들면 같은 밀리초에 두 건이 겹쳐 key 가 중복된다.
+        const created = await createSoloItem(todoId, text);
+        setItems((prev) => [...prev, created]);
+      }
+      setContent('');
+    } finally {
+      setSubmitting(false);
     }
-    setContent('');
   };
 
   const startEdit = (item: ChecklistItem) => {
@@ -139,7 +148,7 @@ export function Checklist({ todoId, items: initialItems, ownerName }: ChecklistP
               value={content}
               onChange={(event) => setContent(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === 'Enter') {
+                if (isEnterCommit(event)) {
                   event.preventDefault();
                   submitForm();
                 }
@@ -156,7 +165,12 @@ export function Checklist({ todoId, items: initialItems, ownerName }: ChecklistP
               취소
             </button>
           ) : null}
-          <button type="button" className="btn btn-primary" onClick={submitForm}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={submitForm}
+            disabled={submitting}
+          >
             {editingId ? '수정 저장' : '할 일 추가'}
           </button>
         </div>

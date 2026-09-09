@@ -3,21 +3,28 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/icons/Icon';
-import { fetchMessages, markMessagesRead } from '@/lib/api';
+import { fetchMessages, markMessagesRead, openMessage as readMessage } from '@/lib/api';
 import { useRefreshOnVisible } from '@/lib/hooks/useRefreshOnVisible';
 import type { DirectMessage } from '@/lib/types';
 
 /** 네비게이션 우측 쪽지 드롭다운 */
+/** 드롭다운에 미리 보여줄 건수 */
+const PREVIEW_SIZE = 20;
+
 export function MessagePanel() {
   const router = useRouter();
   const wrapRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<DirectMessage[]>([]);
 
-  /** 받은 쪽지 다시 읽기. 배경 갱신이 실패하면 화면에 있던 것을 그대로 둔다 */
+  /**
+   * 받은 쪽지 다시 읽기. 배경 갱신이 실패하면 화면에 있던 것을 그대로 둔다.
+   *
+   * 드롭다운은 미리보기라 첫 쪽만 받는다 — 전체 목록과 쪽 넘기기는 마이페이지 쪽지함이 맡는다.
+   */
   const load = useCallback(() => {
-    fetchMessages()
-      .then(setMessages)
+    fetchMessages({ size: PREVIEW_SIZE })
+      .then(({ items }) => setMessages(items))
       .catch(() => undefined);
   }, []);
 
@@ -60,6 +67,7 @@ export function MessagePanel() {
     }
   };
 
+  /** 한 건을 열 때는 단건 조회로 읽음 처리한다 — 서버가 수신자 조회 시점에 읽음으로 바꾼다 */
   const openMessage = async (id: string) => {
     setOpen(false);
     router.push('/mypage?tab=messages');
@@ -72,7 +80,7 @@ export function MessagePanel() {
       prev.map((message) => (message.id === id ? { ...message, unread: false } : message)),
     );
     try {
-      await markMessagesRead([id]);
+      await readMessage(id);
     } catch {
       setMessages(previous);
     }

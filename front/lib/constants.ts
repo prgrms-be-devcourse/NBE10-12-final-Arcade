@@ -36,6 +36,29 @@ export function toPositionType(value: string | undefined | null): PositionType {
   return POSITION_TYPES.includes(value as PositionType) ? (value as PositionType) : 'BACK';
 }
 
+/* ---------- 화면 설정 ---------- */
+
+/**
+ * 테마를 저장하는 localStorage 키.
+ *
+ * 이 값을 하이드레이션 전 인라인 스크립트(app/layout.tsx)가 읽어야 해서 여기 둔다 —
+ * 'use client' 모듈에 두면 서버 컴포넌트에서는 클라이언트 참조 프록시가 잡혀
+ * 스크립트에 undefined 가 박힌다(실제로 그랬다).
+ */
+export const THEME_STORAGE_KEY = 'crewon-theme';
+
+/* ---------- 목록 한 쪽 크기 ---------- */
+
+/**
+ * 서버에 그대로 넘기는 페이지 크기.
+ *
+ * 화면 컴포넌트가 아니라 여기 두는 이유는, 목록을 처음 읽는 쪽이 서버 컴포넌트라서다 —
+ * 'use client' 모듈에서 값을 import 하면 서버 쪽에서는 클라이언트 참조 프록시가 잡혀
+ * 숫자가 아닌 값이 쿼리에 실린다(size=[object Object] → 400-1).
+ */
+export const TODO_PAGE_SIZE = 5;
+export const MESSAGE_PAGE_SIZE = 20;
+
 /* ---------- 파티 주제 유형 (기획서 3.5) ---------- */
 
 export const TOPIC_TYPES: readonly TopicType[] = ['CONTEST', 'PROJECT', 'STUDY', 'ETC'];

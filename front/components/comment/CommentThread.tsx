@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Icon } from '@/components/icons/Icon';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { isEnterCommit } from '@/lib/ime';
 import type { ThreadComment } from '@/lib/types';
 
 interface CommentThreadProps {
@@ -115,7 +116,7 @@ export function CommentThread({
                 value={editDraft}
                 onChange={(event) => setEditDraft(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter') saveEdit(comment.id);
+                  if (isEnterCommit(event)) saveEdit(comment.id);
                 }}
                 autoFocus
               />
@@ -169,7 +170,7 @@ export function CommentThread({
                     value={replyDraft}
                     onChange={(event) => setReplyDraft(event.target.value)}
                     onKeyDown={(event) => {
-                      if (event.key === 'Enter') addReply(comment.id);
+                      if (isEnterCommit(event)) addReply(comment.id);
                     }}
                     autoFocus
                   />
@@ -202,7 +203,7 @@ export function CommentThread({
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === 'Enter') addComment();
+            if (isEnterCommit(event)) addComment();
           }}
         />
         <button type="button" className="btn-mini" onClick={addComment}>

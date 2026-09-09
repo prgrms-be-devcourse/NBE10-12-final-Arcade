@@ -22,11 +22,18 @@ import {
   MOCK_PARTY_DETAILS,
   MOCK_RECOMMENDED_PARTIES,
 } from '@/lib/mock';
+import { positionLabel } from '@/lib/constants';
 import { ApiError, USE_MOCK, http, mockResponse } from './client';
 
 /* ---------- 백엔드 응답 타입 ---------- */
 
 type PartyTag = 'WEB' | 'APP' | 'GAME' | 'ETC';
+/** 서버 ContestFormat. 화면은 공모전을 COMPETITION 으로 부른다 (contests.ts 와 같은 짝) */
+type ServerContestFormat = 'CONTEST' | 'HACKATHON';
+const FORMAT_TO_CLIENT: Record<ServerContestFormat, ContestFormat> = {
+  CONTEST: 'COMPETITION',
+  HACKATHON: 'HACKATHON',
+};
 
 interface PositionResponse {
   id: number;
@@ -36,21 +43,24 @@ interface PositionResponse {
 }
 
 /** PartyListItemDto */
-interface PartyListItemResponse {
+export interface PartyListItemResponse {
   id: number;
   ownerName: string;
   partyName: string;
   title: string;
   topicType: TopicType;
   /** 연동된 등록 대회의 형식. 대회 파티가 아니거나 미등록 외부 대회면 null */
-  contestFormat: ContestFormat | null;
+  contestFormat: ServerContestFormat | null;
   status: PartyStatus;
   partyTag: PartyTag;
   deadline: string;
   dDay: number;
   likeCount: number;
   viewCount: number;
-  /** 지원자 수 전체. 이 값을 세지 않는 조회(홈 TOP3·검색)에서는 null */
+  /**
+   * 지원한 사람 수 전체(거절 포함). 승인 인원(positions[].filledCount)과는 다른 값이다.
+   * 세지 않는 응답(홈 TOP3·검색·생성·수정·마감·완료)에서는 null 로 온다.
+   */
   applicantCount: number | null;
   positions: PositionResponse[];
 }
@@ -74,9 +84,9 @@ interface PartyResponse extends Omit<PartyListItemResponse, 'ownerName'> {
   ownerId: number;
   ownerName: string;
   description: string | null;
-  /** 크루온에 등록된 대회와 연결된 경우에만 값 존재 */
+  /** 크루온에 등록된 대회와 연결된 경우에만 온다 (ContestSummaryDto) */
   targetContest: { id: number; title: string } | null;
-  /** 미등록 외부 대회의 자유 입력 이름 */
+  /** 대회 이름. 미등록 외부 대회는 직접 입력한 값이 여기 담긴다 */
   contestTitle: string | null;
   contestLinkUrl: string | null;
   githubRepoUrl: string | null;
@@ -92,6 +102,37 @@ interface PartyApplicationResponse {
   positionType: PositionType;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   message: string | null;
+  createDate: string;
+}
+
+/** MyApplicationDto — 내 지원 현황 한 건. 지원 id 는 내려오지 않는다 */
+interface MyApplicationResponse {
+  party: { id: number; name: string };
+  position: PositionType;
+  state: 'PENDING' | 'APPROVED' | 'REJECTED';
+}
+
+/**
+ * ReceivedApplicationDto — 파티장이 보는 지원 한 건.
+ * 카드 하나로 승인·거절을 판단할 수 있게 지원자 프로필과 성취 건수가 함께 온다(기획서 2.1).
+ */
+interface ReceivedApplicationResponse {
+  applicationId: number;
+  partyId: number;
+  partyName: string;
+  applicant: {
+    id: number;
+    name: string;
+    /** 프로필을 아직 만들지 않았으면 null */
+    nickname: string | null;
+    /** 프로필에 적어둔 희망 포지션. 이번에 지원한 position 과는 다른 값이다 */
+    preferredPosition: PositionType | null;
+    techStacks: string[];
+  };
+  position: PositionType;
+  state: 'PENDING' | 'APPROVED' | 'REJECTED';
+  message: string | null;
+  achievements: { platformVerified: number; selfReported: number };
   createDate: string;
 }
 
@@ -131,14 +172,17 @@ function toUserSummary(id: string, name: string): UserSummary {
  * - summary, tags   : 서버 목록 DTO 에 본문·태그가 없다
  * - createdAt       : 서버가 생성일을 내려주지 않는다
  * - leader.id       : 목록 DTO 에 ownerId 가 없다 (상세에는 있다)
+ *
+ * 상세(PartyDto)로 부를 때는 contestFormat·applicantCount 가 없어 태그가 빠지고 지원자 수가 0 이 된다.
  */
-function toParty(dto: PartyListItemResponse): Party {
+export function toParty(dto: PartyListItemResponse): Party {
   return {
     id: String(dto.id),
+    partyName: dto.partyName,
     title: dto.title,
     summary: '',
     topicType: dto.topicType,
-    contestFormat: dto.contestFormat ?? undefined,
+    contestFormat: dto.contestFormat ? FORMAT_TO_CLIENT[dto.contestFormat] : undefined,
     subCategory: TAG_TO_LABEL[dto.partyTag],
     positions: dto.positions.map((position) => ({
       type: toPositionType(position.type),
@@ -173,6 +217,7 @@ function toPartyDetail(dto: PartyResponse): PartyDetail {
     summary: dto.description ?? '',
     description: dto.description ?? '',
     contestId: dto.targetContest ? String(dto.targetContest.id) : undefined,
+    // 등록 대회면 그쪽 제목이 최신이다. 미등록 외부 대회는 직접 입력한 이름만 있다
     contestName: dto.targetContest?.title ?? dto.contestTitle ?? undefined,
     contestLinkUrl: dto.contestLinkUrl ?? undefined,
     githubRepoUrl: dto.githubRepoUrl ?? undefined,
@@ -190,22 +235,34 @@ const APPLICANT_STATUS: Record<PartyApplicationResponse['status'], ApplicantStat
 };
 
 /**
- * PartyApplicationDto → Applicant.
- * skills·achievements 는 지원자 성취 프로필 조회가 아직 응답에 없어 비워 둔다(기획서 9.2).
+ * ReceivedApplicationDto → Applicant.
+ *
+ * 성취는 건수만 오므로(목록이 필요하면 성취 API 를 쓴다) 카드 문구로 바꿔 싣는다.
+ * user.role 은 계정 권한이 아니라 화면에 보여주는 대표 포지션 문구다 - 지원자가 프로필에 적어둔 희망 포지션이다.
  */
-function toApplicant(dto: PartyApplicationResponse, partyName = ''): Applicant {
+function toReceivedApplicant(dto: ReceivedApplicationResponse): Applicant {
+  const displayName = dto.applicant.nickname?.trim() || dto.applicant.name;
+  const { platformVerified, selfReported } = dto.achievements;
+
   return {
-    id: String(dto.id),
+    id: String(dto.applicationId),
     partyId: String(dto.partyId),
-    partyName,
-    position: toPositionType(dto.positionType),
-    source: 'SELF_REPORTED',
-    user: toUserSummary(String(dto.applicantId), dto.applicantName),
+    partyName: dto.partyName,
+    position: dto.position,
+    // 카드의 출처 배지 - 자동기록 성취가 하나라도 있으면 그쪽을 앞세운다
+    source: platformVerified > 0 ? 'PLATFORM_VERIFIED' : 'SELF_REPORTED',
+    user: {
+      ...toUserSummary(String(dto.applicant.id), displayName),
+      role: dto.applicant.preferredPosition ? positionLabel(dto.applicant.preferredPosition) : '',
+    },
     appliedAt: dto.createDate,
-    status: APPLICANT_STATUS[dto.status],
+    status: APPLICANT_STATUS[dto.state],
     message: dto.message ?? '',
-    skills: [],
-    achievements: [],
+    skills: dto.applicant.techStacks,
+    achievements: [
+      `플랫폼 자동기록 ${platformVerified}건`,
+      `자기신고 ${selfReported}건`,
+    ],
   };
 }
 
@@ -384,6 +441,8 @@ export interface PartyFormPayload {
   contestName?: string;
   /** 원본 대회 링크 — 등록 여부와 무관하게 항상 받는다 (기획서 3.5) */
   contestLinkUrl?: string;
+  /** 팀 이름. 서버가 10자로 막는다 (모집글 제목과 다른 값이다) */
+  partyName: string;
   title: string;
   description: string;
   /** 대표 사진 1장 — 목록 카드·상세 상단에 쓰인다 */
@@ -391,11 +450,6 @@ export interface PartyFormPayload {
   positions: { type: PositionType; capacity: number }[];
   repositoryUrl?: string;
 
-  /**
-   * 아래 셋은 서버가 필수로 받는 값인데 파티 생성 폼이 아직 입력받지 않는다.
-   * 넘기지 않으면 임시값으로 채워 보내므로, 폼에 입력칸을 추가하는 게 맞다.
-   */
-  partyName?: string;
   /** 분야 — 화면 라벨('웹 개발' 등) 그대로 넘기면 서버 enum 으로 변환한다 */
   subCategory?: string;
   /** 모집 기한 ISO 문자열. 없으면 30일 뒤로 잡는다 */
@@ -407,8 +461,8 @@ function toPartyRequestBody(payload: PartyFormPayload) {
     payload.deadline ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 19);
 
   return {
-    // 서버는 파티 이름과 모집글 제목을 따로 받는다. 폼에 이름 칸이 없어 제목을 그대로 쓴다.
-    partyName: payload.partyName ?? payload.title,
+    // 서버는 파티 이름(10자)과 모집글 제목(20자)을 따로 받는다.
+    partyName: payload.partyName,
     title: payload.title,
     description: payload.description,
     targetContestId: payload.contestId ? Number(payload.contestId) : null,
@@ -508,7 +562,7 @@ export async function fetchMyPartyApplicants(
 ): Promise<Applicant[]> {
   const { partyId = '전체', position = '전체' } = query;
 
-  if (USE_MOCK || partyId === '전체' || !partyId) {
+  if (USE_MOCK) {
     return mockResponse(
       MOCK_APPLICANTS.filter(
         (applicant) =>
@@ -518,12 +572,17 @@ export async function fetchMyPartyApplicants(
     );
   }
 
-  const applications = await http.get<PartyApplicationResponse[]>(
-    `/parties/${partyId}/applications`,
+  const slice = await http.get<{ content: ReceivedApplicationResponse[] }>(
+    '/members/me/received-applications',
+    {
+      query: {
+        partyId: partyId === '전체' ? undefined : partyId,
+        part: position === '전체' ? undefined : position,
+        size: 100,
+      },
+    },
   );
-  return applications
-    .map((application) => toApplicant(application))
-    .filter((applicant) => position === '전체' || applicant.position === position);
+  return slice.content.map(toReceivedApplicant);
 }
 
 /**
@@ -543,20 +602,56 @@ export async function decideApplicant(
 }
 
 /**
- * 내가 지원한 내역.
- * 백엔드에 GET /mypage/applications(기획서 9.11)가 아직 없어 데모 데이터를 그대로 쓴다.
+ * POST /api/v1/parties/{partyId}/applications/{applicationId}/cancel-approval
+ *
+ * 승인을 되돌린다. 서버는 PENDING 이 아니라 **REJECTED** 로 바꾸고 정원 한 자리를 돌려준다
+ * (PartyMember.cancelApproval). 승인된 건이 아니면 409-1 이다.
+ */
+export async function cancelApplicantApproval(id: string, partyId?: string): Promise<void> {
+  if (USE_MOCK || !partyId) return mockResponse(undefined as void);
+
+  await http.post<PartyApplicationResponse>(
+    `/parties/${partyId}/applications/${id}/cancel-approval`,
+  );
+}
+
+/**
+ * GET /api/v1/members/me/applications — 내가 지원한 내역.
+ *
+ * 서버가 승인대기(PENDING)만 최신순으로 내려준다 - 승인·거절된 건은 여기 오지 않는다.
+ * 응답에 지원 id 가 없어(파티로 이동하는 데 party.id 만 쓰므로) 카드 key 는 파티+포지션으로 만든다.
+ * 지원자는 나 자신이라 user·skills·achievements 는 이 화면에서 쓰지 않는다.
  */
 export async function fetchMyApplications(): Promise<Applicant[]> {
-  return mockResponse([
-    {
-      ...MOCK_APPLICANTS[0],
-      id: 'my-1',
-      partyId: 'commerce-clone',
-      partyName: '커머스 클론 사이드프로젝트',
-      position: 'BACK' as PositionType,
-      message: '성취 프로필 전체 첨부됨',
-    },
-  ]);
+  if (USE_MOCK) {
+    return mockResponse([
+      {
+        ...MOCK_APPLICANTS[0],
+        id: 'my-1',
+        partyId: 'commerce-clone',
+        partyName: '커머스 클론 사이드프로젝트',
+        position: 'BACK' as PositionType,
+        message: '성취 프로필 전체 첨부됨',
+      },
+    ]);
+  }
+
+  const slice = await http.get<{ content: MyApplicationResponse[] }>('/members/me/applications', {
+    query: { size: 100 },
+  });
+  return slice.content.map((dto) => ({
+    id: `${dto.party.id}-${dto.position}`,
+    partyId: String(dto.party.id),
+    partyName: dto.party.name,
+    position: dto.position,
+    source: 'SELF_REPORTED' as const,
+    user: toUserSummary('', ''),
+    appliedAt: '',
+    status: APPLICANT_STATUS[dto.state],
+    message: '',
+    skills: [],
+    achievements: [],
+  }));
 }
 
 /* ---------- 좋아요 · 북마크 ---------- */

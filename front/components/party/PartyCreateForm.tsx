@@ -13,7 +13,15 @@ import {
 import { RadioChipGroup } from '@/components/ui/RadioChipGroup';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { CoverUpload } from '@/components/ui/CoverUpload';
-import { createParty, fetchContests, searchContests, updateParty } from '@/lib/api';
+import {
+  createParty,
+  fetchContest,
+  fetchContests,
+  fetchParty,
+  searchContests,
+  updateParty,
+} from '@/lib/api';
+import { useLeaveTo } from '@/lib/navigation';
 import {
   CONTEST_FORMATS,
   CONTEST_FORMAT_LABELS,
@@ -23,6 +31,10 @@ import {
   TOPIC_TYPE_LABELS,
 } from '@/lib/constants';
 import type { Contest, ContestFormat, PositionType, TopicType } from '@/lib/types';
+
+/** 서버 PartyCreateReqBody 의 @Size 와 같은 값 */
+const PARTY_NAME_MAX = 10;
+const TITLE_MAX = 20;
 
 interface PositionRow {
   key: string;
@@ -34,9 +46,12 @@ interface PositionRow {
 export function PartyCreateForm({ editId }: { editId?: string }) {
   const router = useRouter();
   const { confirm, dialog } = useConfirm();
+  // 수정으로 들어왔으면 되돌아간다 - push 하면 상세에서 뒤로가기를 눌렀을 때 수정 폼이 다시 나온다
+  const leaveEdit = useLeaveTo(editId ? `/party/${editId}` : '/party');
   const [topicType, setTopicType] = useState<TopicType>('CONTEST');
   const [contestFormat, setContestFormat] = useState<ContestFormat>('COMPETITION');
   const [contestLinkUrl, setContestLinkUrl] = useState('');
+  const [partyName, setPartyName] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [repositoryUrl, setRepositoryUrl] = useState('');
@@ -45,6 +60,13 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
     { key: 'p1', type: 'BACK', capacity: '' },
   ]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  /**
+   * 폼에 입력칸이 없는 값. 수정할 때 그대로 돌려보내지 않으면 분야가 ETC 로,
+   * 모집 기한이 30일 뒤로 덮인다 (toPartyRequestBody 의 기본값).
+   */
+  const [carried, setCarried] = useState<{ subCategory?: string; deadline?: string }>({});
+  /** 수정 진입 시 기존 값을 읽어오는 동안. 다 읽기 전에 저장하면 빈 값으로 덮인다 */
+  const [loading, setLoading] = useState(Boolean(editId));
 
   // 공모전 연동 검색
   const [contestKeyword, setContestKeyword] = useState('');
@@ -59,6 +81,46 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
   const trimmedKeyword = contestKeyword.trim();
   const pickerOpen = topicType === 'CONTEST' && !pickedContest;
   const contestResults = pickerOpen && search.keyword === trimmedKeyword ? search.results : [];
+
+  /**
+   * 수정 진입이면 기존 파티를 읽어 폼을 채운다.
+   *
+   * 서버 PartyDto 에는 대회 형식(contestFormat)이 없어 공모전으로 두고 시작한다 -
+   * 목록 DTO 에만 있는 값이라 상세에서는 알 수 없다.
+   */
+  useEffect(() => {
+    if (!editId) return;
+    let alive = true;
+
+    (async () => {
+      const party = await fetchParty(editId);
+      // 연결된 대회 카드(포스터·주최·접수기간)를 그리려면 대회 상세가 필요하다
+      const contest = party.contestId ? await fetchContest(party.contestId) : null;
+      if (!alive) return;
+
+      setTopicType(party.topicType);
+      setPartyName(party.partyName ?? '');
+      setTitle(party.title);
+      setDescription(party.description);
+      setRepositoryUrl(party.githubRepoUrl ?? '');
+      setContestLinkUrl(party.contestLinkUrl ?? '');
+      setPickedContest(contest);
+      setContestKeyword(contest ? '' : (party.contestName ?? ''));
+      setPositions(
+        party.positions.map((position, index) => ({
+          key: `p${index}`,
+          type: position.type,
+          capacity: String(position.capacity),
+        })),
+      );
+      setCarried({ subCategory: party.subCategory, deadline: party.deadline });
+      setLoading(false);
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [editId]);
 
   /**
    * 대회 목록을 API 에서 불러온다.
@@ -103,7 +165,13 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
 
   const validate = () => {
     const next: Record<string, string> = {};
+    // 서버 PartyCreateReqBody 가 파티 이름 10자·모집글 제목 20자로 막는다. 넘기면 400 이라 여기서 먼저 잡는다
+    if (!partyName.trim()) next.partyName = '파티 이름을 입력해 주세요.';
+    else if (partyName.trim().length > PARTY_NAME_MAX)
+      next.partyName = `파티 이름은 ${PARTY_NAME_MAX}자까지 입력할 수 있어요.`;
     if (!title.trim()) next.title = '모집글 제목을 입력해 주세요.';
+    else if (title.trim().length > TITLE_MAX)
+      next.title = `모집글 제목은 ${TITLE_MAX}자까지 입력할 수 있어요.`;
     if (!description.trim()) next.description = '파티 소개를 입력해 주세요.';
     if (positionRequired) {
       const filled = positions.filter((row) => Number(row.capacity) > 0);
@@ -117,6 +185,8 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
     if (!validate()) return;
     setSubmitting(true);
     const payload = {
+      ...carried,
+      partyName,
       topicType,
       contestFormat: topicType === 'CONTEST' ? contestFormat : undefined,
       contestId: pickedContest?.id,
@@ -132,7 +202,13 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
     };
     try {
       const result = editId ? await updateParty(editId, payload) : await createParty(payload);
-      router.push(`/party/${result.id}`);
+      if (editId) {
+        leaveEdit();
+        router.refresh();
+      } else {
+        // 새로 만든 파티로 가는 건 앞으로 가는 이동이라 히스토리에 쌓는 게 맞다
+        router.push(`/party/${result.id}`);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -242,9 +318,27 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
         </>
       ) : null}
 
-      <FormGroup label="모집글 제목" required error={errors.title}>
+      <FormGroup
+        label="파티 이름"
+        required
+        hint={`팀 이름처럼 짧게 — ${PARTY_NAME_MAX}자 이내`}
+        error={errors.partyName}
+      >
         <TextField
-          placeholder="예: 프로그래머스 오락실 공모전 참여하실분"
+          placeholder="예: 오락실크루"
+          maxLength={PARTY_NAME_MAX}
+          value={partyName}
+          onChange={(event) => {
+            setPartyName(event.target.value);
+            setErrors((prev) => ({ ...prev, partyName: '' }));
+          }}
+        />
+      </FormGroup>
+
+      <FormGroup label="모집글 제목" required hint={`${TITLE_MAX}자 이내`} error={errors.title}>
+        <TextField
+          placeholder="예: 오락실 공모전 같이 나가요"
+          maxLength={TITLE_MAX}
           value={title}
           onChange={(event) => {
             setTitle(event.target.value);
@@ -329,10 +423,15 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
       </FormGroup>
 
       <FormActions>
-        <button type="button" className="btn btn-primary" onClick={submit} disabled={submitting}>
-          {submitting ? '등록 중…' : editId ? '수정 저장' : '모집글 등록'}
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={submit}
+          disabled={submitting || loading}
+        >
+          {loading ? '불러오는 중…' : submitting ? '등록 중…' : editId ? '수정 저장' : '모집글 등록'}
         </button>
-        <button type="button" className="btn btn-ghost" onClick={() => router.push('/party')}>
+        <button type="button" className="btn btn-ghost" onClick={leaveEdit}>
           취소
         </button>
       </FormActions>

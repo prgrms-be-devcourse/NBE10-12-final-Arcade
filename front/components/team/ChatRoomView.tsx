@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { isEnterCommit } from '@/lib/ime';
 import { Icon } from '@/components/icons/Icon';
 import {
   connectChatSocket,
@@ -158,7 +159,7 @@ export function ChatRoomView({ room }: { room: ChatRoom }) {
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === 'Enter') {
+            if (isEnterCommit(event)) {
               event.preventDefault();
               send();
             }

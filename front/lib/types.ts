@@ -96,14 +96,22 @@ export interface Achievement {
   links: AchievementLink[];
   /** PLATFORM_VERIFIED 일 때만 값 존재 — 좋아요·조회수를 원본 파티로 합산 (기획서 3.2) */
   sourcePartyId?: ID;
+  /** PROJECT 에서 그 파티에 맡았던 포지션 문구. 참여 파티 히스토리에 쓴다 */
+  positionLabel?: string;
 }
 
 export interface CareerItem {
   id: ID;
+  /** 화면 표시용 기간 문구. startDate·endDate 로 조립한 값이라 편집 대상이 아니다 */
   period: string;
+  /** 역할. 서버 role 이다 — 비어 있으면 서버가 그 경력을 저장하지 않는다 */
   title: string;
   org: string;
   description: string;
+  /** yyyy-MM-dd. 서버가 LocalDate 로 받는다 */
+  startDate?: string;
+  /** yyyy-MM-dd. 비우면 재직중으로 본다 */
+  endDate?: string;
 }
 
 export interface ProfileLink {
@@ -120,15 +128,24 @@ export interface BadgeItem {
 }
 
 export interface UserProfile extends UserSummary {
+  /**
+   * 실제로 저장된 닉네임. 아직 정하지 않았으면 없다.
+   * UserSummary.name 은 화면에 뿌릴 표시명이라 비었을 때 대체 문구가 들어가 있어,
+   * 수정 폼의 초기값으로 쓰면 그 문구가 진짜 닉네임으로 저장된다.
+   */
+  nickname?: string;
   /** GitHub OAuth 계정 연동 여부. 연동 버튼 노출 여부에만 사용한다. */
   githubLinked?: boolean;
-  /** GitHub 사용자명 — 팀 스페이스의 커밋 작성자를 회원과 연결하는 데 쓴다 */
-  githubUsername?: string;
   /**
    * 계정 권한. UserSummary.role 은 화면에 보여주는 대표 포지션 문구이고,
    * 이 값은 등록 권한을 가르는 계정 역할이라 서로 다른 개념이다.
    */
   memberRole: MemberRole;
+  /**
+   * 직접 올린 프로필 이미지 URL. avatarUrl 은 GitHub 아바타로 대체됐을 수 있어 따로 둔다 -
+   * 수정 요청에 GitHub 아바타를 실으면 '직접 올린 것'으로 굳어 GitHub 에서 바꿔도 반영되지 않는다.
+   */
+  uploadedImageUrl?: string;
   bio: string;
   /** 대표 포지션 — 4종 고정 enum */
   position: PositionType;
@@ -140,6 +157,8 @@ export interface UserProfile extends UserSummary {
     approvalRate: number;
   };
   streakDays: number;
+  /** 최근 8주(56일) 활동 농도 0~3. GET /members/me/summary 가 준다 */
+  activityHeatmap?: number[];
   badges: BadgeItem[];
   achievements: Achievement[];
   careers: CareerItem[];
@@ -157,6 +176,8 @@ export interface PartyPosition {
 
 export interface Party {
   id: ID;
+  /** 팀 이름(최대 10자). 모집글 제목(title)과 다른 값이다. 데모 데이터에는 없다 */
+  partyName?: string;
   title: string;
   summary: string;
   /** 주제 유형 — 공모전·해커톤은 CONTEST 하나로 묶인다 */
@@ -267,11 +288,14 @@ export interface ExhibitionProject {
   coverImageUrl?: string;
   /** PLATFORM_VERIFIED 면 좋아요·조회수를 이 파티로 합산한다 (기획서 3.2) */
   sourcePartyId?: ID;
-  leader: UserSummary;
+  /** 전시 목록(GET /showcase/goals)에는 소유자 정보가 없어 비어 있을 수 있다 */
+  leader?: UserSummary;
   thumbnailLabel: string;
 }
 
 export interface ExhibitionDetail extends ExhibitionProject {
+  /** 상세는 소유자를 아는 경로에서만 오므로 목록과 달리 항상 채워진다 */
+  leader: UserSummary;
   description: string;
   members: UserSummary[];
   links: ProfileLink[];
@@ -383,13 +407,12 @@ export type NotificationType =
   | 'comment';
 
 export type NotificationTarget =
-  | 'team'
-  | 'detail'
   | 'mypageManage'
   | 'mypageMessages'
   | 'mypageIdentity'
+  | 'mypageBookmarks'
   | 'contests'
-  | 'mypageBookmarks';
+  | 'exhibition';
 
 export interface AppNotification {
   id: ID;

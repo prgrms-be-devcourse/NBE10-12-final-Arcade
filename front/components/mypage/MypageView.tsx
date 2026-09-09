@@ -32,22 +32,31 @@ interface MypageViewProps {
   initialTab: MypageTabKey;
   profile: UserProfile;
   todos: TodoItem[];
+  /** 개인 TODO 전체 페이지 수 (서버 페이지네이션) */
+  todoTotalPages: number;
   applicants: Applicant[];
   myApplications: Applicant[];
   messages: DirectMessage[];
+  /** 쪽지함 전체 페이지 수 (서버 페이지네이션) */
+  messageTotalPages: number;
   bookmarks: BookmarkItem[];
   myParties: { id: string; title: string }[];
+  /** 전시가 게시된 파티 id. 게시된 것만 '전시 페이지 보기' 를 단다(기획서 2.11) */
+  publishedPartyIds: string[];
 }
 
 export function MypageView({
   initialTab,
   profile: initialProfile,
   todos,
+  todoTotalPages,
   applicants,
   myApplications,
   messages,
+  messageTotalPages,
   bookmarks,
   myParties,
+  publishedPartyIds,
 }: MypageViewProps) {
   const router = useRouter();
   const [profile, setProfile] = useState(initialProfile);
@@ -87,17 +96,17 @@ export function MypageView({
               onConnectGithub={profile.githubLinked ? undefined : connectGithub}
             />
 
-            <HeroStats streakDays={profile.streakDays} badges={profile.badges} />
+            <HeroStats streakDays={profile.streakDays} activityHeatmap={profile.activityHeatmap} />
 
             <MypageTabs active={activeTab} onChange={changeTab} />
 
             {activeTab === 'identity' ? (
-              <IdentityTab profile={profile} />
+              <IdentityTab profile={profile} publishedPartyIds={publishedPartyIds} />
             ) : null}
 
             {activeTab === 'todo' ? (
               <div className="mypage-tab-panel">
-                <DetailGrid main={<TodoTable todos={todos} />} />
+                <DetailGrid main={<TodoTable todos={todos} totalPages={todoTotalPages} />} />
               </div>
             ) : null}
 
@@ -144,7 +153,7 @@ export function MypageView({
                 <DetailGrid
                   main={
                     <Block title="쪽지함" reveal>
-                      <MessageBox messages={messages} />
+                      <MessageBox messages={messages} totalPages={messageTotalPages} />
                     </Block>
                   }
                 />
@@ -183,39 +192,70 @@ export function MypageView({
 }
 
 /** 프로필(정체성) 탭 */
-function IdentityTab({ profile }: { profile: UserProfile }) {
+function IdentityTab({
+  profile,
+  publishedPartyIds,
+}: {
+  profile: UserProfile;
+  publishedPartyIds: string[];
+}) {
+  // 참여 파티 이력은 PROJECT 성취다 (GET /goals/me 로 이미 받아온 목록에서 고른다)
+  const partyHistory = profile.achievements.filter((item) => item.type === 'PROJECT');
+  const published = new Set(publishedPartyIds);
   return (
     <div className="mypage-tab-panel">
       <DetailGrid
         main={
           <>
+            {/*
+              참여 파티 이력 = 내 PROJECT 성취다. 파티 확정 시 승인된 참여자 전원에게
+              파티명·포지션·매칭일을 담아 자동 생성되므로(GoalService.assemble),
+              GET /goals/me 로 이미 받아온 목록을 걸러 쓰면 된다 - 추가 호출이 없다.
+
+              파티 주제 태그와 체크리스트 진행률은 GoalDto 에 없어 표시하지 않는다.
+            */}
             <Block title="참여 파티 히스토리" reveal>
-              <div className="history-panel">
-                <div className="timeline-item">
-                  <p className="role-line">페이브릿지 해커톤 도전팀 · 백엔드</p>
-                  <p className="period">
-                    <Tag>해커톤</Tag> 2026.08.03 매칭 ~ 진행중
-                  </p>
-                  <p className="desc">
-                    체크리스트 8/12 완료 ·{' '}
-                    <Link className="card-link" href="/party/paybridge/team">
-                      팀 페이지 보기 →
-                    </Link>
-                  </p>
+              {partyHistory.length > 0 ? (
+                <div className="history-panel">
+                  {partyHistory.map((project) => (
+                    <div key={project.id} className="timeline-item">
+                      <p className="role-line">
+                        {project.title}
+                        {project.positionLabel ? ` · ${project.positionLabel}` : ''}
+                      </p>
+                      <p className="period">
+                        <Tag>{project.status === 'ACHIEVED' ? '완료' : '진행중'}</Tag>{' '}
+                        {project.period}
+                      </p>
+                      {project.sourcePartyId ? (
+                        <p className="desc">
+                          <Link
+                            className="card-link"
+                            href={`/party/${project.sourcePartyId}/team`}
+                          >
+                            팀 페이지 보기 →
+                          </Link>
+                          {published.has(project.sourcePartyId) ? (
+                            <>
+                              {' · '}
+                              <Link
+                                className="card-link"
+                                href={`/exhibition/${project.sourcePartyId}`}
+                              >
+                                전시 페이지 보기 →
+                              </Link>
+                            </>
+                          ) : null}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
                 </div>
-                <div className="timeline-item">
-                  <p className="role-line">그린테크 챌린지 참가팀 · 백엔드</p>
-                  <p className="period">
-                    <Tag>공모전</Tag> 2025 · 완료
-                  </p>
-                  <p className="desc">
-                    동료인증 완료 ·{' '}
-                    <Link className="card-link" href="/exhibition/green-report">
-                      전시 페이지 보기 →
-                    </Link>
-                  </p>
-                </div>
-              </div>
+              ) : (
+                <p className="notif-empty">
+                  아직 참여한 파티가 없어요. 파티가 확정되면 여기에 기록이 쌓입니다.
+                </p>
+              )}
             </Block>
 
             <Block title="성취 리스트" reveal>
