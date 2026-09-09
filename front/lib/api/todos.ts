@@ -56,6 +56,12 @@ function toChecklistItem(item: PersonalTodoItemResponse): ChecklistItem {
   return { id: String(item.id), content: item.content, state: item.done ? 'done' : 'open' };
 }
 
+/** ISO 날짜/일시 문자열 앞 10자를 'YYYY.MM.DD' 로. 값이 없거나 형식이 다르면 빈 문자열. */
+function toDateLabel(value: string | null | undefined): string {
+  if (!value || !/^\d{4}-\d{2}-\d{2}/.test(value)) return '';
+  return value.slice(0, 10).replace(/-/g, '.');
+}
+
 function toSoloSpaceDetail(
   dto: PersonalTodoDetailResponse,
   items: PersonalTodoItemResponse[],
@@ -64,7 +70,7 @@ function toSoloSpaceDetail(
     id: String(dto.id),
     title: dto.title,
     type: CATEGORY_LABEL[dto.category] ?? dto.category,
-    createdAt: dto.createDate.slice(0, 10).replace(/-/g, '.'),
+    createdAt: toDateLabel(dto.createDate),
     memo: dto.memo ?? '',
     checklist: items.map(toChecklistItem),
   };
