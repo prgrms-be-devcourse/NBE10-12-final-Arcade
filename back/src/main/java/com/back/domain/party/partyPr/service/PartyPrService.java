@@ -32,7 +32,6 @@ import java.util.LinkedHashMap;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 @Service
@@ -252,12 +251,37 @@ public class PartyPrService {
     }
 
     private PartyPrByMemberDto groupFor(Party party, PartyPrDto pullRequest) {
-        return groupedByMember(party).stream()
-                .filter(group -> pullRequest.authorGithubUserId() == null
-                        ? group.memberId() == null && group.githubUserId() == null
-                        : Objects.equals(group.githubUserId(), pullRequest.authorGithubUserId()))
-                .findFirst()
-                .orElseThrow();
+        Long githubUserId = pullRequest.authorGithubUserId();
+        List<PartyPrDto> pullRequests = githubUserId == null
+                ? partyPrRepository.findAllByPartyIdAndAuthorGithubUserIdIsNullOrderByGithubUpdatedAtDesc(party.getId())
+                        .stream().map(PartyPrDto::new).toList()
+                : partyPrRepository.findAllByPartyIdAndAuthorGithubUserIdOrderByGithubUpdatedAtDesc(
+                        party.getId(), githubUserId
+                ).stream().map(PartyPrDto::new).toList();
+
+        if (githubUserId == null) {
+            return PartyPrByMemberDto.external(null, null, pullRequests);
+        }
+
+        String githubLogin = pullRequests.isEmpty() ? pullRequest.authorLogin() : pullRequests.getFirst().authorLogin();
+        Member member = memberForGithubUserId(party, githubUserId);
+        return member == null
+                ? PartyPrByMemberDto.external(githubUserId, githubLogin, pullRequests)
+                : PartyPrByMemberDto.member(member, party.isOwnedBy(member), githubLogin, pullRequests);
+    }
+
+    /**
+     * SSE 증분 이벤트는 변경된 작성자 그룹만 갱신하면 된다.
+     * 전체 파티원/PR 목록을 다시 그룹화하지 않도록 작성자와 승인 멤버만 조회한다.
+     */
+    private Member memberForGithubUserId(Party party, Long githubUserId) {
+        if (githubUserId.equals(party.getOwner().getGithubUserId())) {
+            return party.getOwner();
+        }
+        return partyMemberRepository
+                .findByPartyAndMember_GithubUserIdAndStatus(party, githubUserId, PartyMemberStatus.APPROVED)
+                .map(PartyMember::getMember)
+                .orElse(null);
     }
 
     private void publishAfterCommit(long partyId, PartyPrDto pullRequest, PartyPrByMemberDto group) {
