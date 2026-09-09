@@ -451,6 +451,8 @@ export const MOCK_PROFILES: Record<string, UserProfile> = Object.fromEntries(
       skills: user.skills,
       stats: user.stats,
       streakDays: user.streakDays,
+      // 목은 '10개월째' 로 굳혀 둔다 - 화면 확인용이라 회원마다 다를 이유가 없다
+      joinedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30 * 9).toISOString(),
       badges: badges(user.streakDays, user.stats.exhibitions),
       achievements: ACHIEVEMENTS[user.id] ?? [],
       careers: CAREERS[user.id] ?? [],
