@@ -2,24 +2,82 @@ import type { ChecklistItem, TodoItem } from '@/lib/types';
 import { MOCK_SOLO_SPACES, MOCK_TODOS } from '@/lib/mock';
 import { USE_MOCK, http, mockResponse } from './client';
 
-/** 개인 TODO 상세 API와 목 데이터에서 공통으로 사용하는 최소 필드다. */
-interface SoloSpaceResponse {
+/** 개인 TODO 상세 — 화면(SoloSpace)이 쓰는 모양. 백엔드 PersonalTodoDetailDto 를 옮긴 것. */
+export interface SoloSpaceDetail {
+  id: string;
   title: string;
-  category?: string;
-  type?: string;
-  memo?: string;
-  status?: string;
+  /** 분류 한글 라벨 */
+  type: string;
+  createdAt: string;
+  memo: string;
+  checklist: ChecklistItem[];
 }
 
-/**
- * 백엔드에 대응 엔드포인트가 아직 없는 모듈이다.
- *
- * 없는 경로로 요청해도 서버 SecurityConfig 의 전체 경로 인증 규칙에 먼저 걸려 404 가 아니라 401 이 오고,
- * 서버 컴포넌트에서 호출한 경우 페이지 전체가 500 으로 죽는다.
- * 그래서 실제 API 가 생기기 전까지는 이 상수로 데모 데이터만 쓰도록 고정한다.
- *
- * 서버가 준비되면 이 상수를 지우고 client 의 USE_MOCK 을 다시 import 하면 아래 http 호출이 살아난다.
- */
+/* ---------- 백엔드 응답 타입 ---------- */
+
+type TodoCategory = 'STUDY' | 'SIDE' | 'CAREER' | 'CERTIFICATE' | 'ETC';
+
+/** PersonalTodoItemDto */
+interface PersonalTodoItemResponse {
+  id: number;
+  content: string;
+  done: boolean;
+  doneAt: string | null;
+  sortOrder: number;
+}
+
+/** PersonalTodoDetailDto — items 는 첫 페이지(20건)만 담긴다 */
+interface PersonalTodoDetailResponse {
+  id: number;
+  ownerId: number;
+  title: string;
+  category: TodoCategory;
+  memo: string | null;
+  status: string;
+  totalCount: number;
+  doneCount: number;
+  items: PersonalTodoItemResponse[];
+  hasMoreItems: boolean;
+  createDate: string;
+  modifyDate: string;
+}
+
+/* ---------- 매퍼 ---------- */
+
+const CATEGORY_LABEL: Record<TodoCategory, string> = {
+  STUDY: '학습',
+  SIDE: '사이드',
+  CAREER: '커리어',
+  CERTIFICATE: '자격증',
+  ETC: '기타',
+};
+
+function toChecklistItem(item: PersonalTodoItemResponse): ChecklistItem {
+  return { id: String(item.id), content: item.content, state: item.done ? 'done' : 'open' };
+}
+
+/** ISO 날짜/일시 문자열 앞 10자를 'YYYY.MM.DD' 로. 값이 없거나 형식이 다르면 빈 문자열. */
+function toDateLabel(value: string | null | undefined): string {
+  if (!value || !/^\d{4}-\d{2}-\d{2}/.test(value)) return '';
+  return value.slice(0, 10).replace(/-/g, '.');
+}
+
+function toSoloSpaceDetail(
+  dto: PersonalTodoDetailResponse,
+  items: PersonalTodoItemResponse[],
+): SoloSpaceDetail {
+  return {
+    id: String(dto.id),
+    title: dto.title,
+    type: CATEGORY_LABEL[dto.category] ?? dto.category,
+    createdAt: toDateLabel(dto.createDate),
+    memo: dto.memo ?? '',
+    checklist: items.map(toChecklistItem),
+  };
+}
+
+/* ---------- 목록 · 생성 ---------- */
+
 /** GET /todos/me */
 export async function fetchTodos(): Promise<TodoItem[]> {
   if (USE_MOCK) return mockResponse(MOCK_TODOS);
@@ -56,8 +114,29 @@ export async function createTodo(payload: {
   return http.post<TodoItem>('/todos', payload);
 }
 
-/** GET /todos/{id} — 개인 TODO 상세(솔로 팀 스페이스) */
-export async function fetchSoloSpace(id: string): Promise<SoloSpaceResponse> {
+/* ---------- 상세 ---------- */
+
+const ITEM_PAGE_SIZE = 100;
+/** 개인 TODO 항목이 이걸 넘을 일은 없다. 백엔드 페이지네이션이 오작동해도 무한 루프에 빠지지 않도록 상한을 둔다. */
+const MAX_ITEM_PAGES = 20;
+
+/** GET /todos/{id}/items — 상세 응답의 items 는 첫 20건뿐이라, 남으면 여기서 끝까지 받는다 */
+async function fetchAllTodoItems(id: string): Promise<PersonalTodoItemResponse[]> {
+  const all: PersonalTodoItemResponse[] = [];
+  for (let page = 0; page < MAX_ITEM_PAGES; page += 1) {
+    const res = await http.get<{ content: PersonalTodoItemResponse[]; last?: boolean }>(
+      `/todos/${id}/items`,
+      { query: { page, size: ITEM_PAGE_SIZE } },
+    );
+    all.push(...res.content);
+    if (res.last === true || res.content.length < ITEM_PAGE_SIZE) return all;
+  }
+  console.warn(`할 일 항목이 ${MAX_ITEM_PAGES * ITEM_PAGE_SIZE}건을 넘어 일부만 불러왔습니다 (todo ${id})`);
+  return all;
+}
+
+/** GET /todos/{id} */
+export async function fetchSoloSpace(id: string): Promise<SoloSpaceDetail> {
   if (USE_MOCK) {
     const found = MOCK_SOLO_SPACES[id];
     if (found) return mockResponse(found);
@@ -71,56 +150,53 @@ export async function fetchSoloSpace(id: string): Promise<SoloSpaceResponse> {
       checklist: [],
     });
   }
-  return http.get<SoloSpaceResponse>(`/todos/${id}`);
+  const dto = await http.get<PersonalTodoDetailResponse>(`/todos/${id}`);
+  const items = dto.hasMoreItems ? await fetchAllTodoItems(id) : dto.items;
+  return toSoloSpaceDetail(dto, items);
 }
 
-/** PATCH /todos/{id} — 백엔드에는 메모 전용 API가 없어 기존 값을 함께 보낸다. */
+/** PATCH /todos/{id} — 부분 수정이라 메모만 보낸다 */
 export async function saveSoloMemo(id: string, memo: string): Promise<void> {
   if (USE_MOCK) return mockResponse(undefined as void);
-  const todo = await fetchSoloSpace(id);
-  await http.patch(`/todos/${id}`, {
-    title: todo.title,
-    category: todo.category ?? todo.type,
-    memo,
-    status: todo.status ?? 'WANT',
-  });
+  await http.patch(`/todos/${id}`, { memo });
 }
+
+/** PATCH /todos/{id} — 완료 처리 */
+export async function finishTodo(id: string): Promise<void> {
+  if (USE_MOCK) return mockResponse(undefined as void);
+  await http.patch(`/todos/${id}`, { status: 'ACHIEVED' });
+}
+
+/* ---------- 할 일 항목 ---------- */
 
 /** POST /todos/{id}/items */
 export async function createSoloItem(id: string, content: string): Promise<ChecklistItem> {
   if (USE_MOCK) {
-    return mockResponse({
-      id: `solo-${Date.now()}`,
-      content,
-      state: 'open',
-      assignee: '정하늘',
-      approvals: 0,
-      quorum: 0,
-    });
+    return mockResponse({ id: `solo-${Date.now()}`, content, state: 'open' });
   }
-  return http.post<ChecklistItem>(`/todos/${id}/items`, { content });
+  return toChecklistItem(
+    await http.post<PersonalTodoItemResponse>(`/todos/${id}/items`, { content }),
+  );
 }
 
 /** PATCH /todos/{id}/items/{itemId} — 내용 수정 */
-export async function toggleSoloItem(
+export async function updateSoloItem(
   id: string,
   itemId: string,
-  done: boolean,
+  content: string,
 ): Promise<void> {
   if (USE_MOCK) return mockResponse(undefined as void);
-  if (done) {
-    await http.post<void>(`/todos/${id}/items/${itemId}/complete`);
-  }
+  await http.patch<PersonalTodoItemResponse>(`/todos/${id}/items/${itemId}`, { content });
 }
 
-/** PATCH /todos/{id} — TODO 완료 상태 변경 */
-export async function finishTodo(id: string): Promise<void> {
+/** DELETE /todos/{id}/items/{itemId} */
+export async function deleteSoloItem(id: string, itemId: string): Promise<void> {
   if (USE_MOCK) return mockResponse(undefined as void);
-  const todo = await fetchSoloSpace(id);
-  await http.patch(`/todos/${id}`, {
-    title: todo.title,
-    category: todo.category ?? todo.type,
-    memo: todo.memo ?? '',
-    status: 'ACHIEVED',
-  });
+  await http.delete<void>(`/todos/${id}/items/${itemId}`);
+}
+
+/** POST /todos/{id}/items/{itemId}/complete */
+export async function completeSoloItem(id: string, itemId: string): Promise<void> {
+  if (USE_MOCK) return mockResponse(undefined as void);
+  await http.post<PersonalTodoItemResponse>(`/todos/${id}/items/${itemId}/complete`);
 }

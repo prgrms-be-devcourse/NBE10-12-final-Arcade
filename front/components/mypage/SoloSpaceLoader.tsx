@@ -2,17 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { SoloSpace } from './SoloSpace';
-import { fetchSoloSpace } from '@/lib/api';
-import type { ChecklistItem } from '@/lib/types';
-
-interface SoloSpaceData {
-  id: string;
-  title: string;
-  type: string;
-  createdAt: string;
-  memo: string;
-  checklist: ChecklistItem[];
-}
+import { fetchSoloSpace, type SoloSpaceDetail } from '@/lib/api';
 
 /**
  * 개인 TODO 상세는 클라이언트에서 조회한다.
@@ -20,12 +10,12 @@ interface SoloSpaceData {
  * 실제 API 로 바뀌어도 호출부는 그대로다.
  */
 export function SoloSpaceLoader({ id, ownerName }: { id: string; ownerName: string }) {
-  const [space, setSpace] = useState<SoloSpaceData | null>(null);
+  const [space, setSpace] = useState<SoloSpaceDetail | null>(null);
 
   useEffect(() => {
     let alive = true;
     fetchSoloSpace(id).then((data) => {
-      if (alive) setSpace(data as SoloSpaceData);
+      if (alive) setSpace(data);
     });
     return () => {
       alive = false;

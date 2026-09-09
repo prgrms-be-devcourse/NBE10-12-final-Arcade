@@ -1,22 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Checklist } from '@/components/team/Checklist';
+import { Checklist } from '@/components/mypage/Checklist';
 import { Block, DetailGrid, SideCard } from '@/components/ui/Block';
 import { TextAreaField } from '@/components/ui/Field';
 import { Tag, TagRow } from '@/components/ui/Tag';
-import { finishTodo, saveSoloMemo } from '@/lib/api';
-import type { ChecklistItem } from '@/lib/types';
+import { finishTodo, saveSoloMemo, type SoloSpaceDetail } from '@/lib/api';
 
 interface SoloSpaceProps {
-  space: {
-    id: string;
-    title: string;
-    type: string;
-    createdAt: string;
-    memo: string;
-    checklist: ChecklistItem[];
-  };
+  space: SoloSpaceDetail;
   ownerName: string;
 }
 

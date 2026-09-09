@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { finishParty } from '@/lib/api';
+import { completeParty } from '@/lib/api';
 
 export function FinishPartyButton({ partyId }: { partyId: string }) {
   const [done, setDone] = useState(false);
@@ -18,7 +18,7 @@ export function FinishPartyButton({ partyId }: { partyId: string }) {
         className="btn btn-primary"
         disabled={done}
         onClick={async () => {
-      await finishParty(partyId);
+          await completeParty(partyId);
           setDone(true);
         }}
       >
