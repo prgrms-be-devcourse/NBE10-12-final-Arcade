@@ -1,10 +1,13 @@
 server:
+  shutdown: graceful
   forward-headers-strategy: native
 spring:
   servlet:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
   config:
     import: optional:file:.env[.properties]
   application:
@@ -41,6 +44,11 @@ spring:
 springdoc:
   default-produces-media-type: application/json;charset=UTF-8
 management:
+  metrics:
+    tags:
+      application: ${MANAGEMENT_METRICS_TAGS_APPLICATION:${spring.application.name}}
+      environment: ${MANAGEMENT_METRICS_TAGS_ENVIRONMENT:local}
+      server: ${MANAGEMENT_METRICS_TAGS_SERVER:local}
   endpoints:
     web:
       exposure:

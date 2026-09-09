@@ -1,4 +1,6 @@
-name: arcade-monitoring
+# 앱과 분리해 로컬에서만 실행하는 모니터링 스택이다.
+
+name: arcade-monitoring-local
 
 services:
   caddy:
@@ -24,7 +26,7 @@ services:
       - --storage.tsdb.path=/prometheus
       - --web.enable-lifecycle
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     ports:
       - "9090:9090"
@@ -45,9 +47,11 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: admin
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      # 이 스택은 route-prefix 없이 서빙한다.
+      PROMETHEUS_URL: http://prometheus:9090
     volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+      - ../grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../grafana/dashboards:/etc/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
     ports:
       - "3001:3000"

@@ -1,7 +1,12 @@
 build/
 .gradle/
 .idea/
+.vscode/
+bin/
+out/
 *.mv.db
 *.trace.db
+*.lock.db
 .env
-.env.local
+.env.*
+*.log
