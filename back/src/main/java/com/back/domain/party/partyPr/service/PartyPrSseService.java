@@ -20,21 +20,21 @@ public class PartyPrSseService {
     private final Map<Long, Map<String, Subscription>> subscriptionsByPartyId = new ConcurrentHashMap<>();
 
     public SseEmitter subscribe(long partyId, List<PartyPrDto> snapshot) {
-        return subscribe(partyId, snapshot, false, null);
+        return subscribe(partyId, snapshot, SubscriptionType.ALL, null);
     }
 
     public SseEmitter subscribeGrouped(long partyId, List<PartyPrByMemberDto> snapshot) {
-        return subscribe(partyId, snapshot, false, null);
+        return subscribe(partyId, snapshot, SubscriptionType.GROUPED, null);
     }
 
     public SseEmitter subscribeMember(long partyId, Long githubUserId, PartyPrByMemberDto snapshot) {
-        return subscribe(partyId, snapshot, true, githubUserId);
+        return subscribe(partyId, snapshot, SubscriptionType.MEMBER, githubUserId);
     }
 
-    private SseEmitter subscribe(long partyId, Object snapshot, boolean memberOnly, Long githubUserId) {
+    private SseEmitter subscribe(long partyId, Object snapshot, SubscriptionType type, Long githubUserId) {
         SseEmitter emitter = new SseEmitter(TIMEOUT_MILLIS);
         String emitterId = UUID.randomUUID().toString();
-        Subscription subscription = new Subscription(emitter, memberOnly, githubUserId);
+        Subscription subscription = new Subscription(emitter, type, githubUserId);
         subscriptionsByPartyId.computeIfAbsent(partyId, ignored -> new ConcurrentHashMap<>())
                 .put(emitterId, subscription);
         emitter.onCompletion(() -> remove(partyId, emitterId));
@@ -54,10 +54,25 @@ public class PartyPrSseService {
         Map<String, Subscription> subscriptions = subscriptionsByPartyId.get(partyId);
         if (subscriptions == null) return;
         subscriptions.forEach((emitterId, subscription) -> {
-            if (!subscription.accepts(pullRequest)) return;
+            if (!subscription.acceptsPullRequest(pullRequest)) return;
             try {
                 subscription.emitter().send(SseEmitter.event().id(pullRequest.id() + ":" + pullRequest.githubUpdatedAt())
                         .name("pull-request").data(pullRequest));
+            } catch (IOException | IllegalStateException exception) {
+                log.debug("Party PR SSE emitter disconnected: partyId={}, emitterId={}", partyId, emitterId);
+                remove(partyId, emitterId);
+            }
+        });
+    }
+
+    /** grouped stream에는 snapshot과 같은 그룹 DTO만 증분 이벤트로 보낸다. */
+    public void publishGrouped(long partyId, PartyPrByMemberDto group) {
+        Map<String, Subscription> subscriptions = subscriptionsByPartyId.get(partyId);
+        if (subscriptions == null) return;
+        subscriptions.forEach((emitterId, subscription) -> {
+            if (subscription.type() != SubscriptionType.GROUPED) return;
+            try {
+                subscription.emitter().send(SseEmitter.event().name("pull-request-group").data(group));
             } catch (IOException | IllegalStateException exception) {
                 log.debug("Party PR SSE emitter disconnected: partyId={}, emitterId={}", partyId, emitterId);
                 remove(partyId, emitterId);
@@ -86,9 +101,12 @@ public class PartyPrSseService {
         });
     }
 
-    private record Subscription(SseEmitter emitter, boolean memberOnly, Long githubUserId) {
-        private boolean accepts(PartyPrDto pullRequest) {
-            if (!memberOnly) return true;
+    private enum SubscriptionType { ALL, GROUPED, MEMBER }
+
+    private record Subscription(SseEmitter emitter, SubscriptionType type, Long githubUserId) {
+        private boolean acceptsPullRequest(PartyPrDto pullRequest) {
+            if (type == SubscriptionType.GROUPED) return false;
+            if (type == SubscriptionType.ALL) return true;
             return githubUserId != null && githubUserId.equals(pullRequest.authorGithubUserId());
         }
     }

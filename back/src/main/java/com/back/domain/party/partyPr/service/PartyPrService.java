@@ -32,6 +32,7 @@ import java.util.LinkedHashMap;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 @Service
@@ -65,7 +66,10 @@ public class PartyPrService {
     public List<PartyPrByMemberDto> getByPartyIdGroupedByMember(long partyId, Member actor) {
         Party party = party(partyId);
         ensureReadable(party, actor);
+        return groupedByMember(party);
+    }
 
+    private List<PartyPrByMemberDto> groupedByMember(Party party) {
         var members = new LinkedHashMap<Long, Member>();
         members.put(party.getOwner().getId(), party.getOwner());
         partyMemberRepository.findAllByParty(party).stream()
@@ -75,7 +79,7 @@ public class PartyPrService {
         Map<Long, List<PartyPrDto>> pullRequestsByGithubUserId = new LinkedHashMap<>();
         List<PartyPrDto> unknownAuthorPullRequests = new ArrayList<>();
         Map<Long, String> githubLoginByUserId = new LinkedHashMap<>();
-        for (PartyPr pullRequest : partyPrRepository.findAllByPartyIdOrderByGithubUpdatedAtDesc(partyId)) {
+        for (PartyPr pullRequest : partyPrRepository.findAllByPartyIdOrderByGithubUpdatedAtDesc(party.getId())) {
             PartyPrDto dto = new PartyPrDto(pullRequest);
             Long githubUserId = pullRequest.getAuthorGithubUserId();
             if (githubUserId == null) {
@@ -94,7 +98,10 @@ public class PartyPrService {
                     ? List.of()
                     : pullRequestsByGithubUserId.getOrDefault(githubUserId, List.of());
             if (githubUserId != null) matchedGithubUserIds.add(githubUserId);
-            result.add(PartyPrByMemberDto.member(member, party.isOwnedBy(member), pullRequests));
+            result.add(PartyPrByMemberDto.member(
+                    member, party.isOwnedBy(member),
+                    githubUserId == null ? null : githubLoginByUserId.get(githubUserId), pullRequests
+            ));
         }
 
         pullRequestsByGithubUserId.forEach((githubUserId, pullRequests) -> {
@@ -132,7 +139,8 @@ public class PartyPrService {
                         .map(PartyPrDto::new)
                         .toList();
 
-        return PartyPrByMemberDto.member(member, party.isOwnedBy(member), pullRequests);
+        String githubLogin = pullRequests.isEmpty() ? null : pullRequests.getFirst().authorLogin();
+        return PartyPrByMemberDto.member(member, party.isOwnedBy(member), githubLogin, pullRequests);
     }
 
     public List<PartyPrDto> getMyPullRequests(Member actor) {
@@ -186,7 +194,9 @@ public class PartyPrService {
             && data.githubUpdatedAt().isBefore(partyPr.getGithubUpdatedAt())) return;
         partyPr.update(data);
         partyPrRepository.save(partyPr);
-        publishAfterCommit(party.getId(), new PartyPrDto(partyPr));
+        PartyPrDto pullRequest = new PartyPrDto(partyPr);
+        PartyPrByMemberDto group = groupFor(party, pullRequest);
+        publishAfterCommit(party.getId(), pullRequest, group);
     }
 
     /** GitHub 외부 DTO를 PartyPr이 이해하는 내부 snapshot으로 변환하면서 필수 필드를 검증한다. */
@@ -241,15 +251,26 @@ public class PartyPrService {
                 || partyMemberRepository.existsByPartyAndMemberAndStatus(party, actor, PartyMemberStatus.APPROVED));
     }
 
-    private void publishAfterCommit(long partyId, PartyPrDto pullRequest) {
+    private PartyPrByMemberDto groupFor(Party party, PartyPrDto pullRequest) {
+        return groupedByMember(party).stream()
+                .filter(group -> pullRequest.authorGithubUserId() == null
+                        ? group.memberId() == null && group.githubUserId() == null
+                        : Objects.equals(group.githubUserId(), pullRequest.authorGithubUserId()))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private void publishAfterCommit(long partyId, PartyPrDto pullRequest, PartyPrByMemberDto group) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
             partyPrSseService.publish(partyId, pullRequest);
+            partyPrSseService.publishGrouped(partyId, group);
             return;
         }
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
                 partyPrSseService.publish(partyId, pullRequest);
+                partyPrSseService.publishGrouped(partyId, group);
             }
         });
     }

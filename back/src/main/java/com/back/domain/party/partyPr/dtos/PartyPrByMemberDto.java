@@ -16,9 +16,11 @@ public record PartyPrByMemberDto(
         boolean owner,
         List<PartyPrDto> pullRequests
 ) {
-    public static PartyPrByMemberDto member(Member member, boolean owner, List<PartyPrDto> pullRequests) {
+    public static PartyPrByMemberDto member(
+            Member member, boolean owner, String githubLogin, List<PartyPrDto> pullRequests
+    ) {
         return new PartyPrByMemberDto(
-                member.getId(), member.getName(), member.getGithubUserId(), null, owner, List.copyOf(pullRequests)
+                member.getId(), member.getName(), member.getGithubUserId(), githubLogin, owner, List.copyOf(pullRequests)
         );
     }
 
