@@ -24,10 +24,13 @@ spring:
     hikari:
       auto-commit: false
   flyway:
-    # 기존 환경(ddl-auto로 만들어진 스키마)에 스키마 히스토리 테이블이 없어도
-    # 에러 없이 현재 상태를 버전 0으로 간주하고 그 다음 마이그레이션부터 적용한다.
+    # 기존 환경(ddl-auto로 만들어진 스키마)에는 스키마 히스토리 테이블이 없다.
+    # baseline-on-migrate로 에러 없이 현재 상태를 baseline-version까지 끝난
+    # 것으로 간주하게 한다. V1(baseline)이 전체 스키마를 만드는 스크립트라,
+    # 이미 테이블이 있는 기존 환경은 V1을 건너뛰고 V2부터 적용한다.
+    # 완전히 빈 새 환경은 V1부터 실제로 전체 스키마를 만든다.
     baseline-on-migrate: true
-    baseline-version: "0"
+    baseline-version: "1"
   security:
     oauth2:
       client:
