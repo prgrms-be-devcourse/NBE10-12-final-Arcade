@@ -9,6 +9,8 @@ import java.util.Optional;
 public interface PartyPrRepository extends JpaRepository<PartyPr, Long> {
     Optional<PartyPr> findByPartyIdAndGithubPrId(Long partyId, Long githubPrId);
 
+    List<PartyPr> findAllByPartyIdAndGithubPrIdIn(Long partyId, List<Long> githubPrIds);
+
     List<PartyPr> findAllByPartyIdOrderByGithubUpdatedAtDesc(Long partyId);
 
     List<PartyPr> findAllByPartyIdAndAuthorGithubUserIdOrderByGithubUpdatedAtDesc(

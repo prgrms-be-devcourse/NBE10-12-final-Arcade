@@ -34,6 +34,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -183,9 +185,30 @@ public class PartyPrService {
     /** GitHub App installation token으로 조회한 기존 PR을 반영한다. */
     @Transactional
     public void syncExistingPullRequests(Party party, List<GithubPullRequestResponse> pullRequests) {
-        for (GithubPullRequestResponse pullRequest : pullRequests) {
-            upsert(party, toSnapshot(pullRequest));
+        List<GithubPullRequestSnapshot> snapshots = pullRequests.stream().map(this::toSnapshot).toList();
+        if (snapshots.isEmpty()) return;
+
+        Map<Long, PartyPr> existingByGithubPrId = partyPrRepository
+                .findAllByPartyIdAndGithubPrIdIn(party.getId(), snapshots.stream()
+                        .map(GithubPullRequestSnapshot::githubPrId).toList())
+                .stream().collect(Collectors.toMap(PartyPr::getGithubPrId, Function.identity()));
+
+        for (GithubPullRequestSnapshot snapshot : snapshots) {
+            PartyPr existing = existingByGithubPrId.get(snapshot.githubPrId());
+            if (existing == null) {
+                // 신규 PR은 webhook과 경합할 수 있으므로 기존 upsert 경로를 사용한다.
+                upsert(party, snapshot);
+                continue;
+            }
+            updateExisting(party, existing, snapshot);
         }
+    }
+
+    private void updateExisting(Party party, PartyPr partyPr, GithubPullRequestSnapshot data) {
+        if (data.githubUpdatedAt().isBefore(partyPr.getGithubUpdatedAt()) || partyPr.hasSameContent(data)) return;
+        partyPr.update(data);
+        PartyPrDto pullRequest = new PartyPrDto(partyPr);
+        publishAfterCommit(party.getId(), pullRequest, groupFor(party, pullRequest));
     }
 
     private void upsert(Party party, GithubPullRequestSnapshot data) {
