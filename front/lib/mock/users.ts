@@ -4,6 +4,7 @@ import type {
   BadgeItem,
   CareerItem,
   MemberRole,
+  MyParty,
   PositionType,
   ProfileLink,
   UserProfile,
@@ -562,5 +563,28 @@ export const MOCK_APPLICANTS: Applicant[] = [
     message: '해커톤에서 대시보드를 맡았습니다. 픽셀 UI도 자신 있어요.',
     skills: ['React', 'TypeScript'],
     achievements: ['완료 파티 1', '자동기록 성취 1건'],
+  },
+];
+
+/** 마이페이지 '참여 파티 히스토리' 데모 (GET /members/me/parties) */
+export const MOCK_MY_PARTIES: MyParty[] = [
+  {
+    id: 'oakroom',
+    name: '프로그래머스 오락실 공모전 참여하실분',
+    topicType: 'CONTEST',
+    status: 'IN_PROGRESS',
+    role: 'MEMBER',
+    position: 'BACK',
+    period: '2026.06 ~ 진행 중',
+    exhibited: false,
+  },
+  {
+    id: 'settlement-api',
+    name: '정산 API 리팩토링 스터디',
+    topicType: 'STUDY',
+    status: 'COMPLETED',
+    role: 'OWNER',
+    period: '2026.01 ~ 2026.04',
+    exhibited: true,
   },
 ];

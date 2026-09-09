@@ -7,10 +7,10 @@ import {
   fetchMyApplications,
   fetchMyBookmarks,
   fetchMyGoalsOrEmpty,
+  fetchMyPartiesOrEmpty,
   fetchMyPartyApplicants,
   fetchMyProfileOrNull,
   fetchMySummaryOrEmpty,
-  fetchPublishedPartyIds,
   fetchTodos,
 } from '@/lib/api';
 import type { Applicant } from '@/lib/types';
@@ -33,7 +33,17 @@ export default async function MyPage({
   const { tab } = await searchParams;
   const activeTab: MypageTabKey = isMypageTabKey(tab) ? tab : 'identity';
 
-  const [profile, summary, achievements, todos, applicants, myApplications, messages, bookmarks] =
+  const [
+    profile,
+    summary,
+    achievements,
+    todos,
+    applicants,
+    myParties,
+    myApplications,
+    messages,
+    bookmarks,
+  ] =
     await Promise.all([
       fetchMyProfileOrNull(),
       // 활동 스코어·스트릭·히트맵은 집계라 프로필과 나뉘어 있다 (GET /members/me/summary)
@@ -43,18 +53,12 @@ export default async function MyPage({
       // 목록 화면은 한 쪽만 받는다. 쪽을 넘기면 TodoTable 이 다시 읽는다
       fetchTodos({ size: TODO_PAGE_SIZE }),
       fetchMyPartyApplicants(),
+      // 참여 파티 히스토리는 성취가 아니라 파티다 (GET /members/me/parties, 기획서 2.11)
+      fetchMyPartiesOrEmpty(),
       fetchMyApplications(),
       fetchMessagesOrEmpty({ size: MESSAGE_PAGE_SIZE }),
       fetchMyBookmarks(),
     ]);
-
-  // 전시가 게시된 파티만 히스토리에 '전시 페이지 보기' 를 단다(기획서 2.11).
-  // 완료된 파티만 확인한다 - 진행중이면 전시 자체가 없다.
-  const publishedPartyIds = await fetchPublishedPartyIds(
-    achievements
-      .filter((goal) => goal.type === 'PROJECT' && goal.status === 'ACHIEVED')
-      .map((goal) => goal.sourcePartyId ?? ''),
-  );
 
   // 로그인해야 볼 수 있는 화면이다
   // 로그인해야 볼 수 있는 화면이지만 로그인 화면으로 밀어내지 않고 메인으로 돌려보낸다.
@@ -72,8 +76,8 @@ export default async function MyPage({
       messages={messages.items}
       messageTotalPages={messages.totalPages}
       bookmarks={bookmarks}
+      partyHistory={myParties}
       myParties={toMyParties(applicants)}
-      publishedPartyIds={publishedPartyIds}
     />
   );
 }

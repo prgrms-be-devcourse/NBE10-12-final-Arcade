@@ -165,6 +165,27 @@ export interface UserProfile extends UserSummary {
   links: ProfileLink[];
 }
 
+/**
+ * 마이페이지 '참여 파티 히스토리' 한 줄 (기획서 2.11).
+ * 성취(Achievement)와 다른 원천이다 - GET /members/me/parties 가 준다.
+ */
+export interface MyParty {
+  id: ID;
+  name: string;
+  /** 주제 유형. 아이콘으로 그린다 */
+  topicType: TopicType;
+  /** 확정된 파티만 오므로 IN_PROGRESS 아니면 COMPLETED 다 */
+  status: PartyStatus;
+  /** 이 파티에서 내 역할 */
+  role: 'OWNER' | 'MEMBER';
+  /** 내가 맡은 자리. 파티장은 지원 절차가 없어 없다 */
+  position?: PositionType;
+  /** 화면에 보여줄 기간 문구 */
+  period: string;
+  /** 전시가 게시됐을 때만 전시 페이지로 연결한다 */
+  exhibited: boolean;
+}
+
 /* ---------- 파티(팀 모집) ---------- */
 
 export interface PartyPosition {

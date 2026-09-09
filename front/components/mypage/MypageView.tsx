@@ -18,11 +18,12 @@ import { LinkButton } from '@/components/ui/Button';
 import { StatusPill, Tag } from '@/components/ui/Tag';
 import { socialLogin } from '@/lib/api';
 import type { MypageTabKey } from '@/lib/mypageTabs';
-import { POSITION_LABELS } from '@/lib/constants';
+import { PARTY_STATUS_LABELS, POSITION_LABELS, TOPIC_TYPE_LABELS } from '@/lib/constants';
 import type {
   Applicant,
   BookmarkItem,
   DirectMessage,
+  MyParty,
   TodoItem,
   UserProfile,
 } from '@/lib/types';
@@ -41,8 +42,8 @@ interface MypageViewProps {
   messageTotalPages: number;
   bookmarks: BookmarkItem[];
   myParties: { id: string; title: string }[];
-  /** 전시가 게시된 파티 id. 게시된 것만 '전시 페이지 보기' 를 단다(기획서 2.11) */
-  publishedPartyIds: string[];
+  /** 참여 파티 히스토리 (GET /members/me/parties). 전시 게시 여부까지 실려 온다 */
+  partyHistory: MyParty[];
 }
 
 export function MypageView({
@@ -56,7 +57,7 @@ export function MypageView({
   messageTotalPages,
   bookmarks,
   myParties,
-  publishedPartyIds,
+  partyHistory,
 }: MypageViewProps) {
   const router = useRouter();
   const [profile, setProfile] = useState(initialProfile);
@@ -101,7 +102,7 @@ export function MypageView({
             <MypageTabs active={activeTab} onChange={changeTab} />
 
             {activeTab === 'identity' ? (
-              <IdentityTab profile={profile} publishedPartyIds={publishedPartyIds} />
+              <IdentityTab profile={profile} partyHistory={partyHistory} />
             ) : null}
 
             {activeTab === 'todo' ? (
@@ -194,60 +195,45 @@ export function MypageView({
 /** 프로필(정체성) 탭 */
 function IdentityTab({
   profile,
-  publishedPartyIds,
+  partyHistory,
 }: {
   profile: UserProfile;
-  publishedPartyIds: string[];
+  partyHistory: MyParty[];
 }) {
-  // 참여 파티 이력은 PROJECT 성취다 (GET /goals/me 로 이미 받아온 목록에서 고른다)
-  const partyHistory = profile.achievements.filter((item) => item.type === 'PROJECT');
-  const published = new Set(publishedPartyIds);
   return (
     <div className="mypage-tab-panel">
       <DetailGrid
         main={
           <>
-            {/*
-              참여 파티 이력 = 내 PROJECT 성취다. 파티 확정 시 승인된 참여자 전원에게
-              파티명·포지션·매칭일을 담아 자동 생성되므로(GoalService.assemble),
-              GET /goals/me 로 이미 받아온 목록을 걸러 쓰면 된다 - 추가 호출이 없다.
-
-              파티 주제 태그와 체크리스트 진행률은 GoalDto 에 없어 표시하지 않는다.
-            */}
             <Block title="참여 파티 히스토리" reveal>
               {partyHistory.length > 0 ? (
                 <div className="history-panel">
-                  {partyHistory.map((project) => (
-                    <div key={project.id} className="timeline-item">
+                  {partyHistory.map((party) => (
+                    <div key={party.id} className="timeline-item">
                       <p className="role-line">
-                        {project.title}
-                        {project.positionLabel ? ` · ${project.positionLabel}` : ''}
+                        {party.name}
+                        {party.position ? ` · ${POSITION_LABELS[party.position]}` : ''}
                       </p>
                       <p className="period">
-                        <Tag>{project.status === 'ACHIEVED' ? '완료' : '진행중'}</Tag>{' '}
-                        {project.period}
+                        <Tag>{TOPIC_TYPE_LABELS[party.topicType]}</Tag>{' '}
+                        <Tag>{PARTY_STATUS_LABELS[party.status]}</Tag>{' '}
+                        {/* 파티장은 지원 절차가 없어 포지션이 없다 - 대신 역할을 보여준다 */}
+                        <Tag>{party.role === 'OWNER' ? '파티장' : '파티원'}</Tag> {party.period}
                       </p>
-                      {project.sourcePartyId ? (
-                        <p className="desc">
-                          <Link
-                            className="card-link"
-                            href={`/party/${project.sourcePartyId}/team`}
-                          >
-                            팀 페이지 보기 →
-                          </Link>
-                          {published.has(project.sourcePartyId) ? (
-                            <>
-                              {' · '}
-                              <Link
-                                className="card-link"
-                                href={`/exhibition/${project.sourcePartyId}`}
-                              >
-                                전시 페이지 보기 →
-                              </Link>
-                            </>
-                          ) : null}
-                        </p>
-                      ) : null}
+                      <p className="desc">
+                        <Link className="card-link" href={`/party/${party.id}/team`}>
+                          팀 페이지 보기 →
+                        </Link>
+                        {/* 전시가 게시된 파티만 연결한다 - 아니면 빈 초안이 열린다(기획서 2.11) */}
+                        {party.exhibited ? (
+                          <>
+                            {' · '}
+                            <Link className="card-link" href={`/exhibition/${party.id}`}>
+                              전시 페이지 보기 →
+                            </Link>
+                          </>
+                        ) : null}
+                      </p>
                     </div>
                   ))}
                 </div>
