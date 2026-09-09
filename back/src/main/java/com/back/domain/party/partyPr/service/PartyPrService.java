@@ -37,6 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.ArrayList;
 
 @Service
 @RequiredArgsConstructor
@@ -47,6 +48,7 @@ import java.util.stream.Collectors;
  */
 
 public class PartyPrService {
+    private static final Object INSERT_LOCKS_RESOURCE = new Object();
     private final PartyGithubConnectionRepository githubConnectionRepository;
     private final GithubInstallationRepositoryRepository installationRepositoryRepository;
     private final PartyGithubBindingRepository bindingRepository;
@@ -236,20 +238,34 @@ public class PartyPrService {
     }
 
     private void releaseAfterTransaction(String key, InsertLock lock) {
-        Runnable release = () -> {
-            lock.lock.unlock();
-            insertLocks.compute(key, (ignored, current) -> current != lock ? current : --lock.users == 0 ? null : lock);
-        };
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) { release.run(); return; }
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override public void afterCompletion(int status) { release.run(); }
-        });
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) { release(key, lock); return; }
+        @SuppressWarnings("unchecked")
+        List<LockToken> locks = (List<LockToken>) TransactionSynchronizationManager.getResource(INSERT_LOCKS_RESOURCE);
+        if (locks == null) {
+            locks = new ArrayList<>();
+            TransactionSynchronizationManager.bindResource(INSERT_LOCKS_RESOURCE, locks);
+            List<LockToken> transactionLocks = locks;
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCompletion(int status) {
+                    transactionLocks.forEach(token -> release(token.key(), token.lock()));
+                    TransactionSynchronizationManager.unbindResourceIfPossible(INSERT_LOCKS_RESOURCE);
+                }
+            });
+        }
+        locks.add(new LockToken(key, lock));
+    }
+
+    private void release(String key, InsertLock lock) {
+        lock.lock.unlock();
+        insertLocks.compute(key, (ignored, current) -> current != lock ? current : --lock.users == 0 ? null : lock);
     }
 
     private static final class InsertLock {
         private final ReentrantLock lock = new ReentrantLock();
         private int users;
     }
+
+    private record LockToken(String key, InsertLock lock) {}
 
     /** GitHub 외부 DTO를 PartyPr이 이해하는 내부 snapshot으로 변환하면서 필수 필드를 검증한다. */
     private GithubPullRequestSnapshot toSnapshot(GithubPullRequestResponse pr) {

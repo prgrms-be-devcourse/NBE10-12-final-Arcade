@@ -54,7 +54,7 @@ public class PartyPrSseService {
     }
 
     public void publish(long partyId, PartyPrDto pullRequest) {
-        send(allSubscriptionsByPartyId.get(partyId), partyId, pullRequest);
+        send(allSubscriptionsByPartyId, allSubscriptionsByPartyId.get(partyId), partyId, pullRequest);
         Map<String, Subscription> members = memberSubscriptionsByPartyId.get(partyId);
         if (members == null) return;
         members.forEach((emitterId, subscription) -> {
@@ -115,10 +115,10 @@ public class PartyPrSseService {
         }));
     }
 
-    private void send(Map<String, Subscription> subscriptions, long partyId, PartyPrDto pullRequest) {
+    private void send(Map<Long, Map<String, Subscription>> store, Map<String, Subscription> subscriptions, long partyId, PartyPrDto pullRequest) {
         if (subscriptions == null) return;
         subscriptions.forEach((id, subscription) -> { try { subscription.emitter().send(SseEmitter.event().id(pullRequest.id()+":"+pullRequest.githubUpdatedAt()).name("pull-request").data(pullRequest)); }
-            catch (IOException | IllegalStateException exception) { remove(allSubscriptionsByPartyId, partyId, id); } });
+            catch (IOException | IllegalStateException exception) { remove(store, partyId, id); } });
     }
 
     private void remove(Map<Long, Map<String, Subscription>> store, long partyId, String emitterId) {
