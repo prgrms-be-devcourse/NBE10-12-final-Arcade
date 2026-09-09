@@ -233,6 +233,7 @@ public class PartyService {
         partyShowcaseRepository.findByParty(party).ifPresent(showcase -> {
             likeInteractionPort.deleteAllLikesForTarget(TargetType.PARTY_SHOWCASE, showcase.getId());
             bookmarkInteractionPort.deleteAllBookmarksForTarget(TargetType.PARTY_SHOWCASE, showcase.getId());
+            partyShowcaseRepository.delete(showcase);
         });
 
         removePartyRow(party);
