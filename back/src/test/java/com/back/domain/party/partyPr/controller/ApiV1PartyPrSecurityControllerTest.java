@@ -3,18 +3,20 @@ package com.back.domain.party.partyPr.controller;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
 import com.back.domain.member.member.entity.PositionType;
+import com.back.domain.member.profile.entity.MemberProfile;
+import com.back.domain.member.profile.repository.MemberProfileRepository;
 import com.back.domain.party.application.entity.PartyMember;
 import com.back.domain.party.application.repository.PartyMemberRepository;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
+import com.back.domain.party.party.service.PartyService;
 import com.back.domain.party.partyPr.entity.PartyPr;
 import com.back.domain.party.partyPr.dtos.PartyPrDto;
 import com.back.domain.party.partyPr.model.GithubPullRequestSnapshot;
 import com.back.domain.party.partyPr.repository.PartyPrRepository;
 import com.back.domain.party.partyPr.service.PartyPrSseService;
 import com.back.domain.party.party.repository.PartyRepository;
-import com.back.domain.party.position.entity.Position;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.List;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
@@ -45,17 +48,26 @@ import static org.hamcrest.Matchers.not;
 class ApiV1PartyPrSecurityControllerTest {
     @Autowired private MockMvc mvc;
     @Autowired private MemberRepository memberRepository;
+    @Autowired private MemberProfileRepository memberProfileRepository;
     @Autowired private PartyRepository partyRepository;
+    @Autowired private PartyService partyService;
     @Autowired private PartyMemberRepository partyMemberRepository;
     @Autowired private PartyPrRepository partyPrRepository;
     @Autowired private PartyPrSseService partyPrSseService;
 
     private Party saveParty(String ownerEmail) {
         Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
-        Party party = new Party(owner, "PR 팀", "PR 테스트", "설명", null, null, null,
-                TopicType.PROJECT, PartyTag.WEB, null, LocalDateTime.now().plusDays(7));
-        party.addPosition(new Position(PositionType.BACK, 2));
-        Party saved = partyRepository.save(party);
+        MemberProfile ownerProfile = memberProfileRepository.findByMember(owner)
+                .orElseGet(() -> new MemberProfile(owner));
+        ownerProfile.changePosition(PositionType.BACK);
+        memberProfileRepository.save(ownerProfile);
+
+        long partyId = partyService.create(
+                owner, "PR 팀", "PR 테스트", "설명", null, null, null,
+                TopicType.PROJECT, PartyTag.WEB, null, LocalDateTime.now().plusDays(7),
+                List.of(new PartyService.PositionCreateSpec(PositionType.BACK, 2))
+        ).id();
+        Party saved = partyRepository.findById(partyId).orElseThrow();
         partyPrRepository.save(new PartyPr(saved, new GithubPullRequestSnapshot(
                 1001L, 1, "보안 PR", "https://github.com/org/repo/pull/1", "open", 12345L,
                 "author", false, false, "main", "feature", OffsetDateTime.now(), null, null, OffsetDateTime.now())));

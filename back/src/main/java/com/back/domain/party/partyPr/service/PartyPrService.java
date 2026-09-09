@@ -1,5 +1,6 @@
 package com.back.domain.party.partyPr.service;
 
+import com.back.domain.party.application.entity.PartyMember;
 import com.back.domain.party.github.entity.PartyGithubConnectionStatus;
 import com.back.domain.party.github.entity.PartyGithubBindingStatus;
 import com.back.domain.party.github.repository.GithubInstallationRepositoryRepository;
@@ -113,11 +114,13 @@ public class PartyPrService {
         Party party = party(partyId);
         ensureReadable(party, actor);
 
-        Member member = party.getOwner().getId() == memberId
-                ? party.getOwner()
-                : partyMemberRepository.findByPartyAndMemberIdAndStatus(
-                        party, memberId, PartyMemberStatus.APPROVED
-                ).map(partyMember -> partyMember.getMember())
+        Member member = partyMemberRepository
+                .findAllByParty(party)
+                .stream()
+                .filter(partyMember -> partyMember.getMember().getId() == memberId)
+                .filter(partyMember -> partyMember.getStatus() == PartyMemberStatus.APPROVED)
+                .map(PartyMember::getMember)
+                .findFirst()
                 .orElseThrow(() -> new ServiceException(
                         "404-2", "파티장 또는 승인된 파티원을 찾을 수 없습니다."
                 ));
