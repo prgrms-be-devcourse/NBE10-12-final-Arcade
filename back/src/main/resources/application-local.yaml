@@ -2,7 +2,8 @@ spring:
   jpa:
     show-sql: true
     hibernate:
-      ddl-auto: update
+      # Flyway가 스키마를 소유한다. Hibernate는 엔티티-DB 일치 여부만 검증한다.
+      ddl-auto: validate
     properties:
       hibernate:
         format_sql: true

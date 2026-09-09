@@ -4,6 +4,10 @@ spring:
     username: sa
     password:
     driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      # Flyway가 V1(baseline)로 스키마를 만들고 Hibernate는 검증만 한다.
+      ddl-auto: validate
 custom:
   cookie:
     secure: false
