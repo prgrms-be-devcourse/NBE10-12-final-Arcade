@@ -3,12 +3,15 @@ package com.back.domain.party.party.controller;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.member.repository.MemberRepository;
+import com.back.domain.member.profile.entity.MemberProfile;
+import com.back.domain.member.profile.repository.MemberProfileRepository;
 import com.back.domain.party.application.entity.PartyMember;
 import com.back.domain.party.application.entity.PartyMemberStatus;
 import com.back.domain.party.application.repository.PartyMemberRepository;
 import com.back.domain.party.assemble.repository.PartyAssembleRepository;
 import com.back.domain.party.assemble.repository.PartyAssembleToMemberRepository;
 import com.back.domain.party.party.entity.Party;
+import com.back.domain.party.party.event.PartyAssembledEvent;
 import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
 import com.back.domain.party.party.repository.PartyRepository;
@@ -21,6 +24,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +41,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@RecordApplicationEvents
 public class ApiV1PartyCloseRecruitingControllerTest {
 
     @Autowired
@@ -46,6 +52,12 @@ public class ApiV1PartyCloseRecruitingControllerTest {
 
     @Autowired
     private PartyRepository partyRepository;
+
+    @Autowired
+    private MemberProfileRepository memberProfileRepository;
+
+    @Autowired
+    private ApplicationEvents events;
 
     @Autowired
     private PartyMemberRepository partyMemberRepository;
@@ -138,7 +150,64 @@ public class ApiV1PartyCloseRecruitingControllerTest {
                 .andExpect(status().isCreated());
 
         assertThat(partyAssembleRepository.count()).isEqualTo(assembleCountBefore + 1);
-        assertThat(partyAssembleToMemberRepository.count()).isEqualTo(assembleToMemberCountBefore + 1);
+        // 승인된 지원자 1명 + 이 시점에 합류하는 파티장
+        assertThat(partyAssembleToMemberRepository.count()).isEqualTo(assembleToMemberCountBefore + 2);
+    }
+
+    @Test
+    @DisplayName("모집 마감: 파티장은 PartyMember 없이 확정 명단에 바로 들어가고, 포지션은 프로필 대표 포지션을 따라간다")
+    @WithUserDetails("user1@test.com")
+    void closeRecruitingAddsOwnerToAssemble() throws Exception {
+        Party party = saveParty("user1@test.com");
+        Member owner = memberRepository.findByEmail("user1@test.com").orElseThrow();
+        memberProfileRepository.findByMember(owner)
+                .orElseGet(() -> memberProfileRepository.save(new MemberProfile(owner)))
+                .changePosition(PositionType.FRONT);
+
+        mvc.perform(post("/api/v1/parties/" + party.getId() + "/close-recruiting"))
+                .andExpect(status().isCreated());
+
+        assertThat(partyMemberRepository.findByPartyAndMember(party, owner)).isEmpty();
+        PartyAssembledEvent event = events.stream(PartyAssembledEvent.class).findFirst().orElseThrow();
+        assertThat(event.approvedMembers())
+                .anyMatch(m -> m.memberId() == owner.getId() && m.positionType() == PositionType.FRONT);
+    }
+
+    @Test
+    @DisplayName("모집 마감: 파티장이 옛 방식대로 APPROVED PartyMember 로도 남아 있으면 확정 명단에 한 번만 들어간다")
+    @WithUserDetails("user1@test.com")
+    void closeRecruitingDoesNotDuplicateLegacyOwnerRow() throws Exception {
+        Party party = saveParty("user1@test.com");
+        Member owner = memberRepository.findByEmail("user1@test.com").orElseThrow();
+
+        // ARC-97 시절 파티 생성이 만들던 상태 재현 - 파티장이 APPROVED 지원 행으로도 들어가 있다
+        PartyMember legacyOwnerRow = partyMemberRepository.save(
+                new PartyMember(party, owner, party.getPositions().getFirst(), null));
+        legacyOwnerRow.approve();
+
+        mvc.perform(post("/api/v1/parties/" + party.getId() + "/close-recruiting"))
+                .andExpect(status().isCreated());
+
+        PartyAssembledEvent event = events.stream(PartyAssembledEvent.class).findFirst().orElseThrow();
+        assertThat(event.approvedMembers())
+                .filteredOn(m -> m.memberId() == owner.getId())
+                .hasSize(1);
+    }
+
+    @Test
+    @DisplayName("모집 마감: 파티장이 프로필에 대표 포지션을 안 넣어뒀으면 포지션 없이(null) 확정 명단에 들어간다")
+    @WithUserDetails("user2@test.com")
+    void closeRecruitingAllowsOwnerWithoutPosition() throws Exception {
+        Party party = saveParty("user2@test.com");
+        Member owner = memberRepository.findByEmail("user2@test.com").orElseThrow();
+        memberProfileRepository.findByMember(owner).ifPresent(profile -> profile.changePosition(null));
+
+        mvc.perform(post("/api/v1/parties/" + party.getId() + "/close-recruiting"))
+                .andExpect(status().isCreated());
+
+        PartyAssembledEvent event = events.stream(PartyAssembledEvent.class).findFirst().orElseThrow();
+        assertThat(event.approvedMembers())
+                .anyMatch(m -> m.memberId() == owner.getId() && m.positionType() == null);
     }
 
     @Test

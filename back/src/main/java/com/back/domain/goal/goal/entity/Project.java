@@ -36,8 +36,8 @@ public class Project extends Goal {
     @JoinColumn(name = "party_showcase_id")
     private PartyShowcase partyShowcase;
 
-    // 이 파티에서 맡은 포지션. 파티장은 지원 절차를 거치지 않아 포지션이 정해져 있지 않으므로 null이다.
-    // 파티 생성 시 파티장도 자기 포지션을 고르게 되면 그때 채운다.
+    // 이 파티에서 맡은 포지션. 지원자는 지원한 자리, 파티장은 지원 절차가 없어 프로필의 대표 포지션을 복사해온다.
+    // 파티장이 프로필에 대표 포지션을 안 넣어둔 경우에만 null이다.
     @Enumerated(EnumType.STRING)
     private PositionType positionType;
 
