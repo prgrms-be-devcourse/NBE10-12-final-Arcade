@@ -16,24 +16,33 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
     fetchMyProfileOrNull(),
   ]);
 
-  // 공개 프로필 조회(GET /members/{id})가 아직 서버에 없다.
-  // 데모 데이터로 화면을 채우면 남의 프로필 자리에 남의 것이 아닌 값이 뜬다.
+  // 없는 회원(404)이다. 데모 데이터로 채우면 남의 프로필 자리에 남의 것이 아닌 값이 뜬다.
   if (!profile) {
     return (
       <main>
         <div className="profile-view-wrap">
           <BackLink />
-          <p className="notif-empty">
-            이 회원의 공개 프로필은 아직 준비 중이에요. 궁금한 점은 쪽지로 물어봐 주세요.
-          </p>
+          <p className="notif-empty">찾을 수 없는 회원이에요. 주소를 다시 확인해 주세요.</p>
         </div>
       </main>
     );
   }
 
-  const myProjects = exhibitions.filter((project) => project.leader?.id === profile.id);
   const isMe = profile.id === me?.id;
   const awards = profile.achievements.filter((item) => item.type === 'CONTEST');
+
+  // 참여한 프로젝트는 전시 목록이 아니라 **성취**에서 고른다.
+  // 전시 목록에는 소유자 id 가 없어(ownerName 뿐) 예전의 leader.id 비교는 늘 빈 배열이었고,
+  // 파티장 기준이라 맞았더라도 참여자는 빠졌다. PROJECT 성취는 확정된 파티원 전원에게 생긴다.
+  // exhibited 가 true 인 것만 - 전시글이 게시돼야 전시관 카드가 존재한다.
+  const exhibitedPartyIds = new Set(
+    profile.achievements
+      .filter((item) => item.type === 'PROJECT' && item.exhibited && item.sourcePartyId)
+      .map((item) => item.sourcePartyId),
+  );
+  const myProjects = exhibitions.filter(
+    (project) => project.sourcePartyId && exhibitedPartyIds.has(project.sourcePartyId),
+  );
 
   return (
     <main>
@@ -51,7 +60,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
           </div>
         )}
 
-        <HeroStats streakDays={profile.streakDays} />
+        <HeroStats streakDays={profile.streakDays} activityHeatmap={profile.activityHeatmap} />
 
         <Block>
           <div className="history-panel">
