@@ -26,7 +26,7 @@ import java.util.List;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -88,7 +88,7 @@ class ApiV1AdminPartyControllerTest {
         Member owner = saveMember("adm-ctrl-hide-owner@test.com");
         PartyDto created = createParty(owner, "컨트롤러 숨김 테스트 파티");
 
-        mvc.perform(patch("/api/v1/adm/parties/" + created.id() + "/hidden"))
+        mvc.perform(put("/api/v1/adm/parties/" + created.id() + "/hidden"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.resultCode").value("200-1"));
 
@@ -103,7 +103,7 @@ class ApiV1AdminPartyControllerTest {
         Member owner = saveMember("adm-ctrl-hide-nonadmin-owner@test.com");
         PartyDto created = createParty(owner, "컨트롤러 숨김 권한 테스트 파티");
 
-        mvc.perform(patch("/api/v1/adm/parties/" + created.id() + "/hidden"))
+        mvc.perform(put("/api/v1/adm/parties/" + created.id() + "/hidden"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.resultCode").value("403-1"));
 
