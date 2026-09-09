@@ -86,6 +86,10 @@ custom:
       secret-key: ${CUSTOM__STORAGE__S3__SECRET_KEY:arcade123}
       public-url-prefix: ${CUSTOM__STORAGE__S3__PUBLIC_URL_PREFIX:}
       path-style-access: ${CUSTOM__STORAGE__S3__PATH_STYLE_ACCESS:true}
+  admin-account:
+    email: ${CUSTOM__ADMIN_ACCOUNT__EMAIL:admin@test.com}
+    password: ${CUSTOM__ADMIN_ACCOUNT__PASSWORD:1234}
+    nickname: ${CUSTOM__ADMIN_ACCOUNT__NICKNAME:관리자}
   notProdMembers:
     - username: KAKAO__4707664779
       apiKey: kakao__1
