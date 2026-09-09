@@ -14,6 +14,7 @@ import {
 import { ChipRow, SkillChip } from '@/components/ui/Tag';
 import { POSITION_LABELS, POSITION_TYPES } from '@/lib/constants';
 import { updateMyProfile, uploadProfileImage } from '@/lib/api';
+import { isEnterCommit } from '@/lib/ime';
 import type {
   CareerItem,
   PositionType,
@@ -158,7 +159,7 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
           value={skillInput}
           onChange={(event) => setSkillInput(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key !== 'Enter') return;
+            if (!isEnterCommit(event)) return;
             event.preventDefault();
             const value = skillInput.trim();
             if (value && !skills.includes(value)) setSkills((prev) => [...prev, value]);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { isEnterCommit } from '@/lib/ime';
 import { Icon } from '@/components/icons/Icon';
 import { EmailVerifyField } from './EmailVerifyField';
 import {
@@ -70,7 +71,7 @@ export function CompanySetup() {
                 value={keyword}
                 onChange={(event) => setKeyword(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
+                  if (isEnterCommit(event)) {
                     event.preventDefault();
                     search();
                   }

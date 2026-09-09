@@ -12,6 +12,7 @@ import {
   updateSoloItem,
 } from '@/lib/api';
 import type { ChecklistItem } from '@/lib/types';
+import { isEnterCommit } from '@/lib/ime';
 
 interface ChecklistProps {
   /** 개인 TODO id */
@@ -147,7 +148,7 @@ export function Checklist({ todoId, items: initialItems, ownerName }: ChecklistP
               value={content}
               onChange={(event) => setContent(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === 'Enter') {
+                if (isEnterCommit(event)) {
                   event.preventDefault();
                   submitForm();
                 }
