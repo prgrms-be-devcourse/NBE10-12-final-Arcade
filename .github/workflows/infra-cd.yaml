@@ -1,0 +1,125 @@
+# 수동 배포: EICE 위 SSH로 환경 파일과 배포 파일을 전송한다.
+name: CD
+
+on:
+  workflow_dispatch:
+
+# 무중단 교체 중인 배포는 취소하거나 겹치지 않는다.
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+  packages: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: dev
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 이미지 참조 만들기
+        id: image
+        env:
+          BACKEND_TAG: ${{ vars.BACKEND_TAG }}
+          FRONTEND_TAG: ${{ vars.FRONTEND_TAG }}
+        run: |
+          repo="ghcr.io/$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
+          {
+            echo "repo=$repo"
+            echo "backend=$repo/backend:${BACKEND_TAG:-latest}"
+            echo "frontend=$repo/frontend:${FRONTEND_TAG:-latest}"
+          } >> "$GITHUB_OUTPUT"
+          if [ -z "$BACKEND_TAG" ] && [ -z "$FRONTEND_TAG" ]; then
+            echo "::notice::태그 변수를 설정하지 않았다. backend:latest와 frontend:latest를 배포한다."
+          fi
+
+      # private GHCR에 인증한 뒤 실제로 존재하는 태그만 배포한다.
+      - name: 이미지 확인 및 배포 버전 기록
+        id: resolved_image
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          owner="${GITHUB_REPOSITORY%%/*}"
+          repository=$(echo "${GITHUB_REPOSITORY#*/}" | tr '[:upper:]' '[:lower:]')
+
+          describe_image() {
+            local component="$1" ref="$2" digest package tags sha_tag pinned_ref
+            [ -n "$ref" ] || return 0
+
+            digest=$(docker buildx imagetools inspect "$ref" \
+              | sed -n 's/^Digest:[[:space:]]*//p' | head -n1)
+            [ -n "$digest" ] \
+              || { echo "::error::$ref 를 레지스트리에서 못 찾았다. CI가 이미지를 만들었는지 확인한다."; return 1; }
+
+            package="${repository}%2F${component}"
+            tags=$(gh api "orgs/${owner}/packages/container/${package}/versions?per_page=100" \
+              --jq ".[] | select(.name == \"$digest\") | .metadata.container.tags | join(\",\")" \
+              | head -n1)
+            sha_tag=$(printf '%s' "$tags" | tr ',' '\n' | grep -E '^[0-9a-f]{7,12}$' | head -n1 || true)
+            pinned_ref="${ref%:*}@$digest"
+
+            echo "배포 이미지: $component:${sha_tag:-SHA-태그-없음}"
+            echo "  요청: $ref"
+            echo "  digest: $digest"
+            echo "  연결된 태그: ${tags:-없음}"
+            [ -n "$sha_tag" ] \
+              || { echo "::error::$ref 와 같은 digest의 SHA 태그를 찾지 못했다."; return 1; }
+            echo "$component=$pinned_ref" >> "$GITHUB_OUTPUT"
+          }
+
+          describe_image backend "${{ steps.image.outputs.backend }}"
+          describe_image frontend "${{ steps.image.outputs.frontend }}"
+
+      # 공개 로그에 AWS 계정 번호가 노출되지 않게 마스킹한다.
+      - uses: aws-actions/configure-aws-credentials@v6.2.4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'ap-northeast-2' }}
+          mask-aws-account-id: true
+
+      - name: 배포
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-2' }}
+          ENV_PROD: ${{ secrets.ENV_PROD }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BACKEND: ${{ steps.resolved_image.outputs.backend }}
+          FRONTEND: ${{ steps.resolved_image.outputs.frontend }}
+        run: |
+          [ -n "$ENV_PROD" ] || { echo "::error::dev Environment에 ENV_PROD Secret을 등록한다."; exit 1; }
+          umask 077
+          printf '%s' "$ENV_PROD" > runner.env
+          trap 'shred -u runner.env 2>/dev/null || rm -f runner.env' EXIT
+          size=$(wc -c < runner.env)
+          [ "$size" -le 49152 ] || { echo "::error::ENV_PROD가 GitHub Secret의 48KB 제한을 넘는다."; exit 1; }
+
+          args=(--env-file runner.env)
+          [ -n "$BACKEND" ] && args+=(--backend-image "$BACKEND")
+          [ -n "$FRONTEND" ] && args+=(--frontend-image "$FRONTEND")
+          ./infra/scripts/eice-deploy.sh "${args[@]}"
+
+          origin=$(sed -n 's/^PUBLIC_ORIGIN=//p' runner.env | head -n1)
+          origin="${origin%/}"
+          [[ "$origin" == https://* ]] \
+            || { echo "::error::PUBLIC_ORIGIN이 HTTPS 주소가 아니다."; exit 1; }
+
+          echo "== 외부 smoke test =="
+          for path in /healthz '/api/v1/parties?size=1'; do
+            echo "  확인: $origin$path"
+            curl --fail --silent --show-error \
+              --connect-timeout 5 --max-time 20 \
+              --retry 5 --retry-delay 3 --retry-all-errors \
+              --output /dev/null "$origin$path"
+          done
+          echo "  프론트와 백엔드 공개 경로 정상"
