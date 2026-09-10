@@ -18,11 +18,12 @@ export const MOCK_BOOKMARKS: BookmarkItem[] = [
   {
     id: 'bm2',
     targetType: 'GOAL',
-    targetId: 'payment-retry',
+    // 전시(성취) 북마크의 targetId 는 상세 라우트가 받는 partyId 다
+    targetId: 'payment',
     title: '결제 재시도 큐',
-    subtitle: '결제 API 안정화 해커톤팀 · 백엔드',
-    meta: '조회 1,247',
-    tags: ['플랫폼 자동기록', 'Kafka'],
+    subtitle: '결제 API 안정화 해커톤팀',
+    meta: '좋아요 61',
+    tags: ['프로젝트'],
     createdAt: '2026.08.19',
   },
   {
@@ -54,15 +55,5 @@ export const MOCK_BOOKMARKS: BookmarkItem[] = [
     meta: 'D-9',
     tags: ['스터디', '웹 개발'],
     createdAt: '2026.08.09',
-  },
-  {
-    id: 'bm6',
-    targetType: 'GOAL',
-    targetId: 'pixel-dungeon',
-    title: '픽셀 던전 크롤러',
-    subtitle: '인디 로그라이크 사이드프로젝트 · 클라이언트',
-    meta: '조회 842',
-    tags: ['자기신고', 'Unity'],
-    createdAt: '2026.08.03',
   },
 ];

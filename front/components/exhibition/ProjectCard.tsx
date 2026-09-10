@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Icon } from '@/components/icons/Icon';
 import { LeaderRow } from '@/components/ui/Avatar';
-import { ChipRow, SkillChip, SourceBadge } from '@/components/ui/Tag';
+import { ChipRow, SkillChip } from '@/components/ui/Tag';
 import type { ExhibitionProject } from '@/lib/types';
 
 interface ProjectCardProps {
@@ -13,14 +13,8 @@ interface ProjectCardProps {
 
 /** 전시관 프로젝트 카드 */
 export function ProjectCard({ project, rank, showLeader = true }: ProjectCardProps) {
-  /*
-   * 전시 상세는 두 갈래다.
-   * - PROJECT : 파티에 종속이라 파티 전시 상세로 (GET /parties/{partyId}/showcase)
-   * - 그 외   : 개인 성취라 파티가 없다. 성취 상세로 (GET /goals/{goalId})
-   */
-  const href = project.sourcePartyId
-    ? `/exhibition/${project.sourcePartyId}`
-    : `/goals/${project.id}`;
+  // 전시 대상은 게시된 PROJECT 뿐이라 상세는 항상 파티 전시(GET /parties/{partyId}/showcase)로 간다.
+  const href = `/exhibition/${project.sourcePartyId}`;
 
   return (
     <article className="project-card">
@@ -44,7 +38,6 @@ export function ProjectCard({ project, rank, showLeader = true }: ProjectCardPro
         </span>
       </Link>
       <div className="project-body">
-        <SourceBadge source={project.source} />
         <h5>
           <Link href={href}>{project.title}</Link>
         </h5>

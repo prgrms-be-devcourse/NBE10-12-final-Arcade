@@ -39,19 +39,21 @@ interface LikeResponse {
   likeCount: number;
 }
 
-/** 서버 ShowcaseGoalDto — 전시관 목록의 한 칸 */
+/**
+ * 서버 ShowcaseGoalDto — 전시관 목록의 한 칸.
+ * step1 이후 대상은 "게시된 파티 결과물(PROJECT)"뿐이라 type=PROJECT / status=ACHIEVED /
+ * source=PLATFORM_VERIFIED 로 고정되고, party·positionType 이 항상 채워진다.
+ */
 export interface ShowcaseGoalResponse {
   id: number;
-  /** PROJECT 만 채워진다. 개인 성취(CONTEST·CHECKLIST)는 파티가 없다 */
-  party: { id: number; name: string } | null;
+  party: { id: number; name: string };
   type: GoalType;
   status: GoalStatus;
   source: GoalSource;
   detail: { title: string | null };
-  /** 전시된 프로젝트에서 맡았던 포지션. PROJECT 가 아니면 null */
-  positionType: PositionType | null;
+  positionType: PositionType;
   likeCount: number;
-  /** PROJECT 는 원본 파티에 합산된 조회수를 쓴다(기획서 3.2). 자기신고 성취는 원천이 없어 0 */
+  /** 원본 파티에 합산된 조회수를 쓴다(기획서 3.2). */
   viewCount: number;
   createAt: string;
 }
@@ -61,23 +63,20 @@ export interface ShowcaseGoalResponse {
  * - summary, skills, coverImageUrl : ShowcaseGoalDto 에 본문·기술스택·이미지가 없다
  * - leader                         : 소유자 정보가 아예 없어 카드에서 생략된다
  * - likedByMe, bookmarkedByMe      : 응답에 없다 (docs/마이페이지-요약API_백엔드_요청.md ⑤)
- *
- * category 는 서버의 분야 태그가 아니라 성취 타입 문구다 - 화면 필터도 이 기준으로 맞춘다.
  */
 export function toExhibitionProject(dto: ShowcaseGoalResponse): ExhibitionProject {
   return {
     id: String(dto.id),
     title: dto.detail.title ?? '',
     summary: '',
-    partyName: dto.party?.name ?? '',
-    // 자기신고 성취(CONTEST·CHECKLIST)는 파티가 없어 포지션도 없다
-    role: dto.positionType ?? 'BACK',
+    partyName: dto.party.name,
+    role: dto.positionType,
     category: GOAL_TYPE_LABELS[dto.type],
     source: dto.source,
     skills: [],
     viewCount: dto.viewCount,
     likeCount: dto.likeCount,
-    sourcePartyId: dto.party ? String(dto.party.id) : undefined,
+    sourcePartyId: String(dto.party.id),
     thumbnailLabel: GOAL_TYPE_LABELS[dto.type],
   };
 }
@@ -85,22 +84,17 @@ export function toExhibitionProject(dto: ShowcaseGoalResponse): ExhibitionProjec
 /**
  * GET /api/v1/showcase/goals — 전시 성취 목록 (ARC-96).
  *
- * 서버는 status=ACHIEVED 인 성취만 내려주고, PROJECT 는 파티장이 전시글을 게시해
- * partyShowcase 가 연결된 것만 포함한다. 좋아요/북마크 가능 조건과 같은 기준이다.
- *
- * 분야(category) 필터는 서버에 없어 화면에서 성취 타입으로 거른다.
+ * 파티장이 전시글을 게시해 partyShowcase 가 연결된 PROJECT 성취만 온다.
+ * 좋아요/북마크 가능 조건과 같은 기준이다.
  */
 export async function fetchExhibitions(
-  category = '전체',
   sort: 'like' | 'recent' = 'like',
 ): Promise<ExhibitionProject[]> {
   if (USE_API_MOCK) {
-    const filtered =
-      category === '전체'
-        ? MOCK_EXHIBITIONS
-        : MOCK_EXHIBITIONS.filter((project) => project.category === category);
     const sorted =
-      sort === 'like' ? [...filtered].sort((a, b) => b.likeCount - a.likeCount) : filtered;
+      sort === 'like'
+        ? [...MOCK_EXHIBITIONS].sort((a, b) => b.likeCount - a.likeCount)
+        : MOCK_EXHIBITIONS;
     return mockResponse(sorted);
   }
 
