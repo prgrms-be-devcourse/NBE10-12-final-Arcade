@@ -2,7 +2,6 @@ package com.back.domain.message.message.service;
 
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
-import com.back.domain.member.profile.entity.MemberProfile;
 import com.back.domain.member.profile.repository.MemberProfileRepository;
 import com.back.domain.message.message.dtos.MessageDetailDto;
 import com.back.domain.message.message.dtos.MessageDto;
@@ -161,12 +160,15 @@ public class MessageService {
                 LinkedHashMap::new
         ));
 
-        Map<Long, String> nicknameByMemberId =
-                memberProfileRepository.findByMember_IdIn(membersById.keySet()).stream()
-                        .collect(Collectors.toMap(
-                                profile -> profile.getMember().getId(),
-                                MemberProfile::getNickname
-                        ));
+        // Collectors.toMap does not permit null values. A profile can legitimately
+        // have no nickname until its owner completes profile setup, so retain that
+        // null value in a map implementation that supports it.
+        Map<Long, String> nicknameByMemberId = new HashMap<>();
+        memberProfileRepository.findByMember_IdIn(membersById.keySet())
+                .forEach(profile -> nicknameByMemberId.put(
+                        profile.getMember().getId(),
+                        profile.getNickname()
+                ));
 
         return membersById.values().stream().collect(Collectors.toMap(
                 Member::getId,
