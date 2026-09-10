@@ -973,6 +973,26 @@ button.party-mini:hover{border-color:var(--accent);}
 .form-error{margin:-0.5rem 0 1rem;font-size:.78rem;color:var(--gold);}
 
 .consent-block{margin-bottom:1.375rem;padding-top:0.375rem;border-top:0.125rem solid var(--border);}
+/* 약관 스크롤 게이트 - 전문을 끝까지 내려야 체크가 열린다 */
+.consent-gate{padding:0.875rem 0;border-bottom:0.0625rem solid var(--border);}
+.consent-gate:last-of-type{border-bottom:0;}
+.consent-gate-head{display:flex;gap:0.375rem;align-items:center;margin-bottom:0.5rem;font-size:.86rem;}
+.consent-gate-head .req{color:var(--accent);font-weight:800;}
+.consent-gate-body{
+  max-height:11rem;overflow-y:auto;white-space:pre-wrap;
+  padding:0.75rem 0.875rem;border:0.0625rem solid var(--border);border-radius:0.5rem;
+  background:var(--surface-2,transparent);
+  font-size:.78rem;line-height:1.6;color:var(--text-dim);
+}
+.consent-gate-body:focus-visible{outline:0.125rem solid var(--accent);outline-offset:0.125rem;}
+.consent-gate .consent-row{margin-top:0.625rem;}
+.consent-gate input:disabled{cursor:not-allowed;opacity:.5;}
+.consent-gate .form-hint{margin:0.25rem 0 0 1.5rem;font-size:.74rem;}
+
+/* 약관 정적 페이지 */
+.legal-wrap{max-width:48rem;margin:0 auto;padding:2rem 1.25rem 4rem;}
+.legal-wrap h2{margin:1rem 0 1.25rem;}
+.legal-body{white-space:pre-wrap;font-size:.86rem;line-height:1.8;color:var(--text-dim);}
 .consent-row{
   display:flex;align-items:center;gap:0.5625rem;padding:0.5625rem 0;font-size:.82rem;color:var(--text-muted);cursor:pointer;
 }
