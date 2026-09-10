@@ -9,6 +9,10 @@ import com.back.domain.party.application.repository.PartyMemberRepository;
 import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
+import com.back.domain.party.assemble.entity.PartyAssemble;
+import com.back.domain.party.assemble.entity.PartyAssembleToMember;
+import com.back.domain.party.assemble.repository.PartyAssembleRepository;
+import com.back.domain.party.assemble.repository.PartyAssembleToMemberRepository;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.position.entity.Position;
 import org.junit.jupiter.api.DisplayName;
@@ -46,6 +50,12 @@ public class ApiV1MyApplicationControllerTest {
 
     @Autowired
     private PartyMemberRepository partyMemberRepository;
+
+    @Autowired
+    private PartyAssembleRepository partyAssembleRepository;
+
+    @Autowired
+    private PartyAssembleToMemberRepository partyAssembleToMemberRepository;
 
     @Test
     @DisplayName("내 지원 현황: 대기 중인 지원만 나온다 - 승인·거절된 건은 빠진다")
@@ -156,6 +166,102 @@ public class ApiV1MyApplicationControllerTest {
         mvc.perform(get("/api/v1/members/me/applications").param("size", "101"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.resultCode").value("400-1"));
+    }
+
+    @Test
+    @DisplayName("참여 파티 히스토리: 확정 명단에 든 파티만 나온다 - 모집 중이면 승인받았어도 빠진다")
+    @WithUserDetails("user1@test.com")
+    void getMyParties() throws Exception {
+        Member actor = memberRepository.findByEmail("user1@test.com").orElseThrow();
+        Member owner = memberRepository.findByEmail("user2@test.com").orElseThrow();
+
+        // 확정 명단에 든 파티 - 이것만 나와야 한다
+        Party assembled = partyRepository.save(newParty(owner, "확정된 파티"));
+        PartyMember approved = new PartyMember(
+                assembled, actor, findPosition(assembled, PositionType.BACK), null);
+        approved.approve();
+        partyMemberRepository.save(approved);
+        assembled.closeRecruiting();
+        PartyAssemble partyAssemble = partyAssembleRepository.save(new PartyAssemble(assembled));
+        partyAssembleToMemberRepository.save(new PartyAssembleToMember(partyAssemble, actor));
+
+        // 승인은 받았지만 파티장이 아직 모집을 안 닫은 파티 - 관리 탭 소관이라 여기 나오면 안 된다
+        Party stillRecruiting = partyRepository.save(newParty(owner, "아직 모집 중인 파티"));
+        PartyMember approvedButRecruiting = new PartyMember(
+                stillRecruiting, actor, findPosition(stillRecruiting, PositionType.BACK), null);
+        approvedButRecruiting.approve();
+        partyMemberRepository.save(approvedButRecruiting);
+
+        // 내가 열었지만 아직 모집 중인 파티 - 확정 전이라 마찬가지로 빠진다
+        partyRepository.save(newParty(actor, "내가 연 모집 중 파티"));
+
+        // 승인 대기 / 거절 - 애초에 참여가 아니다
+        Party pendingParty = partyRepository.save(newParty(owner, "지원만 한 파티"));
+        partyMemberRepository.save(new PartyMember(
+                pendingParty, actor, pendingParty.getPositions().getFirst(), null));
+
+        mvc.perform(get("/api/v1/members/me/parties"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resultCode").value("200-1"))
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].partyName").value("확정된 파티"))
+                .andExpect(jsonPath("$.data[0].status").value("IN_PROGRESS"))
+                .andExpect(jsonPath("$.data[0].role").value("MEMBER"))
+                .andExpect(jsonPath("$.data[0].positionType").value("BACK"))
+                // 기획서 2.11 이 요구한 주제 유형
+                .andExpect(jsonPath("$.data[0].topicType").value("PROJECT"))
+                .andExpect(jsonPath("$.data[0].exhibited").value(false));
+    }
+
+    @Test
+    @DisplayName("참여 파티 히스토리: 내가 연 파티도 확정되면 파티장으로 나온다")
+    @WithUserDetails("user1@test.com")
+    void getMyPartiesIncludesOwnedParty() throws Exception {
+        Member actor = memberRepository.findByEmail("user1@test.com").orElseThrow();
+
+        // 확정 때 파티장도 명단 맨 앞에 들어간다(PartyLifecycleService.closeRecruiting)
+        Party myParty = partyRepository.save(newParty(actor, "내가 연 파티"));
+        myParty.closeRecruiting();
+        PartyAssemble partyAssemble = partyAssembleRepository.save(new PartyAssemble(myParty));
+        partyAssembleToMemberRepository.save(new PartyAssembleToMember(partyAssemble, actor));
+
+        mvc.perform(get("/api/v1/members/me/parties"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].role").value("OWNER"))
+                // 파티장은 지원 절차가 없어 포지션이 없다
+                .andExpect(jsonPath("$.data[0].positionType")
+                        .value(org.hamcrest.Matchers.nullValue()));
+    }
+
+    @Test
+    @DisplayName("참여 파티 히스토리: 확정 명단에서 빠지면 승인받았어도 안 나온다")
+    @WithUserDetails("user1@test.com")
+    void getMyPartiesFollowsAssembleRoster() throws Exception {
+        Member actor = memberRepository.findByEmail("user1@test.com").orElseThrow();
+        Member owner = memberRepository.findByEmail("user2@test.com").orElseThrow();
+
+        // 승인은 받았지만 파티장이 확정 명단에서 뺀 파티.
+        // 요약의 completedParties 건수도 명단으로 세므로, 여기가 승인 기준이면 숫자와 목록이 어긋난다.
+        Party dropped = partyRepository.save(newParty(owner, "명단에서 빠진 파티"));
+        PartyMember approvedButDropped = new PartyMember(
+                dropped, actor, findPosition(dropped, PositionType.BACK), null);
+        approvedButDropped.approve();
+        partyMemberRepository.save(approvedButDropped);
+        dropped.closeRecruiting();
+        PartyAssemble assemble = partyAssembleRepository.save(new PartyAssemble(dropped));
+        partyAssembleToMemberRepository.save(new PartyAssembleToMember(assemble, owner));
+
+        mvc.perform(get("/api/v1/members/me/parties"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isEmpty());
+    }
+
+    @Test
+    @DisplayName("참여 파티 히스토리: 미로그인이면 401")
+    void getMyPartiesWithoutLogin() throws Exception {
+        mvc.perform(get("/api/v1/members/me/parties"))
+                .andExpect(status().isUnauthorized());
     }
 
     private Party newParty(Member owner, String partyName) {
