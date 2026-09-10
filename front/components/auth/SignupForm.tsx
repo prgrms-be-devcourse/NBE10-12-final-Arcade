@@ -15,16 +15,19 @@ import {
 } from '@/components/ui/Field';
 import { RadioChipGroup } from '@/components/ui/RadioChipGroup';
 import { POSITION_LABELS, POSITION_TYPES } from '@/lib/constants';
+import { ConsentGate } from '@/components/legal/ConsentGate';
+import { LEGAL_DOCUMENTS } from '@/lib/legal';
 import { signup } from '@/lib/api';
 import type { MemberType } from '@/lib/api/auth';
 import type { PositionType } from '@/lib/types';
 
 const MEMBER_TYPES = ['일반', '주최측'] as const;
-const CONSENTS = [
-  { key: 'terms', label: '이용약관 동의', required: true },
-  { key: 'privacy', label: '개인정보 수집 및 이용 동의', required: true },
-  { key: 'marketing', label: '이벤트·마케팅 정보 수신 동의', required: false },
-] as const;
+// 필수 동의 둘만 받는다. 문안은 lib/legal.ts 가 갖고 있고 전문을 끝까지 내려야 체크된다.
+//
+// 이벤트·마케팅 정보 수신 동의는 **보낼 마케팅이 아직 없어 받지 않는다.**
+// 쓰지도 않을 동의를 미리 받아 두지 않는다 - 실제 발송을 시작할 때 서버 컬럼과 함께 살린다.
+//   { key: 'marketing', label: '이벤트·마케팅 정보 수신 동의', required: false },
+const CONSENTS = LEGAL_DOCUMENTS;
 
 export function SignupForm() {
   const router = useRouter();
@@ -39,20 +42,14 @@ export function SignupForm() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const allChecked = agreements.length === CONSENTS.length;
-
-  const toggleAll = () =>
-    setAgreements(allChecked ? [] : CONSENTS.map((consent) => consent.key));
-
   const toggle = (key: string) =>
     setAgreements((prev) => (prev.includes(key) ? prev.filter((value) => value !== key) : [...prev, key]));
 
   const submit = async () => {
     if (password.length < 8) return setError('비밀번호는 8자 이상이어야 해요.');
     if (password !== passwordConfirm) return setError('비밀번호가 일치하지 않아요.');
-    const missing = CONSENTS.filter(
-      (consent) => consent.required && !agreements.includes(consent.key),
-    );
+    // CONSENTS 는 둘 다 필수다. 선택 동의가 다시 생기면 required 플래그로 갈라야 한다.
+    const missing = CONSENTS.filter((consent) => !agreements.includes(consent.key));
     if (missing.length > 0) return setError('필수 약관에 모두 동의해 주세요.');
 
     setError(null);
@@ -212,26 +209,15 @@ export function SignupForm() {
 
             {error ? <p className="form-error">{error}</p> : null}
 
+            {/* 전체 동의 버튼은 두지 않는다 - 전문을 안 본 항목까지 한 번에 켜면 스크롤 게이트가 무의미해진다 */}
             <div className="consent-block">
-              <label className="consent-row consent-all">
-                <input type="checkbox" checked={allChecked} onChange={toggleAll} />
-                <span>전체 동의</span>
-              </label>
               {CONSENTS.map((consent) => (
-                <label key={consent.key} className="consent-row">
-                  <input
-                    type="checkbox"
-                    className={consent.required ? 'consent-required' : undefined}
-                    checked={agreements.includes(consent.key)}
-                    onChange={() => toggle(consent.key)}
-                  />
-                  <span>
-                    <span className={consent.required ? 'req' : undefined}>
-                      {consent.required ? '[필수]' : '[선택]'}
-                    </span>
-                    {consent.label}
-                  </span>
-                </label>
+                <ConsentGate
+                  key={consent.key}
+                  document={consent}
+                  checked={agreements.includes(consent.key)}
+                  onChange={() => toggle(consent.key)}
+                />
               ))}
             </div>
 
