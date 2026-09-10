@@ -6,7 +6,6 @@ import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.party.application.entity.PartyMember;
 import com.back.domain.party.application.entity.PartyMemberStatus;
 import com.back.domain.party.party.entity.Party;
-import com.back.domain.party.position.entity.PartyStatus;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -66,6 +65,11 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
     @EntityGraph(attributePaths = {"party", "position"})
     Slice<PartyMember> findAllByMemberAndStatus(Member member, PartyMemberStatus status, Pageable pageable);
 
+    // 참여 파티 히스토리에서 파티별 내 포지션을 채운다. 파티 수만큼 조회하지 않으려고 한 번에 읽는다.
+    // party 까지 함께 당기는 건 결과를 파티 id 로 묶기 때문이다 - 빼면 그 접근이 다시 파티마다 쿼리를 낸다.
+    @EntityGraph(attributePaths = {"party", "position"})
+    List<PartyMember> findAllByMemberAndStatus(Member member, PartyMemberStatus status);
+
     // 마이페이지 '파티 관리' 목록. 내가 파티장인 파티들에 들어온 지원을 한 번에 본다.
     // partyId·positionType 은 선택 필터라 null 이면 조건이 없는 것으로 친다.
     // 여기도 전체 건수를 쓰지 않는 화면이라 Slice 다.
@@ -118,17 +122,4 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
         return countApplicantsByPartyIdIn(partyIds).stream()
                 .collect(Collectors.toMap(PartyApplicantCount::partyId, PartyApplicantCount::count));
     }
-
-    // 마이페이지 요약의 '완료한 파티' 수.
-    @Query("""
-            select count(pm) from PartyMember pm
-            where pm.member = :member
-              and pm.status = :status
-              and pm.party.status = :partyStatus
-            """)
-    long countByMemberAndStatusAndPartyStatus(
-            @Param("member") Member member,
-            @Param("status") PartyMemberStatus status,
-            @Param("partyStatus") PartyStatus partyStatus
-    );
 }

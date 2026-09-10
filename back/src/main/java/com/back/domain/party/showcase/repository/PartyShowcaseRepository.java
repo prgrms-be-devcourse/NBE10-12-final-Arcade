@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -81,4 +82,8 @@ public interface PartyShowcaseRepository extends JpaRepository<PartyShowcase, Lo
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("update PartyShowcase ps set ps.viewCount = ps.viewCount + 1 where ps.id = :id")
     void increaseViewCount(@Param("id") long id);
+
+    // 참여 파티 히스토리의 '전시 페이지 보기' 판정 - 파티마다 조회하지 않으려고 id 목록으로 한 번에 묻는다.
+    @Query("select ps.party.id from PartyShowcase ps where ps.published = true and ps.party.id in :partyIds")
+    List<Long> findPublishedPartyIdsIn(@Param("partyIds") Collection<Long> partyIds);
 }

@@ -15,6 +15,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import com.back.domain.member.member.entity.Member;
 
 public interface PartyRepository extends JpaRepository<Party, Long>,PartyContestLookupPort{
     @Query("""
@@ -102,4 +103,22 @@ public interface PartyRepository extends JpaRepository<Party, Long>,PartyContest
         order by p.likeCount desc, p.id desc
         """)
     List<Party> findTopByStatusOrderByLikeCountDesc(@Param("status") PartyStatus status, Pageable pageable);
+
+    // 마이페이지 '참여 파티 히스토리' - 확정 명단(PARTY_ASSEMBLE_TO_MEMBER)에 내가 있는 파티(기획서 2.11).
+    //
+    // 모집 중(RECRUITING)인 파티는 나오지 않는다.
+    //
+    // owner 를 fetch join 하는 이유: 화면이 파티장/파티원을 가르는데, Party.owner 가 LAZY 라
+    // 그냥 두면 파티 수만큼 MEMBER 조회가 따라 나간다.
+    //
+    // 파티장 조건이 따로 없는 이유: 확정 시 파티장을 명단 맨 앞에 넣는다(PartyLifecycleService.closeRecruiting).
+    // 요약의 completedParties·exhibitions 건수도 같은 명단으로 세므로 숫자와 목록이 어긋나지 않는다.
+    @Query("""
+            select p from Party p
+            join fetch p.owner
+            where exists (select atm.id from PartyAssembleToMember atm
+                          where atm.partyAssemble.party = p and atm.member = :member)
+            order by p.createDate desc
+            """)
+    List<Party> findParticipatingBy(@Param("member") Member member);
 }
