@@ -50,6 +50,7 @@ public class PartyPr extends BaseEntity {
     private OffsetDateTime openedAt;
     private OffsetDateTime closedAt;
     private OffsetDateTime mergedAt;
+    @Column(nullable = false)
     private OffsetDateTime githubUpdatedAt;
 
     public PartyPr(Party party, GithubPullRequestSnapshot data) {
@@ -73,6 +74,24 @@ public class PartyPr extends BaseEntity {
         this.closedAt = data.closedAt();
         this.mergedAt = data.mergedAt();
         this.githubUpdatedAt = data.githubUpdatedAt();
+    }
+
+    /** 같은 GitHub 상태의 재전송은 DB write 및 SSE 재발행 대상이 아니다. */
+    public boolean hasSameContent(GithubPullRequestSnapshot data) {
+        return number == data.number()
+                && draft == data.draft()
+                && merged == data.merged()
+                && java.util.Objects.equals(title, data.title())
+                && java.util.Objects.equals(htmlUrl, data.htmlUrl())
+                && java.util.Objects.equals(state, data.state())
+                && java.util.Objects.equals(authorGithubUserId, data.authorGithubUserId())
+                && java.util.Objects.equals(authorLogin, data.authorLogin())
+                && java.util.Objects.equals(baseBranch, data.baseBranch())
+                && java.util.Objects.equals(headBranch, data.headBranch())
+                && java.util.Objects.equals(openedAt, data.openedAt())
+                && java.util.Objects.equals(closedAt, data.closedAt())
+                && java.util.Objects.equals(mergedAt, data.mergedAt())
+                && java.util.Objects.equals(githubUpdatedAt, data.githubUpdatedAt());
     }
 
 }

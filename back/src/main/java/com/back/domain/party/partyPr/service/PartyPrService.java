@@ -33,6 +33,11 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.ArrayList;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +48,7 @@ import java.util.Set;
  */
 
 public class PartyPrService {
+    private static final Object INSERT_LOCKS_RESOURCE = new Object();
     private final PartyGithubConnectionRepository githubConnectionRepository;
     private final GithubInstallationRepositoryRepository installationRepositoryRepository;
     private final PartyGithubBindingRepository bindingRepository;
@@ -50,6 +56,9 @@ public class PartyPrService {
     private final PartyRepository partyRepository;
     private final PartyMemberRepository partyMemberRepository;
     private final PartyPrSseService partyPrSseService;
+    // 같은 JVM에서 initial sync와 webhook이 동시에 같은 신규 PR을 INSERT하는 경합을 막는다.
+    // DB unique constraint는 다중 인스턴스 환경의 최종 안전망으로 유지한다.
+    private final Map<String, InsertLock> insertLocks = new ConcurrentHashMap<>();
 
     public List<PartyPrDto> getByPartyId(long partyId, Member actor) {
         Party party = party(partyId);
@@ -179,24 +188,84 @@ public class PartyPrService {
     /** GitHub App installation token으로 조회한 기존 PR을 반영한다. */
     @Transactional
     public void syncExistingPullRequests(Party party, List<GithubPullRequestResponse> pullRequests) {
-        for (GithubPullRequestResponse pullRequest : pullRequests) {
-            upsert(party, toSnapshot(pullRequest));
+        List<GithubPullRequestSnapshot> snapshots = pullRequests.stream().map(this::toSnapshot).toList();
+        if (snapshots.isEmpty()) return;
+
+        Map<Long, PartyPr> existingByGithubPrId = partyPrRepository
+                .findAllByPartyIdAndGithubPrIdIn(party.getId(), snapshots.stream()
+                        .map(GithubPullRequestSnapshot::githubPrId).toList())
+                .stream().collect(Collectors.toMap(PartyPr::getGithubPrId, Function.identity()));
+
+        for (GithubPullRequestSnapshot snapshot : snapshots) {
+            PartyPr existing = existingByGithubPrId.get(snapshot.githubPrId());
+            if (existing == null) {
+                // 신규 PR은 webhook과 경합할 수 있으므로 기존 upsert 경로를 사용한다.
+                upsert(party, snapshot);
+                continue;
+            }
+            updateExisting(party, existing, snapshot);
         }
     }
 
-    private void upsert(Party party, GithubPullRequestSnapshot data) {
-        PartyPr partyPr = partyPrRepository
-                .findByPartyIdAndGithubPrId(party.getId(), data.githubPrId())
-                .orElseGet(() -> new PartyPr(party, data));
-        // 초기 sync와 webhook이 경합해도 더 오래된 GitHub 상태가 최신 상태를 덮어쓰지 못하게 한다.
-        if (partyPr.getId() != null && partyPr.getGithubUpdatedAt() != null && data.githubUpdatedAt() != null
-            && data.githubUpdatedAt().isBefore(partyPr.getGithubUpdatedAt())) return;
+    private void updateExisting(Party party, PartyPr partyPr, GithubPullRequestSnapshot data) {
+        if (data.githubUpdatedAt().isBefore(partyPr.getGithubUpdatedAt()) || partyPr.hasSameContent(data)) return;
         partyPr.update(data);
-        partyPrRepository.save(partyPr);
         PartyPrDto pullRequest = new PartyPrDto(partyPr);
-        PartyPrByMemberDto group = groupFor(party, pullRequest);
-        publishAfterCommit(party.getId(), pullRequest, group);
+        publishAfterCommit(party.getId(), pullRequest, groupFor(party, pullRequest));
     }
+
+    private void upsert(Party party, GithubPullRequestSnapshot data) {
+        String key = party.getId() + ":" + data.githubPrId();
+        InsertLock lock = insertLocks.compute(key, (ignored, current) -> {
+            InsertLock acquired = current == null ? new InsertLock() : current;
+            acquired.users++;
+            return acquired;
+        });
+        lock.lock.lock();
+        try {
+            PartyPr partyPr = partyPrRepository
+                    .findByPartyIdAndGithubPrId(party.getId(), data.githubPrId())
+                    .orElseGet(() -> new PartyPr(party, data));
+            // 초기 sync와 webhook이 경합해도 더 오래된 GitHub 상태가 최신 상태를 덮어쓰지 못하게 한다.
+            if (partyPr.getId() != null && data.githubUpdatedAt().isBefore(partyPr.getGithubUpdatedAt())) return;
+            if (partyPr.getId() != null && partyPr.hasSameContent(data)) return;
+            partyPr.update(data);
+            partyPrRepository.save(partyPr);
+            PartyPrDto pullRequest = new PartyPrDto(partyPr);
+            PartyPrByMemberDto group = groupFor(party, pullRequest);
+            publishAfterCommit(party.getId(), pullRequest, group);
+        } finally { releaseAfterTransaction(key, lock); }
+    }
+
+    private void releaseAfterTransaction(String key, InsertLock lock) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) { release(key, lock); return; }
+        @SuppressWarnings("unchecked")
+        List<LockToken> locks = (List<LockToken>) TransactionSynchronizationManager.getResource(INSERT_LOCKS_RESOURCE);
+        if (locks == null) {
+            locks = new ArrayList<>();
+            TransactionSynchronizationManager.bindResource(INSERT_LOCKS_RESOURCE, locks);
+            List<LockToken> transactionLocks = locks;
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override public void afterCompletion(int status) {
+                    transactionLocks.forEach(token -> release(token.key(), token.lock()));
+                    TransactionSynchronizationManager.unbindResourceIfPossible(INSERT_LOCKS_RESOURCE);
+                }
+            });
+        }
+        locks.add(new LockToken(key, lock));
+    }
+
+    private void release(String key, InsertLock lock) {
+        lock.lock.unlock();
+        insertLocks.compute(key, (ignored, current) -> current != lock ? current : --lock.users == 0 ? null : lock);
+    }
+
+    private static final class InsertLock {
+        private final ReentrantLock lock = new ReentrantLock();
+        private int users;
+    }
+
+    private record LockToken(String key, InsertLock lock) {}
 
     /** GitHub 외부 DTO를 PartyPr이 이해하는 내부 snapshot으로 변환하면서 필수 필드를 검증한다. */
     private GithubPullRequestSnapshot toSnapshot(GithubPullRequestResponse pr) {
@@ -209,7 +278,7 @@ public class PartyPrService {
             Boolean.TRUE.equals(pr.draft()),
             Boolean.TRUE.equals(pr.merged()) || pr.mergedAt() != null,
             pr.base() == null ? null : pr.base().ref(), pr.head() == null ? null : pr.head().ref(),
-            date(pr.createdAt()), date(pr.closedAt()), date(pr.mergedAt()), date(pr.updatedAt())
+            date(pr.createdAt()), date(pr.closedAt()), date(pr.mergedAt()), requiredDate(pr.updatedAt(), "updated_at")
         );
     }
 
@@ -234,6 +303,14 @@ public class PartyPrService {
 
     private OffsetDateTime date(String value) {
         return value == null || value.isBlank() ? null : OffsetDateTime.parse(value);
+    }
+
+    private OffsetDateTime requiredDate(String value, String field) {
+        OffsetDateTime parsed = date(value);
+        if (parsed == null) {
+            throw new ServiceException("400-2", "GitHub 웹훅 필수 값이 없습니다: " + field);
+        }
+        return parsed;
     }
 
     private Party party(long partyId) {

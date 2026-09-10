@@ -28,7 +28,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -71,7 +70,6 @@ public class BookmarkService implements BookmarkInteractionPort {
         Map<TargetType, Map<Long, Object>> cards = Map.of(
                 TargetType.PARTY, partyCards(idsByType.getOrDefault(TargetType.PARTY, List.of())),
                 TargetType.CONTEST, contestCards(idsByType.getOrDefault(TargetType.CONTEST, List.of())),
-                TargetType.GOAL, goalCards(idsByType.getOrDefault(TargetType.GOAL, List.of())),
                 TargetType.PARTY_SHOWCASE, partyShowcaseCards(idsByType.getOrDefault(TargetType.PARTY_SHOWCASE, List.of()))
         );
 
@@ -121,14 +119,6 @@ public class BookmarkService implements BookmarkInteractionPort {
                 .collect(Collectors.toMap(
                         contest -> contest.getId(),
                         contest -> new ContestResponseDto(contest, posts.get(contest.getId()))));
-    }
-
-    private Map<Long, Object> goalCards(List<Long> goalIds) {
-        // 여기는 빈 목록 가드가 필요 없다 - findAllById 는 Spring Data 가 비어 있으면
-        // 쿼리 없이 emptyList 를 돌려준다(SimpleJpaRepository.findAllById).
-        return goalRepository.findAllById(goalIds).stream()
-                .filter(Goal::isExhibited)
-                .collect(Collectors.toMap(Goal::getId, showcaseService::toDto));
     }
 
     // 전시된 프로젝트 성취의 북마크는 GOAL이 아니라 PARTY_SHOWCASE로 저장된다(3.2)
@@ -185,50 +175,7 @@ public class BookmarkService implements BookmarkInteractionPort {
         if (member == null || targetIds.isEmpty()) {
             return Set.of();
         }
-
-        if (targetType != TargetType.GOAL) {
-            return new HashSet<>(bookmarkRepository.findTargetIdsByMemberAndTargetTypeAndTargetIdIn(member, targetType, targetIds));
-        }
-
-        List<Goal> goals = goalRepository.findAllById(targetIds);
-
-        Map<Long, Long> projectGoalIdToShowcaseId = new HashMap<>();
-        Set<Long> plainGoalIds = new HashSet<>();
-
-        for (Goal goal : goals) {
-            if (goal instanceof Project project) {
-                if (project.getPartyShowcase() != null) {
-                    projectGoalIdToShowcaseId.put(goal.getId(), project.getPartyShowcase().getId());
-                } else {
-                    plainGoalIds.add(goal.getId()); // 미전시 상태면 일단 GOAL ID로 처리
-                }
-            } else {
-                plainGoalIds.add(goal.getId());
-            }
-        }
-
-        Set<Long> bookmarkedGoalIds = new HashSet<>();
-
-        if (!plainGoalIds.isEmpty()) {
-            bookmarkedGoalIds.addAll(bookmarkRepository.findTargetIdsByMemberAndTargetTypeAndTargetIdIn(
-                    member, TargetType.GOAL, plainGoalIds
-            ));
-        }
-
-        if (!projectGoalIdToShowcaseId.isEmpty()) {
-            Set<Long> showcaseIds = new HashSet<>(projectGoalIdToShowcaseId.values());
-            Set<Long> bookmarkedShowcaseIds = new HashSet<>(bookmarkRepository.findTargetIdsByMemberAndTargetTypeAndTargetIdIn(
-                    member, TargetType.PARTY_SHOWCASE, showcaseIds
-            ));
-
-            for (Map.Entry<Long, Long> entry : projectGoalIdToShowcaseId.entrySet()) {
-                if (bookmarkedShowcaseIds.contains(entry.getValue())) {
-                    bookmarkedGoalIds.add(entry.getKey());
-                }
-            }
-        }
-
-        return bookmarkedGoalIds;
+        return new HashSet<>(bookmarkRepository.findTargetIdsByMemberAndTargetTypeAndTargetIdIn(member, targetType, targetIds));
     }
 
     @Transactional
@@ -258,18 +205,12 @@ public class BookmarkService implements BookmarkInteractionPort {
         bookmarkRepository.deleteByMemberAndTargetTypeAndTargetId(member, TargetType.PARTY, partyId);
     }
 
-    private record BookmarkTarget(TargetType targetType, long targetId) {
-    }
-
-    // LikeService.resolveGoalLikeTarget()과 동일한 판단 - PROJECT면 파티 전체가 공유하는
-    // PARTY_SHOWCASE로, 그 외(자기신고)는 GOAL 자신으로 북마크를 건다(기획서 3.2).
-    private BookmarkTarget resolveGoalBookmarkTarget(Goal goal) {
-        if (goal instanceof Project project) {
-            if (project.getPartyShowcase() != null) {
-                return new BookmarkTarget(TargetType.PARTY_SHOWCASE, project.getPartyShowcase().getId());
-            }
+    // 컨트롤러 가드(isExhibited)를 통과한 goal은 게시된 PROJECT뿐이라, 북마크는 항상 그 파티의 PARTY_SHOWCASE에 건다(기획서 3.2).
+    private long requireShowcaseId(Goal goal) {
+        if (goal instanceof Project project && project.getPartyShowcase() != null) {
+            return project.getPartyShowcase().getId();
         }
-        return new BookmarkTarget(TargetType.GOAL, goal.getId());
+        throw new IllegalStateException("전시된 PROJECT 성취만 북마크 대상입니다: goalId=" + goal.getId());
     }
 
     @Transactional
@@ -278,13 +219,13 @@ public class BookmarkService implements BookmarkInteractionPort {
                 .filter(Goal::isExhibited)
                 .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 성취입니다."));
 
-        BookmarkTarget target = resolveGoalBookmarkTarget(goal);
+        long showcaseId = requireShowcaseId(goal);
 
-        if (isBookmarked(member, target.targetType(), target.targetId())) {
+        if (isBookmarked(member, TargetType.PARTY_SHOWCASE, showcaseId)) {
             throw new ServiceException("409-1", "이미 북마크한 성취입니다.");
         }
 
-        bookmarkRepository.save(new Bookmark(member, target.targetType(), target.targetId()));
+        bookmarkRepository.save(new Bookmark(member, TargetType.PARTY_SHOWCASE, showcaseId));
 
         return new BookmarkDto(TargetType.GOAL, goalId, true);
     }
@@ -295,12 +236,12 @@ public class BookmarkService implements BookmarkInteractionPort {
                 .filter(Goal::isExhibited)
                 .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 성취입니다."));
 
-        BookmarkTarget target = resolveGoalBookmarkTarget(goal);
+        long showcaseId = requireShowcaseId(goal);
 
-        if (!isBookmarked(member, target.targetType(), target.targetId())) {
+        if (!isBookmarked(member, TargetType.PARTY_SHOWCASE, showcaseId)) {
             throw new ServiceException("409-1", "북마크하지 않은 성취입니다.");
         }
 
-        bookmarkRepository.deleteByMemberAndTargetTypeAndTargetId(member, target.targetType(), target.targetId());
+        bookmarkRepository.deleteByMemberAndTargetTypeAndTargetId(member, TargetType.PARTY_SHOWCASE, showcaseId);
     }
 }

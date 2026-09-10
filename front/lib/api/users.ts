@@ -11,17 +11,12 @@ import type {
 } from '@/lib/types';
 import { toPositionType } from '@/lib/constants';
 import { MOCK_CURRENT_USER_ID, MOCK_PROFILES, MOCK_USER_SUMMARIES } from '@/lib/mock';
-import {
-  CONTEST_FORMAT_LABELS,
-  GOAL_SOURCE_LABELS,
-  GOAL_TYPE_LABELS,
-  positionLabel,
-} from '@/lib/constants';
+import { CONTEST_FORMAT_LABELS, GOAL_TYPE_LABELS, positionLabel } from '@/lib/constants';
 import { ApiError, USE_MOCK, http, mockResponse } from './client';
 import { toDateText } from './time';
 import { type ContestResponse, toContest } from './contests';
 import { type GoalResponse, toAchievement } from './goals';
-import { type ShowcaseGoalResponse, toExhibitionProject } from './exhibitions';
+import type { ShowcaseGoalResponse } from './exhibitions';
 import { type PartyListItemResponse, toParty } from './parties';
 
 function fallbackProfile(id: string): UserProfile {
@@ -395,15 +390,17 @@ function toBookmarkItem(dto: MyBookmarkResponse): BookmarkItem {
     };
   }
 
-  const project = toExhibitionProject(dto.target as ShowcaseGoalResponse);
+  // 전시(성취) 북마크는 step1 이후 게시된 PROJECT 뿐이라 party 가 항상 있다.
+  // 상세 라우트(/exhibition/{id})가 partyId 를 받으므로 goal id 가 아니라 party id 를 싣는다.
+  const goal = dto.target as ShowcaseGoalResponse;
   return {
     id: String(dto.id),
     targetType: 'GOAL',
-    targetId: project.id,
-    title: project.title,
-    subtitle: project.partyName || '개인 성취',
-    meta: `좋아요 ${project.likeCount}`,
-    tags: [project.category, GOAL_SOURCE_LABELS[project.source]],
+    targetId: String(goal.party.id),
+    title: goal.detail.title ?? '',
+    subtitle: goal.party.name,
+    meta: `좋아요 ${goal.likeCount}`,
+    tags: [GOAL_TYPE_LABELS.PROJECT],
     createdAt: savedAt,
   };
 }

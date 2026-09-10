@@ -6,9 +6,8 @@ import { SendMessageButton } from '@/components/message/SendMessageButton';
 import { BackLink } from '@/components/ui/BackLink';
 import { Block, DetailGrid, SideCard } from '@/components/ui/Block';
 import { LeaderRow } from '@/components/ui/Avatar';
-import { ChipRow, SkillChip, Tag, TagRow } from '@/components/ui/Tag';
+import { ChipRow, SkillChip } from '@/components/ui/Tag';
 import { fetchExhibition, fetchExhibitionCommits } from '@/lib/api';
-import { GOAL_SOURCE_LABELS } from '@/lib/constants';
 import { MOCK_CURRENT_USER_ID, MOCK_USER_SUMMARIES } from '@/lib/mock';
 
 export default async function ExhibitionDetailPage({
@@ -49,13 +48,7 @@ export default async function ExhibitionDetailPage({
           main={
             <>
               <div className="detail-header">
-                <TagRow>
-                  {/* 대회 상세와 같은 태그 칩을 쓴다. 플랫폼 자동기록만 강조색 */}
-                  <Tag accent={project.source === 'PLATFORM_VERIFIED'}>
-                    {GOAL_SOURCE_LABELS[project.source]}
-                  </Tag>
-                </TagRow>
-                <div className="detail-header-right">
+                <div className="detail-header-right" style={{ marginLeft: 'auto' }}>
                   <span className="detail-views">
                     <Icon name="i-eye" />
                     조회 {project.viewCount.toLocaleString()}
@@ -102,7 +95,7 @@ export default async function ExhibitionDetailPage({
                 </ChipRow>
               </Block>
 
-              {project.source === 'PLATFORM_VERIFIED' && commits.length > 0 ? (
+              {commits.length > 0 ? (
                 <Block
                   title="진행 기록 · 커밋"
                   description="완료 시점의 커밋 내역이 작성자·동료 승인자와 함께 스냅샷으로 남아, 결과뿐 아니라 과정도 보여줘요."

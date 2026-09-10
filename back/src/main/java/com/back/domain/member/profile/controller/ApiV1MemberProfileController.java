@@ -71,7 +71,7 @@ public class ApiV1MemberProfileController {
                     - completedParties : 승인된 파티원으로 속한 파티 중 COMPLETED 인 건
                     - awards           : 달성한 CONTEST 성취 건수
                     - exhibitions      : 승인된 파티원으로 속한 파티 중 전시가 게시된 건
-                    - streakDays       : 연속 활동일
+                    - streakDays       : ACTIVITY_LOG 기준 연속 활동일. 오늘이 비어 있으면 어제까지의 연속
                     - joinedAt         : 가입 시각. 히어로의 '크루온 활동 N개월째'(기획서 2.11 총 활동 기간)를 여기서 센다.
                                          첫 활동일이 아니라 가입일이다 - 활동 로그를 정리하면 이미 보여준 기간이 줄어든다
                     - badges           : 배지 도메인이 없어 아직 빈 배열

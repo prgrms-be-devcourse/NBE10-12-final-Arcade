@@ -354,10 +354,10 @@ public class ApiV1LikeControllerTest {
     }
 
     @Test
-    @DisplayName("성취 좋아요: 201-1과 liked=true, likeCount 증가를 반환한다 (자기신고, 완료 상태)")
+    @DisplayName("성취 좋아요: 게시된 PROJECT 전시글이면 201-1과 liked=true, likeCount 증가를 반환한다")
     @WithUserDetails("user1@test.com")
     void likeGoal() throws Exception {
-        long goalId = saveAchievedGoal("user2@test.com");
+        long goalId = savePublishedProjectGoal("user2@test.com", 1001L);
 
         ResultActions resultActions = mvc.perform(post("/api/v1/goals/" + goalId + "/likes"));
 
@@ -367,6 +367,18 @@ public class ApiV1LikeControllerTest {
                 .andExpect(jsonPath("$.data.targetId").value(goalId))
                 .andExpect(jsonPath("$.data.liked").value(true))
                 .andExpect(jsonPath("$.data.likeCount").value(1));
+    }
+
+    @Test
+    @DisplayName("성취 좋아요: 자기신고 성취(완료)는 전시·좋아요 대상이 아니라 404-1이다")
+    @WithUserDetails("user1@test.com")
+    void likeGoalSelfReported() throws Exception {
+        long goalId = saveAchievedGoal("user2@test.com");
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/goals/" + goalId + "/likes"));
+
+        resultActions.andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.resultCode").value("404-1"));
     }
 
     @Test
@@ -419,7 +431,7 @@ public class ApiV1LikeControllerTest {
     @DisplayName("성취 좋아요: 이미 좋아요한 성취에 재요청하면 409-1이다")
     @WithUserDetails("user1@test.com")
     void likeGoalTwice() throws Exception {
-        long goalId = saveAchievedGoal("user2@test.com");
+        long goalId = savePublishedProjectGoal("user2@test.com", 1001L);
 
         mvc.perform(post("/api/v1/goals/" + goalId + "/likes"))
                 .andExpect(status().isCreated());
@@ -445,7 +457,7 @@ public class ApiV1LikeControllerTest {
     @DisplayName("성취 좋아요 취소: 204-1")
     @WithUserDetails("user1@test.com")
     void unlikeGoal() throws Exception {
-        long goalId = saveAchievedGoal("user2@test.com");
+        long goalId = savePublishedProjectGoal("user2@test.com", 1001L);
 
         mvc.perform(post("/api/v1/goals/" + goalId + "/likes"))
                 .andExpect(status().isCreated());
@@ -461,7 +473,7 @@ public class ApiV1LikeControllerTest {
     @DisplayName("성취 좋아요 취소: 좋아요하지 않은 성취를 취소하면 409-1이다")
     @WithUserDetails("user1@test.com")
     void unlikeGoalWithoutLiking() throws Exception {
-        long goalId = saveAchievedGoal("user2@test.com");
+        long goalId = savePublishedProjectGoal("user2@test.com", 1001L);
 
         ResultActions resultActions = mvc.perform(delete("/api/v1/goals/" + goalId + "/likes"));
 
@@ -473,7 +485,7 @@ public class ApiV1LikeControllerTest {
     @DisplayName("성취 좋아요: 좋아요→취소→재좋아요를 반복해도 likeCount가 1↔0으로 정확히 오간다")
     @WithUserDetails("user1@test.com")
     void likeGoalToggleCycleKeepsCountConsistent() throws Exception {
-        long goalId = saveAchievedGoal("user2@test.com");
+        long goalId = savePublishedProjectGoal("user2@test.com", 1001L);
 
         mvc.perform(post("/api/v1/goals/" + goalId + "/likes"))
                 .andExpect(status().isCreated())
