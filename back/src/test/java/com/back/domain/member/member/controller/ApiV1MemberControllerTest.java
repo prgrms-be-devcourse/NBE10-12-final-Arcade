@@ -1,6 +1,8 @@
 package com.back.domain.member.member.controller;
 
 import com.back.RedisTestContainerConfig;
+import com.back.domain.member.member.entity.Member;
+import com.back.domain.member.member.repository.MemberRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -11,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.test.context.support.WithUserDetails;
 
@@ -20,6 +23,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.handler;
@@ -36,6 +40,119 @@ public class ApiV1MemberControllerTest {
     @Autowired
     private MockMvc mvc;
 
+    @Autowired
+    private MemberRepository memberRepository;
+
+    @Test
+    @DisplayName("약관 동의: 가입 요청에 동의를 실으면 동의 일시가 기록된다")
+    // 테스트 트랜잭션 밖에서 돌린다. 안에서 돌리면 컨트롤러가 그 트랜잭션에 얹혀
+    // 쓰기 가능 상태가 되어, 서비스의 readOnly 문제(동의 일시가 flush 되지 않음)를 가린다.
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void signupWithAgreements() throws Exception {
+        mvc.perform(post("/api/v1/members/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "email": "agreed@test.com",
+                              "password": "1234",
+                              "name": "동의한 사람",
+                              "agreedTerms": true,
+                              "agreedPrivacy": true
+                            }
+                            """))
+                .andExpect(status().isCreated());
+
+        Member member = memberRepository.findByEmail("agreed@test.com").orElseThrow();
+        try {
+            assertThat(member.getTermsAgreedAt()).isNotNull();
+            assertThat(member.getPrivacyAgreedAt()).isNotNull();
+            assertThat(member.hasAgreedToRequiredTerms()).isTrue();
+        } finally {
+            // 이 테스트만 트랜잭션 밖이라 롤백되지 않는다. 다음 실행에 영향이 없게 직접 지운다
+            memberRepository.delete(member);
+        }
+    }
+
+    @Test
+    @DisplayName("약관 동의: 둘 중 하나만 동의하면 400-3 이다")
+    void signupWithPartialAgreement() throws Exception {
+        // 필수 둘 다여야 한다. 하나만 켠 요청을 통과시키면 증빙이 틀린 값이 된다
+        mvc.perform(post("/api/v1/members/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "email": "partial@test.com",
+                              "password": "1234",
+                              "name": "반만 동의",
+                              "agreedTerms": true,
+                              "agreedPrivacy": false
+                            }
+                            """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-3"));
+
+        assertThat(memberRepository.findByEmail("partial@test.com")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("약관 동의: 동의를 안 보내면 400 이라 가입되지 않는다")
+    void signupWithoutAgreements() throws Exception {
+        mvc.perform(post("/api/v1/members/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "email": "notagreed@test.com",
+                              "password": "1234",
+                              "name": "동의 안 한 사람"
+                            }
+                            """))
+                .andExpect(status().isBadRequest());
+
+        assertThat(memberRepository.findByEmail("notagreed@test.com")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("약관 동의: 미로그인이면 401")
+    void agreeWithoutLogin() throws Exception {
+        mvc.perform(post("/api/v1/members/me/agreements"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("약관 동의: 동의하면 두 일시가 채워지고, 다시 불러도 시각이 밀리지 않는다")
+    @WithUserDetails("user1@test.com")
+    void agreeToRequiredTerms() throws Exception {
+        mvc.perform(get("/api/v1/members/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.termsAgreedAt").doesNotExist())
+                .andExpect(jsonPath("$.data.privacyAgreedAt").doesNotExist());
+
+        mvc.perform(post("/api/v1/members/me/agreements"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resultCode").value("200-1"));
+
+        String first = mvc.perform(get("/api/v1/members/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.termsAgreedAt").isNotEmpty())
+                .andExpect(jsonPath("$.data.privacyAgreedAt").isNotEmpty())
+                .andReturn().getResponse().getContentAsString();
+
+        // 최초 동의 시점이 증빙이라 재요청으로 덮어써지면 안 된다
+        mvc.perform(post("/api/v1/members/me/agreements"))
+                .andExpect(status().isOk());
+
+        String second = mvc.perform(get("/api/v1/members/me"))
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(agreedAt(second)).isEqualTo(agreedAt(first));
+    }
+
+    private String agreedAt(String responseBody) {
+        Matcher matcher = Pattern.compile("\"termsAgreedAt\":\"([^\"]+)\"").matcher(responseBody);
+
+        return matcher.find() ? matcher.group(1) : null;
+    }
+
     @Test
     @DisplayName("회원가입: 201-1과 회원 식별자를 반환한다")
     void signup() throws Exception {
@@ -45,7 +162,9 @@ public class ApiV1MemberControllerTest {
                     {
                       "email": "test@test.com",
                       "password": "1234",
-                      "name": "정하늘"
+                      "name": "정하늘",
+                      "agreedTerms": true,
+                      "agreedPrivacy": true
                     }
                     """));
 
@@ -92,7 +211,9 @@ public class ApiV1MemberControllerTest {
                         {
                             "email":"duplicate@test.com",
                             "password":"1234",
-                            "name":"정하늘"
+                            "name":"정하늘",
+                            "agreedTerms":true,
+                            "agreedPrivacy":true
                         }"""));
 
         signupResultActions.andExpect(status().isCreated());
@@ -103,7 +224,9 @@ public class ApiV1MemberControllerTest {
                         {
                             "email":"duplicate@test.com",
                             "password":"1234",
-                            "name":"정하늘"
+                            "name":"정하늘",
+                            "agreedTerms":true,
+                            "agreedPrivacy":true
                         }"""));
 
         resultActions.andExpect(status().isConflict())

@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
@@ -57,30 +58,65 @@ public class MemberService {
         return memberRepository.count();
     }
 
+    /**
+     * 동의 없이 회원만 만든다. 시드·개발 데이터가 쓴다.
+     *
+     * 시드 관리자는 이어지는 grantAdmin() 이 동의를 함께 기록한다(BaseInitData).
+     */
+    @Transactional
     public MemberDto join(String email, String password, String name) {
-        return join(email, password, name, null);
+        return join(email, password, name, false);
     }
 
+    /**
+     * 가입 폼 경로. 필수 약관 동의를 **가입과 같은 트랜잭션에** 기록한다 -
+     * 따로 부르면 그 사이에 실패해 "가입은 됐는데 동의 기록이 없는" 계정이 남는다.
+     *
+     * 두 오버로드 모두 @Transactional 이 필요하다. 여기가 호출자가 지나가는 프록시 경계라,
+     * 쓰기 트랜잭션을 열지 않으면 클래스 레벨 readOnly=true 가 유지된다.
+     * readOnly 면 flush 를 하지 않아 INSERT 는 되는데(IDENTITY 라 즉시 필요)
+     * 그 뒤에 바꾼 필드가 조용히 사라진다.
+     */
     @Transactional
-    public MemberDto join(String email, String password, String name, String profileImgUrl) {
+    public MemberDto join(String email, String password, String name, boolean agreedToRequiredTerms) {
         findByEmail(email)
                 .ifPresent(_ -> {
                     throw new ServiceException("409-1", "이미 사용 중인 이메일입니다.");
                 });
 
-        return new MemberDto(createMember(email, password, name, profileImgUrl));
+        Member member = createMember(email, password, name);
+
+        if (agreedToRequiredTerms) member.agreeToRequiredTerms(LocalDateTime.now());
+
+        return new MemberDto(member);
+    }
+
+    /**
+     * 필수 약관 동의를 기록한다. GitHub 가입자는 폼이 없어 가입 이후에 이 경로로 동의한다.
+     *
+     * 프로필 수정(PATCH /members/me)과 분리한 이유는, 그쪽이 언제든 불리는 API 라
+     * 섞으면 **닉네임을 고칠 때마다 동의 일시가 갱신**되기 때문이다.
+     */
+    @Transactional
+    public void agreeToRequiredTerms(Member actor) {
+        Member member = memberRepository.findById(actor.getId())
+                .orElseThrow(() -> new ServiceException("404-1", "회원을 찾을 수 없습니다."));
+
+        member.agreeToRequiredTerms(LocalDateTime.now());
     }
 
     /**
      * 외부 호출자는 엔티티 대신 DTO를 받도록 하되, 서비스 내부 유스케이스는
      * 같은 트랜잭션 안에서 영속 엔티티를 계속 다룰 수 있게 한다.
      */
-    private Member createMember(String email, String password, String name, String profileImgUrl) {
+    private Member createMember(String email, String password, String name) {
         String encodedPassword = (password != null && !password.isBlank())
                 ? passwordEncoder.encode(password)
                 : null;
 
-        return memberRepository.save(new Member(email, encodedPassword, name, profileImgUrl));
+        // 소셜 가입은 이 경로를 타지 않는다(AuthService.modifyOrJoin 이 따로 만든다).
+        // 그래서 프로필 이미지는 항상 비어 있다 - 예전엔 받아 두었지만 아무도 넘기지 않았다.
+        return memberRepository.save(new Member(email, encodedPassword, name, null));
     }
 
     @Transactional
