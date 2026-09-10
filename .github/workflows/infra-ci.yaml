@@ -10,6 +10,8 @@ on:
       - "docker-compose*.yml"
       - "back/Dockerfile"
       - "front/Dockerfile"
+      - "tests/k6/**"
+      - ".github/scripts/run-deploy-continuity.sh"
       - ".github/workflows/infra-ci.yaml"
       - ".github/workflows/infra-cd.yaml"
   push:
