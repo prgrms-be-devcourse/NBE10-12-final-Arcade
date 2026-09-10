@@ -4,6 +4,7 @@ import com.back.domain.member.member.dtos.MemberDto;
 import com.back.domain.member.member.dtos.MemberLoginDto;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
+import com.back.domain.member.profile.repository.MemberProfileRepository;
 import com.back.global.exception.ServiceException;
 import com.back.global.rsData.RsData;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +48,7 @@ public class MemberService {
     private final PasswordEncoder passwordEncoder;
     private final MemberRepository memberRepository;
     private final StringRedisTemplate redisTemplate;
+    private final MemberProfileRepository memberProfileRepository;
 
     @Value("${custom.accessToken.expirationSeconds}")
     private int accessTokenExpirationSeconds;
@@ -97,6 +99,9 @@ public class MemberService {
         );
         if (!passwordEncoder.matches(password, member.getPassword()))
             throw new ServiceException("401-2", "이메일 또는 비밀번호가 올바르지 않습니다.");
+
+        if (!member.isActive())
+            throw new ServiceException("403-2", "정지된 계정입니다. 사유: " + member.getSuspendReason());
 
         return createLoginDto(member);
 
