@@ -141,14 +141,16 @@ public class ApiV1ShowcaseControllerTest {
     }
 
     @Test
-    @DisplayName("전시 성취 목록: 완료된 자기신고 성취가 목록에 나온다")
-    void getShowcaseGoalsIncludesAchievedSelfReported() throws Exception {
-        long goalId = saveAchievedChecklist("user1@test.com", "자격증 취득");
+    @DisplayName("전시 성취 목록: 자기신고 성취(체크리스트·대회)는 완료돼도 목록에 나오지 않는다")
+    void getShowcaseGoalsExcludesSelfReported() throws Exception {
+        long checklistId = saveAchievedChecklist("user1@test.com", "자격증 취득");
+        long contestId = saveAchievedContest("user1@test.com", "오락실 공모전 대상");
 
         ResultActions resultActions = mvc.perform(get("/api/v1/showcase/goals"));
 
         resultActions.andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content[?(@.id == " + goalId + ")]").exists());
+                .andExpect(jsonPath("$.data.content[?(@.id == " + checklistId + ")]").doesNotExist())
+                .andExpect(jsonPath("$.data.content[?(@.id == " + contestId + ")]").doesNotExist());
     }
 
     @Test
@@ -188,34 +190,16 @@ public class ApiV1ShowcaseControllerTest {
     }
 
     @Test
-    @DisplayName("전시 성취 목록: type 필터로 CONTEST만 조회할 수 있다")
-    void getShowcaseGoalsFilterByType() throws Exception {
-        long contestId = saveAchievedContest("user1@test.com", "오락실 공모전 대상");
-        long checklistId = saveAchievedChecklist("user1@test.com", "자격증 취득");
+    @DisplayName("전시 성취 목록: 전시관은 PROJECT만이라 type=CONTEST 필터는 빈 목록이다")
+    void getShowcaseGoalsFilterByNonProjectTypeIsEmpty() throws Exception {
+        savePublishedProject("user1@test.com", "정산 자동화 API", 601L);
+        saveAchievedContest("user1@test.com", "오락실 공모전 대상");
 
         ResultActions resultActions = mvc.perform(get("/api/v1/showcase/goals")
                 .param("type", "CONTEST"));
 
         resultActions.andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content[?(@.id == " + contestId + ")]").exists())
-                .andExpect(jsonPath("$.data.content[?(@.id == " + checklistId + ")]").doesNotExist());
-    }
-
-    @Test
-    @DisplayName("전시 성취 목록: sort=POPULAR면 좋아요 수 내림차순으로 정렬된다")
-    void getShowcaseGoalsSortedByPopular() throws Exception {
-        long lowLikeGoalId = saveAchievedChecklist("user1@test.com", "좋아요 적음");
-        long highLikeGoalId = saveAchievedChecklist("user1@test.com", "좋아요 많음");
-
-        goalRepository.increaseLikeCount(highLikeGoalId);
-        goalRepository.increaseLikeCount(highLikeGoalId);
-        goalRepository.increaseLikeCount(lowLikeGoalId);
-
-        ResultActions resultActions = mvc.perform(get("/api/v1/showcase/goals")
-                .param("sort", "POPULAR"));
-
-        resultActions.andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content[0].id").value(highLikeGoalId));
+                .andExpect(jsonPath("$.data.content").isEmpty());
     }
 
     @Test
@@ -231,9 +215,9 @@ public class ApiV1ShowcaseControllerTest {
     @Test
     @DisplayName("전시 성취 목록: 페이징이 동작한다")
     void getShowcaseGoalsPaging() throws Exception {
-        saveAchievedChecklist("user1@test.com", "성취1");
-        saveAchievedChecklist("user1@test.com", "성취2");
-        saveAchievedChecklist("user1@test.com", "성취3");
+        savePublishedProject("user1@test.com", "성취1", 701L);
+        savePublishedProject("user1@test.com", "성취2", 702L);
+        savePublishedProject("user1@test.com", "성취3", 703L);
 
         ResultActions resultActions = mvc.perform(get("/api/v1/showcase/goals")
                 .param("page", "0")

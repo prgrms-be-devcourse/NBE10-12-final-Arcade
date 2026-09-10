@@ -81,7 +81,10 @@ public class ApiV1MyBookmarkControllerTest {
 
         bookmark(actor, TargetType.PARTY, saveParty().getId());
         bookmark(actor, TargetType.CONTEST, saveContest());
-        bookmark(actor, TargetType.GOAL, saveExhibitedGoal());
+        // 전시된 PROJECT 성취의 북마크는 PARTY_SHOWCASE로 저장되고 응답에서 GOAL 카드로 정규화된다.
+        long goalId = saveExhibitedGoal();
+        long showcaseId = ((Project) goalRepository.findById(goalId).orElseThrow()).getPartyShowcase().getId();
+        bookmark(actor, TargetType.PARTY_SHOWCASE, showcaseId);
 
         mvc.perform(get(URL))
                 .andExpect(status().isOk())
@@ -189,7 +192,7 @@ public class ApiV1MyBookmarkControllerTest {
         // 다형성 저장이라 FK 가 없어 이런 행이 실제로 남을 수 있다.
         bookmark(actor, TargetType.PARTY, 999_999L);
         bookmark(actor, TargetType.CONTEST, 999_999L);
-        bookmark(actor, TargetType.GOAL, 999_999L);
+        bookmark(actor, TargetType.PARTY_SHOWCASE, 999_999L);
 
         mvc.perform(get(URL))
                 .andExpect(status().isOk())
@@ -198,12 +201,12 @@ public class ApiV1MyBookmarkControllerTest {
     }
 
     @Test
-    @DisplayName("북마크함: 전시가 내려간 성취는 카드 조립이 깨지지 않게 목록에서 빠진다")
+    @DisplayName("북마크함: 더 이상 쓰지 않는 GOAL 타입으로 남은 레거시 북마크는 목록에서 빠진다")
     @WithUserDetails("user1@test.com")
-    void getMyBookmarksSkipsUnexhibitedGoal() throws Exception {
+    void getMyBookmarksSkipsLegacyGoalBookmark() throws Exception {
         Member actor = actor();
 
-        // 전시글이 게시되지 않은 PROJECT - partyShowcase 가 null 이라 카드 조립이 NPE 를 낼 수 있는 자리다.
+        // GOAL 타입 북마크는 이제 만들어지지 않지만, 정리 전 prod 에 남아 있을 수 있다.
         bookmark(actor, TargetType.GOAL, saveUnexhibitedGoal());
 
         mvc.perform(get(URL))
