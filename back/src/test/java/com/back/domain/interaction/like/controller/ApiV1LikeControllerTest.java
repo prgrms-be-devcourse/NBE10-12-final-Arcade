@@ -358,13 +358,14 @@ public class ApiV1LikeControllerTest {
     @WithUserDetails("user1@test.com")
     void likeGoal() throws Exception {
         long goalId = savePublishedProjectGoal("user2@test.com", 1001L);
+        long showcaseId = ((Project) goalRepository.findById(goalId).orElseThrow()).getPartyShowcase().getId();
 
         ResultActions resultActions = mvc.perform(post("/api/v1/goals/" + goalId + "/likes"));
 
         resultActions.andExpect(status().isCreated())
                 .andExpect(jsonPath("$.resultCode").value("201-1"))
-                .andExpect(jsonPath("$.data.targetType").value("GOAL"))
-                .andExpect(jsonPath("$.data.targetId").value(goalId))
+                .andExpect(jsonPath("$.data.targetType").value("PARTY_SHOWCASE"))
+                .andExpect(jsonPath("$.data.targetId").value(showcaseId))
                 .andExpect(jsonPath("$.data.liked").value(true))
                 .andExpect(jsonPath("$.data.likeCount").value(1));
     }

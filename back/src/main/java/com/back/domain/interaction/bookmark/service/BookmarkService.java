@@ -80,8 +80,7 @@ public class BookmarkService implements BookmarkInteractionPort {
                         .containsKey(bookmark.getTargetId()))
                 .map(bookmark -> new MyBookmarkDto(
                         bookmark.getId(),
-                        // PARTY_SHOWCASE는 내부 저장 방식일 뿐, 프론트에는 여전히 성취(GOAL) 카드로 노출한다.
-                        bookmark.getTargetType() == TargetType.PARTY_SHOWCASE ? TargetType.GOAL : bookmark.getTargetType(),
+                        bookmark.getTargetType(),
                         cards.get(bookmark.getTargetType()).get(bookmark.getTargetId()),
                         bookmark.getCreateDate()))
                 .toList();
@@ -227,7 +226,7 @@ public class BookmarkService implements BookmarkInteractionPort {
 
         bookmarkRepository.save(new Bookmark(member, TargetType.PARTY_SHOWCASE, showcaseId));
 
-        return new BookmarkDto(TargetType.GOAL, goalId, true);
+        return new BookmarkDto(TargetType.PARTY_SHOWCASE, showcaseId, true);
     }
 
     @Transactional

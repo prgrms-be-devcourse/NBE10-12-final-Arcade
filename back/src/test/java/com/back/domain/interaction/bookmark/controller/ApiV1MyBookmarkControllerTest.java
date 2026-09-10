@@ -81,7 +81,6 @@ public class ApiV1MyBookmarkControllerTest {
 
         bookmark(actor, TargetType.PARTY, saveParty().getId());
         bookmark(actor, TargetType.CONTEST, saveContest());
-        // 전시된 PROJECT 성취의 북마크는 PARTY_SHOWCASE로 저장되고 응답에서 GOAL 카드로 정규화된다.
         long goalId = saveExhibitedGoal();
         long showcaseId = ((Project) goalRepository.findById(goalId).orElseThrow()).getPartyShowcase().getId();
         bookmark(actor, TargetType.PARTY_SHOWCASE, showcaseId);
@@ -101,11 +100,11 @@ public class ApiV1MyBookmarkControllerTest {
                         .value(contains(0)))
                 .andExpect(jsonPath("$.data.content[?(@.targetType=='CONTEST')].target.format")
                         .value(contains("HACKATHON")))
-                .andExpect(jsonPath("$.data.content[?(@.targetType=='GOAL')].target.detail.title")
+                .andExpect(jsonPath("$.data.content[?(@.targetType=='PARTY_SHOWCASE')].target.detail.title")
                         .value(contains("정산 자동화 API")))
-                .andExpect(jsonPath("$.data.content[?(@.targetType=='GOAL')].target.source")
+                .andExpect(jsonPath("$.data.content[?(@.targetType=='PARTY_SHOWCASE')].target.source")
                         .value(contains("PLATFORM_VERIFIED")))
-                .andExpect(jsonPath("$.data.content[?(@.targetType=='GOAL')].target.positionType")
+                .andExpect(jsonPath("$.data.content[?(@.targetType=='PARTY_SHOWCASE')].target.positionType")
                         .value(contains("BACK")))
                 .andExpect(jsonPath("$.data.content[0].id").isNumber())
                 .andExpect(jsonPath("$.data.content[0].bookmarkedAt").exists());
@@ -200,20 +199,6 @@ public class ApiV1MyBookmarkControllerTest {
                 .andExpect(jsonPath("$.data.content[0].target.id").value(party.getId()));
     }
 
-    @Test
-    @DisplayName("북마크함: 더 이상 쓰지 않는 GOAL 타입으로 남은 레거시 북마크는 목록에서 빠진다")
-    @WithUserDetails("user1@test.com")
-    void getMyBookmarksSkipsLegacyGoalBookmark() throws Exception {
-        Member actor = actor();
-
-        // GOAL 타입 북마크는 이제 만들어지지 않지만, 정리 전 prod 에 남아 있을 수 있다.
-        bookmark(actor, TargetType.GOAL, saveUnexhibitedGoal());
-
-        mvc.perform(get(URL))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.content").isEmpty());
-    }
-
     /* ---------- 헬퍼 ---------- */
 
     private Member actor() {
@@ -267,34 +252,20 @@ public class ApiV1MyBookmarkControllerTest {
         return goalRepository.save(project).getId();
     }
 
-    /** 완료됐지만 전시글이 게시되지 않아 전시 불가한 PROJECT */
-    private long saveUnexhibitedGoal() {
-        Member owner = memberRepository.findByEmail("user2@test.com").orElseThrow();
-        Party party = saveParty();
-
-        Project project = new Project(
-                owner, null, party.getId(), "정산 자동화 API", PositionType.BACK, LocalDate.now());
-        project.complete(LocalDate.now());
-
-        return goalRepository.save(project).getId();
-    }
-
     @Test
-    @DisplayName("북마크함: PROJECT 성취(PARTY_SHOWCASE로 저장된 북마크)도 500 없이 GOAL 카드로 노출된다")
+    @DisplayName("북마크함: PROJECT 성취(PARTY_SHOWCASE로 저장된 북마크)도 500 없이 전시 카드로 노출된다")
     @WithUserDetails("user1@test.com")
-    void getMyBookmarksIncludesPartyShowcaseBookmarkAsGoalCard() throws Exception {
+    void getMyBookmarksIncludesPartyShowcaseBookmark() throws Exception {
         long goalId = saveExhibitedGoal();
         Project project = (Project) goalRepository.findById(goalId).orElseThrow();
         long showcaseId = project.getPartyShowcase().getId();
 
-        // bookmarkGoal()이 실제로 만드는 상태를 그대로 흉내낸다 - PARTY_SHOWCASE 타깃으로 저장.
         bookmark(actor(), TargetType.PARTY_SHOWCASE, showcaseId);
 
         mvc.perform(get(URL))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content.length()").value(1))
-                // 내부 저장은 PARTY_SHOWCASE지만 응답 targetType은 GOAL로 정규화돼야 한다.
-                .andExpect(jsonPath("$.data.content[0].targetType").value("GOAL"))
+                .andExpect(jsonPath("$.data.content[0].targetType").value("PARTY_SHOWCASE"))
                 .andExpect(jsonPath("$.data.content[0].target.detail.title").value("정산 자동화 API"));
     }
 }
