@@ -4,8 +4,19 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { LegalDocument } from '@/lib/legal';
 
-/** 관성 스크롤과 소수점 오차 때문에 끝에 정확히 닿지 않는다 */
-const BOTTOM_THRESHOLD_PX = 8;
+/**
+ * 끝에 닿았다고 볼 여유. 관성 스크롤과 소수점 오차 때문에 정확히 0 이 되지 않는다.
+ *
+ * px 이 아니라 rem 으로 잡는 이유는 사용자가 글꼴을 키우면 줄 높이도 같이 커지기 때문이다 -
+ * 고정 px 이면 큰 글꼴에서 판정이 뻑뻑해진다. 이 프로젝트 스타일도 전부 rem 이다.
+ */
+const BOTTOM_THRESHOLD_REM = 0.5;
+
+/** rem 을 지금 루트 글꼴 기준 px 로 환산한다. 스크롤 값이 px 단위라 비교 전에 맞춰야 한다 */
+function remToPx(rem: number): number {
+  const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize);
+  return rem * (Number.isFinite(rootFontSize) ? rootFontSize : 16);
+}
 
 interface ConsentGateProps {
   document: LegalDocument;
@@ -34,7 +45,8 @@ export function ConsentGate({ document, checked, onChange, required = true }: Co
 
   const check = useCallback((element: HTMLDivElement) => {
     const reachedBottom =
-      element.scrollHeight - element.scrollTop - element.clientHeight < BOTTOM_THRESHOLD_PX;
+      element.scrollHeight - element.scrollTop - element.clientHeight <
+      remToPx(BOTTOM_THRESHOLD_REM);
     // 한 번 열리면 다시 닫지 않는다 - 위로 올렸다고 안 읽은 게 되지는 않는다
     if (reachedBottom) setReadToEnd(true);
   }, []);

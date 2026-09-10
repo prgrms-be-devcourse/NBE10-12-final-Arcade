@@ -13,6 +13,19 @@ interface ModalProps {
   cancelLabel?: string;
   onConfirm?: () => void;
   onClose: () => void;
+  /**
+   * 확인 버튼 옆에 붙는 짧은 안내·오류 문구.
+   *
+   * 본문(.modal-body)은 스크롤되므로 그 안에 오류를 두면 위쪽을 보고 있을 때 눈에 띄지 않는다 -
+   * 버튼을 눌렀는데 아무 일도 안 일어난 것처럼 보인다. 버튼과 같은 줄에 두어 항상 보이게 한다.
+   */
+  footNote?: ReactNode;
+  /**
+   * 닫을 수 있는지. 기본은 닫을 수 있다.
+   * false 면 닫기 버튼·ESC·배경 클릭·취소 버튼이 모두 사라진다 -
+   * 약관 동의처럼 통과해야만 다음으로 갈 수 있는 화면에 쓴다.
+   */
+  dismissible?: boolean;
 }
 
 /**
@@ -32,15 +45,17 @@ export function Modal({
   cancelLabel = '닫기',
   onConfirm,
   onClose,
+  dismissible = true,
+  footNote,
 }: ModalProps) {
   useEffect(() => {
-    if (!open) return;
+    if (!open || !dismissible) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [open, onClose]);
+  }, [open, onClose, dismissible]);
 
   // 서버에는 document 가 없다. 모달은 항상 닫힌 채로 시작해 사용자가 열므로 이 분기로 충분하다.
   if (!open || typeof document === 'undefined') return null;
@@ -50,7 +65,7 @@ export function Modal({
       className="modal-overlay"
       role="presentation"
       onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (dismissible && event.target === event.currentTarget) onClose();
       }}
     >
       <div className="modal" role="dialog" aria-modal="true" aria-label={title}>
@@ -59,16 +74,21 @@ export function Modal({
             <h3>{title}</h3>
             {description ? <p>{description}</p> : null}
           </div>
-          <button type="button" className="modal-close" onClick={onClose} aria-label="닫기">
-            <Icon name="i-x" />
-          </button>
+          {dismissible ? (
+            <button type="button" className="modal-close" onClick={onClose} aria-label="닫기">
+              <Icon name="i-x" />
+            </button>
+          ) : null}
         </div>
         {/* 확인창처럼 본문이 없는 경우엔 빈 띠가 남지 않도록 아예 그리지 않는다 */}
         {children ? <div className="modal-body">{children}</div> : null}
         <div className="modal-foot">
-          <button type="button" className="btn btn-ghost" onClick={onClose}>
-            {cancelLabel}
-          </button>
+          {footNote ? <div className="modal-foot-note">{footNote}</div> : null}
+          {dismissible ? (
+            <button type="button" className="btn btn-ghost" onClick={onClose}>
+              {cancelLabel}
+            </button>
+          ) : null}
           {confirmLabel ? (
             <button type="button" className="btn btn-primary" onClick={onConfirm}>
               {confirmLabel}

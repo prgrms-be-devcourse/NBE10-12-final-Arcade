@@ -989,6 +989,9 @@ button.party-mini:hover{border-color:var(--accent);}
 .consent-gate input:disabled{cursor:not-allowed;opacity:.5;}
 .consent-gate .form-hint{margin:0.25rem 0 0 1.5rem;font-size:.74rem;}
 
+/* GitHub 온보딩 모달 - 동의 블록 아래 프로필 입력 */
+.onboarding-fields{display:flex;flex-direction:column;gap:0.875rem;margin-top:1.125rem;}
+
 /* 약관 정적 페이지 */
 .legal-wrap{max-width:48rem;margin:0 auto;padding:2rem 1.25rem 4rem;}
 .legal-wrap h2{margin:1rem 0 1.25rem;}
@@ -1649,6 +1652,9 @@ button.party-mini:hover{border-color:var(--accent);}
 .modal{
   width:100%;max-width:40rem;background:var(--bg);border:0.125rem solid var(--border-strong);
   box-shadow:0.75rem 0.75rem 0 0 rgba(0,0,0,.6);
+  /* 본문이 길어도 머리말과 버튼은 화면 안에 남는다 - 오버레이 패딩(4rem*2)을 뺀 만큼만 차지한다.
+     이게 없으면 본문이 긴 모달에서 확인 버튼이 화면 밖으로 밀려, 바깥을 따로 스크롤해야 눌린다. */
+  display:flex;flex-direction:column;max-height:calc(100vh - 8rem);
 }
 .modal.modal-lg{max-width:53.75rem;}
 .modal-head{
@@ -1663,11 +1669,13 @@ button.party-mini:hover{border-color:var(--accent);}
 }
 .modal-close svg{width:0.875rem;height:0.875rem;}
 .modal-close:hover{border-color:var(--accent);color:var(--accent);}
-.modal-body{padding:1.5rem;}
+.modal-body{padding:1.5rem;overflow-y:auto;}
 .modal-foot{
   display:flex;justify-content:flex-end;gap:0.625rem;padding:1.125rem 1.5rem;border-top:0.125rem solid var(--border);
 }
 .modal-foot .btn{padding:0.6875rem 1.375rem;font-size:.86rem;}
+/* 확인 버튼 옆 안내·오류. margin-right:auto 로 왼쪽에 붙여 기존 버튼 정렬은 건드리지 않는다 */
+.modal-foot-note{margin-right:auto;font-size:.78rem;font-weight:700;color:var(--gold);text-align:left;}
 
 /* ===== 주최측 : 편집 · 증빙 ===== */
 .host-edit-panel{margin-top:1.375rem;}
