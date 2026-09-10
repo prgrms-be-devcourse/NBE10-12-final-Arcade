@@ -6,6 +6,8 @@ import com.back.domain.member.profile.entity.MemberProfile;
 import com.back.domain.member.profile.repository.MemberProfileRepository;
 import com.back.domain.message.message.entity.Message;
 import com.back.domain.message.message.repository.MessageRepository;
+import com.back.domain.notification.notification.entity.NotificationType;
+import com.back.domain.notification.notification.repository.NotificationRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +44,9 @@ class ApiV1MessageControllerTest {
 
     @Autowired
     private MessageRepository messageRepository;
+
+    @Autowired
+    private NotificationRepository notificationRepository;
 
     @Autowired
     private MemberProfileRepository memberProfileRepository;
@@ -86,6 +91,13 @@ class ApiV1MessageControllerTest {
                 .andExpect(jsonPath("$.data.content").value("프로젝트 관련해서 질문드리고 싶습니다."))
                 .andExpect(jsonPath("$.data.isRead").value(false))
                 .andExpect(jsonPath("$.data.createAt").isNotEmpty());
+
+        assertThat(notificationRepository.findByMember(recipient, org.springframework.data.domain.Pageable.unpaged())
+                .getContent())
+                .anySatisfy(notification -> {
+                    assertThat(notification.getType()).isEqualTo(NotificationType.MESSAGE_RECEIVED);
+                    assertThat(notification.getContent()).isEqualTo(sender.getName() + "님이 보낸 새 쪽지가 도착했습니다.");
+                });
     }
 
     @Test
