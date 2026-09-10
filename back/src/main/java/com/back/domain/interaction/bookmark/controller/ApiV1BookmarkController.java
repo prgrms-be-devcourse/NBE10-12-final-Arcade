@@ -37,7 +37,7 @@ public class ApiV1BookmarkController {
                     로그인한 회원이 북마크한 파티·대회·전시를 한 목록에 섞어 최근 담은 순으로 돌려준다.
 
                     PARTY 는 파티 목록(GET /parties), CONTEST 는 대회 허브(GET /contests),
-                    GOAL 은 전시관(GET /showcase/goals) 의 항목과 같은 필드를 갖는다.
+                    PARTY_SHOWCASE 는 전시관(GET /showcase/goals) 의 항목과 같은 필드를 갖는다.
 
                     대상이 삭제됐거나 전시가 내려간 북마크는 그릴 카드가 없어 목록에서 빠진다 -
                     거르는 시점이 페이지를 자른 뒤라 그 페이지만 size 보다 짧게 나올 수 있고,

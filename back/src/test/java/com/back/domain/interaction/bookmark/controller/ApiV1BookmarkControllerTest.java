@@ -397,13 +397,14 @@ public class ApiV1BookmarkControllerTest {
     @WithUserDetails("user1@test.com")
     void bookmarkGoal() throws Exception {
         long goalId = savePublishedProjectGoal("user2@test.com", 1001L);
+        long showcaseId = ((Project) goalRepository.findById(goalId).orElseThrow()).getPartyShowcase().getId();
 
         ResultActions resultActions = mvc.perform(post("/api/v1/goals/" + goalId + "/bookmarks"));
 
         resultActions.andExpect(status().isCreated())
                 .andExpect(jsonPath("$.resultCode").value("201-1"))
-                .andExpect(jsonPath("$.data.targetType").value("GOAL"))
-                .andExpect(jsonPath("$.data.targetId").value(goalId))
+                .andExpect(jsonPath("$.data.targetType").value("PARTY_SHOWCASE"))
+                .andExpect(jsonPath("$.data.targetId").value(showcaseId))
                 .andExpect(jsonPath("$.data.bookmarked").value(true));
     }
 
@@ -577,8 +578,6 @@ public class ApiV1BookmarkControllerTest {
         Member actor = memberRepository.findByEmail("user1@test.com").orElseThrow();
         assertThat(bookmarkRepository.existsByMemberAndTargetTypeAndTargetId(
                 actor, TargetType.PARTY_SHOWCASE, showcaseId)).isTrue();
-        assertThat(bookmarkRepository.existsByMemberAndTargetTypeAndTargetId(
-                actor, TargetType.GOAL, goalId)).isFalse();
     }
 
     @Test

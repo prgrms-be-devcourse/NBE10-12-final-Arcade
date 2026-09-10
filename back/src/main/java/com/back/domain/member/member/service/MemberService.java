@@ -1,13 +1,20 @@
 package com.back.domain.member.member.service;
 
+import com.back.domain.member.member.dtos.MemberDetailDto;
 import com.back.domain.member.member.dtos.MemberDto;
+import com.back.domain.member.member.dtos.MemberListItemDto;
 import com.back.domain.member.member.dtos.MemberLoginDto;
 import com.back.domain.member.member.entity.Member;
+import com.back.domain.member.member.entity.Role;
 import com.back.domain.member.member.repository.MemberRepository;
+import com.back.domain.member.profile.entity.MemberProfile;
+import com.back.domain.member.profile.repository.MemberProfileRepository;
 import com.back.global.exception.ServiceException;
 import com.back.global.rsData.RsData;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -19,7 +26,9 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -48,6 +57,7 @@ public class MemberService {
     private final PasswordEncoder passwordEncoder;
     private final MemberRepository memberRepository;
     private final StringRedisTemplate redisTemplate;
+    private final MemberProfileRepository memberProfileRepository;
 
     @Value("${custom.accessToken.expirationSeconds}")
     private int accessTokenExpirationSeconds;
@@ -133,6 +143,9 @@ public class MemberService {
         );
         if (!passwordEncoder.matches(password, member.getPassword()))
             throw new ServiceException("401-2", "이메일 또는 비밀번호가 올바르지 않습니다.");
+
+        if (!member.isActive())
+            throw new ServiceException("403-2", "정지된 계정입니다. 사유: " + member.getSuspendReason());
 
         return createLoginDto(member);
 
@@ -242,4 +255,39 @@ public class MemberService {
         return memberRepository.findAll();
     }
 
+    public Page<MemberListItemDto> getListForAdmin(String keyword, Role role, Boolean active, Pageable pageable) {
+        Page<Member> members = memberRepository.searchForAdmin(keyword, role, active, pageable);
+
+        Map<Long, MemberProfile> profilesByMemberId = memberProfileRepository
+                .findByMember_IdIn(members.getContent().stream().map(Member::getId).toList())
+                .stream()
+                .collect(Collectors.toMap(profile -> profile.getMember().getId(), profile -> profile));
+
+        return members.map(member -> new MemberListItemDto(member, profilesByMemberId.get(member.getId())));
+    }
+
+    public MemberDetailDto getDetailForAdmin(long memberId) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new ServiceException("404-1", "회원을 찾을 수 없습니다."));
+
+        MemberProfile profile = memberProfileRepository.findByMember(member).orElse(null);
+
+        return new MemberDetailDto(member, profile);
+    }
+
+    @Transactional
+    public void updateStatus(long memberId, boolean active, String reason) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new ServiceException("404-1", "회원을 찾을 수 없습니다."));
+
+        if (!active && member.isAdmin()) {
+            throw new ServiceException("409-2", "관리자 계정은 정지할 수 없습니다.");
+        }
+
+        if (active) {
+            member.activate();
+        } else {
+            member.suspend(reason);
+        }
+    }
 }
