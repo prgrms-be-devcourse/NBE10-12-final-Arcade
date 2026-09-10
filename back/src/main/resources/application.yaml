@@ -77,6 +77,13 @@ custom:
   session:
     # 최소안: 비밀번호 변경 후 refresh token만 폐기하고 access token은 최대 15분까지 유지한다.
     access-token-invalidation: ${CUSTOM__SESSION__ACCESS_TOKEN_INVALIDATION:refresh-token-only}
+  mail:
+    # 로컬 테스트에서 Resend를 사용하려면 true와 RESEND_API_KEY를 함께 설정한다.
+    enabled: ${CUSTOM__MAIL__ENABLED:false}
+    from: ${CUSTOM__MAIL__FROM:Arcade <onboarding@resend.dev>}
+    resend:
+      api-key: ${RESEND_API_KEY:}
+      api-base-url: ${CUSTOM__MAIL__RESEND__API_BASE_URL:https://api.resend.com}
   github:
     app:
       id: ${CUSTOM__GITHUB__APP__ID:}

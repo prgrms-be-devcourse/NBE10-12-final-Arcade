@@ -37,6 +37,26 @@ public class CustomConfigProperties {
     private RateLimit rateLimit = new RateLimit();
     @Valid
     private Session session = new Session();
+    @Valid
+    private Mail mail = new Mail();
+
+    @Getter
+    @Setter
+    public static class Mail {
+        private boolean enabled = false;
+        @NotBlank
+        private String from = "Arcade <onboarding@resend.dev>";
+        @Valid
+        private Resend resend = new Resend();
+
+        @Getter
+        @Setter
+        public static class Resend {
+            private String apiKey = "";
+            @NotBlank
+            private String apiBaseUrl = "https://api.resend.com";
+        }
+    }
 
     @Getter
     @Setter
