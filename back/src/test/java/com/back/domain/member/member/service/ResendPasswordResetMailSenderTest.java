@@ -2,67 +2,52 @@ package com.back.domain.member.member.service;
 
 import com.back.domain.member.member.entity.Member;
 import com.back.global.app.CustomConfigProperties;
+import com.resend.core.exception.ResendException;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.client.MockRestServiceServer;
-import org.springframework.web.client.RestClient;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
-import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
-import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 class ResendPasswordResetMailSenderTest {
     @Test
-    void sendsPasswordResetEmailThroughResendApi() {
-        RestClient.Builder builder = RestClient.builder();
-        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        ResendPasswordResetMailSender sender = sender(builder);
+    void sendsPasswordResetEmailThroughResendApi() throws Exception {
+        ResendEmailGateway gateway = mock(ResendEmailGateway.class);
+        ResendPasswordResetMailSender sender = sender(gateway);
         Member member = new Member("recipient@example.com", null, "회원", null);
-
-        server.expect(requestTo("https://resend.test/emails"))
-                .andExpect(method(HttpMethod.POST))
-                .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer resend-test-key"))
-                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.from").value("Arcade <onboarding@resend.dev>"))
-                .andExpect(jsonPath("$.to[0]").value("recipient@example.com"))
-                .andExpect(jsonPath("$.subject").value("[Arcade] 비밀번호 재설정 안내"))
-                .andExpect(jsonPath("$.text").value(org.hamcrest.Matchers.containsString(
-                        "http://localhost:3000/password/reset?token=url-safe_token")))
-                .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
 
         sender.send(member, "url-safe_token");
 
-        server.verify();
+        verify(gateway).send(
+                eq("Arcade <onboarding@resend.dev>"),
+                eq("recipient@example.com"),
+                eq("[Arcade] 비밀번호 재설정 안내"),
+                contains("http://localhost:3000/password/reset?token=url-safe_token"),
+                contains("http://localhost:3000/password/reset?token=url-safe_token")
+        );
     }
 
     @Test
-    void hidesResendFailureFromPasswordResetRequestFlow() {
-        RestClient.Builder builder = RestClient.builder();
-        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        ResendPasswordResetMailSender sender = sender(builder);
+    void hidesResendFailureFromPasswordResetRequestFlow() throws Exception {
+        ResendEmailGateway gateway = mock(ResendEmailGateway.class);
+        ResendPasswordResetMailSender sender = sender(gateway);
         Member member = new Member("recipient@example.com", null, "회원", null);
-
-        server.expect(requestTo("https://resend.test/emails"))
-                .andRespond(withServerError());
+        doThrow(mock(ResendException.class)).when(gateway)
+                .send(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyString());
 
         assertThatCode(() -> sender.send(member, "url-safe_token")).doesNotThrowAnyException();
-
-        server.verify();
     }
 
-    private ResendPasswordResetMailSender sender(RestClient.Builder builder) {
+    private ResendPasswordResetMailSender sender(ResendEmailGateway gateway) {
         CustomConfigProperties properties = new CustomConfigProperties();
         properties.getMail().setEnabled(true);
         properties.getMail().setFrom("Arcade <onboarding@resend.dev>");
         properties.getMail().getResend().setApiKey("resend-test-key");
-        properties.getMail().getResend().setApiBaseUrl("https://resend.test");
-        return new ResendPasswordResetMailSender(builder, properties, "http://localhost:3000");
+        return new ResendPasswordResetMailSender(properties, "http://localhost:3000", gateway);
     }
 }

@@ -83,7 +83,6 @@ custom:
     from: ${CUSTOM__MAIL__FROM:Arcade <onboarding@resend.dev>}
     resend:
       api-key: ${RESEND_API_KEY:}
-      api-base-url: ${CUSTOM__MAIL__RESEND__API_BASE_URL:https://api.resend.com}
   github:
     app:
       id: ${CUSTOM__GITHUB__APP__ID:}

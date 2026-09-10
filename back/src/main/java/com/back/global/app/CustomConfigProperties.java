@@ -53,8 +53,6 @@ public class CustomConfigProperties {
         @Setter
         public static class Resend {
             private String apiKey = "";
-            @NotBlank
-            private String apiBaseUrl = "https://api.resend.com";
         }
     }
 
