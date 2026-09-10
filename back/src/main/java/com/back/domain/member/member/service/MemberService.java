@@ -1,14 +1,20 @@
 package com.back.domain.member.member.service;
 
+import com.back.domain.member.member.dtos.MemberDetailDto;
 import com.back.domain.member.member.dtos.MemberDto;
+import com.back.domain.member.member.dtos.MemberListItemDto;
 import com.back.domain.member.member.dtos.MemberLoginDto;
 import com.back.domain.member.member.entity.Member;
+import com.back.domain.member.member.entity.Role;
 import com.back.domain.member.member.repository.MemberRepository;
+import com.back.domain.member.profile.entity.MemberProfile;
 import com.back.domain.member.profile.repository.MemberProfileRepository;
 import com.back.global.exception.ServiceException;
 import com.back.global.rsData.RsData;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -19,7 +25,9 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -211,4 +219,23 @@ public class MemberService {
         return memberRepository.findAll();
     }
 
+    public Page<MemberListItemDto> getListForAdmin(String keyword, Role role, Boolean active, Pageable pageable) {
+        Page<Member> members = memberRepository.searchForAdmin(keyword, role, active, pageable);
+
+        Map<Long, MemberProfile> profilesByMemberId = memberProfileRepository
+                .findByMember_IdIn(members.getContent().stream().map(Member::getId).toList())
+                .stream()
+                .collect(Collectors.toMap(profile -> profile.getMember().getId(), profile -> profile));
+
+        return members.map(member -> new MemberListItemDto(member, profilesByMemberId.get(member.getId())));
+    }
+
+    public MemberDetailDto getDetailForAdmin(long memberId) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new ServiceException("404-1", "회원을 찾을 수 없습니다."));
+
+        MemberProfile profile = memberProfileRepository.findByMember(member).orElse(null);
+
+        return new MemberDetailDto(member, profile);
+    }
 }
