@@ -119,6 +119,14 @@ public class Member extends BaseEntity {
         this.apiKey = apiKey;
     }
 
+    /** PasswordEncoder로 인코딩된 값만 전달받아 저장한다. */
+    public void changeEncodedPassword(String encodedPassword) {
+        if (encodedPassword == null || encodedPassword.isBlank()) {
+            throw new IllegalArgumentException("인코딩된 비밀번호는 비어 있을 수 없습니다.");
+        }
+        this.password = encodedPassword;
+    }
+
     /**
      * 관리자로 올린다. 약관 동의 기록도 함께 남긴다.
      *

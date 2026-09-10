@@ -42,6 +42,9 @@ dependencies {
     // API 문서
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0")
 
+    // 이메일 발송
+    implementation("com.resend:resend-java:4.22.0")
+
     // 모니터링 (헬스체크, Prometheus 지표)
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("io.micrometer:micrometer-registry-prometheus")
