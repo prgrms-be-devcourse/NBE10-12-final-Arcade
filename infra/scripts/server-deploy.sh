@@ -151,8 +151,10 @@ rolling_backend() {
 
 if [ "${ROLLING:-1}" = "1" ]; then
   echo "== 백엔드 무중단 교체 =="
-  rolling_backend || echo "  교체 실패. 백엔드는 옛 버전 그대로다" >&2
-  exit 1
+  if ! rolling_backend; then
+    echo "  교체 실패." >&2
+    exit 1
+  fi
 else
   echo "== 백엔드 교체 (중단 허용) =="
   docker compose $COMPOSE_FILES --env-file .env up -d --no-build backend
