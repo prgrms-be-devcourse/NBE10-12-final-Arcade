@@ -3,15 +3,6 @@ name: CD
 
 on:
   workflow_dispatch:
-    inputs:
-      backend_tag:
-        description: "백엔드 이미지 태그. 비우면 지금 값을 그대로 둔다"
-        required: false
-        type: string
-      frontend_tag:
-        description: "프론트 이미지 태그. 비우면 지금 값을 그대로 둔다"
-        required: false
-        type: string
 
 # 무중단 교체 중인 배포는 취소하거나 겹치지 않는다.
 concurrency:
@@ -40,19 +31,17 @@ jobs:
       - name: 이미지 참조 만들기
         id: image
         env:
-          BACKEND_TAG: ${{ inputs.backend_tag }}
-          FRONTEND_TAG: ${{ inputs.frontend_tag }}
+          BACKEND_TAG: ${{ vars.BACKEND_TAG }}
+          FRONTEND_TAG: ${{ vars.FRONTEND_TAG }}
         run: |
           repo="ghcr.io/$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
-          echo "repo=$repo" >> "$GITHUB_OUTPUT"
-          if [ -n "$BACKEND_TAG" ]; then
-            echo "backend=$repo/backend:$BACKEND_TAG" >> "$GITHUB_OUTPUT"
-          fi
-          if [ -n "$FRONTEND_TAG" ]; then
-            echo "frontend=$repo/frontend:$FRONTEND_TAG" >> "$GITHUB_OUTPUT"
-          fi
+          {
+            echo "repo=$repo"
+            echo "backend=$repo/backend:${BACKEND_TAG:-latest}"
+            echo "frontend=$repo/frontend:${FRONTEND_TAG:-latest}"
+          } >> "$GITHUB_OUTPUT"
           if [ -z "$BACKEND_TAG" ] && [ -z "$FRONTEND_TAG" ]; then
-            echo "::notice::태그를 하나도 주지 않았다. 지금 떠 있는 이미지로 다시 배포한다."
+            echo "::notice::태그 변수를 설정하지 않았다. backend:latest와 frontend:latest를 배포한다."
           fi
 
       # private GHCR에 인증한 뒤 실제로 존재하는 태그만 배포한다.
