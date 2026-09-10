@@ -22,11 +22,20 @@ public class ApiV1PartyShowcaseController {
     private final PartyShowcaseService partyShowcaseService;
     private final Rq rq;
 
+    private static final int VIEW_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24;
+
     @GetMapping
     public RsData<PartyShowcaseDto> getDraft(
             @PathVariable long partyId
     ) {
-        PartyShowcaseDto dto = partyShowcaseService.getDraft(partyId, rq.getActorFromDb());
+        String viewCookieName = "showcase_viewed_" + partyId;
+        boolean alreadyViewed = rq.getCookieValue(viewCookieName, null) != null;
+
+        PartyShowcaseDto dto = partyShowcaseService.getDraft(partyId, rq.getActorFromDb(), !alreadyViewed);
+
+        if (!alreadyViewed) {
+            rq.setCookie(viewCookieName, "true", VIEW_COOKIE_MAX_AGE_SECONDS);
+        }
 
         return new RsData<>(
                 "200-1",

@@ -216,11 +216,20 @@ public class ApiV1PartyController {
         );
     }
 
+    private static final int VIEW_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24;
+
     @GetMapping("/{partyId}")
     public RsData<PartyDto> detail(
             @PathVariable long partyId
     ) {
-        PartyDto partyDto = partyService.getDetail(partyId);
+        String viewCookieName = "party_viewed_" + partyId;
+        boolean alreadyViewed = rq.getCookieValue(viewCookieName, null) != null;
+
+        PartyDto partyDto = partyService.getDetail(partyId, !alreadyViewed);
+
+        if (!alreadyViewed) {
+            rq.setCookie(viewCookieName, "true", VIEW_COOKIE_MAX_AGE_SECONDS);
+        }
 
         return new RsData<>(
                 "200-1",

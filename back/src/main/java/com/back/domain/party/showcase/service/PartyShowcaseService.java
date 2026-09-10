@@ -42,7 +42,7 @@ public class PartyShowcaseService {
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public PartyShowcaseDto getDraft(long partyId, Member actor) {
+    public PartyShowcaseDto getDraft(long partyId, Member actor, boolean countView) {
         Party party = findPartyOrThrow(partyId);
 
         // 한 번도 게시한 적 없으면 행 자체가 없을 수 있다 - 그래도 파티 정보만 채워서 초안으로 응답
@@ -52,9 +52,7 @@ public class PartyShowcaseService {
         // 아직 게시 전(초안)이면 파티장/파티원한테만 미리보기로 열어준다.
         if (showcase == null || !showcase.isPublished()) {
             checkViewableAsDraft(party, actor);
-        } else {
-            // 게시 전 미리보기(파티장/파티원)는 실제 방문이 아니라서 조회수에 안 잡히지만,
-            // 게시된 뒤에는 누구든 볼 때마다 전시글 자체 조회수(PartyShowcase.viewCount)를 올린다.
+        } else if (countView) {
             partyShowcaseRepository.increaseViewCount(showcase.getId());
             // increaseLikeCount/decreaseLikeCount와 같은 이유로 clearAutomatically=true가
             // 영속성 컨텍스트를 비워 위에서 들고 있던 showcase는 detached 상태로 남는다 -

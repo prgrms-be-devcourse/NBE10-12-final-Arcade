@@ -12,6 +12,7 @@ import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.position.entity.Position;
 import com.back.domain.party.showcase.entity.PartyShowcase;
 import com.back.domain.party.showcase.repository.PartyShowcaseRepository;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -155,6 +156,41 @@ public class ApiV1PartyShowcaseControllerTest {
 
         resultActions.andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.published").value(true));
+    }
+
+    @Test
+    @DisplayName("전시 조회: 게시된 전시를 조회 쿠키 없이 보면 viewCount가 증가한다")
+    @WithUserDetails("user1@test.com")
+    void getPublishedShowcaseIncreasesViewCount() throws Exception {
+        Party party = saveParty("user2@test.com");
+
+        PartyShowcase showcase = new PartyShowcase(party);
+        showcase.publish("정산 자동화 API", "설명");
+        partyShowcaseRepository.save(showcase);
+
+        mvc.perform(get("/api/v1/parties/" + party.getId() + "/showcase"))
+                .andExpect(jsonPath("$.data.viewCount").value(1));
+    }
+
+    @Test
+    @DisplayName("전시 조회: 조회 쿠키를 가진 방문자가 다시 보면 viewCount가 증가하지 않는다")
+    @WithUserDetails("user1@test.com")
+    void getPublishedShowcaseWithViewCookieDoesNotIncreaseViewCount() throws Exception {
+        Party party = saveParty("user2@test.com");
+
+        PartyShowcase showcase = new PartyShowcase(party);
+        showcase.publish("정산 자동화 API", "설명");
+        partyShowcaseRepository.save(showcase);
+
+        ResultActions first = mvc.perform(get("/api/v1/parties/" + party.getId() + "/showcase"));
+        first.andExpect(jsonPath("$.data.viewCount").value(1));
+
+        Cookie viewCookie = first.andReturn().getResponse().getCookie("showcase_viewed_" + party.getId());
+        org.assertj.core.api.Assertions.assertThat(viewCookie).isNotNull();
+
+        mvc.perform(get("/api/v1/parties/" + party.getId() + "/showcase").cookie(viewCookie))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.viewCount").value(1));
     }
 
     @Test
