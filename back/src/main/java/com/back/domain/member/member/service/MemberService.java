@@ -238,4 +238,20 @@ public class MemberService {
 
         return new MemberDetailDto(member, profile);
     }
+
+    @Transactional
+    public void updateStatus(long memberId, boolean active, String reason) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new ServiceException("404-1", "회원을 찾을 수 없습니다."));
+
+        if (!active && member.isAdmin()) {
+            throw new ServiceException("409-2", "관리자 계정은 정지할 수 없습니다.");
+        }
+
+        if (active) {
+            member.activate();
+        } else {
+            member.suspend(reason);
+        }
+    }
 }
