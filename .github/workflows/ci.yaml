@@ -216,6 +216,8 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            APP_VERSION=${{ steps.meta.outputs.sha }}
           cache-from: type=gha,scope=backend
           # mode=max 여야 한다. 기본(min)은 최종 이미지에 들어간 레이어만 담는데
           # Gradle 컴파일이 중간 스테이지에 있고 결과물만 COPY --from 으로 온다.
