@@ -96,7 +96,7 @@ public class LikeService implements LikeInteractionPort {
         partyShowcaseRepository.increaseLikeCount(showcaseId);
 
         int updatedLikeCount = partyShowcaseRepository.findById(showcaseId).orElseThrow().getLikeCount();
-        return new LikeDto(TargetType.GOAL, goalId, true, updatedLikeCount);
+        return new LikeDto(TargetType.PARTY_SHOWCASE, showcaseId, true, updatedLikeCount);
     }
 
     @Transactional
