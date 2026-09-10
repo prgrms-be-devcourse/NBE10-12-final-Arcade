@@ -188,8 +188,16 @@ jobs:
       - name: 태그와 저장소 이름
         id: meta
         run: |
-          echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
-          echo "repo=ghcr.io/$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+          sha=$(git rev-parse --short HEAD)
+          repo="ghcr.io/$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
+          {
+            echo "sha=$sha"
+            echo "repo=$repo"
+            echo "tags<<EOF"
+            echo "$repo/backend:$sha"
+            [ "$GITHUB_REF_NAME" = "develop" ] && echo "$repo/backend:latest"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v4.3.0
 
@@ -207,7 +215,7 @@ jobs:
           # exec format error 로 죽는다 — 빌드는 성공해서 배포해 봐야 드러난다.
           platforms: linux/amd64
           push: true
-          tags: ${{ steps.meta.outputs.repo }}/backend:${{ steps.meta.outputs.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha,scope=backend
           # mode=max 여야 한다. 기본(min)은 최종 이미지에 들어간 레이어만 담는데
           # Gradle 컴파일이 중간 스테이지에 있고 결과물만 COPY --from 으로 온다.
@@ -215,7 +223,7 @@ jobs:
 
       - name: 만든 태그
         run: |
-          echo "${{ steps.meta.outputs.repo }}/backend:${{ steps.meta.outputs.sha }}"
+          echo "${{ steps.meta.outputs.tags }}"
 
   build-frontend:
     needs: [changes, frontend]
@@ -238,8 +246,16 @@ jobs:
       - name: 태그와 저장소 이름
         id: meta
         run: |
-          echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
-          echo "repo=ghcr.io/$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+          sha=$(git rev-parse --short HEAD)
+          repo="ghcr.io/$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
+          {
+            echo "sha=$sha"
+            echo "repo=$repo"
+            echo "tags<<EOF"
+            echo "$repo/frontend:$sha"
+            [ "$GITHUB_REF_NAME" = "develop" ] && echo "$repo/frontend:latest"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v4.3.0
 
@@ -256,7 +272,7 @@ jobs:
           context: ./front
           platforms: linux/amd64
           push: true
-          tags: ${{ steps.meta.outputs.repo }}/frontend:${{ steps.meta.outputs.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
           # 빌드 인자는 docker history 에 남고, 패키지가 public 이라
           # 로그인 없이 보인다. 시크릿 성격의 인자를 여기 넣지 않는다.
           build-args: |
@@ -267,7 +283,7 @@ jobs:
 
       - name: 만든 태그
         run: |
-          echo "${{ steps.meta.outputs.repo }}/frontend:${{ steps.meta.outputs.sha }}"
+          echo "${{ steps.meta.outputs.tags }}"
           if [ -z "$PUBLIC_ORIGIN" ]; then
             echo "저장소 변수 PUBLIC_ORIGIN 이 없어 건너뜀"
           fi

@@ -1,0 +1,83 @@
+# 수동 배포: EICE 위 SSH로 환경 파일과 배포 파일을 전송한다.
+name: CD
+
+on:
+  workflow_dispatch:
+
+# 무중단 교체 중인 배포는 취소하거나 겹치지 않는다.
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+  packages: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: dev
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 이미지 참조 만들기
+        id: image
+        env:
+          BACKEND_TAG: ${{ vars.BACKEND_TAG }}
+          FRONTEND_TAG: ${{ vars.FRONTEND_TAG }}
+        run: |
+          repo="ghcr.io/$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
+          {
+            echo "repo=$repo"
+            echo "backend=$repo/backend:${BACKEND_TAG:-latest}"
+            echo "frontend=$repo/frontend:${FRONTEND_TAG:-latest}"
+          } >> "$GITHUB_OUTPUT"
+          if [ -z "$BACKEND_TAG" ] && [ -z "$FRONTEND_TAG" ]; then
+            echo "::notice::태그 변수를 설정하지 않았다. backend:latest와 frontend:latest를 배포한다."
+          fi
+
+      # private GHCR에 인증한 뒤 실제로 존재하는 태그만 배포한다.
+      - name: 이미지가 레지스트리에 있는지
+        run: |
+          for ref in "${{ steps.image.outputs.backend }}" "${{ steps.image.outputs.frontend }}"; do
+            [ -n "$ref" ] || continue
+            echo "확인: $ref"
+            docker buildx imagetools inspect "$ref" >/dev/null \
+              || { echo "::error::$ref 를 레지스트리에서 못 찾았다. CI 가 이 커밋으로 이미지를 만들었는지 확인한다."; exit 1; }
+          done
+
+      # 공개 로그에 AWS 계정 번호가 노출되지 않게 마스킹한다.
+      - uses: aws-actions/configure-aws-credentials@v6.2.4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'ap-northeast-2' }}
+          mask-aws-account-id: true
+
+      - name: 배포
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-2' }}
+          ENV_PROD: ${{ secrets.ENV_PROD }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BACKEND: ${{ steps.image.outputs.backend }}
+          FRONTEND: ${{ steps.image.outputs.frontend }}
+        run: |
+          [ -n "$ENV_PROD" ] || { echo "::error::dev Environment에 ENV_PROD Secret을 등록한다."; exit 1; }
+          umask 077
+          printf '%s' "$ENV_PROD" > runner.env
+          trap 'shred -u runner.env 2>/dev/null || rm -f runner.env' EXIT
+          size=$(wc -c < runner.env)
+          [ "$size" -le 49152 ] || { echo "::error::ENV_PROD가 GitHub Secret의 48KB 제한을 넘는다."; exit 1; }
+
+          args=(--env-file runner.env)
+          [ -n "$BACKEND" ] && args+=(--backend-image "$BACKEND")
+          [ -n "$FRONTEND" ] && args+=(--frontend-image "$FRONTEND")
+          ./infra/scripts/eice-deploy.sh "${args[@]}"

@@ -47,7 +47,8 @@ interface PositionResponse {
 /** PartyListItemDto */
 export interface PartyListItemResponse {
   id: number;
-  ownerName: string;
+  /** 프로필 이름이 없는 회원이면 null */
+  ownerName: string | null;
   partyName: string;
   title: string;
   topicType: TopicType;
@@ -84,7 +85,7 @@ interface PartySearchResponse {
  */
 interface PartyResponse extends Omit<PartyListItemResponse, 'ownerName'> {
   ownerId: number;
-  ownerName: string;
+  ownerName: string | null;
   description: string | null;
   /** 크루온에 등록된 대회와 연결된 경우에만 온다 (ContestSummaryDto) */
   targetContest: { id: number; title: string } | null;
@@ -163,8 +164,9 @@ function toPartyTag(label?: string): PartyTag | undefined {
   return found;
 }
 
-function toUserSummary(id: string, name: string): UserSummary {
-  return { id, name, initial: name.charAt(0) || 'C', role: '' };
+function toUserSummary(id: string, name: string | null | undefined): UserSummary {
+  const displayName = name?.trim() ?? '';
+  return { id, name: displayName, initial: displayName.charAt(0) || 'C', role: '' };
 }
 
 /**
