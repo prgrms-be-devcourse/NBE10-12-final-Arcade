@@ -15,7 +15,8 @@ import org.springframework.web.util.UriComponentsBuilder;
 @Component
 @ConditionalOnProperty(prefix = "custom.mail", name = "enabled", havingValue = "true")
 public class ResendPasswordResetMailSender implements PasswordResetMailSender {
-    private static final String SUBJECT = "[Arcade] 비밀번호 재설정 안내";
+    private static final String RESET_LINK_SUBJECT = "[Arcade] 비밀번호 재설정 안내";
+    private static final String RESET_COMPLETED_SUBJECT = "[Arcade] 비밀번호가 재설정되었습니다";
 
     private final CustomConfigProperties.Mail mail;
     private final String frontendBaseUrl;
@@ -32,7 +33,7 @@ public class ResendPasswordResetMailSender implements PasswordResetMailSender {
     }
 
     @Override
-    public void send(Member member, String token) {
+    public void sendResetLink(Member member, String token) {
         String resetUrl = UriComponentsBuilder.fromUriString(frontendBaseUrl)
                 .path("/password/reset")
                 .queryParam("token", token)
@@ -40,14 +41,30 @@ public class ResendPasswordResetMailSender implements PasswordResetMailSender {
                 .encode()
                 .toUriString();
         try {
-            resendEmailGateway.send(mail.getFrom(), member.getEmail(), SUBJECT, html(resetUrl), text(resetUrl));
+            resendEmailGateway.send(
+                    mail.getFrom(), member.getEmail(), RESET_LINK_SUBJECT,
+                    resetLinkHtml(resetUrl), resetLinkText(resetUrl)
+            );
         } catch (ResendException | IllegalStateException e) {
             // 외부 응답에는 실패 여부를 드러내지 않으며 수신 이메일·토큰·링크도 기록하지 않는다.
             log.error("security_event=password_reset_mail_failed memberId={}", member.getId());
         }
     }
 
-    private String html(String resetUrl) {
+    @Override
+    public void sendResetCompleted(Member member) {
+        try {
+            resendEmailGateway.send(
+                    mail.getFrom(), member.getEmail(), RESET_COMPLETED_SUBJECT,
+                    resetCompletedHtml(), resetCompletedText()
+            );
+        } catch (ResendException | IllegalStateException e) {
+            // 비밀번호 변경은 이미 완료됐으므로 메일 장애를 사용자 요청의 실패로 바꾸지 않는다.
+            log.error("security_event=password_reset_notification_failed memberId={}", member.getId());
+        }
+    }
+
+    private String resetLinkHtml(String resetUrl) {
         String escapedUrl = HtmlUtils.htmlEscape(resetUrl);
         return """
                 <p>Arcade 비밀번호 재설정 안내입니다.</p>
@@ -56,7 +73,7 @@ public class ResendPasswordResetMailSender implements PasswordResetMailSender {
                 """.formatted(escapedUrl);
     }
 
-    private String text(String resetUrl) {
+    private String resetLinkText(String resetUrl) {
         return """
                 Arcade 비밀번호 재설정 안내입니다.
 
@@ -65,5 +82,20 @@ public class ResendPasswordResetMailSender implements PasswordResetMailSender {
 
                 이 링크는 30분 동안 유효합니다. 본인이 요청하지 않았다면 이 메일을 무시해주세요.
                 """.formatted(resetUrl);
+    }
+
+    private String resetCompletedHtml() {
+        return """
+                <p>Arcade 계정의 비밀번호가 재설정되었습니다.</p>
+                <p>본인이 변경하지 않았다면 즉시 고객지원에 문의하고 계정을 보호해주세요.</p>
+                """;
+    }
+
+    private String resetCompletedText() {
+        return """
+                Arcade 계정의 비밀번호가 재설정되었습니다.
+
+                본인이 변경하지 않았다면 즉시 고객지원에 문의하고 계정을 보호해주세요.
+                """;
     }
 }

@@ -27,7 +27,7 @@ public class PasswordResetFacade {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    passwordResetMailSender.send(member, token);
+                    passwordResetMailSender.sendResetLink(member, token);
                 }
             });
         });
@@ -41,11 +41,24 @@ public class PasswordResetFacade {
 
     @Transactional
     public void resetPassword(String token, String newPassword, String newPasswordConfirm) {
-        passwordService.validateNewPassword(newPassword, newPasswordConfirm);
-        Long memberId = passwordResetTokenStore.consume(token);
+        Long memberId = passwordResetTokenStore.findValidMemberId(token);
         if (memberId == null) throw invalidToken();
 
-        passwordService.resetPassword(memberId, newPassword, newPasswordConfirm);
+        // 정책·확인값·기존 비밀번호 재사용까지 확인하기 전에는 일회용 토큰을 소진하지 않는다.
+        Member member = passwordService.validatePasswordReset(
+                memberId, newPassword, newPasswordConfirm
+        );
+
+        Long consumedMemberId = passwordResetTokenStore.consume(token);
+        if (!memberId.equals(consumedMemberId)) throw invalidToken();
+
+        passwordService.applyValidatedPasswordReset(member, newPassword);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                passwordResetMailSender.sendResetCompleted(member);
+            }
+        });
     }
 
     private ServiceException invalidToken() {

@@ -64,10 +64,22 @@ public class PasswordResetTokenStore {
     }
 
     public boolean isValid(String token) {
-        if (!isTokenFormatValid(token)) return false;
+        return findValidMemberId(token) != null;
+    }
+
+    /** 토큰을 소비하지 않고 현재 토큰과 회원의 양방향 매핑이 모두 유효한지 확인한다. */
+    public Long findValidMemberId(String token) {
+        if (!isTokenFormatValid(token)) return null;
         String tokenHash = sha256(token);
         String memberId = redisTemplate.opsForValue().get(tokenKey(tokenHash));
-        return memberId != null && tokenHash.equals(redisTemplate.opsForValue().get(memberKey(memberId)));
+        if (memberId == null || !tokenHash.equals(redisTemplate.opsForValue().get(memberKey(memberId)))) {
+            return null;
+        }
+        try {
+            return Long.valueOf(memberId);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 
     /** 같은 토큰의 동시 제출 중 하나만 회원 ID를 반환하고 나머지는 빈 결과를 반환한다. */

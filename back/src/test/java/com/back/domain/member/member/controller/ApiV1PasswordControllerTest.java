@@ -109,6 +109,27 @@ class ApiV1PasswordControllerTest {
     }
 
     @Test
+    void reusedPasswordDoesNotConsumeValidResetToken() throws Exception {
+        Member member = memberRepository.save(new Member(uniqueEmail(), passwordEncoder.encode("OldPassword!1"), "회원", null));
+        String token = passwordResetTokenStore.issue(member.getId());
+
+        mvc.perform(post("/api/v1/members/password/resets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(resetRequest(token, "OldPassword!1")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.resultCode").value("409-2"));
+
+        mvc.perform(get("/api/v1/members/password/reset-tokens/{token}", token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.valid").value(true));
+
+        mvc.perform(post("/api/v1/members/password/resets")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(resetRequest(token, "NewPassword!1")))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void invalidResetTokenReturnsSameErrorCode() throws Exception {
         mvc.perform(get("/api/v1/members/password/reset-tokens/{token}", "invalid"))
                 .andExpect(status().isBadRequest())

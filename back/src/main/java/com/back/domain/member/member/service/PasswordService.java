@@ -39,21 +39,28 @@ public class PasswordService {
      */
     @Transactional
     public void resetPassword(Member member, String newPassword, String newPasswordConfirm) {
-        validateAndChangePassword(member, newPassword, newPasswordConfirm);
+        validateNewPasswordForMember(member, newPassword, newPasswordConfirm);
+        applyValidatedPasswordReset(member, newPassword);
+    }
+
+    /** 토큰을 소진하기 전에 회원 상태, 정책, 확인값, 기존 비밀번호 재사용 여부를 모두 검증한다. */
+    public Member validatePasswordReset(long memberId, String newPassword, String newPasswordConfirm) {
+        Member member = activeMember(memberId);
+        validateNewPasswordForMember(member, newPassword, newPasswordConfirm);
+        return member;
+    }
+
+    /** 검증과 토큰의 원자적 소비가 끝난 뒤 실제 변경과 세션 폐기만 수행한다. */
+    public void applyValidatedPasswordReset(Member member, String newPassword) {
+        member.changeEncodedPassword(passwordEncoder.encode(newPassword));
         refreshTokenService.revokeAll(member.getId());
         passwordAuditService.passwordReset(member.getId());
     }
 
     @Transactional
     public void resetPassword(long memberId, String newPassword, String newPasswordConfirm) {
-        Member member = memberRepository.findById(memberId)
-                .orElseThrow(() -> new ServiceException("400-3", "유효하지 않거나 만료된 비밀번호 재설정 링크입니다."));
-        if (!member.isActive()) {
-            throw new ServiceException("400-3", "유효하지 않거나 만료된 비밀번호 재설정 링크입니다.");
-        }
-        validateAndChangePassword(member, newPassword, newPasswordConfirm);
-        refreshTokenService.revokeAll(member.getId());
-        passwordAuditService.passwordReset(member.getId());
+        Member member = validatePasswordReset(memberId, newPassword, newPasswordConfirm);
+        applyValidatedPasswordReset(member, newPassword);
     }
 
     /** 인증 principal에 해당하는 회원만 변경할 수 있도록 Member 객체를 입력으로 받는다. */
@@ -69,18 +76,26 @@ public class PasswordService {
             throw new ServiceException("401-5", "현재 비밀번호가 올바르지 않습니다.");
         }
 
-        validateAndChangePassword(member, newPassword, newPasswordConfirm);
+        validateNewPasswordForMember(member, newPassword, newPasswordConfirm);
+        member.changeEncodedPassword(passwordEncoder.encode(newPassword));
         refreshTokenService.revokeAll(member.getId());
         passwordAuditService.passwordChanged(member.getId());
     }
 
-    private void validateAndChangePassword(Member member, String newPassword, String newPasswordConfirm) {
+    private void validateNewPasswordForMember(Member member, String newPassword, String newPasswordConfirm) {
         validateNewPassword(newPassword, newPasswordConfirm);
         if (member.getPassword() != null && passwordEncoder.matches(newPassword, member.getPassword())) {
             throw new ServiceException("409-2", "기존 비밀번호와 다른 비밀번호를 입력해주세요.");
         }
+    }
 
-        member.changeEncodedPassword(passwordEncoder.encode(newPassword));
+    private Member activeMember(long memberId) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new ServiceException("400-3", "유효하지 않거나 만료된 비밀번호 재설정 링크입니다."));
+        if (!member.isActive()) {
+            throw new ServiceException("400-3", "유효하지 않거나 만료된 비밀번호 재설정 링크입니다.");
+        }
+        return member;
     }
 
     public void validateNewPassword(String newPassword, String newPasswordConfirm) {

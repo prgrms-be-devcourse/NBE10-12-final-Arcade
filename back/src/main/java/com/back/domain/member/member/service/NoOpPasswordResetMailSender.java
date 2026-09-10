@@ -9,7 +9,12 @@ import org.springframework.stereotype.Component;
 @ConditionalOnProperty(prefix = "custom.mail", name = "enabled", havingValue = "false", matchIfMissing = true)
 public class NoOpPasswordResetMailSender implements PasswordResetMailSender {
     @Override
-    public void send(Member member, String token) {
-        // 실제 발송은 후속 메일 발송 연동 작업에서 구현한다.
+    public void sendResetLink(Member member, String token) {
+        // 메일 발송을 끈 환경에서는 의도적으로 아무 작업도 하지 않는다.
+    }
+
+    @Override
+    public void sendResetCompleted(Member member) {
+        // 메일 발송을 끈 환경에서는 의도적으로 아무 작업도 하지 않는다.
     }
 }

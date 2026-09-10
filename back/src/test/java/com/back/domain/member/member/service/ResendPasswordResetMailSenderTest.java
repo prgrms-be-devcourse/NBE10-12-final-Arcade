@@ -19,7 +19,7 @@ class ResendPasswordResetMailSenderTest {
         ResendPasswordResetMailSender sender = sender(gateway);
         Member member = new Member("recipient@example.com", null, "회원", null);
 
-        sender.send(member, "url-safe_token");
+        sender.sendResetLink(member, "url-safe_token");
 
         verify(gateway).send(
                 eq("Arcade <onboarding@resend.dev>"),
@@ -40,7 +40,24 @@ class ResendPasswordResetMailSenderTest {
                         org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
                         org.mockito.ArgumentMatchers.anyString());
 
-        assertThatCode(() -> sender.send(member, "url-safe_token")).doesNotThrowAnyException();
+        assertThatCode(() -> sender.sendResetLink(member, "url-safe_token")).doesNotThrowAnyException();
+    }
+
+    @Test
+    void sendsNotificationAfterPasswordReset() throws Exception {
+        ResendEmailGateway gateway = mock(ResendEmailGateway.class);
+        ResendPasswordResetMailSender sender = sender(gateway);
+        Member member = new Member("recipient@example.com", null, "회원", null);
+
+        sender.sendResetCompleted(member);
+
+        verify(gateway).send(
+                eq("Arcade <onboarding@resend.dev>"),
+                eq("recipient@example.com"),
+                eq("[Arcade] 비밀번호가 재설정되었습니다"),
+                contains("비밀번호가 재설정되었습니다"),
+                contains("비밀번호가 재설정되었습니다")
+        );
     }
 
     private ResendPasswordResetMailSender sender(ResendEmailGateway gateway) {
