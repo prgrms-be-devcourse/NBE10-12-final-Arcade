@@ -60,6 +60,29 @@ custom:
     secretKey: ${CUSTOM__JWT__SECRET_KEY:abcdefghijklmnopqrstuvwxyz1234567890abcdefghijklmnopqrstuvwxyz1234567890abcdefghijklmnopqrstuvwxyz1234567890}
   accessToken:
     expirationSeconds: ${CUSTOM__ACCESS_TOKEN__EXPIRATION_SECONDS:900}
+  password:
+    min-length: ${CUSTOM__PASSWORD__MIN_LENGTH:8}
+    max-length: ${CUSTOM__PASSWORD__MAX_LENGTH:64}
+    require-letter: ${CUSTOM__PASSWORD__REQUIRE_LETTER:true}
+    require-number: ${CUSTOM__PASSWORD__REQUIRE_NUMBER:true}
+    require-special-character: ${CUSTOM__PASSWORD__REQUIRE_SPECIAL_CHARACTER:true}
+    allow-whitespace: ${CUSTOM__PASSWORD__ALLOW_WHITESPACE:false}
+  password-reset:
+    expiration-seconds: ${CUSTOM__PASSWORD_RESET__EXPIRATION_SECONDS:1800}
+  rate-limit:
+    password-reset-request:
+      email-max-requests: ${CUSTOM__RATE_LIMIT__PASSWORD_RESET_REQUEST__EMAIL_MAX_REQUESTS:3}
+      ip-max-requests: ${CUSTOM__RATE_LIMIT__PASSWORD_RESET_REQUEST__IP_MAX_REQUESTS:10}
+      window-seconds: ${CUSTOM__RATE_LIMIT__PASSWORD_RESET_REQUEST__WINDOW_SECONDS:3600}
+  session:
+    # 최소안: 비밀번호 변경 후 refresh token만 폐기하고 access token은 최대 15분까지 유지한다.
+    access-token-invalidation: ${CUSTOM__SESSION__ACCESS_TOKEN_INVALIDATION:refresh-token-only}
+  mail:
+    # 로컬 테스트에서 Resend를 사용하려면 true와 RESEND_API_KEY를 함께 설정한다.
+    enabled: ${CUSTOM__MAIL__ENABLED:false}
+    from: ${CUSTOM__MAIL__FROM:Arcade <onboarding@resend.dev>}
+    resend:
+      api-key: ${RESEND_API_KEY:}
   github:
     app:
       id: ${CUSTOM__GITHUB__APP__ID:}

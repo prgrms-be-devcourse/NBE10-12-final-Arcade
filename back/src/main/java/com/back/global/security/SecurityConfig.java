@@ -56,6 +56,15 @@ public class SecurityConfig {
                                         "/api/*/members/refresh",
                                         "/api/*/members/logout"
                                 ).permitAll()
+                                .requestMatchers(
+                                        HttpMethod.POST,
+                                        "/api/*/members/password/reset-requests",
+                                        "/api/*/members/password/resets"
+                                ).permitAll()
+                                .requestMatchers(
+                                        HttpMethod.GET,
+                                        "/api/*/members/password/reset-tokens/*"
+                                ).permitAll()
                                 // GitHub App 설치 완료는 GitHub가 state·installation_id만 붙여 호출한다.
                                 // 사용자 쿠키를 기대하면 setup 콜백이 401로 막혀 프론트로 돌아갈 수 없다.
                                 .requestMatchers(HttpMethod.GET, "/api/*/github-app/setup").permitAll()
