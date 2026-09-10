@@ -36,7 +36,8 @@ public class MemberSummaryService {
                 partyShowcaseRepository.countPublishedByAssembledMember(actor),
                 activity.streakDays(),
                 activity.heatmap(),
-                List.of()
+                List.of(),
+                actor.getCreateDate()
         );
     }
 }

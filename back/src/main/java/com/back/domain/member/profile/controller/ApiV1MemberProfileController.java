@@ -4,6 +4,8 @@ import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.profile.dtos.CareerCommand;
 import com.back.domain.member.profile.dtos.LinkCommand;
 import com.back.domain.member.profile.dtos.MemberProfileDto;
+import com.back.domain.member.profile.dtos.MemberPublicProfileDto;
+import com.back.domain.member.profile.dtos.MemberShowcaseDto;
 import com.back.domain.member.profile.dtos.MemberSummaryDto;
 import com.back.domain.member.profile.dtos.ProfileImageDto;
 import com.back.domain.member.profile.service.MemberProfileService;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
@@ -68,7 +71,9 @@ public class ApiV1MemberProfileController {
                     - completedParties : 승인된 파티원으로 속한 파티 중 COMPLETED 인 건
                     - awards           : 달성한 CONTEST 성취 건수
                     - exhibitions      : 승인된 파티원으로 속한 파티 중 전시가 게시된 건
-                    - streakDays       : 일자별 활동 기록 도메인이 없어 아직 0 고정
+                    - streakDays       : 연속 활동일
+                    - joinedAt         : 가입 시각. 히어로의 '크루온 활동 N개월째'(기획서 2.11 총 활동 기간)를 여기서 센다.
+                                         첫 활동일이 아니라 가입일이다 - 활동 로그를 정리하면 이미 보여준 기간이 줄어든다
                     - badges           : 배지 도메인이 없어 아직 빈 배열
 
                     예외
@@ -80,6 +85,65 @@ public class ApiV1MemberProfileController {
                 "200-1",
                 "내 활동 요약 조회 성공",
                 memberSummaryService.summary(rq.getActorFromDb())
+        );
+    }
+
+    @GetMapping("/{memberId:\\d+}")
+    @Operation(
+            summary = "공개 프로필 조회",
+            description = """
+                    남의 프로필을 본다. 지원자 심사·전시에서 이름을 눌러 들어오는 화면이다.
+
+                    로그인 없이 열린다 - 조회는 비인증, 쓰기·댓글만 인증이 기획서 9.x 의 규칙이고
+                    파티·대회·전시·성취 조회와 같은 취급이다. 공개해선 안 되는 값은 인가가 아니라
+                    응답에서 뺀다(email·githubLinked).
+
+                    내 프로필(GET /me)과 거의 같지만 email·githubLinked 는 빠진다. 본인 화면에서만 쓰는 값이다.
+                    대신 집계(GET /me/summary)와 CONTEST 성취를 한 응답에 함께 싣는다 -
+                    이 경로는 프로필을 열 때만 불려, 둘을 나눠 둘 이유였던 '너무 자주 불린다' 가 없다.
+
+                    - completedParties / awards / exhibitions : /me/summary 와 같은 집계
+                    - streakDays / activityHeatmap            : 연속 활동일과 최근 8주 활동 농도
+                    - achievements                            : 달성한 성취 전부. 타입을 가리지 않는다
+                                                                (기획서 3.7 - 성취에 공개 여부 필드를 두지 않고 모두 전체 공개).
+                                                                CONTEST 는 '수상', PROJECT 는 '참여한 프로젝트' 로 화면이 나눠 그린다
+                    - joinedAt                                : 가입 시각. '크루온 활동 N개월째' 를 여기서 센다
+                    - badges                                  : 배지 도메인이 없어 아직 응답에 없다
+
+                    프로필을 한 번도 저장한 적 없는 회원도 404 가 아니라 빈 프로필로 돌려준다.
+                    조회가 프로필 행을 만들지는 않는다.
+
+                    예외
+                    - 404-1 : 없는 회원
+                    """
+    )
+    public RsData<MemberPublicProfileDto> publicProfile(@PathVariable long memberId) {
+        return new RsData<>(
+                "200-1",
+                "공개 프로필 조회 성공",
+                memberProfileService.publicProfile(memberId)
+        );
+    }
+
+    @GetMapping("/{memberId:\\d+}/showcases")
+    @Operation(
+            summary = "공개 프로필의 참여한 프로젝트",
+            description = """
+                    그 회원이 참여한 파티 중 전시가 게시된 것을 최근 게시순으로 돌려준다.
+                    공개 프로필과 같이 로그인 없이 열린다.
+
+                    기준은 파티 확정 명단(PARTY_ASSEMBLE_TO_MEMBER)이다.
+                    id 는 goal id 가 아니라 **partyId** 다 - 전시는 파티에 종속이라 상세 경로도 파티 기준이다.
+
+                    예외
+                    - 404-1 : 없는 회원
+                    """
+    )
+    public RsData<List<MemberShowcaseDto>> publicShowcases(@PathVariable long memberId) {
+        return new RsData<>(
+                "200-1",
+                "참여한 프로젝트 조회 성공",
+                memberProfileService.publicShowcases(memberId)
         );
     }
 
