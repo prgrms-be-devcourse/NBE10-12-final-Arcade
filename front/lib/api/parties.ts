@@ -8,6 +8,8 @@ import type {
   Applicant,
   ApplicantStatus,
   ContestFormat,
+  ID,
+  MyParty,
   Party,
   PartyDetail,
   PartyStatus,
@@ -697,6 +699,78 @@ export async function togglePartyBookmark(id: string, bookmarked: boolean): Prom
   } catch (error) {
     // 409-1 — 북마크 중복 / 없는 북마크 취소. 어느 쪽이든 화면이 바라는 상태와 결과가 같다
     if (error instanceof ApiError && error.status === 409) return;
+    throw error;
+  }
+}
+
+/** 백엔드 MyPartyDto — GET /api/v1/members/me/parties 응답 한 칸 */
+export interface MyPartyResponse {
+  partyId: number;
+  partyName: string;
+  topicType: TopicType;
+  status: PartyStatus;
+  role: 'OWNER' | 'MEMBER';
+  /** 파티장은 지원 절차가 없어 null */
+  positionType: PositionType | null;
+  createdAt: string;
+  /** 확정된 파티만 오므로 아직 안 끝났을 때만 null 이다 */
+  completedAt: string | null;
+  exhibited: boolean;
+}
+
+/**
+ * 개설일 ~ 완료일. 아직 안 끝났으면 '진행 중' 으로 연다.
+ *
+ * createdAt 은 서버가 항상 채우지만(@CreatedDate) 응답 검증을 따로 하지 않으므로 빈 값을 견딘다 -
+ * 여기서 터지면 파티 한 줄이 아니라 마이페이지 전체가 죽는다(서버 컴포넌트에서 읽는다).
+ */
+function toPartyPeriod(createdAt: string | null, completedAt: string | null): string {
+  const format = (value: string) => value.slice(0, 7).replace('-', '.');
+  const started = createdAt ? format(createdAt) : '';
+  const ended = completedAt ? format(completedAt) : '진행 중';
+
+  return started ? `${started} ~ ${ended}` : ended;
+}
+
+/**
+ * GET /api/v1/members/me/parties — 참여 파티 히스토리 (기획서 2.11).
+ *
+ * 성취 목록(GET /goals/me)과 다른 화면이다. 그쪽은 프로필 탭의 '성취 리스트' 이고
+ * 이건 그 아래 '참여 파티 히스토리' 다. 예전엔 성취의 PROJECT 로 대신 그렸는데,
+ * 기획서가 요구한 주제 유형·역할이 GoalDto 에 없어 그릴 수 없었다.
+ *
+ * **확정 명단 기준이라 모집 중인 파티는 오지 않는다** - status 는 IN_PROGRESS 아니면 COMPLETED 다.
+ * 승인만 받고 마감을 기다리는 건은 관리 탭의 지원 현황이 맡는다.
+ */
+export async function fetchMyParties(): Promise<MyParty[]> {
+  if (USE_MOCK) {
+    const { MOCK_MY_PARTIES } = await import('@/lib/mock');
+    return mockResponse(MOCK_MY_PARTIES);
+  }
+
+  const rows = await http.get<MyPartyResponse[]>('/members/me/parties');
+
+  return rows.map((row) => ({
+    id: String(row.partyId) as ID,
+    name: row.partyName,
+    topicType: row.topicType,
+    status: row.status,
+    role: row.role,
+    position: row.positionType ?? undefined,
+    period: toPartyPeriod(row.createdAt, row.completedAt),
+    exhibited: row.exhibited,
+  }));
+}
+
+/**
+ * 로그인하지 않았으면 빈 목록을 돌려주는 버전.
+ * 마이페이지는 서버 컴포넌트에서 프로필과 함께 읽는다 - 여기서 401 을 던지면 화면 전체가 죽는다.
+ */
+export async function fetchMyPartiesOrEmpty(): Promise<MyParty[]> {
+  try {
+    return await fetchMyParties();
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) return [];
     throw error;
   }
 }

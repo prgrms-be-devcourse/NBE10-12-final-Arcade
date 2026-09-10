@@ -7,6 +7,7 @@ import {
   fetchMyApplications,
   fetchMyBookmarks,
   fetchMyGoalsOrEmpty,
+  fetchMyPartiesOrEmpty,
   fetchMyPartyApplicants,
   fetchMyProfileOrNull,
   fetchMySummaryOrEmpty,
@@ -32,7 +33,17 @@ export default async function MyPage({
   const { tab } = await searchParams;
   const activeTab: MypageTabKey = isMypageTabKey(tab) ? tab : 'identity';
 
-  const [profile, summary, achievements, todos, applicants, myApplications, messages, bookmarks] =
+  const [
+    profile,
+    summary,
+    achievements,
+    todos,
+    applicants,
+    myParties,
+    myApplications,
+    messages,
+    bookmarks,
+  ] =
     await Promise.all([
       fetchMyProfileOrNull(),
       // 활동 스코어·스트릭·히트맵은 집계라 프로필과 나뉘어 있다 (GET /members/me/summary)
@@ -42,6 +53,8 @@ export default async function MyPage({
       // 목록 화면은 한 쪽만 받는다. 쪽을 넘기면 TodoTable 이 다시 읽는다
       fetchTodos({ size: TODO_PAGE_SIZE }),
       fetchMyPartyApplicants(),
+      // 참여 파티 히스토리는 성취가 아니라 파티다 (GET /members/me/parties, 기획서 2.11)
+      fetchMyPartiesOrEmpty(),
       fetchMyApplications(),
       fetchMessagesOrEmpty({ size: MESSAGE_PAGE_SIZE }),
       fetchMyBookmarks(),
@@ -63,6 +76,7 @@ export default async function MyPage({
       messages={messages.items}
       messageTotalPages={messages.totalPages}
       bookmarks={bookmarks}
+      partyHistory={myParties}
       myParties={toMyParties(applicants)}
     />
   );

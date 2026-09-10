@@ -4,6 +4,8 @@ import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.party.application.dtos.MyApplicationDto;
 import com.back.domain.party.application.dtos.ReceivedApplicationDto;
 import com.back.domain.party.application.service.PartyApplicationService;
+import com.back.domain.party.party.dtos.MyPartyDto;
+import com.back.domain.party.party.service.MyPartyService;
 import com.back.global.dto.SliceDto;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
@@ -19,6 +21,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 /**
  * 지원자·파티장 본인 기준의 지원 조회. 파티를 먼저 고르지 않고 내 것을 한 번에 본다.
  * 파티 단위 조회·승인은 ApiV1PartyApplicationController 쪽이다.
@@ -31,7 +35,35 @@ import org.springframework.web.bind.annotation.RestController;
 public class ApiV1MyApplicationController {
 
     private final PartyApplicationService partyApplicationService;
+    private final MyPartyService myPartyService;
     private final Rq rq;
+
+    @GetMapping("/parties")
+    @Operation(
+            summary = "참여 파티 히스토리 조회",
+            description = """
+                    **파티 확정 명단에 내가 있는 파티**를 최근 개설순으로 돌려준다(기획서 2.11).
+
+                    - topicType   : 주제 유형(CONTEST/PROJECT/STUDY/ETC). 화면이 아이콘으로 그린다
+                    - role        : OWNER(파티장) / MEMBER(파티원)
+                    - status      : IN_PROGRESS / COMPLETED (확정된 파티만 담긴다)
+                    - positionType: 내가 맡은 자리, 파티장은 마이페이지에 선택된 값
+                    - exhibited   : 전시가 게시됐는지. true 일 때만 전시 페이지로 연결한다
+
+                    페이징하지 않는다. 한 사람이 속한 파티는 많아야 수십 건이고,
+                    화면이 시간순 타임라인이라 끊으면 연도 묶음이 잘린다(성취 목록과 같은 판단).
+
+                    예외
+                    - 401-1 : 미로그인
+                    """
+    )
+    public RsData<List<MyPartyDto>> getMyParties() {
+        return new RsData<>(
+                "200-1",
+                "참여 파티 히스토리 조회 성공",
+                myPartyService.getMyParties(rq.getActorFromDb())
+        );
+    }
 
     @GetMapping("/applications")
     @Operation(
