@@ -57,6 +57,27 @@ export interface ApiEnvelope<T> {
   data: T;
 }
 
+/**
+ * 약관 미동의 계정이 보호 API 를 부를 때 서버가 주는 코드.
+ *
+ * 403-1(권한 없음)과 섞으면 화면이 "권한 부족" 과 "동의 미완료" 를 구분하지 못해
+ * 온보딩으로 보낼 수 없다. 그래서 서버가 별도 코드를 쓴다.
+ */
+export const AGREEMENT_REQUIRED_CODE = "403-2";
+
+type AgreementRequiredListener = () => void;
+const agreementRequiredListeners = new Set<AgreementRequiredListener>();
+
+/** 온보딩 게이트가 구독한다. 해제 함수를 돌려준다 */
+export function onAgreementRequired(listener: AgreementRequiredListener): () => void {
+  agreementRequiredListeners.add(listener);
+  return () => agreementRequiredListeners.delete(listener);
+}
+
+function notifyAgreementRequired(): void {
+  agreementRequiredListeners.forEach((listener) => listener());
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -218,6 +239,10 @@ export async function request<T>(
     if (response.status === 401) {
       await clearInvalidSessionCookies(path);
     }
+
+    // 약관 미동의로 막힌 경우 화면이 온보딩을 띄우도록 알린다.
+    // 호출부마다 처리하면 빠뜨리는 곳이 생기므로 여기 한 곳에서만 알린다.
+    if (resultCode === AGREEMENT_REQUIRED_CODE) notifyAgreementRequired();
 
     throw new ApiError(message, response.status, errorBody, resultCode);
   }
