@@ -93,7 +93,7 @@ echo "== 이미지 받기 =="
 docker compose $COMPOSE_FILES --env-file .env pull --quiet
 
 echo "== 기동 =="
-# 고아 서비스를 제거하되 backend는 아래에서 별도로 롤링한다.
+# 고아 서비스를 제거하되 backend는 아래에서 별도로 교체한다.
 OTHERS="$(docker compose $COMPOSE_FILES --env-file .env config --services | grep -vx backend | tr '\n' ' ')"
 echo "  대상: $OTHERS"
 # shellcheck disable=SC2086
@@ -151,7 +151,8 @@ rolling_backend() {
 
 if [ "${ROLLING:-1}" = "1" ]; then
   echo "== 백엔드 무중단 교체 =="
-  rolling_backend || echo "  롤링 실패. 백엔드는 옛 버전 그대로다" >&2
+  rolling_backend || echo "  교체 실패. 백엔드는 옛 버전 그대로다" >&2
+  exit 1
 else
   echo "== 백엔드 교체 (중단 허용) =="
   docker compose $COMPOSE_FILES --env-file .env up -d --no-build backend
