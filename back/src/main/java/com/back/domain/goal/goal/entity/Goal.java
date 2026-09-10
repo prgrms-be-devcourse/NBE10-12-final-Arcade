@@ -63,11 +63,6 @@ public abstract class Goal extends BaseEntity {
     @Column(name = "source_party_id")
     private Long sourcePartyId;
 
-    // 더 이상 쓰지 않는다 - 좋아요는 게시된 PROJECT의 PARTY_SHOWCASE에만 집계된다. 컬럼 제거는 마이그레이션과 함께.
-    @Column(nullable = false)
-    private int likeCount;
-
-
     public Goal(
             Member owner,
             GoalType type,
@@ -82,7 +77,6 @@ public abstract class Goal extends BaseEntity {
         this.source = source;
         this.partyAssembleToMemberId = partyAssembleToMemberId;
         this.sourcePartyId = sourcePartyId;
-        this.likeCount = 0;
     }
 
     // 세 타입 모두 '이 성취의 이름'을 title 로 통일한다 - PROJECT 는 파티 이름,
