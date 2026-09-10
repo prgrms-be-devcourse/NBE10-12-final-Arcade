@@ -33,6 +33,7 @@ public class Member extends BaseEntity {
     private String profileImgUrl;
     private Long hostId = null;
     private boolean active = true;
+    private String suspendReason = null;
 
     @Enumerated(EnumType.STRING)
     private Role role = Role.MEMBER;
@@ -128,5 +129,15 @@ public class Member extends BaseEntity {
             authorities.add("ROLE_ADMIN");
 
         return authorities;
+    }
+
+    public void suspend(String reason) {
+        this.active = false;
+        this.suspendReason = reason;
+    }
+
+    public void activate() {
+        this.active = true;
+        this.suspendReason = null;
     }
 }
