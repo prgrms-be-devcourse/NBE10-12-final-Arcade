@@ -82,9 +82,10 @@ public class Project extends Goal {
         this.partyShowcase = partyShowcase;
     }
 
-    // PROJECT는 완료(ACHIEVED)만으로는 부족하고 파티장이 실제로 전시글을 게시해서 partyShowcase가 연결돼 있어야 전시된 것으로 본다.
+    // 전시관·좋아요·북마크가 대상으로 삼는 유일한 성취 타입이다.
+    // 완료(ACHIEVED)만으로는 부족하고 파티장이 실제로 전시글을 게시해서 partyShowcase가 연결돼 있어야 한다.
     @Override
     public boolean isExhibited() {
-        return super.isExhibited() && this.partyShowcase != null;
+        return getStatus() == GoalStatus.ACHIEVED && this.partyShowcase != null;
     }
 }

@@ -8,7 +8,6 @@ import com.back.domain.goal.goal.entity.PersonalChecklist;
 import com.back.domain.goal.goal.entity.Project;
 import com.back.domain.member.member.entity.Member;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -45,17 +44,6 @@ public interface GoalRepository extends JpaRepository<Goal, Long>, GoalRepositor
      */
     @Query("select c from PersonalChecklist c where c.personalTodo.id = :personalTodoId")
     Optional<PersonalChecklist> findChecklistByPersonalTodoId(@Param("personalTodoId") Long personalTodoId);
-
-    // 좋아요 카운터는 Party.likeCount와 동일하게 동시 요청 시 Lost Update를 막기 위해 원자적 UPDATE로 처리
-    // flushAutomatically=true는 좋아요 저장/삭제가 먼저 flush되게 하고
-    // clearAutomatically=true는 이후 조회가 최신값을 읽게 함
-    @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query("update Goal g set g.likeCount = g.likeCount + 1 where g.id = :id")
-    void increaseLikeCount(@Param("id") long id);
-
-    @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query("update Goal g set g.likeCount = case when g.likeCount > 0 then g.likeCount - 1 else 0 end where g.id = :id")
-    void decreaseLikeCount(@Param("id") long id);
 
     // 지원자 카드의 성취 건수. 화면이 건수만 쓰므로 Goal을 엔티티로 읽지 않는다 -
     // JOINED 상속이라 엔티티 조회는 자식 테이블 3개를 조인한다.

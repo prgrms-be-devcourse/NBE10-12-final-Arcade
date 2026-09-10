@@ -18,10 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -56,8 +53,7 @@ public class LikeService implements LikeInteractionPort {
 
     public boolean isGoalLiked(long goalId, Member member) {
         Goal goal = goalRepository.findById(goalId).orElseThrow();
-        LikeTarget target = resolveGoalLikeTarget(goal);
-        return isLiked(member, target.targetType(), target.targetId());
+        return isLiked(member, TargetType.PARTY_SHOWCASE, requireShowcaseId(goal));
     }
 
     @Transactional
@@ -94,46 +90,30 @@ public class LikeService implements LikeInteractionPort {
     @Transactional
     public LikeDto likeGoal(long goalId, Member member) {
         Goal goal = goalRepository.findById(goalId).orElseThrow();
-        LikeTarget target = resolveGoalLikeTarget(goal);
+        long showcaseId = requireShowcaseId(goal);
 
-        likeActionRepository.save(new LikeAction(member, target.targetType(), target.targetId()));
+        likeActionRepository.save(new LikeAction(member, TargetType.PARTY_SHOWCASE, showcaseId));
+        partyShowcaseRepository.increaseLikeCount(showcaseId);
 
-        int updatedLikeCount;
-        if (target.targetType() == TargetType.PARTY_SHOWCASE) {
-            partyShowcaseRepository.increaseLikeCount(target.targetId());
-            updatedLikeCount = partyShowcaseRepository.findById(target.targetId()).orElseThrow().getLikeCount();
-        } else {
-            goalRepository.increaseLikeCount(target.targetId());
-            updatedLikeCount = goalRepository.findById(target.targetId()).orElseThrow().getLikeCount();
-        }
-
+        int updatedLikeCount = partyShowcaseRepository.findById(showcaseId).orElseThrow().getLikeCount();
         return new LikeDto(TargetType.GOAL, goalId, true, updatedLikeCount);
     }
 
     @Transactional
     public void unlikeGoal(long goalId, Member member) {
         Goal goal = goalRepository.findById(goalId).orElseThrow();
-        LikeTarget target = resolveGoalLikeTarget(goal);
+        long showcaseId = requireShowcaseId(goal);
 
-        likeActionRepository.deleteByMemberAndTargetTypeAndTargetId(member, target.targetType(), target.targetId());
-
-        if (target.targetType() == TargetType.PARTY_SHOWCASE) {
-            partyShowcaseRepository.decreaseLikeCount(target.targetId());
-        } else {
-            goalRepository.decreaseLikeCount(target.targetId());
-        }
+        likeActionRepository.deleteByMemberAndTargetTypeAndTargetId(member, TargetType.PARTY_SHOWCASE, showcaseId);
+        partyShowcaseRepository.decreaseLikeCount(showcaseId);
     }
 
-    private record LikeTarget(TargetType targetType, long targetId) {
-    }
-
-    private LikeTarget resolveGoalLikeTarget(Goal goal) {
-        if (goal instanceof Project project) {
-            if (project.getPartyShowcase() != null) {
-                return new LikeTarget(TargetType.PARTY_SHOWCASE, project.getPartyShowcase().getId());
-            }
+    // 컨트롤러가 goalExists(=isExhibited) 가드를 이미 통과시켰으므로 게시된 PROJECT만 도달한다.
+    private long requireShowcaseId(Goal goal) {
+        if (goal instanceof Project project && project.getPartyShowcase() != null) {
+            return project.getPartyShowcase().getId();
         }
-        return new LikeTarget(TargetType.GOAL, goal.getId());
+        throw new IllegalStateException("전시된 PROJECT 성취만 좋아요 대상입니다: goalId=" + goal.getId());
     }
 
     @Override
@@ -147,50 +127,7 @@ public class LikeService implements LikeInteractionPort {
         if (member == null || targetIds.isEmpty()) {
             return Set.of();
         }
-
-        if (targetType != TargetType.GOAL) {
-            return new HashSet<>(likeActionRepository.findTargetIdsByMemberAndTargetTypeAndTargetIdIn(member, targetType, targetIds));
-        }
-
-        List<Goal> goals = goalRepository.findAllById(targetIds);
-
-        Map<Long, Long> projectGoalIdToShowcaseId = new HashMap<>();
-        Set<Long> plainGoalIds = new HashSet<>();
-
-        for (Goal goal : goals) {
-            if (goal instanceof Project project) {
-                if (project.getPartyShowcase() != null) {
-                    projectGoalIdToShowcaseId.put(goal.getId(), project.getPartyShowcase().getId());
-                } else {
-                    plainGoalIds.add(goal.getId()); // 미전시 상태면 일단 GOAL ID로 처리
-                }
-            } else {
-                plainGoalIds.add(goal.getId());
-            }
-        }
-
-        Set<Long> likedGoalIds = new HashSet<>();
-
-        if (!plainGoalIds.isEmpty()) {
-            likedGoalIds.addAll(likeActionRepository.findTargetIdsByMemberAndTargetTypeAndTargetIdIn(
-                    member, TargetType.GOAL, plainGoalIds
-            ));
-        }
-
-        if (!projectGoalIdToShowcaseId.isEmpty()) {
-            Set<Long> showcaseIds = new HashSet<>(projectGoalIdToShowcaseId.values());
-            Set<Long> likedShowcaseIds = new HashSet<>(likeActionRepository.findTargetIdsByMemberAndTargetTypeAndTargetIdIn(
-                    member, TargetType.PARTY_SHOWCASE, showcaseIds
-            ));
-
-            for (Map.Entry<Long, Long> entry : projectGoalIdToShowcaseId.entrySet()) {
-                if (likedShowcaseIds.contains(entry.getValue())) {
-                    likedGoalIds.add(entry.getKey());
-                }
-            }
-        }
-
-        return likedGoalIds;
+        return new HashSet<>(likeActionRepository.findTargetIdsByMemberAndTargetTypeAndTargetIdIn(member, targetType, targetIds));
     }
 
     private ContestPost findContestPostOrThrow(long contestId) {

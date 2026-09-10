@@ -63,8 +63,7 @@ public abstract class Goal extends BaseEntity {
     @Column(name = "source_party_id")
     private Long sourcePartyId;
 
-    // 전시 목록의 좋아요 수
-    // SELF_REPORTED는 Party가 없어 여기 직접 캐싱한다 Party와 동일한 패턴(원자적 UPDATE)으로 increaseLikeCount/decreaseLikeCount가 갱신한다.
+    // 더 이상 쓰지 않는다 - 좋아요는 게시된 PROJECT의 PARTY_SHOWCASE에만 집계된다. 컬럼 제거는 마이그레이션과 함께.
     @Column(nullable = false)
     private int likeCount;
 
@@ -99,10 +98,10 @@ public abstract class Goal extends BaseEntity {
     }
 
     // 전시(좋아요/북마크 대상)로 노출 가능한지 - 전시관 목록에 뜨는 조건과 동일해야 함
-    // 목록에 없는 성취에 좋아요를 걸 수 있으면 좋아요가 어디에도 안 보이는 유령 데이터가 된ek
-    // PROJECT는 파티장이 전시글을 게시했는지(partyShowcase 연결 여부)가 추가로 필요해서 하위 타입에서 재정의
+    // 전시관은 게시된 파티 결과물(PROJECT)만 대상이다. 자기신고 성취(CONTEST/CHECKLIST)는 전시·좋아요·북마크 대상이 아니다.
+    // PROJECT는 파티장이 전시글을 게시했는지(partyShowcase 연결 여부)를 Project.isExhibited()에서 판정한다.
     public boolean isExhibited() {
-        return this.status == GoalStatus.ACHIEVED;
+        return false;
     }
 
     // 수정·삭제만 소유자로 제한한다. 조회는 누구나 볼 수 있다(기획서 9.4).
