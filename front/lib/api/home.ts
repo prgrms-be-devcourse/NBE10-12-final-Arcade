@@ -65,7 +65,7 @@ interface PartyShowcaseResponse {
   partyId: number;
   partyName: string;
   /** 파티장 이름. PartyShowcaseDto 에 회원 id 는 없어 프로필 링크는 걸 수 없다 */
-  ownerName: string;
+  ownerName: string | null;
   title: string | null;
   description: string | null;
   viewCount: number;
@@ -74,6 +74,7 @@ interface PartyShowcaseResponse {
 
 function toExhibitionProject(showcase: PartyShowcaseResponse): ExhibitionProject {
   const title = showcase.title ?? showcase.partyName;
+  const ownerName = showcase.ownerName?.trim() ?? '';
   return {
     id: String(showcase.partyId),
     title,
@@ -89,8 +90,8 @@ function toExhibitionProject(showcase: PartyShowcaseResponse): ExhibitionProject
     leader: {
       // id 가 없다. partyId 를 넣으면 남의 프로필로 가는 링크가 걸린다
       id: '',
-      name: showcase.ownerName,
-      initial: showcase.ownerName.charAt(0) || 'C',
+      name: ownerName,
+      initial: ownerName.charAt(0) || 'C',
       role: '',
     },
     thumbnailLabel: title.slice(0, 2),
