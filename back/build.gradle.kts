@@ -84,6 +84,7 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    maxHeapSize = "1g"
     finalizedBy(tasks.jacocoTestReport)
 }
 
