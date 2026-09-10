@@ -10,6 +10,8 @@ import com.back.domain.message.message.dtos.MessageListDto;
 import com.back.domain.message.message.dtos.MessageMemberDto;
 import com.back.domain.message.message.entity.Message;
 import com.back.domain.message.message.repository.MessageRepository;
+import com.back.domain.notification.notification.entity.NotificationType;
+import com.back.domain.notification.notification.service.NotificationService;
 import com.back.global.dto.PageDto;
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +38,7 @@ public class MessageService {
     private final MessageRepository messageRepository;
     private final MemberRepository memberRepository;
     private final MemberProfileRepository memberProfileRepository;
+    private final NotificationService notificationService;
 
     public enum MessageFilterOption { RECEIVED, SENT }
 
@@ -48,7 +51,14 @@ public class MessageService {
         Member recipient = memberRepository.findById(recipientId)
                 .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 회원입니다."));
 
-        return new MessageDto(messageRepository.save(new Message(sender, recipient, content)));
+        Message message = messageRepository.save(new Message(sender, recipient, content));
+        notificationService.create(
+                recipient,
+                NotificationType.MESSAGE_RECEIVED,
+                sender.getName() + "님이 보낸 새 쪽지가 도착했습니다."
+        );
+
+        return new MessageDto(message);
     }
 
     public PageDto<MessageListDto> getList(Member actor, MessageFilterOption option, int page, int size) {
