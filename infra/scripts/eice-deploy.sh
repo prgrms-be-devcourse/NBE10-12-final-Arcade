@@ -137,13 +137,21 @@ APP_DIR="$1"
 BUNDLE="$2"
 REGION="$3"
 FILES_ONLY="$4"
+chmod 600 "$BUNDLE"
 STAGE="$(mktemp -d /tmp/arcade-stage.XXXXXX)"
 DOCKER_CONFIG="$STAGE/docker-config"
 export DOCKER_CONFIG
 
 cleanup() {
+  local status=$?
   docker logout ghcr.io >/dev/null 2>&1 || true
-  rm -rf -- "$STAGE" "$BUNDLE"
+  if rm -rf -- "$STAGE" "$BUNDLE"; then
+    echo "== 서버 임시 인증정보 정리 완료 =="
+  else
+    echo "서버 임시 인증정보 정리 실패: $STAGE" >&2
+    [ "$status" -ne 0 ] || status=1
+  fi
+  exit "$status"
 }
 trap cleanup EXIT
 
@@ -196,13 +204,14 @@ done
 
 printf '%s' "$(cat "$STAGE/_deploy/ghcr-token")" | docker login ghcr.io \
   -u "$(cat "$STAGE/_deploy/ghcr-user")" --password-stdin >/dev/null
+chmod 600 "$DOCKER_CONFIG/config.json"
 
 install -m 600 "$NEXT_ENV" "$APP_DIR/.env"
 if [ "$FILES_ONLY" = "1" ]; then
   echo "파일만 전송했다. 배포는 건너뛴다."
 else
   cd "$APP_DIR"
-  AWS_REGION="$REGION" APP_DIR="$APP_DIR" ENV_FROM_SSM=0 \
+  AWS_REGION="$REGION" APP_DIR="$APP_DIR" ENV_FROM_SSM=0 REGISTRY_AUTH_PRECONFIGURED=1 \
     ./infra/scripts/server-deploy.sh
 fi
 REMOTE_SCRIPT

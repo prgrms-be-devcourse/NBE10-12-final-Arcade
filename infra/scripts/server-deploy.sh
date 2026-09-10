@@ -64,8 +64,12 @@ registry_login() {
   fi
 }
 
-registry_login DOCKERHUB ""
-registry_login GHCR ghcr.io
+if [ "${REGISTRY_AUTH_PRECONFIGURED:-0}" = "1" ]; then
+  echo "  EICE 배포의 임시 Docker 인증 설정을 사용한다"
+else
+  registry_login DOCKERHUB ""
+  registry_login GHCR ghcr.io
+fi
 
 # 모니터링 파일은 합치되 서비스는 프로필로 선택한다.
 COMPOSE_FILES="-f docker-compose.yml"
@@ -177,8 +181,42 @@ fi
 
 for svc in caddy prometheus grafana; do
   if printf '%s\n' "$RUNNING" | grep -qx "$svc"; then
-    docker compose $COMPOSE_FILES --env-file .env restart "$svc" >/dev/null 2>&1 \
-      && echo "  $svc 재시작" || echo "  $svc 재시작 실패"
+    if docker compose $COMPOSE_FILES --env-file .env restart "$svc" >/dev/null 2>&1; then
+      echo "  $svc 재시작"
+    else
+      echo "  $svc 재시작 실패" >&2
+      exit 1
+    fi
+  fi
+done
+
+wait_healthy() {
+  local svc="$1" max_seconds="$2" id status elapsed
+  id=$(docker compose $COMPOSE_FILES --env-file .env ps -q "$svc" 2>/dev/null | head -1)
+  [ -n "$id" ] || { echo "  $svc 컨테이너를 찾지 못했다" >&2; return 1; }
+
+  status=$(docker inspect "$id" --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' 2>/dev/null)
+  if [ "$status" = none ]; then
+    echo "  $svc healthcheck 없음 — 대기 생략"
+    return 0
+  fi
+
+  for elapsed in $(seq 0 3 "$max_seconds"); do
+    status=$(docker inspect "$id" --format '{{.State.Health.Status}}' 2>/dev/null)
+    [ "$status" = healthy ] && { echo "  $svc 정상 ($elapsed초)"; return 0; }
+    [ "$status" = unhealthy ] && break
+    sleep 3
+  done
+
+  echo "  $svc가 정상화되지 않았다 ($status)" >&2
+  docker logs "$id" 2>&1 | tail -25 >&2
+  return 1
+}
+
+echo "== 모니터링 정상화 확인 =="
+for svc in prometheus grafana; do
+  if printf '%s\n' "$RUNNING" | grep -qx "$svc"; then
+    wait_healthy "$svc" 120 || exit 1
   fi
 done
 
