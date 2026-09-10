@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { OnboardingModal, type OnboardingResult } from './OnboardingModal';
 import { completeOnboarding, fetchMyProfileOrNull } from '@/lib/api';
 import { onAgreementRequired } from '@/lib/api/client';
@@ -27,25 +27,37 @@ export function AgreementGate() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [open, setOpen] = useState(false);
 
-  const check = useCallback(async () => {
-    if (typeof window !== 'undefined' && SKIP_ROUTES.some((r) => window.location.pathname.startsWith(r))) {
-      return;
-    }
-
-    // 비로그인(null)이면 띄울 이유가 없다. 조회 실패도 마찬가지로 조용히 넘긴다 -
-    // 여기서 화면을 막으면 서버가 잠깐 흔들릴 때 전원이 갇힌다.
-    const me = await fetchMyProfileOrNull().catch(() => null);
-    if (!me) return;
-
-    setProfile(me);
-    if (!me.privacyAgreedAt || !me.termsAgreedAt) setOpen(true);
-  }, []);
+  // usePathname 이어야 한다. AppShell 은 상위 레이아웃이라 화면을 옮겨도 언마운트되지 않는데,
+  // window.location.pathname 을 읽으면 마운트 시점의 경로에 그대로 묶인다 -
+  // /login 에서 처음 뜬 뒤 로그인해서 / 로 이동해도 다시 확인하지 않는다.
+  const pathname = usePathname();
+  const skip = SKIP_ROUTES.some((route) => pathname.startsWith(route));
 
   useEffect(() => {
-    void check();
+    if (skip) return;
+
+    let cancelled = false;
+
+    const apply = (me: UserProfile | null) => {
+      // 비로그인(null)이면 띄울 이유가 없다. 조회 실패도 같이 걸러진다 -
+      // 여기서 화면을 막으면 서버가 잠깐 흔들릴 때 전원이 갇힌다.
+      if (cancelled || !me) return;
+
+      setProfile(me);
+      if (!me.privacyAgreedAt || !me.termsAgreedAt) setOpen(true);
+    };
+
+    const check = () => void fetchMyProfileOrNull().catch(() => null).then(apply);
+
+    check();
     // 서버가 막았다는 신호를 받으면 다시 확인한다
-    return onAgreementRequired(() => void check());
-  }, [check]);
+    const unsubscribe = onAgreementRequired(check);
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [skip]);
 
   const submit = async (result: OnboardingResult) => {
     await completeOnboarding(result);
@@ -54,7 +66,9 @@ export function AgreementGate() {
     router.refresh();
   };
 
-  if (!open) return null;
+  // skip 경로에서는 이미 열려 있어도 물러난다 - 약관 전문(/legal)을 보러 나간 동안
+  // 모달이 그 위에 겹치면 읽을 수가 없다. 돌아오면 다시 뜬다.
+  if (!open || skip) return null;
 
   return (
     <OnboardingModal
