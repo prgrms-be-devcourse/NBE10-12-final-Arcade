@@ -44,13 +44,13 @@ public class MemberAgreementGuardFilterTest {
     private MemberRepository memberRepository;
 
     @Test
-    @DisplayName("미동의 계정은 보호 API 에서 403-2 로 막힌다")
+    @DisplayName("미동의 계정은 보호 API 에서 403-3 로 막힌다")
     @WithUserDetails("user1@test.com")
     void blocksMemberWithoutAgreement() throws Exception {
-        // 403-1(권한 없음)과 다른 코드여야 화면이 온보딩으로 보낼 수 있다
+        // 403-1(권한 없음)·403-2(정지된 계정)와 다른 코드여야 화면이 온보딩으로 보낼 수 있다
         mvc.perform(get("/api/v1/members/me/bookmarks"))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.resultCode").value("403-2"));
+                .andExpect(jsonPath("$.resultCode").value("403-3"));
     }
 
     @Test

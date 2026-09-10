@@ -73,8 +73,9 @@ public class MemberAgreementGuardFilter extends OncePerRequestFilter {
             return;
         }
 
-        // 403-1(권한 없음)과 다른 코드를 쓴다. 같으면 화면이 "권한 부족" 과 "동의 미완료" 를
-        // 구분하지 못해 온보딩으로 보낼 수 없다.
+        // 403 중에서 이 사유만의 코드를 쓴다. 프론트는 resultCode 로만 이유를 가릴 수 있어,
+        // 다른 사유와 코드를 겹치면 "권한 부족"·"정지"·"동의 미완료" 를 구분하지 못한다.
+        // 403-1 = 권한 없음, 403-2 = 정지된 계정(MemberService.login) 이라 403-3 을 쓴다.
         writeForbidden(response);
     }
 
@@ -88,7 +89,7 @@ public class MemberAgreementGuardFilter extends OncePerRequestFilter {
     }
 
     private void writeForbidden(HttpServletResponse response) throws IOException {
-        RsData<Void> rsData = new RsData<>("403-2", "서비스 이용에 필요한 약관 동의가 필요합니다.");
+        RsData<Void> rsData = new RsData<>("403-3", "서비스 이용에 필요한 약관 동의가 필요합니다.");
 
         response.setContentType("application/json;charset=UTF-8");
         response.setStatus(rsData.statusCode());

@@ -60,10 +60,13 @@ export interface ApiEnvelope<T> {
 /**
  * 약관 미동의 계정이 보호 API 를 부를 때 서버가 주는 코드.
  *
- * 403-1(권한 없음)과 섞으면 화면이 "권한 부족" 과 "동의 미완료" 를 구분하지 못해
- * 온보딩으로 보낼 수 없다. 그래서 서버가 별도 코드를 쓴다.
+ * HTTP 상태는 셋 다 403 이라, 이유를 가릴 수 있는 건 resultCode 뿐이다.
+ * 403-1 = 권한 없음, 403-2 = 정지된 계정, 403-3 = 동의 미완료.
+ *
+ * **다른 사유와 코드를 겹치면 안 된다.** 겹치는 순간 이 분기가 엉뚱한 실패에도 걸려
+ * 정지 안내 대신 온보딩 모달이 뜬다.
  */
-export const AGREEMENT_REQUIRED_CODE = "403-2";
+export const AGREEMENT_REQUIRED_CODE = "403-3";
 
 type AgreementRequiredListener = () => void;
 const agreementRequiredListeners = new Set<AgreementRequiredListener>();
