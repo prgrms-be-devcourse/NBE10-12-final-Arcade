@@ -6,15 +6,18 @@ import com.back.global.exception.ServiceException;
 import com.back.global.jpa.entity.BaseEntity;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Column;
+import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Getter
 @NoArgsConstructor
+@Table(indexes = @Index(name = "idx_showcase_comment_party_showcase_id", columnList = "party_showcase_id"))
 public class ShowcaseComment extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
