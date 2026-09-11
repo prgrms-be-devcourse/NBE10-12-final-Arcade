@@ -3,6 +3,7 @@ package com.back.domain.party.showcase.ranking.service;
 import com.back.domain.interaction.bookmark.repository.BookmarkRepository;
 import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.interaction.like.repository.LikeActionRepository;
+import com.back.domain.interaction.like.repository.TargetCount;
 import com.back.domain.party.showcase.comment.repository.ShowcaseCommentRepository;
 import com.back.domain.party.showcase.entity.PartyShowcase;
 import com.back.domain.party.showcase.ranking.entity.FeaturedRanking;
@@ -25,8 +26,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-// 전시실 인기 TOP3 - 매일 자정에 최근 30일 창 안의 활동으로 점수를 다시 계산해 FEATURED_RANKING에 반영한다.
-// 조회수만 이벤트 로그가 없어서 스냅샷 델타로 창 안 증가분을 근사한다.
 @Service
 @RequiredArgsConstructor
 public class FeaturedRankingBatchService {
@@ -35,7 +34,6 @@ public class FeaturedRankingBatchService {
     private static final int SNAPSHOT_RETENTION_DAYS = 31;
     private static final int TOP_N = 3;
 
-    // 3×북마크 + 2×댓글(원댓글만) + 1×좋아요 + 0.1×조회수 - 조회수는 발생량이 훨씬 많아 자릿수를 낮춰둔다.
     private static final double BOOKMARK_WEIGHT = 3.0;
     private static final double COMMENT_WEIGHT = 2.0;
     private static final double LIKE_WEIGHT = 1.0;
@@ -67,10 +65,10 @@ public class FeaturedRankingBatchService {
 
         Map<Long, Long> bookmarkCounts = bookmarkRepository
                 .countGroupedByTargetTypeAndTargetIdInAndCreateDateAfter(TargetType.PARTY_SHOWCASE, showcaseIds, windowStart).stream()
-                .collect(Collectors.toMap(BookmarkRepository.TargetCount::getTargetId, BookmarkRepository.TargetCount::getCount));
+                .collect(Collectors.toMap(TargetCount::getTargetId, TargetCount::getCount));
         Map<Long, Long> likeCounts = likeActionRepository
                 .countGroupedByTargetTypeAndTargetIdInAndCreateDateAfter(TargetType.PARTY_SHOWCASE, showcaseIds, windowStart).stream()
-                .collect(Collectors.toMap(LikeActionRepository.TargetCount::getTargetId, LikeActionRepository.TargetCount::getCount));
+                .collect(Collectors.toMap(TargetCount::getTargetId, TargetCount::getCount));
         Map<Long, Long> commentCounts = showcaseCommentRepository
                 .countRootCommentsGroupedByShowcaseIdInAndCreateDateAfter(showcaseIds, windowStart).stream()
                 .collect(Collectors.toMap(
@@ -94,8 +92,7 @@ public class FeaturedRankingBatchService {
                     int viewDelta = Math.max(0, ps.getViewCount() - viewBaselines.getOrDefault(id, 0));
                     double score = BOOKMARK_WEIGHT * bookmarks + COMMENT_WEIGHT * comments
                             + LIKE_WEIGHT * likes + VIEW_WEIGHT * viewDelta;
-                    boolean hasActivity = bookmarks > 0 || comments > 0 || likes > 0 || viewDelta > 0;
-                    return new Scored(ps, score, hasActivity);
+                    return new Scored(ps, score);
                 })
                 .toList();
 
@@ -110,7 +107,6 @@ public class FeaturedRankingBatchService {
                 .map(Scored::showcase)
                 .collect(Collectors.toCollection(ArrayList::new));
 
-        // 창 안 활동이 3건 미만이면 전기간 인기순(viewCount desc)으로 부족분을 채운다.
         if (ranked.size() < TOP_N) {
             Set<Long> already = ranked.stream().map(PartyShowcase::getId).collect(Collectors.toSet());
             List<PartyShowcase> fallback = partyShowcaseRepository
@@ -141,7 +137,6 @@ public class FeaturedRankingBatchService {
     }
 
     private void snapshotViewCounts(List<PartyShowcase> published, LocalDate today) {
-        // 재실행돼도 중복이 안 쌓이도록 오늘자 스냅샷을 먼저 지운다.
         showcaseViewSnapshotRepository.deleteBySnapshotDate(today);
         List<ShowcaseViewSnapshot> snapshots = published.stream()
                 .map(ps -> new ShowcaseViewSnapshot(ps.getId(), ps.getViewCount(), today))
@@ -153,7 +148,6 @@ public class FeaturedRankingBatchService {
         showcaseViewSnapshotRepository.deleteBySnapshotDateBefore(today.minusDays(SNAPSHOT_RETENTION_DAYS));
     }
 
-    // 창 시작일 이후 가장 이른 스냅샷을 그 창의 기준값으로 삼는다. 없으면(게시 30일 미만) 0부터로 본다.
     private Map<Long, Integer> computeViewBaselines(List<Long> showcaseIds, LocalDate windowStartDate) {
         return showcaseViewSnapshotRepository
                 .findAllByShowcaseIdInAndSnapshotDateGreaterThanEqual(showcaseIds, windowStartDate).stream()
@@ -166,6 +160,9 @@ public class FeaturedRankingBatchService {
                 ));
     }
 
-    private record Scored(PartyShowcase showcase, double score, boolean hasActivity) {
+    private record Scored(PartyShowcase showcase, double score) {
+        boolean hasActivity() {
+            return score > 0;
+        }
     }
 }

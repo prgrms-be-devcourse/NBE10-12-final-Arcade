@@ -121,7 +121,6 @@ class FeaturedRankingBatchServiceTest {
                 .filter(r -> r.getTargetId() == showcase.getId())
                 .findFirst().orElseThrow();
 
-        // 댓글 가중치(2.0) × 원댓글 1건만 - 대댓글 2건은 카운트되지 않아야 한다
         assertThat(ranking.getScore()).isCloseTo(2.0, within(0.001));
     }
 
@@ -130,7 +129,6 @@ class FeaturedRankingBatchServiceTest {
     void viewScoreUsesWindowDelta() {
         PartyShowcase showcase = savePublishedShowcase("user1@test.com", "조회수 테스트");
 
-        // 창(30일) 시작 시점 근방에 조회수 2였다는 스냅샷을 미리 심어둔다
         showcaseViewSnapshotRepository.save(
                 new ShowcaseViewSnapshot(showcase.getId(), 2, LocalDate.now().minusDays(29)));
 
@@ -146,7 +144,6 @@ class FeaturedRankingBatchServiceTest {
                 .filter(r -> r.getTargetId() == showcase.getId())
                 .findFirst().orElseThrow();
 
-        // 조회수 가중치(0.1) × (현재 5 - 스냅샷 2) = 0.3, 현재값 5 전체가 아니라 증가분만 반영돼야 한다
         assertThat(ranking.getScore()).isCloseTo(0.3, within(0.001));
     }
 

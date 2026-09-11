@@ -24,7 +24,6 @@ public interface ShowcaseCommentRepository extends JpaRepository<ShowcaseComment
 
     Optional<ShowcaseComment> findByIdAndShowcase(long id, PartyShowcase showcase);
 
-    // TOP3 배치 - 대댓글은 신호에서 빼고 원댓글만, 삭제된 건 제외하고 창 안의 개수를 한 번에 집계한다.
     @Query("""
         select c.showcase.id as showcaseId, count(c) as count
         from ShowcaseComment c

@@ -2,6 +2,7 @@ package com.back.domain.interaction.bookmark.repository;
 
 import com.back.domain.interaction.bookmark.entity.Bookmark;
 import com.back.domain.interaction.like.entity.TargetType;
+import com.back.domain.interaction.like.repository.TargetCount;
 import com.back.domain.member.member.entity.Member;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -16,12 +17,6 @@ import java.util.List;
 
 public interface BookmarkRepository extends JpaRepository<Bookmark, Long> {
 
-    interface TargetCount {
-        Long getTargetId();
-        Long getCount();
-    }
-
-    // TOP3 배치 - 대상별로 따로 쿼리 날리지 않고 창 안의 북마크 수를 한 번에 집계한다.
     @Query("""
         select b.targetId as targetId, count(b) as count
         from Bookmark b
@@ -33,7 +28,7 @@ public interface BookmarkRepository extends JpaRepository<Bookmark, Long> {
             @Param("targetIds") Collection<Long> targetIds,
             @Param("from") LocalDateTime from
     );
-    // 북마크함 목록. 최근에 담은 것부터 보여준다.
+
     Page<Bookmark> findAllByMemberOrderByCreateDateDesc(Member member, Pageable pageable);
 
     boolean existsByMemberAndTargetTypeAndTargetId(Member member, TargetType targetType, long targetId);

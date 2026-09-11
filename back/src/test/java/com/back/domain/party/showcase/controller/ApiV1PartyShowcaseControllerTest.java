@@ -357,7 +357,6 @@ public class ApiV1PartyShowcaseControllerTest {
         Member liker = memberRepository.findByEmail("user2@test.com").orElseThrow();
         likeActionRepository.save(new LikeAction(liker, TargetType.PARTY_SHOWCASE, highScoreShowcase.getId()));
 
-        // 배치는 매일 자정에 도는 스케줄이라 테스트에서는 직접 호출해서 랭킹을 materialize한다.
         featuredRankingBatchService.computeShowcaseRanking();
 
         ResultActions resultActions = mvc.perform(get("/api/v1/parties/showcase/top3"));

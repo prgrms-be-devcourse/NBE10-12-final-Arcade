@@ -21,12 +21,10 @@ public interface ShowcaseViewSnapshotRepository extends JpaRepository<ShowcaseVi
             @Param("from") LocalDate from
     );
 
-    // 재실행 대비 - 오늘자 스냅샷을 지우고 다시 쌓아서 중복이 안 생기게 한다.
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("delete from ShowcaseViewSnapshot s where s.snapshotDate = :date")
     void deleteBySnapshotDate(@Param("date") LocalDate date);
 
-    // 30일 창을 넘어간 스냅샷은 더 안 쓰이니 테이블이 계속 커지지 않게 정리한다.
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("delete from ShowcaseViewSnapshot s where s.snapshotDate < :date")
     void deleteBySnapshotDateBefore(@Param("date") LocalDate date);

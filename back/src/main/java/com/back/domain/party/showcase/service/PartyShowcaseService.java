@@ -22,6 +22,7 @@ import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -108,25 +109,24 @@ public class PartyShowcaseService {
         return toDto(party, showcase, memberNames, pullRequests);
     }
 
-    // 홈 "인기 전시회 TOP3" - 매일 자정 배치(FeaturedRankingBatchService)가 계산해 둔 순위를 그대로 읽기만 한다.
-    // 파티마다 따로 쿼리 날리지 않고, 파티원/PR을 IN 절로 한 번에 모아온 뒤 메모리에서 파티별로 묶어 조립한다.
     public List<PartyShowcaseDto> getTop3() {
         List<FeaturedRanking> rankings = featuredRankingRepository
                 .findAllByTargetTypeOrderByRankAsc(TargetType.PARTY_SHOWCASE);
 
+        List<PartyShowcase> showcases;
         if (rankings.isEmpty()) {
-            return List.of();
+            showcases = partyShowcaseRepository.findPublishedOrderByViewCountDesc(PageRequest.of(0, 3));
+        } else {
+            List<Long> rankedShowcaseIds = rankings.stream().map(FeaturedRanking::getTargetId).toList();
+            Map<Long, PartyShowcase> showcaseById = partyShowcaseRepository
+                    .findAllByIdInWithPartyAndOwner(rankedShowcaseIds).stream()
+                    .collect(Collectors.toMap(PartyShowcase::getId, ps -> ps));
+
+            showcases = rankedShowcaseIds.stream()
+                    .map(showcaseById::get)
+                    .filter(Objects::nonNull)
+                    .toList();
         }
-
-        List<Long> rankedShowcaseIds = rankings.stream().map(FeaturedRanking::getTargetId).toList();
-        Map<Long, PartyShowcase> showcaseById = partyShowcaseRepository.findAllById(rankedShowcaseIds).stream()
-                .collect(Collectors.toMap(PartyShowcase::getId, ps -> ps));
-
-        // 배치 계산 이후 삭제된 전시가 있을 수 있어(엣지 케이스) 못 찾은 건 건너뛴다.
-        List<PartyShowcase> showcases = rankedShowcaseIds.stream()
-                .map(showcaseById::get)
-                .filter(Objects::nonNull)
-                .toList();
 
         if (showcases.isEmpty()) {
             return List.of();
