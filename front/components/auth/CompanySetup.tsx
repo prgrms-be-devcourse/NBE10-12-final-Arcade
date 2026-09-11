@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { isEnterCommit } from '@/lib/ime';
 import { Icon } from '@/components/icons/Icon';
-import { EmailVerifyField } from './EmailVerifyField';
 import {
   FormGroup,
   FormRow,
@@ -157,13 +156,18 @@ export function CompanySetup() {
               </p>
             </FormGroup>
 
-            <EmailVerifyField
-              label="회사 대표(공용) 이메일"
-              placeholder="contact@company.co.kr"
-              idleMessage="공모전 문의가 이 주소로 전달돼요. 도메인 소유 확인을 위해 인증이 필요합니다."
-              value={companyEmail}
-              onChange={setCompanyEmail}
-            />
+            {/* 도메인 소유 확인(메일 인증)은 보류다 - 필요해지면 다시 넣는다 */}
+            <FormGroup label="회사 대표(공용) 이메일" htmlFor="companyEmail">
+              <TextField
+                id="companyEmail"
+                type="email"
+                autoComplete="email"
+                placeholder="contact@company.co.kr"
+                value={companyEmail}
+                onChange={(event) => setCompanyEmail(event.target.value)}
+              />
+              <p className="form-hint">공모전 문의가 이 주소로 전달돼요.</p>
+            </FormGroup>
 
             <FormGroup label="공식 홈페이지">
               <TextField

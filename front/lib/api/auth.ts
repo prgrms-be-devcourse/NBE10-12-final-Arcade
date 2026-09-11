@@ -200,18 +200,3 @@ export async function changePassword(payload: {
   await http.patch<void>("/members/me/password", payload);
 }
 
-/** 회원가입 이메일 인증은 아직 별도 백엔드 계약이 없어 데모 흐름을 유지한다. */
-export async function requestEmailVerification(email: string): Promise<{ sent: boolean }> {
-  return mockResponse({ sent: Boolean(email) });
-}
-
-export async function confirmEmailVerification(
-  email: string,
-  code: string,
-): Promise<{ verified: boolean; message: string }> {
-  const verified = Boolean(email) && code.length === 6;
-  return mockResponse({
-    verified,
-    message: verified ? "이메일 인증이 완료됐어요." : "인증번호 6자리를 입력해 주세요.",
-  });
-}

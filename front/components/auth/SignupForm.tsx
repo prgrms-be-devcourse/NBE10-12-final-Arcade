@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AuthLogo } from './AuthLogo';
 import { CompanySetup } from './CompanySetup';
-import { EmailVerifyField } from './EmailVerifyField';
 import { SocialButtons } from './SocialButtons';
 import {
   FormGroup,
@@ -163,13 +162,21 @@ export function SignupForm() {
               </FormGroup>
             </FormRow>
 
-            <EmailVerifyField
-              label="이메일"
-              placeholder="you@example.com"
-              idleMessage="가입 확인 메일을 보내 본인 인증을 진행해요."
-              value={email}
-              onChange={setEmail}
-            />
+            {/*
+              가입 단계에는 이메일 인증이 없다. 서버도 POST /members/signup 에서
+              이메일·비밀번호·이름만 받고 인증 절차를 두지 않는다.
+              메일 인증은 비밀번호 재설정(ARC-125)에서만 쓴다.
+            */}
+            <FormGroup label="이메일" htmlFor="signupEmail">
+              <TextField
+                id="signupEmail"
+                type="email"
+                autoComplete="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
+            </FormGroup>
 
             {memberType === '일반' ? (
               <FormGroup label="대표 포지션">

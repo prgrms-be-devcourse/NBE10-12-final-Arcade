@@ -533,10 +533,8 @@
 }
 .ci-comment-edit input:focus{outline:none;}
 
-/* ===== 공통 : 인증 입력 ===== */
-.verify-row{display:flex;gap:0.5rem;}
-.verify-row .field-input{flex:1;min-width:0;}
-.verify-row .btn{flex-shrink:0;padding:0.75rem 1rem;font-size:.82rem;white-space:nowrap;}
+/* ===== 공통 : 상태 문구 ===== */
+/* .verify-status 는 쪽지 보내기 결과에서도 쓴다 - 이메일 인증을 걷어내도 남긴다 */
 .verify-status{
   margin-top:0.5rem;display:flex;align-items:center;gap:0.375rem;font-size:.76rem;line-height:1.5;color:var(--text-dim);
 }
