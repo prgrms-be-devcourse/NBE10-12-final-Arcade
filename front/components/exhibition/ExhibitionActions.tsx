@@ -6,7 +6,7 @@ import { useCurrentUser } from '@/lib/hooks/useCurrentUser';
 import type { UserSummary } from '@/lib/types';
 
 interface ExhibitionActionsProps {
-  exhibitionId: string;
+  partyId: string;
   /**
    * 전시를 올린 사람 — 이 사람에게만 수정이 보인다.
    *
@@ -22,9 +22,9 @@ interface ExhibitionActionsProps {
  * 전시 상세 액션 바 — 외부 링크는 누구에게나, 수정은 올린 사람에게만 보인다.
  * 좋아요·북마크는 대회 상세와 동일하게 헤더의 DetailActions 가 담당한다.
  */
-export function ExhibitionActions({ exhibitionId, owner, githubUrl }: ExhibitionActionsProps) {
+export function ExhibitionActions({ partyId, owner, githubUrl }: ExhibitionActionsProps) {
   const me = useCurrentUser();
-  const isOwner = Boolean(owner.id) && me?.profile.id === owner.id;
+  const isOwner = Boolean(me && owner.name && me.profile.name === owner.name);
 
   return (
     <div className="exh-actions">
@@ -33,7 +33,7 @@ export function ExhibitionActions({ exhibitionId, owner, githubUrl }: Exhibition
         수정은 같은 POST 로 제목·설명을 다시 보내는 것이라 게시 화면을 그대로 연다.
       */}
       {isOwner ? (
-        <Link className="exh-action-btn" href={`/exhibition/create?partyId=${exhibitionId}`}>
+        <Link className="exh-action-btn" href={`/exhibition/create?partyId=${partyId}`}>
           <Icon name="i-pencil" />
           전시 수정
         </Link>

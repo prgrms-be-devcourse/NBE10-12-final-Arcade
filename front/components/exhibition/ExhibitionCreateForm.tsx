@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useLeaveTo } from '@/lib/navigation';
 import Link from 'next/link';
 import { FormActions, FormGroup, TextAreaField, TextField } from '@/components/ui/Field';
-import { ApiError, fetchExhibition, publishPartyShowcase } from '@/lib/api';
+import { ApiError, fetchExhibitionDraft, publishPartyShowcase } from '@/lib/api';
 
 /**
  * 전시 게시 폼.
@@ -30,12 +30,12 @@ export function ExhibitionCreateForm({ partyId }: { partyId?: string }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
-  // 초안을 읽어 이미 적어둔 값을 채운다. 게시 전 초안은 파티원만 볼 수 있다(403).
+  // 공개 상세가 아닌 게시 전용 초안 API를 사용한다. 게시 전에는 공개 API가 404를 반환한다.
   useEffect(() => {
     if (!partyId) return;
     let alive = true;
 
-    fetchExhibition(partyId)
+    fetchExhibitionDraft(partyId)
       .then((draft) => {
         if (!alive) return;
         setTitle(draft.title);
@@ -45,9 +45,16 @@ export function ExhibitionCreateForm({ partyId }: { partyId?: string }) {
       })
       .catch((error) => {
         if (!alive) return;
-        setErrors({
-          load: error instanceof ApiError ? error.message : '전시 정보를 불러오지 못했어요.',
-        });
+        const message = error instanceof ApiError
+          ? error.status === 401
+            ? '로그인 후 전시를 게시할 수 있어요.'
+            : error.status === 403
+              ? '이 파티의 전시 게시 권한이 없어요.'
+              : error.status === 404
+                ? '존재하지 않는 파티예요. 파티 ID를 확인해 주세요.'
+                : error.message
+          : '전시 정보를 불러오지 못했어요.';
+        setErrors({ load: message });
       })
       .finally(() => {
         if (alive) setLoading(false);

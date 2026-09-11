@@ -81,7 +81,7 @@ export default async function ExhibitionDetailPage({
 
               {/* 전시 수정은 /exhibition/create?partyId= 로 여는데, 여기 id 가 곧 partyId 다 */}
               <ExhibitionActions
-                exhibitionId={project.id}
+                partyId={project.sourcePartyId ?? project.id}
                 owner={project.leader}
                 githubUrl={githubUrl}
               />

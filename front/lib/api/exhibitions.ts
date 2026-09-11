@@ -120,8 +120,8 @@ interface PartyShowcaseResponse {
 }
 
 /** 이름만 아는 참여자. id 가 없으면 프로필 링크·쪽지 버튼을 걸 수 없다. */
-const nameOnlyUser = (name: string) => ({
-  id: '',
+const nameOnlyUser = (name: string, id = '') => ({
+  id,
   name,
   initial: name.charAt(0) || 'C',
   role: '',
@@ -170,6 +170,19 @@ export async function fetchExhibition(id: string): Promise<ExhibitionDetail> {
     return mockResponse(MOCK_EXHIBITION_DETAILS[id] ?? MOCK_EXHIBITION_DETAILS['settlement-api']);
   }
   return toExhibitionDetail(await http.get<PartyShowcaseResponse>(`/parties/${id}/showcase`));
+}
+
+/**
+ * GET /api/v1/parties/{partyId}/showcase/draft — 게시 화면용 초안.
+ * 공개 상세와 달리 게시 전에도 파티장/파티원이 조회할 수 있다.
+ */
+export async function fetchExhibitionDraft(partyId: string): Promise<ExhibitionDetail> {
+  if (USE_API_MOCK) {
+    return mockResponse(MOCK_EXHIBITION_DETAILS[partyId] ?? MOCK_EXHIBITION_DETAILS['settlement-api']);
+  }
+  return toExhibitionDetail(
+    await http.get<PartyShowcaseResponse>(`/parties/${partyId}/showcase/draft`),
+  );
 }
 
 
