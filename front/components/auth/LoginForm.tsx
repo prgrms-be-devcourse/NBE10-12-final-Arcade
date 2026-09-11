@@ -77,6 +77,11 @@ export function LoginForm() {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
+            <div className="auth-field-link">
+              <Link className="auth-link-btn" href="/forgot-password">
+                비밀번호를 잊으셨나요?
+              </Link>
+            </div>
           </FormGroup>
           <button
             type="button"
