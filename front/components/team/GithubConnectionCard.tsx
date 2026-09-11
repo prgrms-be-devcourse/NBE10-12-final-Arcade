@@ -1,170 +1,44 @@
 'use client';
 
-import { useState } from 'react';
-import { Icon } from '@/components/icons/Icon';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { TextField } from '@/components/ui/Field';
-import { ApiError } from '@/lib/api';
-import {
-  startPartyGithubInstall,
-  updatePartyGithubRepository,
-  type PartyGithubConnection,
-  type PartyGithubStatus,
-} from '@/lib/api';
+import { Modal } from '@/components/ui/Modal';
+import { ApiError, connectPartyGithubRepository, disconnectPartyGithubRepository, fetchConnectableGithubRepositories, fetchGithubAppUserAuthorizationStatus, fetchMyProfileOrNull, fetchPartyGithubConnection, startGithubAppInstall, startGithubAppUserAuthorization, updatePartyGithubRepository, type ConnectableGithubRepository, type GithubAppUserAuthorizationStatus, type PartyGithubConnection, type PartyGithubStatus } from '@/lib/api';
 
-const STATUS_TEXT: Record<PartyGithubStatus, string> = {
-  PENDING: '아직 저장소를 연결하지 않았어요.',
-  SYNCING: '저장소에 있던 PR을 받아오는 중이에요.',
-  ACTIVE: '연결됐어요. 새 PR이 자동으로 쌓입니다.',
-  INSTALLATION_REQUIRED: 'GitHub App 설치가 해제됐어요. 다시 연결해 주세요.',
-  APPROVAL_PENDING: '조직 관리자의 설치 승인을 기다리고 있어요.',
-  ERROR: '연결에 문제가 생겼어요.',
-};
+const STATUS: Record<PartyGithubStatus, string> = { NOT_CONNECTED: '레포 주소만 등록했어요. 필요하면 PR 자동 연동을 시작할 수 있어요.', PENDING: '레포 주소만 등록했어요. 필요하면 PR 자동 연동을 시작할 수 있어요.', SYNCING: '기존 PR을 동기화하고 있어요.', ACTIVE: 'PR 연동 중이에요.', DISCONNECTED: 'PR 자동 연동을 해제했어요. 레포 주소는 유지됩니다.', ARCHIVED: 'Party 종료로 연동이 종료됐어요.', INSTALLATION_REQUIRED: '선택한 레포가 GitHub App 설치 범위에 없어요.', APPROVAL_PENDING: '조직 관리자의 App 승인을 기다리고 있어요.', ERROR: '연결에 문제가 생겼어요.' };
+const ERRORS: Record<string, string> = { GITHUB_APP_USER_REAUTHORIZATION_REQUIRED: 'GitHub 권한 인증이 필요하거나 만료됐어요.', GITHUB_REPOSITORY_URL_INVALID: 'https://github.com/owner/repository 형식의 주소를 입력해 주세요.', GITHUB_REPOSITORY_ACCESS_REQUIRED: '현재 GitHub 계정으로 이 레포에 접근할 수 없어요.', GITHUB_REPOSITORY_ALREADY_CONNECTED_TO_ACTIVE_PARTY: '이 레포는 다른 활성 Party에 이미 연결돼 있어요.', PARTY_GITHUB_REPOSITORY_ALREADY_CONNECTED: '이 레포는 현재 Party에 이미 연결돼 있어요.' };
+const errorText = (error: unknown) => error instanceof ApiError ? (error.resultCode === '409-1' ? '이미 PR 자동 연동된 레포입니다. 현재 연동 상태를 다시 확인해 주세요.' : ERRORS[error.message] ?? error.message) : '요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.';
 
-/**
- * 서버가 코드값을 그대로 msg 로 내려주는 경우가 있어(400-22) 사람이 읽을 문구로 바꾼다.
- * 서버가 문구를 고치면 이 표는 지워도 된다 (docs/프론트-API연동_백엔드_수정요청.md ⑪).
- */
-const ERROR_TEXT: Record<string, string> = {
-  GITHUB_REPOSITORY_URL_INVALID:
-    'GitHub 저장소 주소를 확인해 주세요. https://github.com/owner/repository 형식이어야 해요.',
-  GITHUB_APP_INSTALL_STATE_INVALID: '설치 요청이 만료됐어요. 다시 시도해 주세요.',
-  GITHUB_APP_INSTALLATION_UNAVAILABLE: 'GitHub App 설치가 해제된 것 같아요. 다시 연결해 주세요.',
-  GITHUB_APP_REPOSITORY_REMOVED: '설치 대상에서 저장소가 빠졌어요. 저장소를 다시 포함해 주세요.',
-};
-
-/** 이 상태들에서만 설치를 다시 시작할 수 있게 버튼을 보여준다 */
-const NEEDS_INSTALL: PartyGithubStatus[] = ['PENDING', 'INSTALLATION_REQUIRED', 'APPROVAL_PENDING', 'ERROR'];
-
-/**
- * 팀 스페이스의 저장소 카드.
- *
- * 연결 상태를 보여주고, 필요하면 GitHub App 설치를 시작한다.
- * 설치는 파티장만 할 수 있는데(서버가 403 으로 막는다) 화면은 권한을 미리 판단하지 않고
- * 서버 문구를 그대로 띄운다 — 화면이 권한 규칙을 따로 들고 있으면 서버와 어긋난다.
- */
-export function GithubConnectionCard({
-  partyId,
-  connection,
-  /** 연결 전에 보여줄 파티 등록 저장소 주소 (파티 상세의 githubRepoUrl) */
-  fallbackRepository,
-}: {
-  partyId: string;
-  connection: PartyGithubConnection | null;
-  fallbackRepository?: string;
-}) {
-  const [starting, setStarting] = useState(false);
-  const [error, setError] = useState('');
-  const [repositoryInput, setRepositoryInput] = useState(
-    fallbackRepository ?? connection?.repositoryFullName ?? '',
-  );
-
-  const repository = connection?.repositoryFullName ?? fallbackRepository ?? '';
-  const repositoryUrl = repository.startsWith('http')
-    ? repository
-    : `https://github.com/${repository}`;
-  const selectedRepository = repositoryInput.trim() || '연결할 저장소';
-  // 아직 연결 레코드가 없거나, 서버가 재설치를 요구하는 상태면 설치를 시작할 수 있다.
-  const showInstallButton = !connection || NEEDS_INSTALL.includes(connection.status);
-
-  const install = async () => {
-    const githubRepoUrl = repositoryInput.trim();
-    if (!githubRepoUrl) {
-      setError('연결할 GitHub 저장소 주소를 입력해 주세요.');
-      return;
-    }
-
-    setStarting(true);
-    setError('');
-    try {
-      // 진행 중 파티도 설치 직전에 저장소를 바꿀 수 있다. 서버가 파티장 권한을 확인한다.
-      await updatePartyGithubRepository(partyId, githubRepoUrl);
-      // 설치가 끝나면 서버 setup 콜백이 이 경로로 되돌려 보낸다
-      const { installationUrl } = await startPartyGithubInstall(partyId, `/party/${partyId}/team`);
-      window.location.href = installationUrl;
-    } catch (caught) {
-      // 파티장이 아니면 403, 파티에 저장소 주소가 없으면 400-22 로 온다.
-      // 5xx 는 GitHub App 설정값이 서버에 없을 때도 나므로 사용자에게 원문을 보여주지 않는다
-      const fallback = '지금은 GitHub 연결을 시작할 수 없어요. 잠시 후 다시 시도해 주세요.';
-      setError(
-        caught instanceof ApiError && caught.status < 500
-          ? (ERROR_TEXT[caught.message] ?? caught.message)
-          : fallback,
-      );
-      setStarting(false);
-    }
-  };
-
-  return (
-    <>
-      {repository ? (
-        <a className="link-row" href={repositoryUrl} target="_blank" rel="noopener noreferrer">
-          <span className="icon">
-            <Icon name="i-external" />
-          </span>
-          <span className="txt">
-            <span className="k">GitHub</span>
-            <br />
-            <span className="v">{repository}</span>
-          </span>
-        </a>
-      ) : null}
-
-      {connection ? (
-        <>
-          <p className="gh-status" data-status={connection.status}>
-            {STATUS_TEXT[connection.status] ?? '연결 상태를 알 수 없어요.'}
-          </p>
-          {connection.lastError ? (
-            <p className="gh-status-detail">
-              {ERROR_TEXT[connection.lastErrorCode ?? ''] ?? connection.lastError}
-            </p>
-          ) : null}
-
-        </>
-      ) : (
-        <p className="gh-status">
-          아직 GitHub App이 연결되지 않았어요.
-        </p>
-      )}
-
-      {showInstallButton ? (
-        <>
-          <div className="form-group" style={{ marginTop: '0.875rem' }}>
-            <label className="form-label" htmlFor={`githubRepository-${partyId}`}>
-              GitHub 저장소 주소
-            </label>
-            <TextField
-              id={`githubRepository-${partyId}`}
-              type="url"
-              inputMode="url"
-              placeholder="https://github.com/owner/repository"
-              value={repositoryInput}
-              onChange={(event) => setRepositoryInput(event.target.value)}
-              disabled={starting}
-            />
-            <p className="form-hint">이 파티에서 사용할 저장소 하나만 연결합니다.</p>
-          </div>
-          <div className="github-install-guide" aria-live="polite">
-            <p className="github-install-guide-title">저장소 단위로 연결하기</p>
-            <p className="github-install-guide-repository">{selectedRepository}</p>
-            <ol>
-              <li>GitHub에서 이 저장소를 소유한 개인 계정 또는 조직을 선택하세요.</li>
-              <li>
-                <b>Only select repositories</b>를 선택하세요.
-              </li>
-              <li>목록에서 위 저장소를 선택한 뒤 설치를 완료하세요.</li>
-            </ol>
-          </div>
-          <div className="side-card-action">
-            <button type="button" className="btn btn-ghost" disabled={starting} onClick={install}>
-              <Icon name="i-external" />
-              {starting ? 'GitHub로 이동 중…' : 'GitHub에서 저장소 선택하기'}
-            </button>
-          </div>
-        </>
-      ) : null}
-
-      {error ? <p className="form-error">{error}</p> : null}
-    </>
-  );
+export function GithubConnectionCard({ partyId, connection: initialConnection, isOwner, ownerId, initialRepositoryUrl, canSelectRepository, autoOpenManager = false }: { partyId: string; connection: PartyGithubConnection | null; isOwner: boolean; ownerId: string; initialRepositoryUrl?: string; canSelectRepository: boolean; autoOpenManager?: boolean }) {
+  const router = useRouter();
+  const [connection, setConnection] = useState(initialConnection); const [repositoryUrl, setRepositoryUrl] = useState(initialRepositoryUrl ?? ''); const [viewerIsOwner, setViewerIsOwner] = useState(isOwner); const [repositories, setRepositories] = useState<ConnectableGithubRepository[] | null>(null); const [authorization, setAuthorization] = useState<GithubAppUserAuthorizationStatus | null>(null); const [managerOpen, setManagerOpen] = useState(false); const [disconnectOpen, setDisconnectOpen] = useState(false); const [busy, setBusy] = useState(false); const [message, setMessage] = useState('');
+  const active = connection?.status === 'ACTIVE' || connection?.status === 'SYNCING';
+  const refresh = async () => setConnection(await fetchPartyGithubConnection(partyId));
+  const saveUrl = async () => { setBusy(true); setMessage(''); try { setRepositoryUrl(await updatePartyGithubRepository(partyId, repositoryUrl)); setMessage('GitHub 레포 주소를 저장했어요.'); } catch (e) { setMessage(errorText(e)); } finally { setBusy(false); } };
+  const loadManager = async () => { setManagerOpen(true); setMessage(''); if (active) return; setBusy(true); setRepositories(null); try { const status = await fetchGithubAppUserAuthorizationStatus(); setAuthorization(status); if (status.authorized && !status.expired) setRepositories(await fetchConnectableGithubRepositories()); } catch (e) { setMessage(errorText(e)); } finally { setBusy(false); } };
+  useEffect(() => {
+    if (!autoOpenManager || !isOwner || !canSelectRepository) return;
+    const timer = window.setTimeout(() => { void loadManager(); }, 0);
+    window.history.replaceState(null, '', window.location.pathname);
+    return () => window.clearTimeout(timer);
+  // 인증 완료 직후 한 번만 모달을 여는 흐름이다.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // SSR에서 세션 쿠키 전달이 지연돼도, 실제 파티장은 브라우저에서 관리 버튼을 잃지 않는다.
+  useEffect(() => {
+    let cancelled = false;
+    void fetchMyProfileOrNull().then((profile) => {
+      if (!cancelled && profile?.id === ownerId) setViewerIsOwner(true);
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [ownerId]);
+  const authorize = async () => { setBusy(true); setMessage(''); try { sessionStorage.setItem('githubAppReturnPath', `/party/${partyId}/team`); console.info('[GITHUB_APP_OAUTH_DIAG] Authorization URL request started', { partyId }); const { authorizationUrl } = await startGithubAppUserAuthorization(); console.info('[GITHUB_APP_OAUTH_DIAG] Authorization URL received', { partyId, hasAuthorizationUrl: Boolean(authorizationUrl) }); if (!authorizationUrl) throw new Error('GitHub authorization URL is empty'); console.info('[GITHUB_APP_OAUTH_DIAG] Redirecting to GitHub authorization page', { partyId }); window.location.assign(authorizationUrl); } catch (e) { console.error('[GITHUB_APP_OAUTH_DIAG] Authorization redirect failed', e); setMessage(errorText(e)); setBusy(false); } };
+  const install = async () => { setBusy(true); setMessage(''); try { sessionStorage.setItem('githubAppReturnPath', `/party/${partyId}/team`); window.location.assign((await startGithubAppInstall()).installationUrl); } catch (e) { setMessage(errorText(e)); setBusy(false); } };
+  const connect = async (repo: ConnectableGithubRepository) => { const previousConnection = connection; setBusy(true); setMessage(''); setConnection({ status: 'SYNCING', repositoryFullName: repo.fullName, lastErrorCode: null, lastError: null }); setManagerOpen(false); try { setRepositoryUrl(await updatePartyGithubRepository(partyId, repo.htmlUrl)); await connectPartyGithubRepository(partyId, repo.installationRepositoryId); await refresh(); router.refresh(); setMessage('PR 자동 연동이 시작됐어요. 기존 PR과 새 변경 사항이 이 Party에 반영됩니다.'); } catch (e) { try { await refresh(); } catch { setConnection(previousConnection); } setMessage(errorText(e)); } finally { setBusy(false); } };
+  const disconnect = async () => { setBusy(true); setMessage(''); try { await disconnectPartyGithubRepository(partyId); await refresh(); router.refresh(); setDisconnectOpen(false); setMessage('PR 자동 연동을 해제했어요. 레포 주소와 기존 PR 이력은 유지됩니다.'); } catch (e) { setMessage(errorText(e)); } finally { setBusy(false); } };
+  // 완료된 Party만 연동 변경을 막는다. 버튼 노출과 별개로 모든 변경 요청은 서버가 파티장 권한을 검증한다.
+  const canManage = viewerIsOwner && connection?.status !== 'ARCHIVED'; const canDisconnect = viewerIsOwner && Boolean(connection?.repositoryFullName) && connection?.status !== 'ARCHIVED' && connection?.status !== 'DISCONNECTED';
+  const showAuthorization = authorization && (!authorization.authorized || authorization.expired);
+  return <><p className="gh-status" data-status={connection?.status}>{connection ? STATUS[connection.status] : '레포 주소만 등록하거나, 필요하면 PR 자동 연동을 시작할 수 있어요.'}</p>{active && connection?.repositoryFullName ? <div className="github-binding-notice" data-status={connection.status}><p><b>{connection.repositoryFullName}</b> 레포의 PR이 이 Party에 자동 연동되고 있어요.</p><span>{connection.status === 'SYNCING' ? '기존 PR을 가져오는 중입니다. 완료되면 목록이 자동으로 갱신돼요.' : '새 PR 생성·수정·머지 내역이 실시간으로 반영됩니다.'}</span></div> : null}{connection?.status === 'ARCHIVED' ? <p className="gh-status-detail">PR 이력은 유지되며 실시간 동기화만 종료됩니다.</p> : null}{viewerIsOwner ? <div className="github-url-editor"><label className="form-label" htmlFor={`githubRepository-${partyId}`}>GitHub 레포 주소 <span className="form-hint">(선택)</span></label><TextField id={`githubRepository-${partyId}`} type="url" inputMode="url" placeholder="https://github.com/owner/repository" value={repositoryUrl} onChange={(event) => setRepositoryUrl(event.target.value)} disabled={busy || active} /><button type="button" className="btn btn-ghost" disabled={busy || active || !repositoryUrl.trim()} onClick={saveUrl}>레포 주소 저장</button>{active ? <p className="github-url-warning">PR 자동 연동 중인 레포를 바꾸려면 먼저 연동을 해제해 주세요.</p> : null}</div> : repositoryUrl ? <a className="github-repository-name" href={repositoryUrl} target="_blank" rel="noopener noreferrer">{repositoryUrl}</a> : null}{viewerIsOwner ? <div className="github-actions">{canDisconnect ? <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setDisconnectOpen(true)}>PR 자동 연동 해제</button> : null}{canManage ? <button type="button" className="btn btn-primary" disabled={busy} onClick={loadManager}>GitHub 레포 관리 · PR 자동 연동</button> : null}</div> : null}{message ? <p className="form-error">{message}</p> : null}<Modal open={managerOpen} title="GitHub 레포 관리" description={active ? '현재 PR 연동은 유지됩니다. GitHub App 설치 범위에 다른 레포를 추가할 수 있어요.' : '레포를 선택하면 이 Party의 레포 주소가 자동 저장되고 PR 자동 연동이 시작됩니다.'} onClose={() => setManagerOpen(false)}><div className="github-manager"><div className="github-manager-actions"><button type="button" className="btn btn-ghost" disabled={busy} onClick={install}>GitHub App 설치 · 레포 추가</button></div>{active ? <div className="github-empty"><p>다른 레포를 GitHub App 설치 범위에 추가할 수 있어요.</p></div> : busy ? <p className="goal-empty">GitHub 정보를 확인하고 있어요…</p> : showAuthorization ? <div className="github-empty"><p>GitHub 권한 인증이 필요하거나 만료됐어요.</p><button type="button" className="btn btn-primary" onClick={authorize}>GitHub 권한 인증</button></div> : repositories?.length ? <ul className="github-repository-list">{repositories.map((repo) => <li key={repo.installationRepositoryId}><span>{repo.fullName}</span><button type="button" className="btn btn-primary" onClick={() => connect(repo)}>이 레포로 PR 연동</button></li>)}</ul> : <div className="github-empty"><p>현재 연결 가능한 레포가 없어요.</p><ul><li>GitHub App 설치 범위에 레포를 추가할 수 있어요.</li><li>조직 App 승인 또는 SAML SSO가 필요할 수 있어요.</li></ul></div>}</div></Modal><Modal open={disconnectOpen} title="PR 자동 연동을 해제할까요?" description="PR 자동 연동만 해제되며 GitHub App 설치, 레포 주소, 기존 PR 이력은 유지됩니다." confirmLabel="연동 해제" cancelLabel="취소" onConfirm={disconnect} onClose={() => setDisconnectOpen(false)} /></>;
 }

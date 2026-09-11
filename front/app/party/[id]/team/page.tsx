@@ -13,14 +13,17 @@ import {
   fetchPartyGithubConnectionOrNull,
   fetchPartyPrGroupsOrEmpty,
   membersOf,
+  fetchMyProfileOrNull,
 } from '@/lib/api';
 
-export default async function TeamSpacePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function TeamSpacePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ githubRepoManager?: string }> }) {
   const { id } = await params;
-  const [party, githubConnection, prGroups] = await Promise.all([
+  const { githubRepoManager } = await searchParams;
+  const [party, githubConnection, prGroups, currentUser] = await Promise.all([
     fetchParty(id),
     fetchPartyGithubConnectionOrNull(id),
     fetchPartyPrGroupsOrEmpty(id),
+    fetchMyProfileOrNull(),
   ]);
 
   const leader = party.leader;
@@ -110,15 +113,14 @@ export default async function TeamSpacePage({ params }: { params: Promise<{ id: 
                 title="진행 기록 · Pull Request"
                 description="연결된 GitHub 저장소의 PR을 웹훅으로 받아 쌓아둔 목록이에요. 파티가 끝나면 이 기록이 참여자 성취의 근거가 됩니다."
               >
-                <PullRequestList partyId={id} groups={prGroups} />
+                <PullRequestList
+                  key={`${githubConnection?.status ?? 'NOT_CONNECTED'}:${prGroups.flatMap((group) => group.pullRequests.map((pr) => `${pr.id}-${pr.updatedAt}`)).join(',')}`}
+                  partyId={id}
+                  groups={prGroups}
+                  liveSyncEnabled={githubConnection?.status === 'ACTIVE' || githubConnection?.status === 'SYNCING'}
+                />
               </Block>
 
-              <Block title="진행 기록 · 커밋">
-                <p className="checklist-note">
-                  커밋 단위 수집·승인·댓글 API는 아직 제공되지 않습니다. 현재 서버에서 동기화하는
-                  진행 기록은 위 PR 목록입니다.
-                </p>
-              </Block>
             </>
           }
           side={
@@ -130,13 +132,20 @@ export default async function TeamSpacePage({ params }: { params: Promise<{ id: 
                 </div>
               </SideCard>
 
-              <FinishPartyButton partyId={party.id} />
+              <FinishPartyButton
+                partyId={party.id}
+                isOwner={currentUser?.id === party.leader.id}
+              />
 
               <SideCard title="저장소">
                 <GithubConnectionCard
                   partyId={id}
                   connection={githubConnection}
-                  fallbackRepository={party.githubRepoUrl}
+                  isOwner={currentUser?.id === party.leader.id}
+                  ownerId={party.leader.id}
+                  initialRepositoryUrl={party.githubRepoUrl}
+                  canSelectRepository={party.status === 'IN_PROGRESS'}
+                  autoOpenManager={githubRepoManager === '1'}
                 />
               </SideCard>
             </>
