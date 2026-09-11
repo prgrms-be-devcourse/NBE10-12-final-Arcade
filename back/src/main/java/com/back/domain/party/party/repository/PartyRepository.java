@@ -86,6 +86,10 @@ public interface PartyRepository extends JpaRepository<Party, Long>,PartyContest
     @Query("update Party p set p.likeCount = case when p.likeCount > 0 then p.likeCount - 1 else 0 end where p.id = :id")
     void decreaseLikeCount(@Param("id") long id);
 
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("update Party p set p.viewCount = p.viewCount + 1 where p.id = :id")
+    void increaseViewCount(@Param("id") long id);
+
     @Query("select p from Party p join fetch p.owner where p.id in :ids")
     List<Party> findAllByIdIn(@Param("ids") List<Long> ids);
 
