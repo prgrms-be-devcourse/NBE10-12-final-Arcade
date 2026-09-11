@@ -205,6 +205,7 @@ public class ApiV1PartyShowcaseControllerTest {
 
         Cookie viewCookie = first.andReturn().getResponse().getCookie("showcase_viewed_" + party.getId());
         org.assertj.core.api.Assertions.assertThat(viewCookie).isNotNull();
+        org.assertj.core.api.Assertions.assertThat(viewCookie.getPath()).isEqualTo("/api/v1/parties");
 
         mvc.perform(get("/api/v1/parties/" + party.getId() + "/showcase").cookie(viewCookie))
                 .andExpect(status().isOk())

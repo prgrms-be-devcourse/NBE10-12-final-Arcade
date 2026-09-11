@@ -574,6 +574,7 @@ public class ApiV1PartyControllerTest {
 
         Cookie viewCookie = first.andReturn().getResponse().getCookie("party_viewed_" + party.getId());
         assertThat(viewCookie).isNotNull();
+        assertThat(viewCookie.getPath()).isEqualTo("/api/v1/parties");
 
         mvc.perform(get("/api/v1/parties/" + party.getId()).cookie(viewCookie))
                 .andExpect(status().isOk())

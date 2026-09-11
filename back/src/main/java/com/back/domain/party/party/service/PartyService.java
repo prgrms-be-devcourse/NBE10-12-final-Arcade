@@ -331,7 +331,8 @@ public class PartyService {
             throw new ServiceException("404-1", "존재하지 않는 파티입니다.");
         }
         if (countView) {
-            party.increaseViewCount();
+            partyRepository.increaseViewCount(partyId);
+            party = findByIdOrThrow(partyId);
         }
         return new PartyDto(party, partyMemberRepository.countApplicantsByPartyId(partyId));
     }

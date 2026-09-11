@@ -123,10 +123,6 @@ public class Party extends BaseEntity {
         position.assignParty(this);
     }
 
-    public void increaseViewCount() {
-        this.viewCount++;
-    }
-
     public boolean isOwnedBy(Member member) {
         return this.owner.getId().equals(member.getId());
     }

@@ -514,6 +514,7 @@ public class ApiV1ContestControllerTest {
 
         Cookie viewCookie = first.andReturn().getResponse().getCookie("contest_viewed_" + contestId);
         Assertions.assertNotNull(viewCookie);
+        Assertions.assertEquals("/api/v1/contests", viewCookie.getPath());
 
         mvc.perform(get("/api/v1/contests/" + contestId).cookie(viewCookie))
                 .andExpect(status().isOk())
