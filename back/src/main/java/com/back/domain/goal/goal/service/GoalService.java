@@ -29,10 +29,13 @@ import com.back.domain.todo.todo.entity.PersonalTodo;
 import com.back.domain.todo.todo.repository.PersonalTodoItemRepository;
 import com.back.domain.todo.todo.repository.PersonalTodoRepository;
 import com.back.global.exception.ServiceException;
+import com.back.global.storage.FileStorage;
+import org.springframework.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -58,6 +61,16 @@ public class GoalService {
     // CHECKLIST 성취에 연결된 개인 TODO. 성취 -> TODO 단방향이라 이쪽에서만 읽는다.
     private final PersonalTodoRepository personalTodoRepository;
     private final PersonalTodoItemRepository personalTodoItemRepository;
+
+    // CONTEST 증빙 파일. 공개 URL 을 만들지 않고 키만 받아 둔다.
+    private final FileStorage fileStorage;
+
+    /** 증빙을 모아두는 디렉터리. 프로필 이미지(profile/)와 섞이지 않게 분리한다. */
+    private static final String EVIDENCE_DIRECTORY = "goal-evidence";
+
+    /** 수상 확인서(PDF)와 결과 발표 화면 캡처(PNG·JPG). 화면의 업로드 컴포넌트와 같은 기준이다. */
+    private static final Set<String> ALLOWED_EVIDENCE_TYPES =
+            Set.of("image/png", "image/jpeg", "application/pdf");
 
     @Transactional
     public GoalDto createSelfReported(Member owner, GoalCreateReqBody request) {
@@ -176,7 +189,12 @@ public class GoalService {
     public GoalDetailResponseDto getGoal(Member actor, long goalId) {
         Goal goal = findGoal(goalId);
 
-        return new GoalDetailResponseDto(goal, buildProjectContext(goal, actor), buildTodoContext(goal));
+        return new GoalDetailResponseDto(
+                goal,
+                buildProjectContext(goal, actor),
+                buildTodoContext(goal),
+                actor != null && goal.isOwnedBy(actor)
+        );
     }
 
     /**
@@ -316,6 +334,61 @@ public class GoalService {
         goal.checkDeletable();
 
         goalRepository.delete(goal);
+    }
+
+    /**
+     * 증빙 파일 업로드. 본인의 CONTEST 성취에만 올릴 수 있고, 한 성취에 한 건만 보관한다.
+     *
+     * 다시 올리면 이전 파일을 덮어쓰고 검수 상태가 PENDING 으로 돌아간다.
+     * 이전 파일은 스토리지에 남는다.
+     * ponytail: 고아 파일을 그대로 둔다. 쌓이면 스토리지 수명주기 규칙으로 치우는 쪽이 싸다.
+     *
+     * 예외
+     * - 404-1 : 존재하지 않는 성취
+     * - 403-1 : 남의 성취
+     * - 409-1 : 자동기록(PLATFORM_VERIFIED) 성취
+     * - 400-4 : CONTEST 가 아닌 성취
+     * - 400-1 : 파일이 비었거나, 허용하지 않는 형식이거나, 10MB 초과
+     */
+    @Transactional
+    public void uploadEvidence(Member actor, long goalId, MultipartFile file) {
+        Goal goal = findGoal(goalId);
+
+        goal.checkOwnedBy(actor);
+        goal.checkModifiable();
+
+        if (!(goal instanceof PersonalContest contest)) {
+            throw new ServiceException("400-4", "증빙은 수상·대회 성취에만 올릴 수 있습니다.");
+        }
+
+        validateEvidence(file);
+
+        String storageKey = fileStorage.uploadKey(file, EVIDENCE_DIRECTORY);
+
+        // 파일명은 사용자가 정하는 값이라 경로 조각을 떼고 보관한다.
+        // 저장 경로에는 안 쓰이지만(키는 UUID) 나중에 다운로드 헤더에 실릴 값이다.
+        contest.attachEvidence(
+                storageKey,
+                StringUtils.getFilename(StringUtils.cleanPath(file.getOriginalFilename())),
+                file.getContentType(),
+                file.getSize()
+        );
+    }
+
+    private void validateEvidence(MultipartFile file) {
+        if (file.isEmpty()) {
+            throw new ServiceException("400-1", "증빙 파일이 비어 있습니다.");
+        }
+
+        // Content-Type 헤더가 없는 파트면 getContentType() 이 null 이다 (MemberProfileService 와 같은 이유).
+        String contentType = file.getContentType();
+
+        if (contentType == null || !ALLOWED_EVIDENCE_TYPES.contains(contentType)) {
+            throw new ServiceException("400-1", "png, jpg, pdf 파일만 올릴 수 있습니다.");
+        }
+
+        // 크기는 서블릿 멀티파트 한도(10MB)가 먼저 거른다 - MaxUploadSizeExceededException 을
+        // GlobalExceptionHandler 가 같은 400-1 로 바꾼다. 여기서 또 재는 건 도달하지 않는 코드다.
     }
 
     private Goal findGoal(long goalId) {

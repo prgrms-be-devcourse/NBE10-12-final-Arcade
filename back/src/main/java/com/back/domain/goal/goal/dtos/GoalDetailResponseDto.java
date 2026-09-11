@@ -31,7 +31,8 @@ public record GoalDetailResponseDto(
         LocalDateTime createDate,
         LocalDateTime modifyDate
 ) {
-    public GoalDetailResponseDto(Goal goal, ProjectContextDto project, TodoContextDto todo) {
+    /** owner - 지금 보고 있는 사람이 이 성취의 주인인지. 본인에게만 보일 값(증빙 반려 사유)을 가른다 */
+    public GoalDetailResponseDto(Goal goal, ProjectContextDto project, TodoContextDto todo, boolean owner) {
         this(
                 goal.getId(),
                 goal.getOwner().getId(),
@@ -40,7 +41,7 @@ public record GoalDetailResponseDto(
                 goal.getStatus(),
                 goal.getSource(),
                 goal.getSourcePartyId(),
-                GoalDetailDto.from(goal),
+                GoalDetailDto.from(goal, owner),
                 project,
                 todo,
                 goal.getCreateDate(),

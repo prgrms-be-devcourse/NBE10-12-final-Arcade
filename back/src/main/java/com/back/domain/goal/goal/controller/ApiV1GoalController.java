@@ -17,6 +17,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 import java.util.List;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -25,7 +26,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/goals")
@@ -193,6 +196,39 @@ public class ApiV1GoalController {
                 "성취 수정 성공",
                 goalDto
         );
+    }
+
+    @PostMapping(value = "/{goalId}/evidence", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(
+            summary = "성취 증빙 파일 업로드",
+            description = """
+                    수상·대회(CONTEST) 성취에 증빙 파일을 올린다. 본인 성취에만 올릴 수 있다.
+
+                    파일은 비공개로 보관되고 응답에도 내려가지 않는다 - 실명·소속이 찍힌 문서라
+                    링크를 아는 누구나 받을 수 있으면 안 된다. 확인은 관리자 화면에서 한다.
+
+                    한 성취에 한 건만 보관한다. 다시 올리면 이전 파일을 대체하고,
+                    검수 상태는 PENDING 으로 되돌아간다 - 승인 뒤 파일만 바꿔치기하는 걸 막는다.
+                    올라간 결과는 성취 상세(GET /goals/{goalId})의 detail 에서 확인한다.
+
+                    png, jpg, pdf 만 받고 10MB 까지다.
+
+                    예외
+                    - 400-1 : 파일이 비었거나, 허용하지 않는 형식이거나, 10MB 초과
+                    - 400-4 : CONTEST 가 아닌 성취
+                    - 401-1 : 미로그인
+                    - 403-1 : 남의 성취
+                    - 404-1 : 존재하지 않는 성취
+                    - 409-1 : 자동기록된 성취
+                    """
+    )
+    public RsData<Void> uploadEvidence(
+            @PathVariable long goalId,
+            @RequestPart("file") MultipartFile file
+    ) {
+        goalService.uploadEvidence(rq.getActorFromDb(), goalId, file);
+
+        return new RsData<>("201-1", "증빙 파일 업로드 성공");
     }
 
     @DeleteMapping("/{goalId}")
