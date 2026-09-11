@@ -7,8 +7,28 @@ import { BackLink } from '@/components/ui/BackLink';
 import { Block, DetailGrid, SideCard } from '@/components/ui/Block';
 import { LeaderRow } from '@/components/ui/Avatar';
 import { ChipRow, SkillChip } from '@/components/ui/Tag';
-import { fetchExhibition, fetchExhibitionComments, fetchExhibitionCommits } from '@/lib/api';
-import { MOCK_CURRENT_USER_ID } from '@/lib/mock';
+import { notFound } from 'next/navigation';
+import {
+  ApiError,
+  fetchExhibition,
+  fetchExhibitionComments,
+  fetchExhibitionCommits,
+  fetchMyProfileOrNull,
+} from '@/lib/api';
+import type { ExhibitionDetail } from '@/lib/types';
+
+/**
+ * 없는 파티이거나 아직 게시하지 않은 전시면 404 다 (ARC-160 에서 게시본 전용 경로가 됐다).
+ * notFound() 는 렌더 경로에서 던져야 해서 여기서 부르지 않고 결과만 돌려준다.
+ */
+async function loadExhibition(id: string): Promise<ExhibitionDetail | null> {
+  try {
+    return await fetchExhibition(id);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  }
+}
 
 export default async function ExhibitionDetailPage({
   params,
@@ -23,8 +43,8 @@ export default async function ExhibitionDetailPage({
    * 전시관 '목록' 카드는 다르다 - toExhibitionProject 의 id 는 **goal id** 이고 partyId 는
    * sourcePartyId 에 따로 담긴다. 목록 쪽 규칙을 여기 적용하지 말 것.
    */
-  const [project, commits, comments] = await Promise.all([
-    fetchExhibition(id),
+  const [project, commits, comments, me] = await Promise.all([
+    loadExhibition(id),
     fetchExhibitionCommits(id) as Promise<
       {
         sha: string;
@@ -36,7 +56,10 @@ export default async function ExhibitionDetailPage({
       }[]
     >,
     fetchExhibitionComments(id),
+    fetchMyProfileOrNull(),
   ]);
+
+  if (!project) notFound();
   const githubUrl = project.links.find((link) => link.label === 'GitHub')?.url;
 
   return (
@@ -123,7 +146,7 @@ export default async function ExhibitionDetailPage({
                 작성한 댓글은 새로고침하면 사라진다 - lib/api/exhibitions.ts 의 댓글 함수들이
                 목 모드로 고정돼 있기 때문이다. 서버가 생기면 그쪽만 열면 된다.
               */}
-              <CommentSection exhibitionId={project.id} comments={comments} />
+              <CommentSection exhibitionId={project.id} comments={comments} viewer={me} />
             </>
           }
           side={
@@ -132,7 +155,7 @@ export default async function ExhibitionDetailPage({
                 <div key={member.id || member.name} className="member-contact-row">
                   {/* 서버 전시 상세는 참여자를 이름 목록으로만 준다 - id 가 없으면 링크를 걸지 않는다 */}
                   <LeaderRow user={member} href={member.id ? `/profile/${member.id}` : undefined} card />
-                  {member.id && member.id !== MOCK_CURRENT_USER_ID ? (
+                  {member.id && member.id !== me?.id ? (
                     <SendMessageButton recipient={member} variant="icon" />
                   ) : null}
                 </div>
