@@ -1,125 +1,66 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Modal } from '@/components/ui/Modal';
 import { FormGroup, TextField } from '@/components/ui/Field';
-import {
-  changePassword,
-  confirmEmailVerification,
-  requestEmailVerification,
-} from '@/lib/api';
+import { ApiError, changePassword } from '@/lib/api';
+import { passwordPolicyError } from '@/lib/password';
 
-type Step = 'request' | 'verify' | 'reset' | 'done';
+export function PasswordChangeModal({ onClose }: { onClose: () => void }) {
+  const router = useRouter();
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
 
-const STEP_CONFIRM: Record<Step, string | undefined> = {
-  request: '인증번호 받기',
-  verify: '인증 확인',
-  reset: '비밀번호 변경',
-  done: undefined,
-};
+  const submit = async () => {
+    if (submitting) return;
+    if (!currentPassword) return setError('현재 비밀번호를 입력해 주세요.');
+    const policyError = passwordPolicyError(newPassword);
+    if (policyError) return setError(policyError);
+    if (newPassword !== newPasswordConfirm) return setError('새 비밀번호가 일치하지 않아요.');
 
-/**
- * 비밀번호 변경 다이얼로그.
- *
- * 프로필 수정 폼과 분리해 별도 창으로 띄운다 — 비밀번호 변경은 누르는 즉시 서버에 반영되는데,
- * 취소·저장 버튼이 있는 폼 안에 있으면 저장을 눌러야 반영되는 것처럼 보이기 때문이다.
- *
- * 열려 있을 때만 렌더링되므로, 다시 열면 자연스럽게 첫 단계부터 시작한다.
- */
-export function PasswordChangeModal({ email, onClose }: { email: string; onClose: () => void }) {
-  const [step, setStep] = useState<Step>('request');
-  const [message, setMessage] = useState('');
-  const [messageState, setMessageState] = useState<'idle' | 'ok' | 'error'>('idle');
-  const [code, setCode] = useState('');
-  const [password, setPassword] = useState('');
-  const [passwordConfirm, setPasswordConfirm] = useState('');
-
-  const fail = (text: string) => {
-    setMessageState('error');
-    setMessage(text);
+    setError('');
+    setSubmitting(true);
+    try {
+      await changePassword({ currentPassword, newPassword, newPasswordConfirm });
+      setDone(true);
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : '비밀번호를 변경하지 못했어요.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const next = async () => {
-    if (step === 'request') {
-      await requestEmailVerification(email);
-      setStep('verify');
-      setMessageState('idle');
-      setMessage(`${email} 로 인증번호를 보냈어요. 메일함을 확인해 주세요.`);
-      return;
-    }
-
-    if (step === 'verify') {
-      const result = await confirmEmailVerification(email, code);
-      if (!result.verified) return fail(result.message);
-      setStep('reset');
-      setMessageState('ok');
-      setMessage(result.message);
-      return;
-    }
-
-    if (step === 'reset') {
-      if (password !== passwordConfirm) return fail('비밀번호가 일치하지 않아요.');
-      const result = await changePassword({ verificationCode: code, newPassword: password });
-      if (!result.changed) return fail(result.message);
-      setStep('done');
-      setMessageState('ok');
-      setMessage(result.message);
-    }
+  const finish = () => {
+    router.replace('/login');
+    router.refresh();
   };
 
   return (
     <Modal
       open
       title="비밀번호 변경"
-      description="본인 확인을 위해 이메일 인증을 거친 뒤 새 비밀번호를 설정해요."
-      confirmLabel={STEP_CONFIRM[step]}
-      cancelLabel={step === 'done' ? '닫기' : '취소'}
-      onConfirm={next}
-      onClose={onClose}
+      description={done ? '기존 로그인 세션이 모두 종료됐어요.' : '본인 확인을 위해 현재 비밀번호가 필요해요.'}
+      confirmLabel={done ? undefined : submitting ? '변경 중…' : '비밀번호 변경'}
+      cancelLabel={done ? '로그인하러 가기' : '취소'}
+      onConfirm={submit}
+      onClose={done ? finish : onClose}
+      dismissible={!submitting}
+      footNote={error ? <span className="form-field-error" role="alert">{error}</span> : undefined}
     >
-      <FormGroup label="가입 이메일">
-        <TextField value={email} readOnly />
-      </FormGroup>
-
-      {step === 'verify' ? (
-        <FormGroup label="인증번호">
-          <TextField
-            placeholder="메일로 받은 6자리 인증번호"
-            maxLength={6}
-            value={code}
-            onChange={(event) => setCode(event.target.value)}
-            autoFocus
-          />
-        </FormGroup>
-      ) : null}
-
-      {step === 'reset' ? (
+      {done ? (
+        <div className="password-change-success" role="status">새 비밀번호로 다시 로그인해 주세요.</div>
+      ) : (
         <>
-          <FormGroup label="새 비밀번호">
-            <TextField
-              type="password"
-              placeholder="8자 이상"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              autoFocus
-            />
-          </FormGroup>
-          <FormGroup label="새 비밀번호 확인">
-            <TextField
-              type="password"
-              placeholder="비밀번호 재입력"
-              value={passwordConfirm}
-              onChange={(event) => setPasswordConfirm(event.target.value)}
-            />
-          </FormGroup>
+          <FormGroup label="현재 비밀번호" htmlFor="current-password" required><TextField id="current-password" type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} autoFocus /></FormGroup>
+          <FormGroup label="새 비밀번호" htmlFor="change-new-password" hint="8~64자, 문자·숫자·특수문자 포함, 공백 제외" required><TextField id="change-new-password" type="password" minLength={8} maxLength={64} autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /></FormGroup>
+          <FormGroup label="새 비밀번호 확인" htmlFor="change-new-password-confirm" required><TextField id="change-new-password-confirm" type="password" minLength={8} maxLength={64} autoComplete="new-password" value={newPasswordConfirm} onChange={(event) => setNewPasswordConfirm(event.target.value)} /></FormGroup>
         </>
-      ) : null}
-
-      {message ? (
-        <p className="verify-status" data-state={messageState}>
-          {message}
-        </p>
-      ) : null}
+      )}
     </Modal>
   );
 }

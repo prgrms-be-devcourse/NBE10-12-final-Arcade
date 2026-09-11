@@ -99,7 +99,7 @@ class PartyServiceAdminTest {
         PartyDto created = createParty(owner, "숨김 상세 테스트 파티");
         partyService.hide(created.id());
 
-        assertThatThrownBy(() -> partyService.getDetail(created.id()))
+        assertThatThrownBy(() -> partyService.getDetail(created.id(), true))
                 .isInstanceOf(ServiceException.class)
                 .hasMessageContaining("존재하지 않는 파티");
     }
