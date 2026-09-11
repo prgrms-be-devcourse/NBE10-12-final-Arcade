@@ -141,6 +141,24 @@ public class ApiV1PartyShowcaseControllerTest {
     }
 
     @Test
+    @DisplayName("전시 조회: 게시 전 초안을 보면 조회 쿠키를 발급하지 않는다")
+    @WithUserDetails("user2@test.com")
+    void getDraftBeforePublishDoesNotIssueViewCookie() throws Exception {
+        Party party = saveParty("user1@test.com");
+        Position position = party.getPositions().get(0);
+        Member approvedMember = memberRepository.findByEmail("user2@test.com").orElseThrow();
+        PartyMember partyMember = new PartyMember(party, approvedMember, position, null);
+        partyMember.approve();
+        partyMemberRepository.save(partyMember);
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/" + party.getId() + "/showcase"));
+
+        resultActions.andExpect(status().isOk());
+        Cookie viewCookie = resultActions.andReturn().getResponse().getCookie("showcase_viewed_" + party.getId());
+        org.assertj.core.api.Assertions.assertThat(viewCookie).isNull();
+    }
+
+    @Test
     @DisplayName("전시 초안 조회: 이미 게시됐으면 파티원이 아니어도 볼 수 있다")
     @WithUserDetails("user1@test.com")
     void getDraftAfterPublishAsNonMember() throws Exception {

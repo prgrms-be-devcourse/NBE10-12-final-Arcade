@@ -33,7 +33,7 @@ public class ApiV1PartyShowcaseController {
 
         PartyShowcaseDto dto = partyShowcaseService.getDraft(partyId, rq.getActorFromDb(), !alreadyViewed);
 
-        if (!alreadyViewed) {
+        if (!alreadyViewed && dto.published()) {
             rq.setCookie(viewCookieName, "true", VIEW_COOKIE_MAX_AGE_SECONDS);
         }
 
