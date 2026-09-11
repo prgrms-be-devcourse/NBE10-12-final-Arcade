@@ -138,7 +138,10 @@ export default async function TeamSpacePage({ params, searchParams }: { params: 
                 </div>
               </SideCard>
 
-              <FinishPartyButton partyId={party.id} />
+              <FinishPartyButton
+                partyId={party.id}
+                isOwner={currentUser?.id === party.leader.id}
+              />
 
               <SideCard title="저장소">
                 <GithubConnectionCard
