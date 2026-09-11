@@ -1,9 +1,14 @@
 package com.back.domain.member.member.controller;
 
+import com.back.domain.goal.goal.service.GoalService;
 import com.back.domain.member.member.dtos.MemberDetailDto;
+import com.back.domain.member.member.dtos.MemberHistoryDto;
 import com.back.domain.member.member.dtos.MemberListItemDto;
+import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.Role;
 import com.back.domain.member.member.service.MemberService;
+import com.back.domain.party.party.service.PartyService;
+import com.back.global.exception.ServiceException;
 import com.back.global.rsData.RsData;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -17,6 +22,8 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class ApiV1AdminMemberController {
     private final MemberService memberService;
+    private final PartyService partyService;
+    private final GoalService goalService;
 
     @GetMapping
     public RsData<Page<MemberListItemDto>> list(
@@ -49,5 +56,19 @@ public class ApiV1AdminMemberController {
                 request.active() ? "회원 정지 해제 성공" : "회원 정지 성공",
                 null
         );
+    }
+
+    @GetMapping("/{member-id}/history")
+    public RsData<MemberHistoryDto> history(
+            @PathVariable("member-id") long memberId) {
+        Member member = memberService.findById(memberId)
+                .orElseThrow(() -> new ServiceException("404-1", "회원을 찾을 수 없습니다."));
+
+        MemberHistoryDto history = new MemberHistoryDto(
+                partyService.getHistoryForAdmin(member),
+                goalService.getAchievementsForAdmin(member)
+        );
+
+        return new RsData<>("200-1", "회원 이력 조회 성공", history);
     }
 }

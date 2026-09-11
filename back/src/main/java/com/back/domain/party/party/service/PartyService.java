@@ -9,6 +9,7 @@ import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.party.application.entity.PartyMemberStatus;
 import com.back.domain.party.application.repository.PartyMemberRepository;
+import com.back.domain.party.party.dtos.MemberPartyHistoryDto;
 import com.back.domain.party.party.dtos.PartyDto;
 import com.back.domain.party.party.dtos.PartyListItemDto;
 import com.back.domain.party.party.entity.Party;
@@ -350,5 +351,21 @@ public class PartyService {
                 com.back.domain.party.position.entity.PartyStatus.RECRUITING,
                 PageRequest.of(0, 3)
         ).stream().map(PartyListItemDto::new).toList();
+    }
+
+    public MemberPartyHistoryDto getHistoryForAdmin(Member member) {
+        List<MemberPartyHistoryDto.OwnedPartyItem> ownedParties = partyRepository
+                .findByOwnerOrderByCreateDateDesc(member)
+                .stream()
+                .map(MemberPartyHistoryDto.OwnedPartyItem::new)
+                .toList();
+
+        List<MemberPartyHistoryDto.AppliedPartyItem> appliedParties = partyMemberRepository
+                .findAllByMemberOrderByCreateDateDesc(member)
+                .stream()
+                .map(MemberPartyHistoryDto.AppliedPartyItem::new)
+                .toList();
+
+        return new MemberPartyHistoryDto(ownedParties, appliedParties);
     }
 }
