@@ -1,5 +1,8 @@
 package com.back.domain.party.showcase.controller;
 
+import com.back.domain.interaction.like.entity.LikeAction;
+import com.back.domain.interaction.like.entity.TargetType;
+import com.back.domain.interaction.like.repository.LikeActionRepository;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.member.repository.MemberRepository;
@@ -11,6 +14,7 @@ import com.back.domain.party.party.entity.TopicType;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.position.entity.Position;
 import com.back.domain.party.showcase.entity.PartyShowcase;
+import com.back.domain.party.showcase.ranking.service.FeaturedRankingBatchService;
 import com.back.domain.party.showcase.repository.PartyShowcaseRepository;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.DisplayName;
@@ -52,6 +56,12 @@ public class ApiV1PartyShowcaseControllerTest {
 
     @Autowired
     private PartyShowcaseRepository partyShowcaseRepository;
+
+    @Autowired
+    private LikeActionRepository likeActionRepository;
+
+    @Autowired
+    private FeaturedRankingBatchService featuredRankingBatchService;
 
     private Party saveParty(String ownerEmail) {
         Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
@@ -328,28 +338,48 @@ public class ApiV1PartyShowcaseControllerTest {
     }
 
     @Test
-    @DisplayName("인기 전시회 TOP3: 게시된 전시는 좋아요 수 내림차순으로 정렬된다")
+    @DisplayName("인기 전시회 TOP3: 창 안 좋아요가 많은 전시가 가중치 점수로 앞선다")
     @WithUserDetails("user1@test.com")
-    void getTop3OrderedByLikeCount() throws Exception {
-        Party lowLikeParty = saveParty("user1@test.com");
-        mvc.perform(post("/api/v1/parties/" + lowLikeParty.getId() + "/showcase")
+    void getTop3OrderedByScore() throws Exception {
+        Party lowScoreParty = saveParty("user1@test.com");
+        mvc.perform(post("/api/v1/parties/" + lowScoreParty.getId() + "/showcase")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(publishRequestJson("좋아요 적음", "설명")))
+                        .content(publishRequestJson("점수 낮음", "설명")))
                 .andExpect(status().isCreated());
 
-        Party highLikeParty = saveParty("user1@test.com");
-        mvc.perform(post("/api/v1/parties/" + highLikeParty.getId() + "/showcase")
+        Party highScoreParty = saveParty("user1@test.com");
+        mvc.perform(post("/api/v1/parties/" + highScoreParty.getId() + "/showcase")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(publishRequestJson("좋아요 많음", "설명")))
+                        .content(publishRequestJson("점수 높음", "설명")))
                 .andExpect(status().isCreated());
 
-        partyRepository.increaseLikeCount(highLikeParty.getId());
-        partyRepository.increaseLikeCount(highLikeParty.getId());
-        partyRepository.increaseLikeCount(lowLikeParty.getId());
+        PartyShowcase highScoreShowcase = partyShowcaseRepository.findByParty(highScoreParty).orElseThrow();
+        Member liker = memberRepository.findByEmail("user2@test.com").orElseThrow();
+        likeActionRepository.save(new LikeAction(liker, TargetType.PARTY_SHOWCASE, highScoreShowcase.getId()));
+
+        featuredRankingBatchService.computeShowcaseRanking();
 
         ResultActions resultActions = mvc.perform(get("/api/v1/parties/showcase/top3"));
 
         resultActions.andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].partyId").value(highLikeParty.getId()));
+                .andExpect(jsonPath("$.data[0].partyId").value(highScoreParty.getId()));
+    }
+
+    @Test
+    @DisplayName("인기 전시회 TOP3: 창 안 활동이 3건 미만이면 전기간 인기순(조회수)으로 부족분을 채운다")
+    @WithUserDetails("user1@test.com")
+    void getTop3FillsRemainderWithAllTimePopularityWhenActivityIsLow() throws Exception {
+        Party quietParty = saveParty("user1@test.com");
+        mvc.perform(post("/api/v1/parties/" + quietParty.getId() + "/showcase")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(publishRequestJson("활동 없음", "설명")))
+                .andExpect(status().isCreated());
+
+        featuredRankingBatchService.computeShowcaseRanking();
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/showcase/top3"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[?(@.partyId == " + quietParty.getId() + ")]").exists());
     }
 }

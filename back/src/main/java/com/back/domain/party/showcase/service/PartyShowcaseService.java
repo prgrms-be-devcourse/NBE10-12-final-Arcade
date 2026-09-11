@@ -1,5 +1,6 @@
 package com.back.domain.party.showcase.service;
 
+import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.party.application.entity.PartyMember;
 import com.back.domain.party.application.entity.PartyMemberStatus;
@@ -14,6 +15,8 @@ import com.back.domain.party.showcase.dtos.PartyShowcaseDto;
 import com.back.domain.party.showcase.dtos.PartyShowcaseListItemDto;
 import com.back.domain.party.showcase.entity.PartyShowcase;
 import com.back.domain.party.showcase.event.PartyShowcasePublishedEvent;
+import com.back.domain.party.showcase.ranking.entity.FeaturedRanking;
+import com.back.domain.party.showcase.ranking.repository.FeaturedRankingRepository;
 import com.back.domain.party.showcase.repository.PartyShowcaseRepository;
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -39,6 +43,7 @@ public class PartyShowcaseService {
     private final PartyMemberRepository partyMemberRepository;
     private final PartyShowcaseRepository partyShowcaseRepository;
     private final PartyPrRepository partyPrRepository;
+    private final FeaturedRankingRepository featuredRankingRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
@@ -104,11 +109,24 @@ public class PartyShowcaseService {
         return toDto(party, showcase, memberNames, pullRequests);
     }
 
-    // 홈 "인기 전시회 TOP3" - 파티마다 따로 쿼리 날리지 않고, 파티원/PR을 IN 절로 한 번에 모아온 뒤
-    // 메모리에서 파티별로 묶어 조립한다 (party/owner는 리포지토리 쿼리에서 이미 fetch join됨)
     public List<PartyShowcaseDto> getTop3() {
-        List<PartyShowcase> showcases = partyShowcaseRepository
-                .findPublishedOrderByViewCountDesc(PageRequest.of(0, 3));
+        List<FeaturedRanking> rankings = featuredRankingRepository
+                .findAllByTargetTypeOrderByRankAsc(TargetType.PARTY_SHOWCASE);
+
+        List<PartyShowcase> showcases;
+        if (rankings.isEmpty()) {
+            showcases = partyShowcaseRepository.findPublishedOrderByViewCountDesc(PageRequest.of(0, 3));
+        } else {
+            List<Long> rankedShowcaseIds = rankings.stream().map(FeaturedRanking::getTargetId).toList();
+            Map<Long, PartyShowcase> showcaseById = partyShowcaseRepository
+                    .findAllByIdInWithPartyAndOwner(rankedShowcaseIds).stream()
+                    .collect(Collectors.toMap(PartyShowcase::getId, ps -> ps));
+
+            showcases = rankedShowcaseIds.stream()
+                    .map(showcaseById::get)
+                    .filter(Objects::nonNull)
+                    .toList();
+        }
 
         if (showcases.isEmpty()) {
             return List.of();

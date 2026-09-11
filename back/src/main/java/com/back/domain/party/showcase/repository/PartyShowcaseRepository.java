@@ -18,6 +18,16 @@ import java.util.Optional;
 public interface PartyShowcaseRepository extends JpaRepository<PartyShowcase, Long> {
     Optional<PartyShowcase> findByParty(Party party);
 
+    List<PartyShowcase> findAllByPublishedTrue();
+
+    @Query("""
+        select ps from PartyShowcase ps
+        join fetch ps.party p
+        join fetch p.owner
+        where ps.id in :ids
+        """)
+    List<PartyShowcase> findAllByIdInWithPartyAndOwner(@Param("ids") Collection<Long> ids);
+
     // 모집 단계 전용이 아니라 PartyShowcase.viewCount(전시 단계 전용)를 쓴다
     // 기획서 3.2 팀 논의 갱신으로 두 카운터가 완전히 분리됐다.
     // 호출부에서 PageRequest.of(0, 3)으로 넘기면 상위 3개만 나옴
