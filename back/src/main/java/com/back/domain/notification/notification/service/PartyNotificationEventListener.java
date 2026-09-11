@@ -9,7 +9,6 @@ import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.event.PartyAssembledEvent;
 import com.back.domain.party.party.event.PartyCompletedEvent;
 import com.back.domain.party.party.repository.PartyRepository;
-import com.back.domain.party.showcase.comment.event.ShowcaseCommentCreatedEvent;
 import com.back.domain.party.showcase.event.PartyShowcasePublishedEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
@@ -66,16 +65,6 @@ public class PartyNotificationEventListener {
                 findParty(event.partyId()),
                 NotificationType.PARTY_SHOWCASE_PUBLISHED,
                 " 파티의 성과가 전시관에 게시되었습니다.");
-    }
-
-    @EventListener
-    public void commentCreated(ShowcaseCommentCreatedEvent event) {
-        Party party = findParty(event.partyId());
-        partyAssembleToMemberRepository.findAllByPartyAssemble_PartyOrderByIdAsc(party)
-                .stream()
-                .filter(atm -> atm.getMember().getId() != event.authorId())
-                .forEach(atm -> notify(party, atm.getMember().getId(), NotificationType.SHOWCASE_COMMENT_CREATED,
-                        " 전시글에 새 댓글이 달렸습니다."));
     }
 
     // 완료·전시 게시는 확정 이후 사건이라 수신자는 확정 명단이 기준이다. 파티장도 그 안에 있다.

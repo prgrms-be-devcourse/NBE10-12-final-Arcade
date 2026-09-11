@@ -12,7 +12,6 @@ import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.event.PartyAssembledEvent;
 import com.back.domain.party.party.event.PartyCompletedEvent;
 import com.back.domain.party.party.repository.PartyRepository;
-import com.back.domain.party.showcase.comment.event.ShowcaseCommentCreatedEvent;
 import com.back.domain.party.showcase.event.PartyShowcasePublishedEvent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -128,21 +127,6 @@ class PartyNotificationEventListenerTest {
                 "테스트 파티의 성과가 전시관에 게시되었습니다.");
         verify(notificationService).create(participant, NotificationType.PARTY_SHOWCASE_PUBLISHED,
                 "테스트 파티의 성과가 전시관에 게시되었습니다.");
-        verifyNoMoreInteractions(notificationService);
-    }
-
-    @Test
-    @DisplayName("전시 댓글 작성 시 확정 명단에 든 회원에게 알림하되, 작성자 본인은 제외한다")
-    void commentCreated() {
-        when(memberRepository.getReferenceById(10L)).thenReturn(owner);
-        List<PartyAssembleToMember> assembled = List.of(assembledMember(10L), assembledMember(20L));
-        when(partyAssembleToMemberRepository.findAllByPartyAssemble_PartyOrderByIdAsc(party))
-                .thenReturn(assembled);
-
-        listener.commentCreated(new ShowcaseCommentCreatedEvent(1L, 20L));
-
-        verify(notificationService).create(owner, NotificationType.SHOWCASE_COMMENT_CREATED,
-                "테스트 전시글에 새 댓글이 달렸습니다.");
         verifyNoMoreInteractions(notificationService);
     }
 

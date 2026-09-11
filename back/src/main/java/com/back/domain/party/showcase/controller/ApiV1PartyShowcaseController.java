@@ -25,17 +25,30 @@ public class ApiV1PartyShowcaseController {
     private static final String VIEW_COOKIE_PATH = "/api/v1/parties";
 
     @GetMapping
-    public RsData<PartyShowcaseDto> getDraft(
+    public RsData<PartyShowcaseDto> getPublished(
             @PathVariable long partyId
     ) {
         String viewCookieName = "showcase_viewed_" + partyId;
         boolean alreadyViewed = rq.hasViewCookie(viewCookieName);
 
-        PartyShowcaseDto dto = partyShowcaseService.getDraft(partyId, rq.getActorFromDb(), !alreadyViewed);
+        PartyShowcaseDto dto = partyShowcaseService.getPublished(partyId, !alreadyViewed);
 
-        if (!alreadyViewed && dto.published()) {
+        if (!alreadyViewed) {
             rq.setViewCookie(viewCookieName, VIEW_COOKIE_PATH);
         }
+
+        return new RsData<>(
+                "200-1",
+                "전시 조회 성공",
+                dto
+        );
+    }
+
+    @GetMapping("/draft")
+    public RsData<PartyShowcaseDto> getDraft(
+            @PathVariable long partyId
+    ) {
+        PartyShowcaseDto dto = partyShowcaseService.getDraft(partyId, rq.getActorFromDb());
 
         return new RsData<>(
                 "200-1",

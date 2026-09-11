@@ -6,13 +6,11 @@ import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.showcase.comment.dtos.ShowcaseCommentDto;
 import com.back.domain.party.showcase.comment.entity.ShowcaseComment;
-import com.back.domain.party.showcase.comment.event.ShowcaseCommentCreatedEvent;
 import com.back.domain.party.showcase.comment.repository.ShowcaseCommentRepository;
 import com.back.domain.party.showcase.entity.PartyShowcase;
 import com.back.domain.party.showcase.repository.PartyShowcaseRepository;
 import com.back.global.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,7 +28,6 @@ public class ShowcaseCommentService {
     private final PartyShowcaseRepository partyShowcaseRepository;
     private final ShowcaseCommentRepository showcaseCommentRepository;
     private final PartyAssembleToMemberRepository partyAssembleToMemberRepository;
-    private final ApplicationEventPublisher eventPublisher;
 
     public List<ShowcaseCommentDto> getComments(long partyId) {
         PartyShowcase showcase = findPublishedShowcaseOrThrow(partyId);
@@ -54,8 +51,6 @@ public class ShowcaseCommentService {
 
         ShowcaseComment comment = showcaseCommentRepository.save(
                 new ShowcaseComment(showcase, actor, parent, content));
-
-        eventPublisher.publishEvent(new ShowcaseCommentCreatedEvent(partyId, actor.getId()));
 
         Set<Long> partyMemberIds = getPartyMemberIds(showcase.getParty());
         return toDto(comment, List.of(), partyMemberIds);
