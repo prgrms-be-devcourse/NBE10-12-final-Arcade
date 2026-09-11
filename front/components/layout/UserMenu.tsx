@@ -10,6 +10,7 @@ import { useCurrentUser } from '@/lib/hooks/useCurrentUser';
 
 /**
  * 헤더 우측 프로필 메뉴 — 아바타 하나만 두고, 누르면 마이페이지·로그아웃이 펼쳐진다.
+ * 관리자 계정은 마이페이지 자리에 관리자 페이지가 들어간다.
  *
  * 쪽지·알림 드롭다운과 같은 규칙을 따른다.
  * - 바깥을 누르거나 Esc 를 누르면 닫힌다
@@ -45,9 +46,9 @@ export function UserMenu() {
     };
   }, [open]);
 
-  const goMypage = () => {
+  const go = (href: string) => {
     setOpen(false);
-    router.push('/mypage');
+    router.push(href);
   };
 
   const runLogout = async () => {
@@ -83,6 +84,10 @@ export function UserMenu() {
   const name = me.profile.name;
   const initial = me.profile.initial;
 
+  // 관리자 계정은 운영용이라 메뉴에서 마이페이지 자리를 관리자 페이지가 대신한다.
+  // 주소로는 여전히 /mypage 에 갈 수 있다 - 메뉴에서만 감춘다.
+  const isAdmin = me.profile.memberRole === 'ADMIN';
+
   return (
     <div className="user-wrap" ref={wrapRef}>
         <button
@@ -106,10 +111,27 @@ export function UserMenu() {
               <span className="mono">{initial}</span>
               <span className="uname">{name}</span>
             </div>
-            <button type="button" className="user-menu-item" role="menuitem" onClick={goMypage}>
-              <Icon name="i-joystick" />
-              마이페이지
-            </button>
+            {isAdmin ? (
+              <button
+                type="button"
+                className="user-menu-item"
+                role="menuitem"
+                onClick={() => go('/admin')}
+              >
+                <Icon name="i-crown" />
+                관리자 페이지
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="user-menu-item"
+                role="menuitem"
+                onClick={() => go('/mypage')}
+              >
+                <Icon name="i-joystick" />
+                마이페이지
+              </button>
+            )}
             <button type="button" className="user-menu-item is-danger" role="menuitem" onClick={runLogout} disabled={pending}>
               <Icon name="i-logout" />
               {pending ? '로그아웃 중…' : '로그아웃'}
