@@ -48,7 +48,7 @@ export default async function GoalEditPage({ params }: { params: Promise<{ id: s
 
   return (
     <main>
-      <div className="board-wrap container" style={{ maxWidth: '47.5rem' }}>
+      <div className="board-wrap container container--form">
         <BackLink href={`/goals/${id}`} label="성취로 돌아가기" />
 
         <SectionHead
@@ -67,7 +67,7 @@ function Blocker({ reason, id }: { reason: Blocked; id: string }) {
 
   return (
     <main>
-      <div className="board-wrap container" style={{ maxWidth: '40rem' }}>
+      <div className="board-wrap container container--reading">
         <BackLink href={`/goals/${id}`} label="성취로 돌아가기" />
         <SectionHead title={title} description={description} />
         <Link className="btn btn-ghost" href={reason === 'unauthorized' ? '/login' : `/goals/${id}`}>

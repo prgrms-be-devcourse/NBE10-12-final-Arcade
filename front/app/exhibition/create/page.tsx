@@ -12,7 +12,7 @@ export default async function ExhibitionCreatePage({
 
   return (
     <main>
-      <div className="board-wrap container" style={{ maxWidth: '47.5rem' }}>
+      <div className="board-wrap container container--form">
         <BackLink href="/exhibition" label="전시관으로" />
 
         <SectionHead

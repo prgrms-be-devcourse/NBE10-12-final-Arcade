@@ -51,11 +51,13 @@ export function ThemeToggle() {
   }, []);
 
   return (
-    <button type="button" className="theme-toggle" onClick={toggle} aria-label="화면 모드 전환">
-      <span>
-        <Icon name={theme === 'dark' ? 'i-moon' : 'i-sun'} />
-      </span>
-      <span className="theme-label">{theme === 'dark' ? '다크' : '라이트'}</span>
+    <button
+      type="button"
+      className="icon-btn"
+      onClick={toggle}
+      aria-label={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
+    >
+      <Icon name={theme === 'dark' ? 'i-moon' : 'i-sun'} />
     </button>
   );
 }

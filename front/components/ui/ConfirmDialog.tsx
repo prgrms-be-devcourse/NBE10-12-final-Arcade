@@ -40,6 +40,7 @@ export function useConfirm() {
       title={pending.title}
       description={pending.description}
       confirmLabel={pending.confirmLabel ?? '삭제'}
+      confirmVariant="danger"
       cancelLabel="취소"
       onConfirm={() => settle(true)}
       onClose={() => settle(false)}

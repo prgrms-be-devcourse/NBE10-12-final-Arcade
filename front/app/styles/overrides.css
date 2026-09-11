@@ -1,0 +1,949 @@
+/* =============================================================
+ * 목업 추출 이후 조정한 부분 (팀 피드백 반영)
+ * 위쪽은 목업 원본 스타일이고, 아래는 그 위에 덮어쓰는 수정분이다.
+ * ============================================================= */
+
+/* 전시 카드 : 순위와 조회수가 카드 왼쪽으로 몰리던 문제.
+   썸네일을 좌우 배치로 바꿔 순위는 왼쪽, 조회수·좋아요는 오른쪽에 묶는다. */
+.project-thumb{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  gap:0.625rem;padding:0.625rem 0.625rem 0.625rem 1.125rem;
+}
+.project-thumb .exh-rank,
+.project-thumb .exh-views,
+.project-thumb .exh-like{position:static;top:auto;left:auto;right:auto;}
+.exh-metrics{display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;justify-content:flex-end;}
+.exh-top-row .exh-views{left:auto;}
+
+/* 파티 목록 툴바 : 검색 + 필터 4개를 한 줄에 둔다 */
+.party-toolbar{
+  display:grid;
+  grid-template-columns:minmax(13.75rem,1.7fr) repeat(4,minmax(6.875rem,1fr));
+  align-items:center;gap:0.75rem;
+}
+.party-toolbar .search-field{flex:none;min-width:0;}
+.party-toolbar .select-field{width:100%;min-width:0;}
+@media (max-width:64rem){
+  .party-toolbar{grid-template-columns:1fr 1fr;}
+  .party-toolbar .search-field{grid-column:1 / -1;}
+}
+@media (max-width:40rem){
+  .party-toolbar{grid-template-columns:1fr;}
+}
+
+/* 파티 상세 사이드바 : 지원하기 카드가 sticky 라 아래 파티장 도구 카드와 겹쳤다.
+   사이드바 전체를 자연스럽게 흐르도록 되돌린다. */
+.apply-panel{position:static;}
+
+/* 소제목 마커 : 섹션 제목(section-head h2)의 마젠타 마커와 색을 통일한다 */
+.block-title::before{
+  background:var(--neon-pink);
+  filter:drop-shadow(0 0 0.4375rem rgba(255,79,163,.9));
+}
+
+/* 카드 대표 사진 : 등록된 사진이 있으면 상단에 깔고, 없으면 공모전 카드의 빗금 배경을 쓴다 */
+.project-thumb,
+.exh-hero-thumb{
+  background:
+    repeating-linear-gradient(115deg, rgba(49,233,210,.14) 0 0.125rem, transparent 0.125rem 0.875rem),
+    linear-gradient(135deg, var(--surface-2), var(--bg));
+}
+.has-cover{
+  background-size:cover !important;
+  background-position:center !important;
+  background-repeat:no-repeat !important;
+}
+/* 사진 위에 얹히는 배지가 묻히지 않도록 어둡게 깔아준다 */
+.project-thumb.has-cover::after,
+.contest-poster.has-cover::after{
+  content:"";position:absolute;inset:0;background:rgba(10,10,19,.35);pointer-events:none;
+}
+.project-thumb.has-cover{position:relative;}
+/* 배지는 절대 배치되므로 z-index 만 올려 오버레이 위에 오게 한다
+   (position 을 여기서 덮으면 배지의 배치 규칙이 무효가 된다) */
+.project-thumb.has-cover > *{z-index:1;}
+
+/* 파티 목록 툴바 : 제목 검색을 넓히고 select 는 좁힌다 */
+.party-toolbar{
+  grid-template-columns:minmax(16.25rem,2.6fr) repeat(4,minmax(5.75rem,.85fr));
+}
+
+/* 폼 textarea : 입력칸 대비 지나치게 높아 보이던 기본값을 낮춘다 */
+.form-group > .field-textarea{min-height:5.75rem;}
+
+/* 대회 연동 검색 결과 : 항상 펼쳐져 있어 폼을 밀어내지 않도록 높이를 줄인다 */
+.picker-results{max-height:13.5rem;}
+
+/* 지원 포지션 선택 칩 */
+.apply-positions{display:flex;flex-wrap:wrap;gap:0.5rem;}
+.apply-position-chip{
+  padding:0.4375rem 0.75rem;border:0.125rem solid var(--border-strong);background:var(--surface-2);
+  font-size:.8rem;font-weight:800;color:var(--text-muted);cursor:pointer;
+}
+.apply-position-chip:hover{border-color:var(--accent);color:var(--accent);}
+.apply-position-chip.is-active{
+  border-color:var(--accent);color:var(--accent-ink);background:var(--accent);
+}
+.apply-selected{
+  margin-bottom:0.625rem;font-size:.82rem;color:var(--text-muted);
+}
+.apply-selected b{color:var(--accent);}
+
+/* 대회 연동 검색 결과 : 항상 펼쳐두므로 떠 있는 대신 흐름에 포함시킨다.
+   (겹쳐 있으면 아래 '모집글 제목' · '파티 소개' 입력칸을 가린다) */
+.picker-results{
+  position:static;margin-top:0.5rem;box-shadow:none;
+}
+
+/* 공모전 카드 : 목록 그리드에서는 전시관 카드와 같은 비율로 칸을 채운다.
+   홈의 가로 스크롤(.contest-row)에서는 기존 고정 너비를 유지한다.
+   (대표 이미지 높이는 아래 '가독성 정리' 블록의 aspect-ratio 가 맡는다) */
+.board-grid .contest-card{min-width:0;max-width:none;}
+
+/* 마이페이지 : 사이드바가 없는 탭은 본문이 전체 폭을 쓴다 */
+.mypage-grid.is-single,.detail-grid.is-single{grid-template-columns:1fr;}
+
+/* 성취 리스트 연도 필터 : 다른 필터 그룹처럼 라벨과 선택창을 한 줄에 둔다 */
+.filter-group .filter-select{width:auto;min-width:7.5rem;}
+
+/* 프로필 카드 우측 버튼 묶음 (수정하기 / 비밀번호 변경) */
+.profile-actions{
+  align-self:flex-start;flex-shrink:0;position:relative;z-index:1;
+  display:flex;flex-direction:column;gap:0.5rem;
+}
+.profile-actions .profile-edit-btn{align-self:stretch;justify-content:center;}
+
+/* 팀 커밋 내역 (성취 연혁 타임라인과 같은 골격을 쓴다) */
+.commit-item::before{background:var(--surface-2);border-color:var(--border-strong);}
+.commit-sha{
+  font-family:var(--font-pixel);font-size:.5rem;padding:0.25rem 0.375rem;
+  border:0.125rem solid var(--border-strong);background:var(--surface-2);color:var(--text-muted);
+}
+.commit-meta{
+  display:flex;align-items:center;flex-wrap:wrap;gap:0.5rem 1rem;margin-top:0.625rem;
+  font-size:.78rem;color:var(--text-muted);
+}
+.commit-author{display:inline-flex;align-items:center;gap:0.375rem;}
+.commit-author-name{font-weight:800;color:var(--text);}
+.commit-author-name.is-unlinked{color:var(--text-dim);}
+a.commit-author-name:hover{color:var(--accent);}
+.commit-handle{color:var(--text-dim);font-size:.74rem;}
+.commit-diff{display:inline-flex;align-items:center;gap:0.5rem;font-weight:800;font-size:.74rem;}
+.commit-diff .add{color:var(--accent);}
+.commit-diff .del{color:var(--gold);}
+.commit-diff .files{color:var(--text-dim);font-weight:700;}
+.commit-link{display:inline-flex;align-items:center;gap:0.25rem;font-weight:800;color:var(--text-dim);}
+.commit-link:hover{color:var(--accent);}
+.commit-link svg{width:0.75rem;height:0.75rem;}
+
+/* 커밋 승인 · 댓글 액션 줄 */
+.commit-actions{
+  display:flex;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-top:0.75rem;
+}
+.commit-item[data-approval="approved"]::before{background:var(--accent);border-color:var(--accent);}
+.commit-item[data-approval="pending"]::before{border-color:var(--gold);}
+.commit-item .ci-thread{margin-top:0.875rem;}
+
+/* ---------- 파티 라이브 채팅 ---------- */
+.chat-panel{border:0.125rem solid var(--border-strong);background:var(--surface);}
+.chat-head{
+  display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap;
+  padding:0.75rem 1rem;border-bottom:0.125rem solid var(--border);
+}
+.chat-participants{display:inline-flex;align-items:center;gap:0.25rem;}
+.chat-participant-count{margin-left:0.375rem;font-size:.78rem;color:var(--text-muted);font-weight:700;}
+.chat-status{font-size:.72rem;font-weight:800;color:var(--text-dim);}
+.chat-status[data-status="open"]{color:var(--accent);}
+.chat-status[data-status="closed"]{color:var(--gold);}
+
+.chat-log{
+  max-height:22rem;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:0.75rem;
+  background:var(--surface-2);
+}
+.chat-empty{text-align:center;font-size:.84rem;color:var(--text-dim);padding:2rem 0;}
+.chat-day{
+  text-align:center;font-family:var(--font-pixel);font-size:.5rem;color:var(--text-dim);
+  margin:0.5rem 0;
+}
+.chat-msg{display:flex;align-items:flex-start;gap:0.5rem;margin-top:0.5rem;}
+.chat-msg.is-mine{flex-direction:row-reverse;}
+.chat-msg-body{display:flex;flex-direction:column;gap:0.25rem;max-width:78%;}
+.chat-msg.is-mine .chat-msg-body{align-items:flex-end;}
+.chat-sender{font-size:.74rem;font-weight:800;color:var(--text-muted);}
+.chat-bubble{
+  padding:0.5rem 0.75rem;border:0.125rem solid var(--border-strong);background:var(--surface);
+  font-size:.86rem;line-height:1.55;color:var(--text);word-break:break-word;
+}
+.chat-msg.is-mine .chat-bubble{
+  border-color:var(--accent);background:rgba(49,233,210,.1);color:var(--text);
+}
+.chat-time{font-size:.68rem;color:var(--text-dim);}
+
+.chat-form{display:flex;gap:0.5rem;padding:0.75rem 1rem;border-top:0.125rem solid var(--border);}
+.chat-form input{
+  flex:1;padding:0.625rem 0.75rem;border:0.125rem solid var(--border-strong);
+  background:var(--surface-2);color:var(--text);font-family:var(--font-body);font-size:.86rem;
+}
+.chat-form input:focus{outline:none;border-color:var(--accent);}
+.chat-form input::placeholder{color:var(--text-dim);}
+.chat-form .btn{padding:0.625rem 1rem;font-size:.84rem;}
+
+/* 쪽지 보내기 */
+.msg-send-icon{
+  flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;
+  width:1.875rem;height:1.875rem;border:0.125rem solid var(--border-strong);
+  background:var(--surface-2);color:var(--text-dim);cursor:pointer;
+}
+.msg-send-icon:hover{border-color:var(--accent);color:var(--accent);}
+.msg-send-icon svg{width:0.875rem;height:0.875rem;}
+.msg-send-to{
+  display:flex;align-items:center;gap:0.5rem;margin-bottom:0.875rem;
+  padding:0.625rem 0.75rem;border:0.125rem solid var(--border);background:var(--surface-2);
+  font-size:.86rem;color:var(--text);
+}
+.msg-send-role{margin-left:0.5rem;font-size:.78rem;color:var(--text-dim);font-weight:700;}
+
+/* 공개 프로필 연락 영역 · 전시 참여 팀원 행 */
+.profile-contact{
+  margin-top:1.25rem;padding:1rem 1.25rem;
+  border:0.125rem solid var(--border);background:var(--surface);
+  display:flex;align-items:center;gap:1rem;flex-wrap:wrap;
+}
+.profile-contact .form-hint{flex:1;min-width:14rem;}
+.member-contact-row{display:flex;align-items:center;gap:0.5rem;}
+.member-contact-row .leader-row{flex:1;min-width:0;}
+
+/* 사이드 카드 안의 액션 버튼 (쪽지 보내기 등) */
+.side-card-action{margin-top:0.75rem;}
+.side-card-action .btn{width:100%;justify-content:center;}
+/* 팀원 행 : 이름 · 배지 · 쪽지 버튼 */
+.member-row .msg-send-icon{margin-left:0.5rem;}
+
+/* 팀 채팅 패널 : 좌측 방 목록 + 우측 대화 */
+.chat-layout{display:grid;grid-template-columns:15rem 1fr;gap:0.875rem;align-items:start;}
+@media (max-width:53.75rem){.chat-layout{grid-template-columns:1fr;}}
+
+.chat-room-list{
+  border:0.125rem solid var(--border-strong);background:var(--surface);
+  padding:0.625rem;display:flex;flex-direction:column;gap:0.25rem;
+}
+.chat-room-group{
+  font-size:.7rem;font-weight:800;color:var(--text-dim);letter-spacing:.04em;
+  padding:0.5rem 0.375rem 0.25rem;
+}
+.chat-room-item{
+  display:flex;align-items:center;gap:0.5rem;width:100%;text-align:left;
+  padding:0.5rem;border:0.125rem solid transparent;background:none;cursor:pointer;
+}
+.chat-room-item:hover{background:var(--surface-2);}
+.chat-room-item.is-active{border-color:var(--accent);background:rgba(49,233,210,.08);}
+.chat-room-icon{flex-shrink:0;display:inline-flex;color:var(--text-dim);}
+.chat-room-icon svg{width:1.125rem;height:1.125rem;}
+.chat-room-item.is-active .chat-room-icon{color:var(--accent);}
+.chat-room-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:0.125rem;}
+.chat-room-title{
+  display:flex;align-items:center;gap:0.375rem;
+  font-size:.84rem;font-weight:800;color:var(--text);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.chat-room-unread{
+  flex-shrink:0;min-width:1.125rem;padding:0 0.25rem;
+  background:var(--accent);color:var(--accent-ink);
+  font-family:var(--font-pixel);font-size:.5rem;line-height:1.125rem;text-align:center;
+}
+.chat-room-last{
+  font-size:.74rem;color:var(--text-dim);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.chat-room-time{flex-shrink:0;font-size:.68rem;color:var(--text-dim);}
+.chat-room-empty{padding:0.5rem 0.375rem;font-size:.74rem;color:var(--text-dim);line-height:1.5;}
+
+/* =============================================================
+ * 가독성 정리 (팀 피드백)
+ *  - 배경 그물망 · 스캔라인 제거 → 콘텐츠가 먼저 보이게
+ *  - 카드 모서리 라운드
+ *  - 공모전 · 전시 카드의 대표 이미지를 키워 내용이 눈에 띄게
+ * 네온 아케이드 아이덴티티(강조색 · 픽셀 폰트 · 글로우)는 그대로 둔다.
+ * ============================================================= */
+
+:root{
+  --radius-card:0.75rem;
+  --radius-chip:0.5rem;
+  --radius-input:0.5rem;
+}
+
+/* 배경 : 격자 그물망을 걷고 은은한 글로우만 남긴다 */
+body{
+  background-image:
+    radial-gradient(circle at 18% -10%, rgba(168,107,255,.16), transparent 55%),
+    radial-gradient(circle at 88% 4%, rgba(77,180,255,.10), transparent 50%);
+}
+/* CRT 스캔라인 오버레이는 쓰지 않는다 (레이아웃에서도 제거) */
+.crt{display:none;}
+
+/* 모서리 : 면으로 보이는 요소들만 둥글게 (게이지 · 점 같은 장식은 그대로) */
+.rank-card,
+.contest-card,
+.project-card,
+.pboard-card,
+.reco-card,
+.side-card,
+.history-panel,
+.block > .data-table,
+.data-table,
+.modal,
+.notif-panel,
+.applicant-card,
+.chat-panel,
+.chat-room-list,
+.profile-card,
+.host-card,
+.admin-panel,
+.checklist,
+.checklist-create,
+.ci-thread,
+.picker-results,
+.contest-hero-poster,
+.exh-hero-thumb,
+.form-banner,
+.form-mode-banner,
+.profile-contact{
+  border-radius:var(--radius-card);
+  overflow:hidden;
+}
+.btn,
+.filter-chip,
+.radio-chip,
+.tag,
+.skill-chip,
+.slot-chip,
+.status-badge,
+.status-pill,
+.dday,
+.commit-sha,
+.icon-btn,
+.user-chip,
+.user-menu-head .mono,
+.bookmark-btn,
+.exh-action-btn,
+.btn-mini,
+.ci-edit-btn,
+.ci-del-btn,
+.ci-comment-btn,
+.apply-position-chip,
+.msg-send-icon,
+.chat-bubble,
+.chat-room-item{
+  border-radius:var(--radius-chip);
+}
+.field-input,
+.field-select,
+.field-textarea,
+.admin-search,
+.search-field input,
+.select-field,
+.chat-form input,
+.ci-write input{
+  border-radius:var(--radius-input);
+}
+.avatar-frame,
+.avatar-frame .inner,
+.mini-avatar,
+.leader-avatar,
+.msg-drop-avatar,
+.comment-avatar,
+.host-logo{
+  border-radius:var(--radius-chip);
+}
+
+/* 대표 이미지 : 얇은 띠 대신 카드의 주인공이 되게 (참고 레퍼런스와 같은 4:3) */
+.contest-poster,
+.project-thumb{
+  height:auto;
+  aspect-ratio:4 / 3;
+  border-radius:var(--radius-card) var(--radius-card) 0 0;
+}
+/* 홈 가로 스크롤의 공모전 카드는 조금 낮게 */
+.contest-row .contest-poster{aspect-ratio:16 / 10;}
+
+/* 이미지 좌측의 네온 바는 라운드와 겹쳐 보여 걷어낸다 */
+.project-thumb::before{display:none;}
+
+/* 카드 본문 : 분야 → 제목 → 지표 순서가 또렷하게 읽히도록 */
+.contest-body{padding:1.125rem 1.125rem 1.25rem;gap:0.5rem;}
+.contest-body h3{font-size:1.05rem;line-height:1.45;}
+.contest-host{font-size:.8rem;}
+.contest-poster .cat{
+  left:0.875rem;bottom:0.875rem;
+  font-size:.74rem;padding:0.3125rem 0.625rem;
+  background:rgba(10,10,19,.82);backdrop-filter:blur(0.25rem);
+}
+.contest-stats{padding-top:0.625rem;border-top:0.125rem solid var(--border);}
+
+/* =============================================================
+ * 2차 정리 (팀 피드백)
+ * ============================================================= */
+
+/* 라이트 모드에도 배경 격자를 두지 않는다 */
+[data-theme="light"] body{
+  background-image:
+    radial-gradient(circle at 14% -8%, rgba(224,36,127,.14), transparent 52%),
+    radial-gradient(circle at 88% 2%, rgba(200,19,104,.08), transparent 48%);
+}
+
+/* 전시 카드 지표 : 카드 오른쪽 아래로 모으고 두 배지 크기를 맞춘다 */
+.project-thumb{display:block;padding:0;position:relative;}
+.project-thumb .exh-rank{position:absolute;top:0.625rem;left:0.625rem;}
+.exh-metrics{
+  position:absolute;right:0.625rem;bottom:0.625rem;
+  display:flex;align-items:stretch;gap:0.375rem;flex-wrap:nowrap;
+}
+.exh-metrics .exh-views,
+.exh-metrics .exh-like{
+  position:static;
+  display:inline-flex;align-items:center;justify-content:center;gap:0.3125rem;
+  height:1.75rem;padding:0 0.5625rem;
+  font-family:var(--font-body);font-size:.72rem;font-weight:800;line-height:1;
+  background:rgba(10,10,19,.82);border:0.125rem solid var(--border-strong);
+  border-radius:var(--radius-chip);
+}
+.exh-metrics .exh-views{color:var(--text-muted);}
+.exh-metrics .exh-like{color:var(--accent);}
+.exh-metrics svg{width:0.8125rem;height:0.8125rem;}
+
+/* 팀원 행 : 배지와 쪽지 아이콘을 오른쪽에 함께 붙인다 */
+.member-row > .leader-row{flex:1;min-width:0;}
+.member-row-right{display:inline-flex;align-items:center;gap:0.5rem;flex-shrink:0;}
+
+/* 상세 헤더 지표 : 좋아요·북마크 버튼과 같은 모양으로 통일 */
+.detail-views{
+  height:2.125rem;padding:0 0.8125rem;gap:0.375rem;
+  font-size:.8rem;font-weight:800;border-radius:var(--radius-chip);
+}
+.detail-header-right .bookmark-btn{height:2.125rem;padding:0 0.8125rem;}
+
+/* ---------- 팀 채팅 도크 ---------- */
+.chat-dock-fab{
+  position:fixed;right:1.5rem;bottom:1.5rem;z-index:70;
+  width:3.5rem;height:3.5rem;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--accent);color:var(--accent-ink);
+  border:0.125rem solid var(--accent-ink);
+  box-shadow:0 0.5rem 1.5rem rgba(0,0,0,.45);
+  cursor:pointer;transition:transform .15s ease;
+}
+.chat-dock-fab:hover{transform:translateY(-0.125rem);}
+.chat-dock-fab svg{width:1.375rem;height:1.375rem;}
+.chat-dock-fab.is-open{background:var(--surface);color:var(--text);border-color:var(--border-strong);}
+.chat-dock-badge{
+  position:absolute;top:-0.25rem;right:-0.25rem;min-width:1.25rem;height:1.25rem;
+  display:flex;align-items:center;justify-content:center;padding:0 0.25rem;
+  background:var(--gold);color:#1a1205;border:0.125rem solid var(--bg);border-radius:0.625rem;
+  font-family:var(--font-pixel);font-size:.5rem;
+}
+.chat-dock{
+  position:fixed;right:1.5rem;bottom:5.5rem;z-index:70;
+  width:min(24rem, calc(100vw - 3rem));
+  border:0.125rem solid var(--border-strong);background:var(--surface);
+  border-radius:var(--radius-card);overflow:hidden;
+  box-shadow:0 1rem 2.5rem rgba(0,0,0,.5);
+}
+.chat-dock-head{padding:0.875rem 1rem;border-bottom:0.125rem solid var(--border);}
+.chat-dock-head h4{font-size:.95rem;color:var(--text);}
+.chat-dock-head p{margin-top:0.25rem;font-size:.74rem;color:var(--text-dim);line-height:1.5;}
+.chat-dock-tabs{
+  display:flex;gap:0.25rem;padding:0.5rem;overflow-x:auto;
+  border-bottom:0.125rem solid var(--border);background:var(--surface-2);
+}
+.chat-dock-tabs .chat-room-item{width:auto;flex:0 0 auto;padding:0.375rem 0.625rem;}
+.chat-dock-tabs .chat-room-title{font-size:.78rem;}
+.chat-dock .chat-panel{border:none;border-radius:0;}
+.chat-dock .chat-log{max-height:16rem;}
+@media (max-width:40rem){
+  .chat-dock{right:0.75rem;left:0.75rem;width:auto;bottom:5rem;}
+  .chat-dock-fab{right:1rem;bottom:1rem;}
+}
+
+/* =============================================================
+ * 3차 정리 (팀 피드백)
+ * ============================================================= */
+
+/* 전시 상세 헤더 : 조회수·좋아요 배지를 같은 크기로 */
+.detail-header-right .exh-like{
+  position:static;
+  display:inline-flex;align-items:center;justify-content:center;gap:0.375rem;
+  height:2.125rem;padding:0 0.8125rem;
+  font-family:var(--font-body);font-size:.8rem;font-weight:800;line-height:1;
+  border-radius:var(--radius-chip);
+}
+.detail-header-right .exh-like svg{width:0.875rem;height:0.875rem;}
+
+/* 전시 상세 : 액션 버튼과 다음 섹션 사이 간격 */
+.exh-actions{margin-bottom:2rem;}
+
+/* D-day : 라이트 모드에서 버튼처럼 보이지 않게 텍스트만 */
+[data-theme="light"] .dday{
+  background:none !important;
+  border:none !important;
+  box-shadow:none !important;
+  padding:0 !important;
+}
+
+/* 공모전 정보 카드의 D-day 값 */
+.stat-row .dday{font-size:.7rem;}
+
+/* ---------- 전역 채팅 도크 : 목록 / 참여자 / 1:1 ---------- */
+.chat-dock-head{position:relative;}
+.chat-dock-back{
+  display:inline-flex;align-items:center;gap:0.25rem;margin-bottom:0.375rem;
+  background:none;border:none;padding:0;cursor:pointer;
+  font-size:.74rem;font-weight:800;color:var(--text-dim);
+}
+.chat-dock-back:hover{color:var(--accent);}
+.chat-dock-back svg{width:0.75rem;height:0.75rem;}
+.chat-dock-empty{padding:2rem 1rem;text-align:center;font-size:.82rem;color:var(--text-dim);line-height:1.6;}
+.chat-dock-list{max-height:24rem;overflow-y:auto;padding:0.5rem;}
+.chat-dock-group + .chat-dock-group{
+  margin-top:0.75rem;padding-top:0.75rem;border-top:0.125rem solid var(--border);
+}
+.chat-dock-group-name{
+  padding:0.375rem 0.5rem;font-size:.78rem;font-weight:800;color:var(--text);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.chat-dock-sub{
+  padding:0.5rem 0.5rem 0.25rem;font-size:.7rem;font-weight:800;color:var(--text-dim);
+}
+.chat-dock .chat-room-item{width:100%;}
+
+/* =============================================================
+ * 4차 정리 (팀 피드백)
+ * ============================================================= */
+
+/* D-day : 어느 테마에서도 버튼처럼 보이지 않게 텍스트만 */
+.dday{
+  border-radius:0 !important;
+  box-shadow:none !important;
+  background:none !important;
+  border:none !important;
+  padding:0 !important;
+}
+
+/* 파티 카드 : 제목 줄 수가 달라도 카드마다 같은 자리에서 끝나도록 */
+.pboard-card{height:100%;}
+.pboard-card .pboard-footer{margin-top:auto;}
+.pboard-card .position-slots{min-height:1.875rem;}
+
+/* 좋아요·북마크 : 세 상세 페이지 공용 — 라운드를 또렷하게 */
+.detail-header-right .bookmark-btn,
+.exh-actions .bookmark-btn,
+.detail-views{
+  border-radius:1.0625rem;
+}
+/* 전시 액션 바에서는 수정·GitHub 버튼과 같은 높이로 맞춘다 */
+.exh-actions .bookmark-btn{height:2.625rem;padding:0 0.9375rem;}
+.exh-action-btn{border-radius:1.0625rem;}
+
+/* 파티 상세 : 소개 섹션 위 여백 */
+.block-spaced{margin-top:1.75rem;}
+
+/* 전시 등록 : 기술 칩과 입력창 사이 간격 */
+.form-group > .chip-row{margin-bottom:0.75rem;}
+
+/* 마이페이지 : 마지막 섹션과 푸터가 붙어 보이던 문제.
+   카드의 하드 섀도(0.3125rem)가 아래로 삐져나오므로 넉넉히 띄운다 */
+.mypage-wrap .footer,
+.host-mypage-wrap .footer{margin-top:4.5rem;}
+.mypage-wrap .mypage-tab-panel{padding-bottom:0.5rem;}
+
+/* 파티 목록 툴바 반응형.
+   위쪽에서 열 비율을 다시 지정하면서 앞선 미디어쿼리가 덮여 좁은 화면에서도
+   5열이 유지되던 문제가 있어, 브레이크포인트를 마지막에 다시 건다. */
+@media (max-width:64rem){
+  .party-toolbar{grid-template-columns:1fr 1fr;}
+  .party-toolbar .search-field{grid-column:1 / -1;}
+}
+@media (max-width:40rem){
+  .party-toolbar{grid-template-columns:1fr;}
+}
+
+/* =============================================================
+ * 5차 정리 (팀 피드백)
+ * ============================================================= */
+
+/* ---- 인증 화면 여백 ---- */
+.auth-subtitle + .form-group{margin-top:1.75rem;}
+.social-locked-note{margin-bottom:1.25rem;}
+.auth-form{margin-top:1.5rem;}
+
+/* ---- 섹션 설명 : 데스크톱에서 한 줄로 ---- */
+.section-head p{max-width:none;}
+
+/* ---- 대표 이미지 : 사진이 없으면 빗금, 있으면 사진 ---- */
+/* 라이트 모드에도 다크와 같은 빗금을 쓰고, 색만 테마에 맞춘다.
+   .has-cover 는 제외해야 인라인으로 지정한 사진이 가려지지 않는다. */
+[data-theme="light"] .project-thumb:not(.has-cover),
+[data-theme="light"] .contest-poster:not(.has-cover),
+[data-theme="light"] .exh-hero-thumb:not(.has-cover),
+[data-theme="light"] .contest-hero-poster:not(.has-cover),
+[data-theme="light"] .hc-poster,
+[data-theme="light"] .picker-poster{
+  background:
+    repeating-linear-gradient(115deg, rgba(36,29,74,.10) 0 0.125rem, transparent 0.125rem 0.875rem),
+    linear-gradient(135deg,#f3f0ff,#e2ddfb) !important;
+}
+/* 사진 위 어둡게 까는 막은 다크에서만. 라이트에서는 사진이 탁해 보인다 */
+[data-theme="light"] .project-thumb.has-cover::after,
+[data-theme="light"] .contest-poster.has-cover::after{
+  background:rgba(255,255,255,.10);
+}
+
+/* ---- 분야 배지 : 회색 막을 걷고 글자가 또렷하게 ---- */
+.contest-poster .cat{
+  background:var(--surface) !important;
+  border:0.125rem solid var(--accent) !important;
+  color:var(--accent) !important;
+  backdrop-filter:none !important;
+  box-shadow:0.125rem 0.125rem 0 0 rgba(0,0,0,.35);
+}
+[data-theme="light"] .contest-poster .cat{
+  background:var(--surface) !important;
+  border-color:var(--accent) !important;
+  color:var(--accent) !important;
+}
+
+/* ---- 전시 카드 출처 배지 : 분야 배지와 같은 형태로 또렷하게 ---- */
+.project-body .src{
+  display:inline-flex;align-items:center;
+  padding:0.25rem 0.5rem;border-radius:var(--radius-chip);
+  font-size:.7rem;line-height:1.2;
+  border:0.125rem solid var(--accent);background:var(--accent-soft);color:var(--accent);
+}
+.project-body .src.self{
+  border-color:var(--border-strong);background:var(--surface-2);color:var(--text-muted);
+}
+
+/* ---- 전시 카드 지표 : 라이트에서 어두운 막 제거 ---- */
+[data-theme="light"] .exh-metrics .exh-views,
+[data-theme="light"] .exh-metrics .exh-like,
+[data-theme="light"] .detail-header-right .exh-like{
+  background:rgba(255,255,255,.92) !important;
+  border-color:var(--border-strong) !important;
+}
+[data-theme="light"] .exh-metrics .exh-views{color:var(--text-muted) !important;}
+[data-theme="light"] .exh-metrics .exh-like{color:var(--accent) !important;}
+
+/* ---- 좋아요 · 북마크 : 라이트에서 노란색 대신 테마 강조색 ---- */
+[data-theme="light"] .bookmark-btn:hover,
+[data-theme="light"] .bookmark-btn.is-active,
+[data-theme="light"] .exh-action-btn.is-active{
+  border-color:var(--accent) !important;
+  color:var(--accent) !important;
+  background:var(--accent-soft) !important;
+}
+[data-theme="light"] .bookmark-btn.is-active svg{fill:var(--accent);}
+
+/* ---- 쪽지 아이콘 : 옆의 역할 배지와 같은 키캡 그림자 ---- */
+.msg-send-icon{box-shadow:0.125rem 0.125rem 0 0 rgba(0,0,0,.65);}
+[data-theme="light"] .msg-send-icon{
+  border-color:var(--border-strong);
+  box-shadow:0.125rem 0.125rem 0 0 rgba(36,29,74,.8);
+}
+[data-theme="light"] .msg-send-icon:hover{border-color:var(--accent);color:var(--accent);}
+
+/* 폼 필수 표시 · 검증 안내 */
+.form-required{margin-left:0.1875rem;color:var(--accent);font-weight:800;}
+.form-field-error{
+  margin-top:0.375rem;font-size:.76rem;line-height:1.5;font-weight:700;color:var(--color-danger);
+}
+.form-group.has-error .field-input,
+.form-group.has-error .field-select,
+.form-group.has-error .field-textarea,
+.form-group.has-error .cover-drop,
+.form-group.has-error .picker .field-input{
+  border-color:var(--color-danger);
+}
+[data-theme="light"] .form-field-error{color:var(--accent);}
+[data-theme="light"] .form-group.has-error .field-input,
+[data-theme="light"] .form-group.has-error .field-select,
+[data-theme="light"] .form-group.has-error .field-textarea,
+[data-theme="light"] .form-group.has-error .cover-drop{
+  border-color:var(--accent);
+}
+
+/* 프로필 사진 : 있으면 사진, 없으면 이니셜 (Avatar / MiniAvatar / LeaderRow 공통) */
+.avatar-frame .inner.has-photo,
+.mini-avatar.has-photo,
+.leader-avatar.has-photo{
+  padding:0;overflow:hidden;
+  background-color:var(--surface-2);background-size:cover;background-position:center;
+}
+
+/* 개인 TODO 표 : '열기' 버튼을 옆 상태 배지와 같은 눈높이로 (라이트 모드 포함) */
+.tbl-open-btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  padding:0.1875rem 0.75rem;border:0.125rem solid var(--accent);border-radius:var(--radius-chip);
+  background:rgba(49,233,210,.12);
+  font-family:var(--font-display), var(--font-body);font-size:.78rem;font-weight:800;
+  color:var(--accent);white-space:nowrap;cursor:pointer;
+  transition:background .15s ease,color .15s ease;
+}
+.tbl-open-btn:hover{background:var(--accent);color:var(--accent-ink);}
+[data-theme="light"] .tbl-open-btn{background:rgba(0,0,0,.04);}
+[data-theme="light"] .tbl-open-btn:hover{background:var(--accent);color:#ffffff;}
+
+
+/* 헤더 : 내리면 숨고 올리면 나온다 (lib/hooks/useHideOnScroll.ts) */
+.nav{transition:transform .28s ease;}
+.nav.is-hidden{transform:translateY(-100%);box-shadow:none;}
+@media (prefers-reduced-motion:reduce){.nav{transition:none;}}
+
+/* 프로필 메뉴 : 아바타 한 칸 + 펼침 메뉴 (쪽지·알림 드롭다운과 같은 규칙) */
+.user-wrap{position:relative;display:flex;}
+.user-chip{
+  width:2.5rem;height:2.5rem;flex-shrink:0;border-radius:var(--radius-chip);
+  display:flex;align-items:center;justify-content:center;
+  background:var(--surface);border:0.125rem solid var(--border);
+  cursor:pointer;transition:.2s ease;
+}
+.user-chip .mono{
+  font-family:var(--font-display);font-size:.78rem;color:var(--accent);line-height:1;
+}
+/* 비로그인 상태의 헤더 버튼 — 아바타 자리를 대신한다 */
+.nav-login{
+  height:2.5rem;flex-shrink:0;padding:0 0.875rem;border-radius:var(--radius-chip);
+  display:inline-flex;align-items:center;justify-content:center;
+  background:var(--surface);border:0.125rem solid var(--border);
+  font-size:.8rem;font-weight:800;color:var(--text);text-decoration:none;transition:.2s ease;
+}
+.nav-login:hover{border-color:var(--accent);color:var(--accent);background:var(--surface-2);}
+.user-chip:hover{border-color:var(--border-strong);background:var(--surface-2);}
+.user-chip.is-open{border-color:var(--accent);}
+.user-chip:active{transform:scale(.94);}
+.user-chip:disabled{opacity:.5;cursor:not-allowed;}
+
+.user-menu{
+  position:absolute;top:calc(100% + 0.625rem);right:0;z-index:50;
+  min-width:11.25rem;max-width:calc(100vw - (var(--page-gutter) * 2));
+  background:var(--surface);border:0.125rem solid var(--border-strong);box-shadow:var(--shadow-card);
+}
+.user-menu-head{
+  display:flex;align-items:center;gap:0.5rem;
+  padding:0.75rem 0.875rem;border-bottom:0.125rem solid var(--border);
+}
+.user-menu-head .mono{
+  width:1.75rem;height:1.75rem;flex-shrink:0;border-radius:var(--radius-chip);
+  background:var(--surface-2);border:0.125rem solid var(--border-strong);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-display);font-size:.72rem;color:var(--accent);
+}
+.user-menu-head .uname{font-size:.86rem;font-weight:800;color:var(--text);}
+.user-menu-item{
+  width:100%;display:flex;align-items:center;gap:0.5rem;
+  padding:0.75rem 0.875rem;background:none;border:none;
+  font-family:var(--font-body);font-size:.84rem;font-weight:700;color:var(--text-muted);
+  text-align:left;cursor:pointer;transition:.15s ease;
+}
+.user-menu-item svg{width:1rem;height:1rem;flex-shrink:0;}
+.user-menu-item:hover{background:var(--surface-2);color:var(--accent);}
+.user-menu-item.is-danger:hover{color:var(--gold);}
+[data-theme="light"] .user-menu-item.is-danger:hover{color:var(--accent);}
+
+/* SelectField와 보드 필터는 동일한 콘솔형 select 표현을 공유한다. */
+.field-select,.select-field,.editor-row select{
+  appearance:none;-webkit-appearance:none;
+  padding-right:2.125rem;
+  background-image:var(--select-arrow);
+  background-repeat:no-repeat;
+  background-position:right var(--space-3) center;
+  background-size:1rem;
+}
+.field-select:focus-visible,.select-field:focus-visible,.editor-row select:focus-visible{
+  outline:0.1875rem solid var(--accent);
+  outline-offset:0.125rem;
+}
+.field-select:disabled,.select-field:disabled,.editor-row select:disabled{
+  cursor:not-allowed;
+  color:var(--text-dim);
+  background-color:var(--surface-2);
+  opacity:.65;
+}
+
+/* 관리 도구 카드의 버튼에 아이콘이 들어가면 크기를 잡아 준다 (.btn 기본엔 svg 규칙이 없다) */
+.leader-tools .btn{display:inline-flex;align-items:center;justify-content:center;gap:0.375rem;}
+.leader-tools .btn svg{width:0.875rem;height:0.875rem;flex-shrink:0;}
+
+/* 삭제 : 되돌릴 수 없는 동작이라 다른 도구와 선으로 갈라 두고, 눈에 띄되 먼저 눌리지 않을 색으로 */
+.tool-danger-zone{
+  margin-top:0.875rem;padding-top:0.875rem;border-top:0.125rem solid var(--border);
+}
+.btn.is-danger,
+.exh-action-btn.is-danger{
+  display:inline-flex;align-items:center;justify-content:center;gap:0.375rem;
+  border-color:color-mix(in srgb,var(--color-danger) 45%,var(--border));color:var(--color-danger);background:color-mix(in srgb,var(--color-danger) 8%,transparent);
+}
+.btn.is-danger svg,
+.exh-action-btn.is-danger svg{width:0.875rem;height:0.875rem;}
+.btn.is-danger:hover:not(:disabled),
+.exh-action-btn.is-danger:hover:not(:disabled){
+  border-color:var(--color-danger);background:color-mix(in srgb,var(--color-danger) 16%,transparent);color:var(--color-danger);
+}
+.btn.is-danger:disabled,
+.exh-action-btn.is-danger:disabled{opacity:.55;cursor:not-allowed;}
+.tool-error-note{
+  margin-top:0.75rem;padding:0.6875rem 0.8125rem;
+  border:0.125rem solid color-mix(in srgb,var(--color-danger) 45%,var(--border));background:color-mix(in srgb,var(--color-danger) 8%,transparent);
+  font-size:.78rem;font-weight:700;color:var(--color-danger);line-height:1.55;
+}
+
+/* ---------- 모바일 : 하단 떠 있는 메뉴바 ---------- */
+/* 좁은 화면에서 헤더 가로 메뉴(.nav-menu)가 숨는 자리를 대신한다. 데스크톱에서는 감춘다. */
+.mobile-nav{display:none;}
+
+@media (max-width:53.75rem){
+  /* 헤더가 좁아지면 아이콘이 잘리므로 여백과 글자를 줄인다 */
+  .nav{padding-inline:var(--page-gutter);gap:0.5rem;}
+
+  .mobile-nav{
+    position:fixed;left:50%;transform:translateX(-50%);
+    bottom:calc(0.75rem + env(safe-area-inset-bottom));
+    z-index:45;display:flex;align-items:stretch;gap:0.25rem;
+    width:calc(100% - 2rem);max-width:26rem;padding:0.375rem;
+    border:0.125rem solid var(--border-strong);border-radius:var(--radius-chip);
+    background:var(--surface);
+    box-shadow:0 0.5rem 1.5rem rgba(0,0,0,.55), inset 0 0.0625rem 0 0 rgba(255,255,255,.06);
+  }
+  .mobile-nav-item{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.1875rem;
+    padding:0.5rem 0.25rem;border-radius:var(--radius-chip);
+    font-size:.7rem;font-weight:800;color:var(--text-dim);
+    transition:color .15s ease, background-color .15s ease;
+  }
+  .mobile-nav-item svg{width:1.125rem;height:1.125rem;}
+  .mobile-nav-item.is-active{color:var(--accent);background:rgba(49,233,210,.12);}
+  .mobile-nav-item:active{transform:scale(.96);}
+
+  /* 바에 내용이 가리지 않게 페이지 아래 여백을 준다 */
+  .page{padding-bottom:5.5rem;}
+}
+
+[data-theme="light"] .mobile-nav{
+  box-shadow:0 0.5rem 1.5rem rgba(36,29,74,.18);
+}
+[data-theme="light"] .mobile-nav-item.is-active{background:rgba(200,19,104,.1);}
+
+/* ---------- 성취 상세 (/goals/[id]) ---------- */
+
+/*
+ * 성취 상세 머리말 배지 — 유형·상태·출처를 한 종류의 칩으로 통일한다.
+ * .tag / .status-badge / .src 는 원래 크기도 테두리도 제각각이라 한 줄에 두면 어긋난다.
+ */
+.goal-badges .tag,
+.goal-badges .status-badge,
+.goal-badges .src{
+  display:inline-flex;align-items:center;
+  padding:0.25rem 0.625rem;
+  border:0.125rem solid var(--border);border-radius:var(--radius-chip);
+  font-size:.74rem;font-weight:700;line-height:1.35;letter-spacing:0;
+  background:var(--surface-2);color:var(--text-muted);
+  box-shadow:0.125rem 0.125rem 0 0 rgba(0,0,0,.65);
+}
+.goal-badges .status-badge.achieved{color:var(--accent);border-color:rgba(49,233,210,.4);background:rgba(49,233,210,.08);}
+.goal-badges .status-badge.progress{color:var(--gold);border-color:rgba(245,196,81,.4);background:rgba(245,196,81,.08);}
+.goal-badges .src.verified{color:var(--accent);border-color:rgba(49,233,210,.4);background:var(--accent-soft);}
+[data-theme="light"] .goal-badges .tag,
+[data-theme="light"] .goal-badges .status-badge,
+[data-theme="light"] .goal-badges .src{box-shadow:0.125rem 0.125rem 0 0 rgba(36,29,74,.8);text-shadow:none;}
+
+/* 증빙 파일 목록 — 파일명과 형식만 줄줄이 */
+.goal-file-list{margin-top:1rem;display:flex;flex-direction:column;}
+.goal-file-list li{
+  display:flex;align-items:baseline;gap:0.75rem;flex-wrap:wrap;
+  padding:0.5625rem 0;border-bottom:0.0625rem solid var(--border);
+}
+.goal-file-list li:last-child{border-bottom:none;}
+.goal-file-name{font-size:.86rem;color:var(--text);word-break:break-all;}
+.goal-file-type{font-size:.76rem;color:var(--text-dim);}
+
+.goal-owner-line{
+  margin-top:0.625rem;display:flex;align-items:center;gap:0.375rem;flex-wrap:wrap;
+  font-size:.84rem;color:var(--text-dim);
+}
+.goal-owner-line a{color:var(--text-muted);font-weight:700;}
+.goal-owner-line a:hover{color:var(--accent);}
+.goal-dot{color:var(--text-dim);}
+
+.goal-note{
+  margin-top:0.875rem;padding:0.625rem 0.75rem;
+  background:var(--accent-soft);border-left:0.1875rem solid var(--accent);
+  font-size:.82rem;color:var(--text-muted);line-height:1.6;
+}
+.goal-empty{padding:0.875rem 0;font-size:.84rem;color:var(--text-dim);line-height:1.6;}
+
+/* 라벨 + 값 목록. 값이 없는 행은 컴포넌트에서 걸러 넣지 않는다 */
+.goal-info{margin-top:1rem;display:flex;flex-direction:column;}
+.goal-info > div{
+  display:flex;align-items:baseline;gap:0.875rem;
+  padding:0.5625rem 0;border-bottom:0.0625rem solid var(--border);
+}
+.goal-info > div:last-child{border-bottom:none;}
+/* 라벨 폭은 width 로 잡는다. flex-basis 로 잡으면 세로 배치일 때 라벨 '높이'가 되어 행이 벌어진다 */
+.goal-info dt{flex:none;width:5.5rem;font-size:.8rem;color:var(--text-dim);font-weight:700;}
+.goal-info dd{flex:1;min-width:0;font-size:.86rem;color:var(--text);word-break:break-word;}
+.goal-info dd a{color:var(--text);font-weight:700;}
+.goal-info dd a:hover{color:var(--accent);}
+.side-card .goal-info{margin-top:0;}
+.side-card .goal-info dt{width:4.5rem;}
+
+/* 동기화된 PR 목록 */
+.goal-pr-list{margin-top:1rem;display:flex;flex-direction:column;gap:0.75rem;}
+.goal-pr-item{
+  padding:0.875rem 1rem;background:var(--surface);border:0.125rem solid var(--border);
+}
+.goal-pr-top{display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;}
+.goal-pr-num{font-family:var(--font-pixel);font-size:.62rem;color:var(--accent);}
+.goal-pr-branch{
+  font-size:.72rem;color:var(--text-dim);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;
+}
+.goal-pr-title{
+  margin-top:0.5rem;display:inline-flex;align-items:center;gap:0.375rem;
+  font-size:.92rem;font-weight:700;color:var(--text);line-height:1.5;
+}
+.goal-pr-title:hover{color:var(--accent);}
+.goal-pr-title svg{width:0.75rem;height:0.75rem;flex:0 0 auto;}
+.goal-pr-meta{
+  margin-top:0.375rem;display:flex;align-items:center;gap:0.375rem;flex-wrap:wrap;
+  font-size:.76rem;color:var(--text-dim);
+}
+.goal-pr-author{font-weight:700;color:var(--text-muted);}
+
+/* 사이드 바로가기 — .card-link 은 inline-flex 라 그냥 두면 한 줄에 붙는다 */
+.side-card .card-link{display:flex;align-items:center;gap:0.375rem;}
+.side-card .card-link + .card-link{margin-top:0.625rem;}
+.side-card .card-link svg{width:0.875rem;height:0.875rem;flex:0 0 auto;}
+
+@media (max-width:40rem){
+  /* 라벨을 값 위로 올린다. 세로 방향에서는 dd 의 flex:1 이 남는 높이를 흡수하므로 함께 끈다. */
+  .goal-info > div{flex-direction:column;gap:0.25rem;}
+  .goal-info dt{width:auto;}
+  .goal-info dd{flex:none;}
+}
+.achv-item-link{color:inherit;}
+.achv-item-link:hover{color:var(--accent);}
+
+/* 성취 수정 — 증빙 파일 목록 (파일명 · 형식 · 삭제) */
+.goal-evidence-list{display:flex;flex-direction:column;gap:0.5rem;}
+.goal-evidence-list li{
+  display:flex;align-items:center;gap:0.75rem;padding:0.625rem 0.75rem;
+  border:0.125rem solid var(--border);background:var(--surface);
+}
+.goal-evidence-list .goal-file-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.goal-evidence-list .editor-del{padding:0.375rem 0.5rem;}
+.goal-evidence-list + .editor-add{margin-top:0.625rem;}
+/* 다건일 때 목록과 추가 버튼 사이에 '첫 파일만 저장돼요' 안내가 끼어든다 */
+.goal-note + .editor-add{margin-top:0.625rem;}
+
+/* 성취 상세 — 연결된 개인 TODO의 진행 과정 */
+.goal-todo-summary{display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;}
+.goal-todo-memo{margin-top:0.875rem;font-size:.84rem;color:var(--text-muted);line-height:1.6;}
+.goal-todo-track{margin-top:1.125rem;}

@@ -16,7 +16,7 @@ export default async function GoalCreatePage() {
 
   return (
     <main>
-      <div className="board-wrap container" style={{ maxWidth: '47.5rem' }}>
+      <div className="board-wrap container container--form">
         <BackLink href="/mypage" label="마이페이지로" />
 
         <SectionHead

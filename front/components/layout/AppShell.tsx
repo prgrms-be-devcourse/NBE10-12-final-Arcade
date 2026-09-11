@@ -7,8 +7,8 @@ import { Footer } from './Footer';
 import { MobileNav } from './MobileNav';
 import { AgreementGate } from '@/components/auth/AgreementGate';
 
-/** 로그인 · 회원가입 화면에서는 네비게이션을 숨긴다 (목업의 AUTH_VIEWS) */
-const AUTH_ROUTES = ['/login', '/signup'];
+/** 인증 화면은 콘텐츠만 보이는 공통 auth shell을 사용한다. */
+const AUTH_ROUTES = ['/login', '/signup', '/forgot-password'];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -17,9 +17,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const hideNav = AUTH_ROUTES.some((route) => pathname.startsWith(route));
 
   return (
-    <div className="page">
+    <div className="page app-shell">
       {hideNav ? null : <Header />}
-      {children}
+      <div className="app-shell-content">{children}</div>
       {hideNav ? null : <Footer />}
       {hideNav ? null : <MobileNav />}
       {/* 약관 미동의 계정을 붙잡는다. 로그인·가입·약관 화면에서는 스스로 물러난다 */}

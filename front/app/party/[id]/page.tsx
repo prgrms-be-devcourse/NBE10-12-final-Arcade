@@ -34,7 +34,7 @@ export default async function PartyDetailPage({ params }: { params: Promise<{ id
 
   return (
     <main>
-      <div className="board-wrap container">
+      <div className="board-wrap container party-detail-wrap">
         <BackLink href="/party" />
 
         <DetailGrid
@@ -149,12 +149,17 @@ export default async function PartyDetailPage({ params }: { params: Promise<{ id
           side={
             <>
               <SideCard title="파티장">
-                <LeaderRow
-                  user={party.leader}
-                  href={`/profile/${party.leader.id}`}
-                  role="백엔드 개발자 · 자동기록 5건"
-                  card
-                />
+                <div className="party-leader-head">
+                  <LeaderRow
+                    user={party.leader}
+                    href={`/profile/${party.leader.id}`}
+                    role="백엔드 개발자 · 자동기록 5건"
+                    card
+                  />
+                  {party.leader.id === MOCK_CURRENT_USER_ID ? null : (
+                    <SendMessageButton recipient={party.leader} variant="icon" />
+                  )}
+                </div>
                 <p className="leader-stat-line">완료 파티 3 · 수상 2 · 자동기록 성취 5</p>
               </SideCard>
 
