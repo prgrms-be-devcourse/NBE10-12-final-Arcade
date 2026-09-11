@@ -1,7 +1,7 @@
-package com.back.domain.party.showcase.ranking.repository;
+package com.back.domain.ranking.repository;
 
 import com.back.domain.interaction.like.entity.TargetType;
-import com.back.domain.party.showcase.ranking.entity.FeaturedRanking;
+import com.back.domain.ranking.entity.FeaturedRanking;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;

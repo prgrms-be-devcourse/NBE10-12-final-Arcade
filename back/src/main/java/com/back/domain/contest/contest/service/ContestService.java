@@ -12,6 +12,8 @@ import com.back.domain.interaction.bookmark.service.BookmarkInteractionPort;
 import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.interaction.like.service.LikeInteractionPort;
 import com.back.domain.member.member.entity.Member;
+import com.back.domain.ranking.entity.FeaturedRanking;
+import com.back.domain.ranking.repository.FeaturedRankingRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -21,7 +23,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +38,7 @@ public class ContestService {
     private final ContestPostRepository contestPostRepository;
     private final LikeInteractionPort likeInteractionPort;
     private final BookmarkInteractionPort bookmarkInteractionPort;
+    private final FeaturedRankingRepository featuredRankingRepository;
 
     public long count() {
         return contestRepository.count();
@@ -58,6 +65,27 @@ public class ContestService {
         };
 
         return posts.map(contestPost -> new ContestResponseDto(contestPost.getContest(), contestPost));
+    }
+
+    public List<ContestResponseDto> getTop3() {
+        List<FeaturedRanking> rankings = featuredRankingRepository
+                .findAllByTargetTypeOrderByRankAsc(TargetType.CONTEST);
+
+        List<ContestPost> posts;
+        if (rankings.isEmpty()) {
+            posts = contestPostRepository.searchOrderByPopular(null, null, PageRequest.of(0, 3)).getContent();
+        } else {
+            List<Long> rankedContestIds = rankings.stream().map(FeaturedRanking::getTargetId).toList();
+            Map<Long, ContestPost> postByContestId = contestPostRepository.findAllByContestIdIn(rankedContestIds).stream()
+                    .collect(Collectors.toMap(cp -> cp.getContest().getId(), cp -> cp));
+
+            posts = rankedContestIds.stream()
+                    .map(postByContestId::get)
+                    .filter(Objects::nonNull)
+                    .toList();
+        }
+
+        return posts.stream().map(cp -> new ContestResponseDto(cp.getContest(), cp)).toList();
     }
 
     @Transactional

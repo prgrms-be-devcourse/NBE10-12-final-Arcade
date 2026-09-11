@@ -6,11 +6,9 @@ import com.back.domain.interaction.like.repository.LikeActionRepository;
 import com.back.domain.interaction.like.repository.TargetCount;
 import com.back.domain.party.showcase.comment.repository.ShowcaseCommentRepository;
 import com.back.domain.party.showcase.entity.PartyShowcase;
-import com.back.domain.party.showcase.ranking.entity.FeaturedRanking;
-import com.back.domain.party.showcase.ranking.entity.ShowcaseViewSnapshot;
-import com.back.domain.party.showcase.ranking.repository.FeaturedRankingRepository;
-import com.back.domain.party.showcase.ranking.repository.ShowcaseViewSnapshotRepository;
 import com.back.domain.party.showcase.repository.PartyShowcaseRepository;
+import com.back.domain.ranking.service.FeaturedRankingWriter;
+import com.back.domain.ranking.service.ViewSnapshotService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -31,7 +29,6 @@ import java.util.stream.Collectors;
 public class FeaturedRankingBatchService {
 
     private static final int WINDOW_DAYS = 30;
-    private static final int SNAPSHOT_RETENTION_DAYS = 31;
     private static final int TOP_N = 3;
 
     private static final double BOOKMARK_WEIGHT = 3.0;
@@ -40,11 +37,11 @@ public class FeaturedRankingBatchService {
     private static final double VIEW_WEIGHT = 0.1;
 
     private final PartyShowcaseRepository partyShowcaseRepository;
-    private final ShowcaseViewSnapshotRepository showcaseViewSnapshotRepository;
     private final BookmarkRepository bookmarkRepository;
     private final LikeActionRepository likeActionRepository;
     private final ShowcaseCommentRepository showcaseCommentRepository;
-    private final FeaturedRankingRepository featuredRankingRepository;
+    private final ViewSnapshotService viewSnapshotService;
+    private final FeaturedRankingWriter featuredRankingWriter;
 
     @Scheduled(cron = "0 0 0 * * *")
     @Transactional
@@ -52,11 +49,13 @@ public class FeaturedRankingBatchService {
         LocalDate today = LocalDate.now();
         List<PartyShowcase> published = partyShowcaseRepository.findAllByPublishedTrue();
 
-        snapshotViewCounts(published, today);
-        pruneOldSnapshots(today);
+        Map<Long, Integer> currentViewCounts = published.stream()
+                .collect(Collectors.toMap(PartyShowcase::getId, PartyShowcase::getViewCount));
+        viewSnapshotService.snapshotViewCounts(TargetType.PARTY_SHOWCASE, currentViewCounts, today);
+        viewSnapshotService.pruneOldSnapshots(today);
 
-        featuredRankingRepository.deleteAllByTargetType(TargetType.PARTY_SHOWCASE);
         if (published.isEmpty()) {
+            featuredRankingWriter.replaceTop(TargetType.PARTY_SHOWCASE, List.of(), Map.of());
             return;
         }
 
@@ -75,7 +74,8 @@ public class FeaturedRankingBatchService {
                         ShowcaseCommentRepository.TargetCount::getShowcaseId,
                         ShowcaseCommentRepository.TargetCount::getCount
                 ));
-        Map<Long, Integer> viewBaselines = computeViewBaselines(showcaseIds, windowStart.toLocalDate());
+        Map<Long, Integer> viewBaselines = viewSnapshotService
+                .computeViewBaselines(TargetType.PARTY_SHOWCASE, showcaseIds, windowStart.toLocalDate());
         Map<Long, LocalDateTime> latestLikeAt = likeActionRepository
                 .findLatestCreateDateGroupedByTargetTypeAndTargetIdIn(TargetType.PARTY_SHOWCASE, showcaseIds).stream()
                 .collect(Collectors.toMap(
@@ -125,39 +125,11 @@ public class FeaturedRankingBatchService {
         Map<Long, Double> scoreById = scored.stream()
                 .collect(Collectors.toMap(s -> s.showcase().getId(), Scored::score));
 
-        LocalDateTime computedAt = LocalDateTime.now();
-        List<FeaturedRanking> rows = new ArrayList<>();
-        for (int i = 0; i < top.size(); i++) {
-            PartyShowcase ps = top.get(i);
-            rows.add(new FeaturedRanking(
-                    TargetType.PARTY_SHOWCASE, ps.getId(), i + 1,
-                    scoreById.getOrDefault(ps.getId(), 0.0), computedAt));
-        }
-        featuredRankingRepository.saveAll(rows);
-    }
-
-    private void snapshotViewCounts(List<PartyShowcase> published, LocalDate today) {
-        showcaseViewSnapshotRepository.deleteBySnapshotDate(today);
-        List<ShowcaseViewSnapshot> snapshots = published.stream()
-                .map(ps -> new ShowcaseViewSnapshot(ps.getId(), ps.getViewCount(), today))
-                .toList();
-        showcaseViewSnapshotRepository.saveAll(snapshots);
-    }
-
-    private void pruneOldSnapshots(LocalDate today) {
-        showcaseViewSnapshotRepository.deleteBySnapshotDateBefore(today.minusDays(SNAPSHOT_RETENTION_DAYS));
-    }
-
-    private Map<Long, Integer> computeViewBaselines(List<Long> showcaseIds, LocalDate windowStartDate) {
-        return showcaseViewSnapshotRepository
-                .findAllByShowcaseIdInAndSnapshotDateGreaterThanEqual(showcaseIds, windowStartDate).stream()
-                .collect(Collectors.groupingBy(
-                        ShowcaseViewSnapshot::getShowcaseId,
-                        Collectors.collectingAndThen(
-                                Collectors.minBy(Comparator.comparing(ShowcaseViewSnapshot::getSnapshotDate)),
-                                opt -> opt.map(ShowcaseViewSnapshot::getViewCount).orElse(0)
-                        )
-                ));
+        featuredRankingWriter.replaceTop(
+                TargetType.PARTY_SHOWCASE,
+                top.stream().map(PartyShowcase::getId).toList(),
+                scoreById
+        );
     }
 
     private record Scored(PartyShowcase showcase, double score) {
