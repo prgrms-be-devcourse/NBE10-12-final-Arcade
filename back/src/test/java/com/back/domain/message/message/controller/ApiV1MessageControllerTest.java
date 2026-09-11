@@ -305,7 +305,7 @@ class ApiV1MessageControllerTest {
                 .filteredOn(notification -> notification.getType() == NotificationType.MESSAGE_READ)
                 .hasSize(2)
                 .allSatisfy(notification -> assertThat(notification.getContent())
-                        .isEqualTo(member("user1@test.com").getName() + "님이 보낸 쪽지를 읽었습니다."));
+                        .isEqualTo(member("user1@test.com").getName() + "님이 회원님이 보낸 쪽지를 읽었습니다."));
     }
 
     @Test
@@ -402,7 +402,7 @@ class ApiV1MessageControllerTest {
                 .anySatisfy(notification -> {
                     assertThat(notification.getType()).isEqualTo(NotificationType.MESSAGE_READ);
                     assertThat(notification.getContent())
-                            .isEqualTo(member("user1@test.com").getName() + "님이 보낸 쪽지를 읽었습니다.");
+                            .isEqualTo(member("user1@test.com").getName() + "님이 회원님이 보낸 쪽지를 읽었습니다.");
                 });
     }
 
