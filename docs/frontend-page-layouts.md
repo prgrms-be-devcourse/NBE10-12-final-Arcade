@@ -20,8 +20,8 @@ RootLayout
    └─ AgreementGate             (약관 미동의 계정만)
 ```
 
-- 일반 페이지의 기본 콘텐츠 폭은 `.container`의 최대 `73.75rem`이다. 좁은 생성·수정 폼은 `.container--form`(`47.5rem`), 읽기/시스템 피드백은 `.container--reading`(`40rem`), 제한된 상세 읽기 영역은 `.container--detail`을 사용한다.
-- 게시판·상세 화면의 기본 세로 여백은 `.board-wrap`이다.
+- 일반 페이지의 기본 콘텐츠 폭은 `.container`의 최대 `73.75rem`이다. 좌우 gutter는 `--page-gutter`(`1.5rem`, 모바일 `1rem`)를 사용한다. 좁은 생성·수정 폼은 `.container--form`(`47.5rem`), 읽기/시스템 피드백은 `.container--reading`(`40rem`), 제한된 상세 읽기 영역은 `.container--detail`을 사용한다.
+- 게시판·상세 화면의 기본 세로 여백은 `.board-wrap`의 상단 `3rem`·하단 `4.5rem`이다. 상세 열 간격은 `--layout-gap`(`1.5rem`), 반복 `Block`과 `SideCard` 간격은 각각 `2.75rem`·`1.5rem`을 사용한다.
 - 인증 화면(`/login`, `/signup`, `/forgot-password`)은 Header/Footer/MobileNav 없이 중앙 정렬 auth shell을 사용한다.
 - 모바일에서는 데스크톱 상단 메뉴 대신 하단 `MobileNav`가 제공된다.
 
@@ -113,3 +113,4 @@ Back link (필요 시)
 - 새 상세 화면은 2열 상세 패턴을 사용하되, 실제 보조 정보가 없으면 빈 사이드바를 만들지 않는다.
 - 인증 및 시스템 결과 화면은 정보량을 제한하고, 하나의 명확한 다음 행동만 제공한다.
 - 모바일에서 UI를 단순히 축소하지 않는다. 2열을 1열로 바꾸고, 하단 내비게이션과 버튼의 터치 영역을 보장한다.
+- 홈 Hero와 홈 섹션은 각각 상하 `3rem`을 사용하며, 모바일에서는 `2.5rem`으로 축소한다. 폼은 필드 간 `1.5rem`, 같은 행 및 action 버튼 간 `0.75rem`을 기본으로 한다.

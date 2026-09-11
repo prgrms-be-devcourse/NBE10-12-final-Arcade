@@ -7,9 +7,10 @@
   font-family:var(--font-pixel);font-size:.5rem;line-height:1;
 }
 .notif-panel{
-  position:absolute;top:calc(100% + 0.625rem);right:0;z-index:50;width:22.5rem;max-width:calc(100vw - 2rem);
+  position:absolute;top:calc(100% + var(--space-3));right:0;z-index:50;width:min(22.5rem,calc(100vw - (var(--page-gutter) * 2)));
   background:var(--surface);border:0.125rem solid var(--border-strong);box-shadow:var(--shadow-card);
 }
+.icon-btn.is-open{color:var(--accent);border-color:var(--accent);background:var(--accent-soft);}
 .notif-panel-head{
   display:flex;align-items:center;justify-content:space-between;gap:0.625rem;
   padding:0.875rem 1rem;border-bottom:0.125rem solid var(--border);

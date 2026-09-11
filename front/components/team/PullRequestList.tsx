@@ -7,6 +7,9 @@ import {
   type PartyPrGroup, type PartyPullRequest,
 } from '@/lib/api';
 import { useServerEvents } from '@/lib/hooks/useServerEvents';
+import { Pagination } from '@/components/ui/Pagination';
+
+const PRS_PER_PAGE = 10;
 
 function badgeOf(pr: PartyPullRequest): { label: string; tone: string } {
   if (pr.merged) return { label: '머지됨', tone: 'merged' };
@@ -48,6 +51,7 @@ export function PullRequestList({ partyId, groups: initial, liveSyncEnabled }: {
   const [onlyMine, setOnlyMine] = useState(false);
   const [myIds, setMyIds] = useState<Set<string> | null>(null);
   const [myPrError, setMyPrError] = useState('');
+  const [page, setPage] = useState(1);
 
   // 연동 버튼을 누르기 전에 스트림을 열어 둬야, 연결 과정에서 동기화되는 기존 PR 이벤트를 놓치지 않는다.
   // 스트림의 snapshot은 연결 전에도 빈 목록을 안전하게 반환한다.
@@ -60,15 +64,34 @@ export function PullRequestList({ partyId, groups: initial, liveSyncEnabled }: {
     if (!onlyMine || !myIds) return groups;
     return groups.map((group) => ({ ...group, pullRequests: group.pullRequests.filter((pr) => myIds.has(pr.id)) })).filter((group) => group.pullRequests.length > 0);
   }, [groups, myIds, onlyMine]);
-  const total = visibleGroups.reduce((count, group) => count + group.pullRequests.length, 0);
+  const flattenedPullRequests = useMemo(
+    () => visibleGroups.flatMap((group) => group.pullRequests.map((pr) => ({ group, pr }))),
+    [visibleGroups],
+  );
+  const total = flattenedPullRequests.length;
+  const totalPages = Math.ceil(total / PRS_PER_PAGE);
+  // 실시간 이벤트로 마지막 페이지의 항목이 사라져도, 렌더 시 유효한 마지막 페이지를 사용한다.
+  const activePage = Math.min(page, Math.max(totalPages, 1));
+  const pagedGroups = useMemo(() => {
+    const entries = flattenedPullRequests.slice((activePage - 1) * PRS_PER_PAGE, activePage * PRS_PER_PAGE);
+    const byMember = new Map<string, { group: PartyPrGroup; pullRequests: PartyPullRequest[] }>();
+    entries.forEach(({ group, pr }) => {
+      const key = group.memberId ?? group.githubLogin ?? 'unknown';
+      const existing = byMember.get(key);
+      if (existing) existing.pullRequests.push(pr);
+      else byMember.set(key, { group, pullRequests: [pr] });
+    });
+    return [...byMember.values()];
+  }, [activePage, flattenedPullRequests]);
 
   const toggleMine = async () => {
-    if (onlyMine) { setOnlyMine(false); return; }
+    if (onlyMine) { setOnlyMine(false); setPage(1); return; }
     try {
       const mine = await fetchMyGithubPullRequests();
       setMyIds(new Set(mine.map((pr) => pr.id)));
       setMyPrError('');
       setOnlyMine(true);
+      setPage(1);
     } catch (error) {
       setMyPrError(error instanceof ApiError && error.message === 'GITHUB_SOCIAL_LOGIN_REQUIRED'
         ? '내 PR을 보려면 GitHub 소셜 로그인 또는 계정 연결이 필요해요.'
@@ -83,9 +106,11 @@ export function PullRequestList({ partyId, groups: initial, liveSyncEnabled }: {
     </div>
     {myPrError ? <p className="form-error">{myPrError}</p> : null}
     {total === 0 ? <p className="goal-empty">{onlyMine ? '이 Party에서 작성한 PR이 없어요.' : '아직 동기화된 PR이 없어요. 저장소를 연결하고 PR을 올리면 여기에 쌓입니다.'}</p> :
-      <div className="pr-groups">{visibleGroups.map((group) => <section key={group.memberId ?? group.githubLogin ?? 'unknown'} className="pr-group">
+      <div className="pr-groups">{pagedGroups.map(({ group, pullRequests }) => <section key={group.memberId ?? group.githubLogin ?? 'unknown'} className="pr-group">
         <div className="position-group-head"><h4>{groupLabel(group)}{group.owner ? ' · 파티장' : ''}</h4><span className="frac">PR {group.pullRequests.length}건</span></div>
-        <ul className="pr-list">{group.pullRequests.map((pr) => <PullRequestRow key={pr.id} pr={pr} />)}</ul>
-      </section>)}</div>}
+        <ul className="pr-list">{pullRequests.map((pr) => <PullRequestRow key={pr.id} pr={pr} />)}</ul>
+      </section>)}</div>
+    }
+    <Pagination page={activePage} totalPages={totalPages} onChange={setPage} />
   </>;
 }

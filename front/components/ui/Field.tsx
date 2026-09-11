@@ -51,7 +51,7 @@ export function FormGroup({
       style={style}
     >
       {label ? (
-        <label className="form-label" htmlFor={htmlFor}>
+        <label className="form-label" htmlFor={fieldId}>
           {label}
           {required ? <span className="form-required">*</span> : null}
         </label>

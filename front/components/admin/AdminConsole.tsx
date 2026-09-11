@@ -203,6 +203,7 @@ export function AdminConsole({
             key={item.key}
             type="button"
             className={tab === item.key ? 'is-active' : undefined}
+            aria-pressed={tab === item.key}
             onClick={() => {
               setTab(item.key);
               setSearch('');

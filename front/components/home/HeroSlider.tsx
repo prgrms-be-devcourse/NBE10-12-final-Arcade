@@ -80,6 +80,14 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
         </div>
 
         <div className="slider-footer">
+          <div className="slider-controls" aria-label="슬라이드 이동">
+            <button type="button" className="slider-arrow" aria-label="이전 슬라이드" onClick={() => go(index - 1)}>
+              <Icon name="i-chevron-left" />
+            </button>
+            <button type="button" className="slider-arrow" aria-label="다음 슬라이드" onClick={() => go(index + 1)}>
+              <Icon name="i-chevron-right" />
+            </button>
+          </div>
           <span className="slider-count">
             {String(index + 1).padStart(2, '0')} / {String(total).padStart(2, '0')}
           </span>
@@ -98,22 +106,6 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
           </div>
         </div>
         </div>
-        <button
-          type="button"
-          className="slider-arrow prev"
-          aria-label="이전 슬라이드"
-          onClick={() => go(index - 1)}
-        >
-          <Icon name="i-chevron-left" />
-        </button>
-        <button
-          type="button"
-          className="slider-arrow next"
-          aria-label="다음 슬라이드"
-          onClick={() => go(index + 1)}
-        >
-          <Icon name="i-chevron-right" />
-        </button>
 
       </div>
     </section>

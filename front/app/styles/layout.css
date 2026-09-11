@@ -3,7 +3,7 @@
   position:sticky;top:0;z-index:40;
   height:4.5rem;
   display:flex;align-items:center;justify-content:space-between;
-  padding-inline:1.75rem;
+  padding-inline:var(--page-gutter);
   background:rgba(10,10,19,.97);
   border-bottom:0.125rem solid var(--border);
 }

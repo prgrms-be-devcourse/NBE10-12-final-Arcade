@@ -40,6 +40,7 @@ export function Header() {
             <Link
               href={item.href}
               className={isActive(item.href) ? 'nav-link is-active' : 'nav-link'}
+              aria-current={isActive(item.href) ? 'page' : undefined}
             >
               {item.label}
             </Link>

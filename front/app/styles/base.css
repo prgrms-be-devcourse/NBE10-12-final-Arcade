@@ -32,7 +32,7 @@ img,svg{display:block;}
 
 .app-shell{min-height:100dvh;display:flex;flex-direction:column;}
 .app-shell-content{flex:1;display:flex;flex-direction:column;}
-.container{max-width:73.75rem;margin-inline:auto;padding-inline:1.5rem;}
+.container{max-width:73.75rem;margin-inline:auto;padding-inline:var(--page-gutter);}
 .container--form{max-width:47.5rem;}
 .container--reading{max-width:40rem;}
 .container--detail{max-width:56.25rem;}

@@ -17,6 +17,7 @@ export function FilterChips({ label, options, value, onChange }: FilterChipsProp
           key={option}
           type="button"
           className={option === value ? 'filter-chip is-active' : 'filter-chip'}
+          aria-pressed={option === value}
           onClick={() => onChange(option)}
         >
           {option}

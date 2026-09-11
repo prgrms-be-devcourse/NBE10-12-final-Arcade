@@ -16,7 +16,7 @@
 
 ## 2. 테마와 디자인 토큰
 
-토큰의 단일 진실 원천은 `front/app/globals.css`의 `:root`와 `html[data-theme="light"]`이다. 컴포넌트와 페이지 CSS에서는 가능한 한 아래 의미 토큰을 사용하고, 개별 색상값을 새로 추가하지 않는다.
+토큰의 단일 진실 원천은 `front/app/styles/tokens.css`의 `:root`와 `[data-theme="light"]`이다. `front/app/globals.css`는 이 파일을 포함한 스타일의 import 순서만 관리한다. 컴포넌트와 페이지 CSS에서는 가능한 한 아래 의미 토큰을 사용하고, 개별 색상값을 새로 추가하지 않는다.
 
 | 역할 | 토큰 | 다크 | 라이트 |
 | --- | --- | --- | --- |
@@ -71,6 +71,7 @@
 | 콘텐츠 최대 폭 | `73.75rem` (1180px) |
 | 기본 페이지 좌우 패딩 | `1.5rem` |
 | 데스크톱 상단 내비게이션 | 높이 `4.5rem` |
+| 홈 랜딩 섹션 여백 | 상하 `3rem` (모바일 `2.5rem`) |
 | 일반 섹션 여백 | 상하 `4rem` |
 | 보드/상세 페이지 여백 | 상단 약 `3rem`, 하단 `4rem`~`4.5rem` |
 | 카드 내부 패딩 | 대체로 `1rem`~`1.5rem` |
@@ -78,7 +79,23 @@
 | 일반 묶음 간격 | `0.75rem`~`1rem` |
 | 큰 묶음 간격 | `1.5rem`~`2.75rem` |
 
-면으로 인지되는 카드·패널·테이블·모달은 `--radius-card`(`0.75rem`)을 사용한다. 버튼, 태그, 칩, 아이콘 버튼은 `--radius-chip`(`0.5rem`), 입력 요소는 `--radius-input`(`0.5rem`)을 사용한다.
+네온 아케이드 skin의 프레임 언어를 유지하기 위해 현재 `--radius-card`, `--radius-chip`, `--radius-input`은 모두 `0`이다. 면으로 인지되는 카드·패널·테이블·모달은 `--radius-card`를, 버튼·태그·칩·아이콘 버튼은 `--radius-chip`을, 입력 요소는 `--radius-input`을 사용한다. 반경 값을 바꿀 때에는 세 토큰과 `/design-system` 전시를 함께 검토한다.
+
+### 공통 spacing scale
+
+여백의 단일 기준은 `styles/tokens.css`의 `--space-*`와 `--page-gutter`다. 화면 고유의 시각 보정 외에는 아래 값만 사용한다.
+
+| 토큰 | 값 | 용도 |
+| --- | --- | --- |
+| `--space-1` ~ `--space-3` | `0.375rem` / `0.5rem` / `0.625rem` | 아이콘·태그·짧은 메타 간격 |
+| `--space-4` ~ `--space-6` | `0.75rem` / `1rem` / `1.5rem` | 버튼 묶음, 카드 내부, 폼 필드 |
+| `--space-7` ~ `--space-9` | `2rem` / `2.75rem` / `3rem` | 레이아웃 열, 반복 블록, 홈 섹션 |
+| `--space-10` ~ `--space-11` | `4rem` / `4.5rem` | 일반 섹션·보드 하단 여백 |
+| `--space-section-mobile` | `2.5rem` | 모바일 홈 Hero·섹션의 세로 여백 |
+| `--page-gutter` | `1.5rem` (모바일 `1rem`) | container와 헤더의 좌우 여백 |
+
+- `DetailGrid`의 열 간격과 `SideCard`의 내부/반복 간격은 `--layout-gap`과 `--space-6`으로 통일한다.
+- 폼 필드 간격은 `--space-6`, 같은 행의 열 간격과 action 버튼 묶음은 `--space-4`를 사용한다.
 
 ### 반응형 원칙
 
@@ -166,7 +183,8 @@
 
 | 영역 | 기준 파일 |
 | --- | --- |
-| 전역 토큰·스타일 | `front/app/globals.css` |
+| 전역 토큰 | `front/app/styles/tokens.css` |
+| 전역 스타일 import 순서 | `front/app/globals.css` |
 | 폰트·테마 초기화 | `front/app/layout.tsx` |
 | 테마 전환 | `front/components/layout/ThemeToggle.tsx` |
 | 공통 UI API | `front/components/ui/` |

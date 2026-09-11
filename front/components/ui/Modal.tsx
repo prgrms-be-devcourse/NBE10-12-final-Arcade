@@ -26,6 +26,10 @@ interface ModalProps {
    * 약관 동의처럼 통과해야만 다음으로 갈 수 있는 화면에 쓴다.
    */
   dismissible?: boolean;
+  /** 기본 헤더 닫기(X)를 숨기고, 푸터의 닫기 버튼만 사용한다. */
+  headerClose?: boolean;
+  /** 취소·확인 버튼 앞에 놓을 추가 푸터 액션. */
+  footerActions?: ReactNode;
   confirmVariant?: 'primary' | 'danger';
 }
 
@@ -47,6 +51,8 @@ export function Modal({
   onConfirm,
   onClose,
   dismissible = true,
+  headerClose = true,
+  footerActions,
   footNote,
   confirmVariant = 'primary',
 }: ModalProps) {
@@ -113,7 +119,7 @@ export function Modal({
             <h3 id={titleId}>{title}</h3>
             {description ? <p>{description}</p> : null}
           </div>
-          {dismissible ? (
+          {dismissible && headerClose ? (
             <button type="button" className="modal-close" onClick={onClose} aria-label="닫기">
               <Icon name="i-x" />
             </button>
@@ -123,6 +129,7 @@ export function Modal({
         {children ? <div className="modal-body">{children}</div> : null}
         <div className="modal-foot">
           {footNote ? <div className="modal-foot-note">{footNote}</div> : null}
+          {footerActions ? <div className="modal-foot-actions">{footerActions}</div> : null}
           {dismissible ? (
             <button type="button" className="btn btn-ghost" onClick={onClose}>
               {cancelLabel}

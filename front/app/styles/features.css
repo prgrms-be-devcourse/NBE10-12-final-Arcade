@@ -567,13 +567,14 @@
   border-bottom:0.125rem solid var(--border);background:var(--surface-2);
 }
 .notif-check{
-  width:1rem;height:1rem;flex-shrink:0;border:0.125rem solid var(--border-strong);background:var(--surface);
+  width:1rem;height:1rem;flex-shrink:0;padding:0;border:0.125rem solid var(--border-strong);background:var(--surface);
   display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
 }
 .notif-check svg{width:0.625rem;height:0.625rem;opacity:0;color:var(--bg);}
 .notif-check.is-checked{background:var(--accent);border-color:var(--accent);}
 .notif-check.is-checked svg{opacity:1;}
-.notif-select-label{font-size:.76rem;font-weight:800;color:var(--text-muted);cursor:pointer;}
+.notif-select-label{padding:0;border:0;background:none;font-size:.76rem;font-weight:800;color:var(--text-muted);cursor:pointer;}
+.notif-select-label:hover{color:var(--accent);}
 .notif-select-count{margin-left:auto;font-size:.72rem;color:var(--text-dim);}
 .notif-group-del{
   padding:0.3125rem 0.6875rem;border:0.125rem solid var(--border-strong);background:none;
@@ -702,6 +703,8 @@
 .github-install-guide li+li{margin-top:0.25rem;}
 .github-actions{display:grid;gap:0.625rem;margin-top:0.875rem;}
 .github-actions .btn{width:100%;justify-content:center;font-size:.8rem;padding:.625rem;}
+/* 공통 오류 문구의 음수 상단 마진은 이 카드의 전체폭 버튼과 겹친다. */
+.github-actions + .form-error{margin:0.75rem 0 0;}
 .github-url-editor{display:grid;grid-template-columns:1fr auto;gap:.5rem;margin-top:.875rem;}.github-url-editor .form-label{grid-column:1/-1;margin:0;}.github-url-editor .btn{padding:.55rem .75rem;font-size:.76rem;}.github-url-editor .form-hint{font-weight:400;color:var(--text-dim);}
 @media (max-width:40rem){.github-url-editor{grid-template-columns:1fr;}.github-url-editor .btn{width:100%;}}
 .github-repository-name{margin-top:.5rem;font-family:var(--font-mono,monospace);font-size:.78rem;color:var(--text);overflow-wrap:anywhere;}
@@ -798,6 +801,7 @@
   display:flex;justify-content:flex-end;gap:0.625rem;padding:1.125rem 1.5rem;border-top:0.125rem solid var(--border);
 }
 .modal-foot .btn{padding:0.6875rem 1.375rem;font-size:.86rem;}
+.modal-foot-actions{display:flex;gap:0.625rem;}
 /* 확인 버튼 옆 안내·오류. margin-right:auto 로 왼쪽에 붙여 기존 버튼 정렬은 건드리지 않는다 */
 .modal-foot-note{margin-right:auto;font-size:.78rem;font-weight:700;color:var(--gold);text-align:left;}
 

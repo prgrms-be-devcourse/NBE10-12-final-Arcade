@@ -98,8 +98,15 @@ export function NotificationPanel() {
     const onClick = (event: MouseEvent) => {
       if (!wrapRef.current?.contains(event.target as Node)) setOpen(false);
     };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
     document.addEventListener('click', onClick);
-    return () => document.removeEventListener('click', onClick);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('click', onClick);
+      document.removeEventListener('keydown', onKeyDown);
+    };
   }, [open]);
 
   const unread = notifications.filter((item) => item.unread).length;
@@ -186,10 +193,11 @@ export function NotificationPanel() {
       {dialog}
       <button
         type="button"
-        className="icon-btn"
+        className={open ? 'icon-btn is-open' : 'icon-btn'}
         aria-label="알림"
-        aria-haspopup="true"
+        aria-haspopup="dialog"
         aria-expanded={open}
+        aria-controls="notification-panel"
         onClick={(event) => {
           event.stopPropagation();
           // 열 때 한 번 읽어둔다 — 열어보는 순간이 가장 최신을 원하는 시점이다
@@ -202,7 +210,7 @@ export function NotificationPanel() {
       </button>
 
       {open ? (
-        <div className="notif-panel">
+        <div id="notification-panel" className="notif-panel" role="dialog" aria-label="알림">
           <div className="notif-panel-head">
             <h4>알림</h4>
             <div className="notif-panel-actions">
@@ -213,21 +221,17 @@ export function NotificationPanel() {
           </div>
 
           <div className="notif-select-bar">
-            <span
+            <button
+              type="button"
               className={allSelected ? 'notif-check is-checked' : 'notif-check'}
-              role="checkbox"
-              aria-checked={allSelected}
-              tabIndex={0}
+              aria-pressed={allSelected}
               onClick={toggleSelectAll}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') toggleSelectAll();
-              }}
             >
               <Icon name="i-check" />
-            </span>
-            <span className="notif-select-label" onClick={toggleSelectAll}>
+            </button>
+            <button type="button" className="notif-select-label" onClick={toggleSelectAll}>
               전체 선택
-            </span>
+            </button>
             <span className="notif-select-count">{selected.length}개 선택됨</span>
             <button
               type="button"
@@ -254,17 +258,17 @@ export function NotificationPanel() {
                     if (event.key === 'Enter') openNotification(notification);
                   }}
                 >
-                  <span
+                  <button
+                    type="button"
                     className={checked ? 'notif-check is-checked' : 'notif-check'}
-                    role="checkbox"
-                    aria-checked={checked}
+                    aria-pressed={checked}
                     onClick={(event) => {
                       event.stopPropagation();
                       toggleOne(notification.id);
                     }}
                   >
                     <Icon name="i-check" />
-                  </span>
+                  </button>
                   <span className="notif-icon">
                     <Icon name={NOTIF_ICONS[notification.type]} />
                   </span>

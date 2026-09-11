@@ -1,6 +1,6 @@
 
 /* ---------- HERO SLIDER ---------- */
-.hero{padding-block:2.5rem 5.5rem;}
+.hero{padding-block:var(--space-9);}
 .hero-slider{
   position:relative;border-radius:0;overflow:hidden;
   border:0.125rem solid var(--border);
@@ -83,18 +83,19 @@
 @media (max-width:53.75rem){.hero-art{display:none;}}
 
 .hero-carousel{position:relative;}
+.slider-controls{
+  display:flex;gap:0.375rem;
+}
 .slider-arrow{
-  position:absolute;top:50%;transform:translateY(-50%);z-index:3;
+  position:static;z-index:3;
   width:2.375rem;height:2.375rem;border-radius:0;
   background:rgba(10,10,19,.6);border:0.125rem solid var(--border-strong);
   display:flex;align-items:center;justify-content:center;color:var(--text-muted);
   transition:color .2s ease, border-color .2s ease;
 }
 .slider-arrow:hover{color:var(--accent);border-color:var(--accent);}
-.slider-arrow:active{transform:translateY(-50%) scale(.92);}
+.slider-arrow:active{transform:scale(.92);}
 .slider-arrow svg{width:1rem;height:1rem;}
-.slider-arrow.prev{left:-1.25rem;}
-.slider-arrow.next{right:-1.25rem;}
 @media (max-width:40rem){.slider-arrow{display:none;}}
 
 .slider-footer{position:absolute;left:2.75rem;bottom:1.375rem;z-index:3;display:flex;align-items:center;gap:1rem;}
@@ -108,7 +109,8 @@
 @media (max-width:40rem){.slider-footer{left:1.5rem;bottom:1rem;}}
 
 /* ---------- SECTIONS ---------- */
-.section{padding-block:4rem;}
+.section{padding-block:var(--space-9);}
+@media (max-width:40rem){.hero,.section{padding-block:var(--space-section-mobile);}}
 .section-head h2{font-size:clamp(1.5rem,2.6vw,2rem);color:var(--text);}
 .section-head p{margin-top:0.625rem;color:var(--text-muted);max-width:56ch;font-size:.98rem;line-height:1.6;}
 
@@ -125,17 +127,21 @@
 }
 .rank-card{
   background:var(--surface);border:0.125rem solid var(--border);border-radius:var(--radius-card);
-  padding:1.5rem 1.375rem;box-shadow:var(--shadow-card);
+  height:18.5rem;padding:1.5rem 1.375rem;box-shadow:var(--shadow-card);
   display:flex;flex-direction:column;gap:0.875rem;
   transition:transform .25s ease, border-color .25s ease;
 }
 .rank-card:hover{transform:translateY(-0.25rem);border-color:var(--border-strong);}
-.rank-1{order:2;padding-top:2.125rem;border-color:var(--accent);box-shadow:0.375rem 0.375rem 0 0 var(--accent);}
+.rank-1{
+  /* 1위는 가운데에 세워 시상대의 가장 높은 단을 표현한다. */
+  order:2;height:20.5rem;padding:2.125rem 1.375rem;
+  border-color:var(--accent);box-shadow:0.375rem 0.375rem 0 0 var(--accent);
+}
 .rank-2{order:1;}
 .rank-3{order:3;}
-@media (max-width:53.75rem){
+@media (max-width:40rem){
   .podium{grid-template-columns:1fr;}
-  .rank-1,.rank-2,.rank-3{order:0;}
+  .rank-1,.rank-2,.rank-3{order:0;height:auto;}
 }
 
 .rank-badge{display:flex;align-items:center;gap:0.5rem;}
@@ -169,7 +175,9 @@
 
 /* ---------- CONTEST ROW ---------- */
 .contest-row{
-  display:flex;gap:1rem;margin-top:2rem;overflow-x:auto;padding-bottom:0.625rem;
+  /* 가로 스크롤은 세로 overflow도 클리핑한다. hover 상승분·그림자만큼 위 여백을 둔다. */
+  display:flex;gap:1rem;margin:2rem -0.625rem 0;overflow-x:auto;padding:0.5rem 0.875rem 0.625rem;
+  scroll-padding-inline-start:0.875rem;
   scroll-snap-type:x mandatory;
 }
 .contest-row::-webkit-scrollbar{height:0.375rem;}
@@ -181,6 +189,7 @@
   overflow:hidden;box-shadow:var(--shadow-card);
   transition:transform .25s ease, border-color .25s ease;
 }
+.contest-card:first-child{scroll-margin-inline-start:0.875rem;}
 .contest-card:hover{transform:translateY(-0.25rem);border-color:var(--border-strong);}
 .contest-poster{
   height:6rem;position:relative;
@@ -252,11 +261,11 @@
 }
 
 .mypage-grid,.detail-grid{
-  display:grid;grid-template-columns:2fr 1fr;gap:1.75rem;margin-top:2rem;
+  display:grid;grid-template-columns:2fr 1fr;gap:var(--layout-gap);margin-top:var(--space-7);
 }
 @media (max-width:64rem){.mypage-grid,.detail-grid{grid-template-columns:1fr;}}
 
-.block{margin-bottom:2.75rem;}
+.block{margin-bottom:var(--space-8);}
 .block:last-child{margin-bottom:0;}
 .block h3.block-title{font-size:1.2rem;color:var(--text);margin-bottom:1rem;}
 
@@ -441,7 +450,7 @@ button.party-mini:hover{border-color:var(--accent);}
 .project-body .view-link:hover{color:var(--accent);}
 
 .side-card{
-  background:var(--surface);border:0.125rem solid var(--border);border-radius:0;padding:1.25rem;margin-bottom:1.25rem;
+  background:var(--surface);border:0.125rem solid var(--border);border-radius:0;padding:var(--space-6);margin-bottom:var(--space-6);
 }
 .side-card:last-child{margin-bottom:0;}
 .side-card h4{font-size:.9rem;color:var(--text-muted);font-weight:800;margin-bottom:0.875rem;}
@@ -463,7 +472,7 @@ button.party-mini:hover{border-color:var(--accent);}
 .link-row.add .txt .v{color:var(--text-dim);font-weight:600;}
 
 /* ---------- BOARDS (party / contests / exhibition) ---------- */
-.board-wrap{padding-block:3rem 4.5rem;}
+.board-wrap{padding-block:var(--space-9) var(--space-11);}
 .board-head-row{
   display:flex;align-items:flex-end;justify-content:space-between;gap:1.25rem;flex-wrap:wrap;
 }
@@ -481,11 +490,9 @@ button.party-mini:hover{border-color:var(--accent);}
 .search-field input::placeholder{color:var(--text-dim);}
 .search-field input:focus{outline:none;border-color:var(--accent);}
 .select-field{
-  padding:0.75rem 2.125rem 0.75rem 0.875rem;border:0.125rem solid var(--border-strong);background:var(--surface-2);
+  padding:0.75rem 0.875rem;border:0.125rem solid var(--border-strong);background-color:var(--surface-2);
   color:var(--text);font-family:var(--font-body);font-size:.9rem;font-weight:700;border-radius:var(--radius-input);
-  appearance:none;-webkit-appearance:none;cursor:pointer;min-width:8.125rem;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a6a6bd' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right 0.625rem center;background-size:1rem;
+  cursor:pointer;min-width:8.125rem;
 }
 .select-field:focus{outline:none;border-color:var(--accent);}
 .filter-group{display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;}
@@ -580,6 +587,10 @@ button.party-mini:hover{border-color:var(--accent);}
 .back-link:hover{color:var(--accent);}
 .profile-view-wrap .block{margin-top:2.25rem;}
 
+/* 파티 상세은 뒤로가기 링크와 본문 그리드가 연달아 있어 기본 여백을 한 단계 줄인다. */
+.party-detail-wrap .back-link{margin-bottom:0.75rem;}
+.party-detail-wrap .detail-grid{margin-top:0.75rem;}
+
 /* ---------- PARTY DETAIL ---------- */
 .detail-header{display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap;}
 .detail-title{font-family:var(--font-body);font-weight:800;font-size:clamp(1.4rem,2.6vw,1.9rem);color:var(--text);line-height:1.4;margin-top:0.875rem;}
@@ -615,6 +626,9 @@ button.party-mini:hover{border-color:var(--accent);}
 .leader-card-row .leader-avatar{width:3.25rem;height:3.25rem;font-size:1.15rem;}
 .leader-card-row .name{font-size:1rem;}
 .leader-stat-line{margin-top:0.875rem;font-size:.78rem;color:var(--text-dim);}
+.party-leader-head{display:flex;align-items:center;gap:0.625rem;}
+.party-leader-head .leader-row{flex:1;min-width:0;}
+.party-leader-head .msg-send-icon{width:1.875rem;height:1.875rem;margin:0;}
 
 .apply-panel{position:sticky;top:6rem;}
 .apply-note{margin-top:0.625rem;font-size:.78rem;color:var(--text-dim);line-height:1.55;}
@@ -679,11 +693,11 @@ button.party-mini:hover{border-color:var(--accent);}
   padding:1rem 1.125rem;background:rgba(49,233,210,.06);border:0.125rem dashed rgba(49,233,210,.4);
   font-size:.84rem;color:var(--text-muted);line-height:1.6;margin-bottom:1.75rem;
 }
-.form-group{margin-bottom:1.375rem;}
+.form-group{margin-bottom:var(--space-6);}
 .form-group:last-child{margin-bottom:0;}
 .form-label{display:block;font-size:.84rem;font-weight:800;color:var(--text);margin-bottom:0.5rem;}
 .form-hint{margin-top:0.375rem;font-size:.76rem;color:var(--text-dim);line-height:1.5;}
-.form-row{display:grid;grid-template-columns:1fr 1fr;gap:0.875rem;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4);}
 @media (max-width:40rem){.form-row{grid-template-columns:1fr;}}
 .field-input, .field-textarea, .field-select{
   width:100%;padding:0.75rem 0.875rem;border:0.125rem solid var(--border-strong);background:var(--surface-2);
@@ -721,7 +735,7 @@ button.party-mini:hover{border-color:var(--accent);}
 .quorum-field{display:flex;align-items:center;gap:0.75rem;}
 .quorum-field .field-input{width:5rem;flex:none;text-align:center;}
 
-.form-actions{display:flex;gap:0.75rem;margin-top:2rem;padding-top:1.5rem;border-top:0.125rem solid var(--border);}
+.form-actions{display:flex;gap:var(--space-4);margin-top:var(--space-7);padding-top:var(--space-6);border-top:0.125rem solid var(--border);}
 
 /* ---------- EXHIBITION / CONTEST DETAIL ---------- */
 .exh-hero-thumb{
