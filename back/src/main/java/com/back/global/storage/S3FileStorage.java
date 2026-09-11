@@ -39,6 +39,25 @@ public class S3FileStorage implements FileStorage {
         return publicUrlPrefix() + "/" + key;
     }
 
+    @Override
+    public String uploadKey(MultipartFile file, String directory) {
+        String key = FileStorage.newKey(directory, file.getOriginalFilename());
+
+        PutObjectRequest request = PutObjectRequest.builder()
+                .bucket(properties.getBucket())
+                .key(key)
+                .contentType(file.getContentType())
+                .build();
+
+        try (InputStream in = file.getInputStream()) {
+            s3Client.putObject(request, RequestBody.fromInputStream(in, file.getSize()));
+        } catch (IOException | SdkException e) {
+            throw new ServiceException("500-1", "파일 저장에 실패했습니다.");
+        }
+
+        return key;
+    }
+
     private String publicUrlPrefix() {
         String configured = properties.getPublicUrlPrefix();
 

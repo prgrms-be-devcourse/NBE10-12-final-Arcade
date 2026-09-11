@@ -33,4 +33,19 @@ public class LocalFileStorage implements FileStorage {
 
         return properties.getUrlPrefix() + "/" + key;
     }
+
+    @Override
+    public String uploadKey(MultipartFile file, String directory) {
+        String key = FileStorage.newKey(directory, file.getOriginalFilename());
+        Path target = Path.of(properties.getPath()).toAbsolutePath().resolve(key).normalize();
+
+        try (InputStream in = file.getInputStream()) {
+            Files.createDirectories(target.getParent());
+            Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            throw new ServiceException("500-1", "파일 저장에 실패했습니다.");
+        }
+
+        return key;
+    }
 }

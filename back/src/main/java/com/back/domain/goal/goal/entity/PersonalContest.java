@@ -1,8 +1,11 @@
 package com.back.domain.goal.goal.entity;
 
 import com.back.domain.member.member.entity.Member;
+import com.back.global.exception.ServiceException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.PrimaryKeyJoinColumn;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -40,6 +43,14 @@ public class PersonalContest extends Goal {
     private String evidenceFileName;
     private String evidenceMimeType;
     private Long evidenceSize;
+
+    // 관리자 검수 결과. 파일이 없으면 null 이고, 올라오는 순간 PENDING 이 된다.
+    // 프로필의 '증빙 승인' 뱃지가 이 값을 본다.
+    @Enumerated(EnumType.STRING)
+    private EvidenceStatus evidenceStatus;
+
+    // 반려 사유. 본인이 무엇을 고쳐 다시 올려야 하는지 알려면 있어야 한다.
+    private String evidenceReviewNote;
 
     // 대회 허브에 등록된 CONTEST를 가리킨다. 자기신고는 연결할 행이 없어 null이고 contestName 자유입력만 남는다.
     // 자동생성 흐름이 확정되면 그때 값이 채워진다.
@@ -90,5 +101,24 @@ public class PersonalContest extends Goal {
         this.evidenceFileName = fileName;
         this.evidenceMimeType = mimeType;
         this.evidenceSize = size;
+
+        // 파일이 바뀌면 검수는 처음부터다.
+        // 이걸 빼면 승인받은 뒤 파일만 바꿔치기해서 승인 뱃지를 단 채로 아무 문서나 들고 있을 수 있다.
+        this.evidenceStatus = EvidenceStatus.PENDING;
+        this.evidenceReviewNote = null;
+    }
+
+    /**
+     * 관리자 검수 결과를 남긴다.
+     *
+     * note 는 반려 사유다. 올린 본인 화면에만 나가고 남의 성취를 볼 때는 빠진다(GoalDetailDto).
+     */
+    public void review(EvidenceStatus status, String note) {
+        if (evidenceStorageKey == null) {
+            throw new ServiceException("400-4", "증빙 파일이 없는 성취입니다.");
+        }
+
+        this.evidenceStatus = status;
+        this.evidenceReviewNote = note;
     }
 }
