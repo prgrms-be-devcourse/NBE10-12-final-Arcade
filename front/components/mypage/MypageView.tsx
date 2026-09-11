@@ -182,7 +182,6 @@ export function MypageView({
 
         {passwordOpen ? (
           <PasswordChangeModal
-            email={`${profile.id}@crewon.dev`}
             onClose={() => setPasswordOpen(false)}
           />
         ) : null}
