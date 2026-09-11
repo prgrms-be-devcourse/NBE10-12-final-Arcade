@@ -136,6 +136,9 @@ public class MessageService {
     }
 
     private void markAsRead(Message message, Member reader) {
+        if (!message.getRecipient().getId().equals(reader.getId())) {
+            throw new ServiceException("403-1", "수신자만 쪽지를 읽음 처리할 수 있습니다.");
+        }
         if (message.isRead()) {
             return;
         }
