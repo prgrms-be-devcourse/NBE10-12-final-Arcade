@@ -60,12 +60,10 @@ public record GoalDetailDto(
         /** 연결된 개인 TODO. 항목까지 보려면 상세 응답의 todo 블록을 쓴다 */
         Long todoId
 ) {
-    /** 누가 보든 안전한 값만 담는다. 남의 성취가 섞일 수 있는 목록·공개 프로필이 이쪽을 쓴다. */
-    public static GoalDetailDto from(Goal goal) {
-        return from(goal, false);
-    }
-
-    /** owner 가 true 면 본인만 볼 수 있는 값(반려 사유)까지 담는다. */
+    /**
+     * owner 가 true 면 본인만 볼 수 있는 값(증빙 반려 사유)까지 담는다.
+     * 남의 성취가 섞일 수 있는 목록·공개 프로필은 false 로 부른다.
+     */
     public static GoalDetailDto from(Goal goal, boolean owner) {
         if (goal instanceof Project project) {
             return new GoalDetailDto(

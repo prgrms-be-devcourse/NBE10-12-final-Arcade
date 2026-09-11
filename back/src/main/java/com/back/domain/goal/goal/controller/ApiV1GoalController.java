@@ -1,6 +1,5 @@
 package com.back.domain.goal.goal.controller;
 
-import com.back.domain.goal.goal.dtos.EvidenceDto;
 import com.back.domain.goal.goal.dtos.GoalCreateReqBody;
 import com.back.domain.goal.goal.dtos.GoalDetailResponseDto;
 import com.back.domain.goal.goal.dtos.GoalDto;
@@ -209,7 +208,8 @@ public class ApiV1GoalController {
                     링크를 아는 누구나 받을 수 있으면 안 된다. 확인은 관리자 화면에서 한다.
 
                     한 성취에 한 건만 보관한다. 다시 올리면 이전 파일을 대체하고,
-                    검수 상태(status)는 PENDING 으로 되돌아간다 - 승인 뒤 파일만 바꿔치기하는 걸 막는다.
+                    검수 상태는 PENDING 으로 되돌아간다 - 승인 뒤 파일만 바꿔치기하는 걸 막는다.
+                    올라간 결과는 성취 상세(GET /goals/{goalId})의 detail 에서 확인한다.
 
                     png, jpg, pdf 만 받고 10MB 까지다.
 
@@ -222,15 +222,13 @@ public class ApiV1GoalController {
                     - 409-1 : 자동기록된 성취
                     """
     )
-    public RsData<EvidenceDto> uploadEvidence(
+    public RsData<Void> uploadEvidence(
             @PathVariable long goalId,
             @RequestPart("file") MultipartFile file
     ) {
-        return new RsData<>(
-                "201-1",
-                "증빙 파일 업로드 성공",
-                goalService.uploadEvidence(rq.getActorFromDb(), goalId, file)
-        );
+        goalService.uploadEvidence(rq.getActorFromDb(), goalId, file);
+
+        return new RsData<>("201-1", "증빙 파일 업로드 성공");
     }
 
     @DeleteMapping("/{goalId}")

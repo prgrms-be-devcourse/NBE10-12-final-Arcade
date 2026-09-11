@@ -5,7 +5,6 @@ import com.back.domain.goal.goal.dtos.GoalCreateReqBody;
 import com.back.domain.goal.goal.dtos.GoalDetailReqBody;
 import com.back.domain.goal.goal.dtos.GoalUpdateReqBody;
 import com.back.domain.goal.goal.dtos.GoalDetailResponseDto;
-import com.back.domain.goal.goal.dtos.EvidenceDto;
 import com.back.domain.goal.goal.dtos.GoalDto;
 import com.back.domain.goal.goal.dtos.ProjectContextDto;
 import com.back.domain.goal.goal.dtos.TodoContextDto;
@@ -31,6 +30,7 @@ import com.back.domain.todo.todo.repository.PersonalTodoItemRepository;
 import com.back.domain.todo.todo.repository.PersonalTodoRepository;
 import com.back.global.exception.ServiceException;
 import com.back.global.storage.FileStorage;
+import org.springframework.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -71,9 +71,6 @@ public class GoalService {
     /** 수상 확인서(PDF)와 결과 발표 화면 캡처(PNG·JPG). 화면의 업로드 컴포넌트와 같은 기준이다. */
     private static final Set<String> ALLOWED_EVIDENCE_TYPES =
             Set.of("image/png", "image/jpeg", "application/pdf");
-
-    /** 스캔한 확인서·화면 캡처는 보통 몇 MB 안쪽이라 10MB면 넉넉하다. */
-    private static final long MAX_EVIDENCE_SIZE = 10L * 1024 * 1024;
 
     @Transactional
     public GoalDto createSelfReported(Member owner, GoalCreateReqBody request) {
@@ -354,7 +351,7 @@ public class GoalService {
      * - 400-1 : 파일이 비었거나, 허용하지 않는 형식이거나, 10MB 초과
      */
     @Transactional
-    public EvidenceDto uploadEvidence(Member actor, long goalId, MultipartFile file) {
+    public void uploadEvidence(Member actor, long goalId, MultipartFile file) {
         Goal goal = findGoal(goalId);
 
         goal.checkOwnedBy(actor);
@@ -367,18 +364,19 @@ public class GoalService {
         validateEvidence(file);
 
         String storageKey = fileStorage.uploadKey(file, EVIDENCE_DIRECTORY);
+
+        // 파일명은 사용자가 정하는 값이라 경로 조각을 떼고 보관한다.
+        // 저장 경로에는 안 쓰이지만(키는 UUID) 나중에 다운로드 헤더에 실릴 값이다.
         contest.attachEvidence(
                 storageKey,
-                safeFileName(file.getOriginalFilename()),
+                StringUtils.getFilename(StringUtils.cleanPath(file.getOriginalFilename())),
                 file.getContentType(),
                 file.getSize()
         );
-
-        return new EvidenceDto(contest);
     }
 
     private void validateEvidence(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
+        if (file.isEmpty()) {
             throw new ServiceException("400-1", "증빙 파일이 비어 있습니다.");
         }
 
@@ -389,22 +387,8 @@ public class GoalService {
             throw new ServiceException("400-1", "png, jpg, pdf 파일만 올릴 수 있습니다.");
         }
 
-        if (file.getSize() > MAX_EVIDENCE_SIZE) {
-            throw new ServiceException("400-1",
-                    "증빙 파일은 %dMB 까지 올릴 수 있습니다.".formatted(MAX_EVIDENCE_SIZE / 1024 / 1024));
-        }
-    }
-
-    /**
-     * 파일명은 사용자가 정하는 값이라 경로 조각을 떼고 보관한다.
-     * 저장 경로에 쓰이지는 않지만(스토리지 키는 UUID), 나중에 다운로드 헤더에 실릴 값이다.
-     */
-    private String safeFileName(String originalFilename) {
-        if (originalFilename == null) return null;
-
-        int separator = Math.max(originalFilename.lastIndexOf('/'), originalFilename.lastIndexOf('\\'));
-
-        return separator > -1 ? originalFilename.substring(separator + 1) : originalFilename;
+        // 크기는 서블릿 멀티파트 한도(10MB)가 먼저 거른다 - MaxUploadSizeExceededException 을
+        // GlobalExceptionHandler 가 같은 400-1 로 바꾼다. 여기서 또 재는 건 도달하지 않는 코드다.
     }
 
     private Goal findGoal(long goalId) {

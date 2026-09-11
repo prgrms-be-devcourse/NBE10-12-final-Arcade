@@ -1,7 +1,6 @@
 package com.back.domain.goal.goal.entity;
 
 import com.back.domain.member.member.entity.Member;
-import com.back.global.exception.ServiceException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -114,10 +113,6 @@ public class PersonalContest extends Goal {
      * note 는 반려 사유다. 올린 본인 화면에만 나가고 남의 성취를 볼 때는 빠진다(GoalDetailDto).
      */
     public void review(EvidenceStatus status, String note) {
-        if (evidenceStorageKey == null) {
-            throw new ServiceException("400-4", "증빙 파일이 없는 성취입니다.");
-        }
-
         this.evidenceStatus = status;
         this.evidenceReviewNote = note;
     }
