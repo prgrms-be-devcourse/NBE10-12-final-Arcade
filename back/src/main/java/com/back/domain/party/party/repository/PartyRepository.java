@@ -125,4 +125,6 @@ public interface PartyRepository extends JpaRepository<Party, Long>,PartyContest
             order by p.createDate desc
             """)
     List<Party> findParticipatingBy(@Param("member") Member member);
+
+    List<Party> findByOwnerOrderByCreateDateDesc(Member owner);
 }

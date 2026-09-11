@@ -156,4 +156,25 @@ class ApiV1AdminMemberControllerTest {
                         .content("{}")
         ).andExpect(status().isBadRequest());
     }
+
+    @Test
+    @DisplayName("관리자 회원 이력: 관리자가 조회하면 파티 이력과 성취 이력이 함께 온다")
+    @WithUserDetails("admin")
+    void historyByAdmin() throws Exception {
+        mvc.perform(get("/api/v1/adm/members/" + targetId + "/history"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resultCode").value("200-1"))
+                .andExpect(jsonPath("$.data.partyHistory.ownedParties").isArray())
+                .andExpect(jsonPath("$.data.partyHistory.appliedParties").isArray())
+                .andExpect(jsonPath("$.data.achievements").isArray());
+    }
+
+    @Test
+    @DisplayName("관리자 회원 이력: 관리자가 아니면 403-1이다")
+    @WithUserDetails("user1@test.com")
+    void historyByNonAdmin() throws Exception {
+        mvc.perform(get("/api/v1/adm/members/" + targetId + "/history"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.resultCode").value("403-1"));
+    }
 }
