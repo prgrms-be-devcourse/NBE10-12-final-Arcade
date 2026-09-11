@@ -13,11 +13,14 @@ interface DataTableProps<T> {
   rows: T[];
   rowKey: (row: T, index: number) => string;
   emptyMessage?: string;
+  loading?: boolean;
+  error?: string;
 }
 
 /** 마이페이지 TODO · 관리자 콘솔에서 공통으로 쓰는 표 */
-export function DataTable<T>({ columns, rows, rowKey, emptyMessage }: DataTableProps<T>) {
+export function DataTable<T>({ columns, rows, rowKey, emptyMessage, loading = false, error }: DataTableProps<T>) {
   return (
+    <div className="data-table-wrap" tabIndex={0}>
     <table className="data-table">
       <thead>
         <tr>
@@ -29,10 +32,10 @@ export function DataTable<T>({ columns, rows, rowKey, emptyMessage }: DataTableP
         </tr>
       </thead>
       <tbody>
-        {rows.length === 0 ? (
+        {loading || error || rows.length === 0 ? (
           <tr>
-            <td colSpan={columns.length} style={{ textAlign: 'center', color: 'var(--text-dim)' }}>
-              {emptyMessage ?? '표시할 데이터가 없어요.'}
+            <td colSpan={columns.length} className="data-table-empty" role={error ? 'alert' : 'status'}>
+              {loading ? '불러오는 중이에요…' : error ?? emptyMessage ?? '표시할 데이터가 없어요.'}
             </td>
           </tr>
         ) : (
@@ -46,5 +49,6 @@ export function DataTable<T>({ columns, rows, rowKey, emptyMessage }: DataTableP
         )}
       </tbody>
     </table>
+    </div>
   );
 }

@@ -26,8 +26,9 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
 
   return (
     <section className="hero container">
-      <div
-        className="hero-slider"
+      <div className="hero-carousel">
+        <div
+          className="hero-slider"
         role="region"
         aria-roledescription="carousel"
         aria-label="크루온 메인 배너"
@@ -78,23 +79,6 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
           ))}
         </div>
 
-        <button
-          type="button"
-          className="slider-arrow prev"
-          aria-label="이전 슬라이드"
-          onClick={() => go(index - 1)}
-        >
-          <Icon name="i-chevron-left" />
-        </button>
-        <button
-          type="button"
-          className="slider-arrow next"
-          aria-label="다음 슬라이드"
-          onClick={() => go(index + 1)}
-        >
-          <Icon name="i-chevron-right" />
-        </button>
-
         <div className="slider-footer">
           <span className="slider-count">
             {String(index + 1).padStart(2, '0')} / {String(total).padStart(2, '0')}
@@ -113,6 +97,24 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
             ))}
           </div>
         </div>
+        </div>
+        <button
+          type="button"
+          className="slider-arrow prev"
+          aria-label="이전 슬라이드"
+          onClick={() => go(index - 1)}
+        >
+          <Icon name="i-chevron-left" />
+        </button>
+        <button
+          type="button"
+          className="slider-arrow next"
+          aria-label="다음 슬라이드"
+          onClick={() => go(index + 1)}
+        >
+          <Icon name="i-chevron-right" />
+        </button>
+
       </div>
     </section>
   );

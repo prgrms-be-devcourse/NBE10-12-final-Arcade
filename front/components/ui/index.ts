@@ -3,6 +3,8 @@ export * from './BackLink';
 export * from './Block';
 export * from './BookmarkButton';
 export * from './Button';
+export * from './Card';
+export * from './Notice';
 export * from './DetailActions';
 export * from './ConfirmDialog';
 export * from './CoverUpload';

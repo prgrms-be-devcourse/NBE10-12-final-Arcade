@@ -11,7 +11,7 @@ export default async function PartyCreatePage({
 
   return (
     <main>
-      <div className="board-wrap container" style={{ maxWidth: '47.5rem' }}>
+      <div className="board-wrap container container--form">
         <BackLink href="/party" />
 
         <SectionHead

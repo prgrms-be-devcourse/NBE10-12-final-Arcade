@@ -1,0 +1,73 @@
+
+/* =============================================================
+ * 크루온(Crewon) 디자인 시스템 — GAME SKIN A · NEON ARCADE
+ * 목업(크루온_목업v11_게임스킨A_네온아케이드_1.html)에서 추출한 전역 스타일.
+ * 폰트: 'PF Stardust'(public/fonts), 'Gothic A1' / 'Press Start 2P'(next/font)
+ * ============================================================= */
+
+@font-face{
+  font-family:'PF Stardust';
+  src:url('/fonts/PFStardust.ttf') format('truetype');
+  font-weight:400;
+  font-style:normal;
+  font-display:swap;
+}
+
+
+:root{
+  --bg:#0a0a13;
+  --surface:#14141f;
+  --surface-2:#1b1b2b;
+  --border:#26263a;
+  --border-strong:#34344c;
+  --text:#f2f3f8;
+  --text-muted:#a6a6bd;
+  --text-dim:#6f6f89;
+  --accent:#31e9d2;
+  --accent-strong:#7bf7e8;
+  --accent-ink:#052824;
+  --accent-glow:rgba(49,233,210,.45);
+  --accent-soft:rgba(49,233,210,.12);
+  --gold:#f5c451;
+  --color-danger:#ff6b7a;
+  --color-success:#31e9d2;
+  --color-warning:#f5c451;
+  --overlay:rgba(5,5,10,.78);
+  --frame-dark:#07060f;
+  --neon-pink:#ff4fa3;
+  --neon-blue:#4db4ff;
+  --neon-purple:#a86bff;
+  --frame-line:rgba(255,255,255,.08);
+  --radius-card:0;
+  --radius-chip:0;
+  --radius-input:0;
+  --font-display:'PF Stardust', var(--font-gothic-a1), system-ui, sans-serif;
+  --font-body:var(--font-gothic-a1), system-ui, sans-serif;
+  --font-pixel:var(--font-press-start), monospace;
+  --shadow-card:0.3125rem 0.3125rem 0 0 rgba(4,6,10,.85);
+}
+
+/* 라이트는 핑크 accent와 인디고 프레임을 쓰는 단일 테마다. */
+[data-theme="light"]{
+  --bg:#ece9fb;
+  --surface:#ffffff;
+  --surface-2:#f3f0ff;
+  --border:#c8c1ef;
+  --border-strong:#241d4a;
+  --text:#171238;
+  --text-muted:#453e6e;
+  --text-dim:#7a72a6;
+  --accent:#c81368;
+  --accent-strong:#8a0d49;
+  --accent-ink:#ffffff;
+  --accent-glow:rgba(200,19,104,.35);
+  --accent-soft:rgba(200,19,104,.14);
+  --gold:#c8791a;
+  --color-danger:#ba244f;
+  --color-success:#8a0d49;
+  --color-warning:#a8500f;
+  --overlay:rgba(36,29,74,.45);
+  --frame-dark:#241d4a;
+  --shadow-card:0.25rem 0.3125rem 0 0 rgba(36,29,74,.9);
+}
+

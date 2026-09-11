@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@/components/icons/Icon';
 
@@ -26,6 +26,7 @@ interface ModalProps {
    * 약관 동의처럼 통과해야만 다음으로 갈 수 있는 화면에 쓴다.
    */
   dismissible?: boolean;
+  confirmVariant?: 'primary' | 'danger';
 }
 
 /**
@@ -47,11 +48,49 @@ export function Modal({
   onClose,
   dismissible = true,
   footNote,
+  confirmVariant = 'primary',
 }: ModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
+  const titleId = useId();
+
   useEffect(() => {
-    if (!open || !dismissible) return;
+    if (!open) return;
+    triggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const frame = requestAnimationFrame(() => {
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      const initial = dialog.querySelector<HTMLElement>('[autofocus], [data-modal-initial-focus], button, input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      (initial ?? dialog).focus();
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      triggerRef.current?.focus();
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape' && dismissible) onClose();
+      if (event.key !== 'Tab') return;
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>('a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'));
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
@@ -68,10 +107,10 @@ export function Modal({
         if (dismissible && event.target === event.currentTarget) onClose();
       }}
     >
-      <div className="modal" role="dialog" aria-modal="true" aria-label={title}>
+      <div ref={dialogRef} className="modal" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
         <div className="modal-head">
           <div>
-            <h3>{title}</h3>
+            <h3 id={titleId}>{title}</h3>
             {description ? <p>{description}</p> : null}
           </div>
           {dismissible ? (
@@ -90,7 +129,7 @@ export function Modal({
             </button>
           ) : null}
           {confirmLabel ? (
-            <button type="button" className="btn btn-primary" onClick={onConfirm}>
+            <button type="button" className={confirmVariant === 'danger' ? 'btn is-danger' : 'btn btn-primary'} onClick={onConfirm}>
               {confirmLabel}
             </button>
           ) : null}
