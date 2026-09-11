@@ -1,6 +1,5 @@
 import { Icon } from '@/components/icons/Icon';
 import { CommentSection } from '@/components/exhibition/CommentSection';
-import { ExhibitionActions } from '@/components/exhibition/ExhibitionActions';
 import { DetailActions } from '@/components/ui/DetailActions';
 import { SendMessageButton } from '@/components/message/SendMessageButton';
 import { BackLink } from '@/components/ui/BackLink';
@@ -37,7 +36,6 @@ export default async function ExhibitionDetailPage({
     >,
   ]);
   const currentUser = MOCK_USER_SUMMARIES[MOCK_CURRENT_USER_ID];
-  const githubUrl = project.links.find((link) => link.label === 'GitHub')?.url;
 
   return (
     <main>
@@ -77,13 +75,6 @@ export default async function ExhibitionDetailPage({
                     ? { backgroundImage: `url(${project.coverImageUrl})` }
                     : undefined
                 }
-              />
-
-              {/* 전시 수정은 /exhibition/create?partyId= 로 여는데, 여기 id 가 곧 partyId 다 */}
-              <ExhibitionActions
-                partyId={project.sourcePartyId ?? project.id}
-                owner={project.leader}
-                githubUrl={githubUrl}
               />
 
               <Block title="프로젝트 소개">
