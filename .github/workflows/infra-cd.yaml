@@ -110,7 +110,7 @@ jobs:
           BACKEND: ${{ steps.resolved_image.outputs.backend }}
           FRONTEND: ${{ steps.resolved_image.outputs.frontend }}
           BACKEND_VERSION: ${{ steps.resolved_image.outputs.backend_version }}
-          K6_MAX_DURATION: ${{ vars.K6_MAX_DURATION || '15m' }}
+          K6_MAX_DURATION: ${{ vars.K6_MAX_DURATION || '10m' }}
           K6_POST_DEPLOY_SECONDS: ${{ vars.K6_POST_DEPLOY_SECONDS || '60' }}
           K6_RATE: ${{ vars.K6_RATE || '5' }}
         run: |
