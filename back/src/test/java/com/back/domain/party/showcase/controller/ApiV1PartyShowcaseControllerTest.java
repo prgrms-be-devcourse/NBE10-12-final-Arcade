@@ -89,7 +89,7 @@ public class ApiV1PartyShowcaseControllerTest {
     void getDraftBeforePublish() throws Exception {
         Party party = saveParty("user1@test.com");
 
-        ResultActions resultActions = mvc.perform(get("/api/v1/parties/" + party.getId() + "/showcase"));
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/" + party.getId() + "/showcase/draft"));
 
         resultActions.andExpect(status().isOk())
                 .andExpect(jsonPath("$.resultCode").value("200-1"))
@@ -105,7 +105,7 @@ public class ApiV1PartyShowcaseControllerTest {
     @DisplayName("전시 초안 조회: 존재하지 않는 파티면 404-1이다")
     @WithUserDetails("user1@test.com")
     void getDraftPartyNotFound() throws Exception {
-        ResultActions resultActions = mvc.perform(get("/api/v1/parties/999999/showcase"));
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/999999/showcase/draft"));
 
         resultActions.andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.resultCode").value("404-1"));
@@ -117,7 +117,7 @@ public class ApiV1PartyShowcaseControllerTest {
     void getDraftBeforePublishAsNonMember() throws Exception {
         Party party = saveParty("user2@test.com"); // user1은 이 파티랑 무관
 
-        ResultActions resultActions = mvc.perform(get("/api/v1/parties/" + party.getId() + "/showcase"));
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/" + party.getId() + "/showcase/draft"));
 
         resultActions.andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.resultCode").value("403-1"));
@@ -134,42 +134,50 @@ public class ApiV1PartyShowcaseControllerTest {
         partyMember.approve();
         partyMemberRepository.save(partyMember);
 
-        ResultActions resultActions = mvc.perform(get("/api/v1/parties/" + party.getId() + "/showcase"));
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/" + party.getId() + "/showcase/draft"));
 
         resultActions.andExpect(status().isOk())
                 .andExpect(jsonPath("$.resultCode").value("200-1"));
     }
 
     @Test
-    @DisplayName("전시 조회: 게시 전 초안을 보면 조회 쿠키를 발급하지 않는다")
-    @WithUserDetails("user2@test.com")
-    void getDraftBeforePublishDoesNotIssueViewCookie() throws Exception {
-        Party party = saveParty("user1@test.com");
-        Position position = party.getPositions().get(0);
-        Member approvedMember = memberRepository.findByEmail("user2@test.com").orElseThrow();
-        PartyMember partyMember = new PartyMember(party, approvedMember, position, null);
-        partyMember.approve();
-        partyMemberRepository.save(partyMember);
-
-        ResultActions resultActions = mvc.perform(get("/api/v1/parties/" + party.getId() + "/showcase"));
-
-        resultActions.andExpect(status().isOk());
-        Cookie viewCookie = resultActions.andReturn().getResponse().getCookie("showcase_viewed_" + party.getId());
-        org.assertj.core.api.Assertions.assertThat(viewCookie).isNull();
-    }
-
-    @Test
-    @DisplayName("전시 초안 조회: 이미 게시됐으면 파티원이 아니어도 볼 수 있다")
+    @DisplayName("전시 초안 조회: 게시된 뒤에도 관리 화면(초안 엔드포인트)은 파티원만 볼 수 있다")
     @WithUserDetails("user1@test.com")
-    void getDraftAfterPublishAsNonMember() throws Exception {
+    void getDraftAfterPublishStillRequiresMembership() throws Exception {
         Party party = saveParty("user2@test.com");
 
-        // api 호출자가 파티장이어야 하는 제약 때문에 user2로 게시된 상태를 리포지토리로 직접 만든다
         PartyShowcase showcase = new PartyShowcase(party);
         showcase.publish("정산 자동화 API", "설명");
         partyShowcaseRepository.save(showcase);
 
-        // 파티랑 무관한 사람이 조회, 공개 게시물이라 통과해야 함
+        // user1은 이 파티와 무관 - 공개 조회(GET /showcase)는 되지만 관리용 초안 조회는 막혀야 한다
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/" + party.getId() + "/showcase/draft"));
+
+        resultActions.andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.resultCode").value("403-1"));
+    }
+
+    @Test
+    @DisplayName("전시 조회: 게시 전이면 공개 엔드포인트는 404-1이다")
+    @WithUserDetails("user1@test.com")
+    void getPublishedBeforePublish() throws Exception {
+        Party party = saveParty("user1@test.com");
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/" + party.getId() + "/showcase"));
+
+        resultActions.andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.resultCode").value("404-1"));
+    }
+
+    @Test
+    @DisplayName("전시 조회: 게시됐으면 로그인하지 않아도 볼 수 있다")
+    void getPublishedWithoutLogin() throws Exception {
+        Party party = saveParty("user1@test.com");
+
+        PartyShowcase showcase = new PartyShowcase(party);
+        showcase.publish("정산 자동화 API", "설명");
+        partyShowcaseRepository.save(showcase);
+
         ResultActions resultActions = mvc.perform(get("/api/v1/parties/" + party.getId() + "/showcase"));
 
         resultActions.andExpect(status().isOk())
@@ -290,7 +298,7 @@ public class ApiV1PartyShowcaseControllerTest {
                         .content(publishRequestJson("정산 자동화 API", "설명")))
                 .andExpect(status().isCreated());
 
-        ResultActions resultActions = mvc.perform(get("/api/v1/parties/" + party.getId() + "/showcase"));
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/" + party.getId() + "/showcase/draft"));
 
         resultActions.andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.title").value("정산 자동화 API"))

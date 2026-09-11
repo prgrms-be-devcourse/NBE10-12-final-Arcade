@@ -55,6 +55,8 @@ public class SecurityConfig {
                                         "/api/*/goals/{id:\\d+}",
                                         "/api/*/goals/{id:\\d+}/checklist",
                                         "/api/*/showcase/goals",
+                                        "/api/*/parties/{id:\\d+}/showcase",
+                                        "/api/*/parties/{id:\\d+}/showcase/comments",
                                         "/api/*/parties/showcase/top3",
                                         "/api/*/parties/top3"
                                 ).permitAll()

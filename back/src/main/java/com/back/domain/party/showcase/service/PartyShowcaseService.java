@@ -42,23 +42,36 @@ public class PartyShowcaseService {
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public PartyShowcaseDto getDraft(long partyId, Member actor, boolean countView) {
+    public PartyShowcaseDto getPublished(long partyId, boolean countView) {
         Party party = findPartyOrThrow(partyId);
+
+        PartyShowcase showcase = partyShowcaseRepository.findByParty(party)
+                .filter(PartyShowcase::isPublished)
+                .orElseThrow(() -> new ServiceException("404-1", "게시되지 않은 전시입니다."));
+
+        if (countView) {
+            partyShowcaseRepository.increaseViewCount(showcase.getId());
+            // clearAutomatically=true가 영속성 컨텍스트를 통째로 비워 위에서 들고 있던 party/showcase가
+            // 모두 detached 상태로 남는다 - showcase만 다시 조회하면 viewCount는 최신값이어도
+            // party는 여전히 detached라 toDto의 party.getOwner() 지연로딩이 세션 없음 오류로 깨진다.
+            // 그래서 party까지 함께 다시 조회한다(PartyService.getDetail과 같은 패턴).
+            party = findPartyOrThrow(partyId);
+            showcase = partyShowcaseRepository.findByParty(party).orElseThrow();
+        }
+
+        List<String> memberNames = getAssembledMemberNames(party);
+        List<PartyShowcaseDto.PrSummary> pullRequests = getPrSummaries(party.getId());
+
+        return toDto(party, showcase, memberNames, pullRequests);
+    }
+
+    // 파티장/파티원 전용 관리 화면(게시 전 미리보기·게시 후 수정폼)이라 공개 여부와 무관하게 항상 멤버십을 확인한다.
+    public PartyShowcaseDto getDraft(long partyId, Member actor) {
+        Party party = findPartyOrThrow(partyId);
+        checkViewableAsDraft(party, actor);
 
         // 한 번도 게시한 적 없으면 행 자체가 없을 수 있다 - 그래도 파티 정보만 채워서 초안으로 응답
         PartyShowcase showcase = partyShowcaseRepository.findByParty(party).orElse(null);
-
-        // 이미 게시된 전시는 공개가 목적이라 누구나 볼 수 있다.
-        // 아직 게시 전(초안)이면 파티장/파티원한테만 미리보기로 열어준다.
-        if (showcase == null || !showcase.isPublished()) {
-            checkViewableAsDraft(party, actor);
-        } else if (countView) {
-            partyShowcaseRepository.increaseViewCount(showcase.getId());
-            // increaseLikeCount/decreaseLikeCount와 같은 이유로 clearAutomatically=true가
-            // 영속성 컨텍스트를 비워 위에서 들고 있던 showcase는 detached 상태로 남는다 -
-            // 그대로 두면 toDto가 증가 전 조회수를 보여주므로, 다시 조회해서 최신값을 반영한다.
-            showcase = partyShowcaseRepository.findByParty(party).orElseThrow();
-        }
 
         List<String> memberNames = getAssembledMemberNames(party);
         List<PartyShowcaseDto.PrSummary> pullRequests = getPrSummaries(party.getId());
