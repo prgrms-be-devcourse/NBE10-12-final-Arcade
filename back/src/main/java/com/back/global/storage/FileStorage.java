@@ -2,6 +2,8 @@ package com.back.global.storage;
 
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.InputStream;
+
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
@@ -22,6 +24,9 @@ public interface FileStorage {
      * 그래서 URL 이 아니라 키를 들고 있는다.
      */
     String uploadKey(MultipartFile file, String directory);
+
+    /** uploadKey 로 저장한 파일을 읽는다. 다 쓰면 호출자가 닫는다. */
+    InputStream read(String key);
 
     /** 확장자만 남긴 랜덤 키. 원본 이름은 그대로 쓰지 않는다. */
     static String newKey(String directory, String originalFilename) {

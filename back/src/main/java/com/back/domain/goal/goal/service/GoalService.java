@@ -2,6 +2,8 @@ package com.back.domain.goal.goal.service;
 
 import com.back.domain.goal.goal.dtos.AssembledMemberDto;
 import com.back.domain.goal.goal.dtos.GoalCreateReqBody;
+import com.back.domain.goal.goal.dtos.AdminEvidenceDto;
+import com.back.domain.goal.goal.dtos.EvidenceFileDto;
 import com.back.domain.goal.goal.dtos.GoalDetailReqBody;
 import com.back.domain.goal.goal.dtos.GoalUpdateReqBody;
 import com.back.domain.goal.goal.dtos.GoalDetailResponseDto;
@@ -9,6 +11,7 @@ import com.back.domain.goal.goal.dtos.GoalDto;
 import com.back.domain.goal.goal.dtos.MemberAchievementItemDto;
 import com.back.domain.goal.goal.dtos.ProjectContextDto;
 import com.back.domain.goal.goal.dtos.TodoContextDto;
+import com.back.domain.goal.goal.entity.EvidenceStatus;
 import com.back.domain.goal.goal.entity.Goal;
 import com.back.domain.goal.goal.entity.GoalSource;
 import com.back.domain.goal.goal.entity.GoalStatus;
@@ -29,10 +32,12 @@ import com.back.domain.party.partyPr.repository.PartyPrRepository;
 import com.back.domain.todo.todo.entity.PersonalTodo;
 import com.back.domain.todo.todo.repository.PersonalTodoItemRepository;
 import com.back.domain.todo.todo.repository.PersonalTodoRepository;
+import com.back.global.dto.PageDto;
 import com.back.global.exception.ServiceException;
 import com.back.global.storage.FileStorage;
 import org.springframework.util.StringUtils;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -390,6 +395,63 @@ public class GoalService {
 
         // 크기는 서블릿 멀티파트 한도(10MB)가 먼저 거른다 - MaxUploadSizeExceededException 을
         // GlobalExceptionHandler 가 같은 400-1 로 바꾼다. 여기서 또 재는 건 도달하지 않는 코드다.
+    }
+
+    /**
+     * 관리자 증빙 검수 목록. 기본은 검수 대기(PENDING)다.
+     *
+     * 권한은 경로로 걸린다 - SecurityConfig 의 adm 경로 규칙이 ROLE_ADMIN 으로 막는다.
+     */
+    public PageDto<AdminEvidenceDto> getEvidencesForAdmin(EvidenceStatus status, Pageable pageable) {
+        return new PageDto<>(goalRepository.findByEvidenceStatus(status, pageable).map(AdminEvidenceDto::new));
+    }
+
+    /**
+     * 관리자용 증빙 파일 읽기. 사용자 API 에는 다운로드가 없다 -
+     * 증빙에는 실명·소속이 찍혀 있고, 올린 본인은 원본을 이미 갖고 있다.
+     *
+     * 예외
+     * - 404-1 : 존재하지 않는 성취이거나 증빙 파일이 없는 성취
+     */
+    public EvidenceFileDto readEvidenceForAdmin(long goalId) {
+        PersonalContest contest = findContestWithEvidence(goalId);
+
+        return new EvidenceFileDto(
+                contest.getEvidenceFileName(),
+                contest.getEvidenceSize(),
+                fileStorage.read(contest.getEvidenceStorageKey())
+        );
+    }
+
+    /**
+     * 증빙 검수 결과를 남긴다. 승인하면 이전 반려 사유는 지운다.
+     *
+     * 예외
+     * - 404-1 : 존재하지 않는 성취이거나 증빙 파일이 없는 성취
+     * - 400-1 : status 가 APPROVED/REJECTED 가 아니거나, 반려인데 사유가 없음
+     */
+    @Transactional
+    public void reviewEvidence(long goalId, EvidenceStatus status, String note) {
+        if (status != EvidenceStatus.APPROVED && status != EvidenceStatus.REJECTED) {
+            throw new ServiceException("400-1", "승인 또는 반려만 할 수 있습니다.");
+        }
+
+        // 반려는 본인이 무엇을 고쳐 다시 올려야 하는지 알아야 끝난다. 사유 없는 반려는 되돌아올 길이 없다.
+        if (status == EvidenceStatus.REJECTED && isBlank(note)) {
+            throw new ServiceException("400-1", "반려 사유를 입력해주세요.");
+        }
+
+        findContestWithEvidence(goalId)
+                .review(status, status == EvidenceStatus.APPROVED ? null : note);
+    }
+
+    // 검수는 파일이 실제로 올라온 성취에만 한다. 없으면 검수할 대상 자체가 없는 것이라 404 로 본다.
+    private PersonalContest findContestWithEvidence(long goalId) {
+        if (findGoal(goalId) instanceof PersonalContest contest && contest.getEvidenceStorageKey() != null) {
+            return contest;
+        }
+
+        throw new ServiceException("404-1", "증빙 파일이 없는 성취입니다.");
     }
 
     private Goal findGoal(long goalId) {

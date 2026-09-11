@@ -7,6 +7,8 @@ import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
@@ -56,6 +58,22 @@ public class S3FileStorage implements FileStorage {
         }
 
         return key;
+    }
+
+    @Override
+    public InputStream read(String key) {
+        GetObjectRequest request = GetObjectRequest.builder()
+                .bucket(properties.getBucket())
+                .key(key)
+                .build();
+
+        try {
+            return s3Client.getObject(request);
+        } catch (NoSuchKeyException e) {
+            throw new ServiceException("404-1", "저장된 파일을 찾을 수 없습니다.");
+        } catch (SdkException e) {
+            throw new ServiceException("500-1", "파일을 읽지 못했습니다.");
+        }
     }
 
     private String publicUrlPrefix() {

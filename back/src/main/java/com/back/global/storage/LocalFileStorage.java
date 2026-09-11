@@ -48,4 +48,21 @@ public class LocalFileStorage implements FileStorage {
 
         return key;
     }
+
+    @Override
+    public InputStream read(String key) {
+        Path root = Path.of(properties.getPath()).toAbsolutePath().normalize();
+        Path target = root.resolve(key).normalize();
+
+        // 키는 우리가 만든 값이지만, 경로를 벗어나는 키가 어디선가 흘러들면 임의 파일을 읽게 된다.
+        if (!target.startsWith(root)) {
+            throw new ServiceException("400-1", "잘못된 파일 경로입니다.");
+        }
+
+        try {
+            return Files.newInputStream(target);
+        } catch (IOException e) {
+            throw new ServiceException("404-1", "저장된 파일을 찾을 수 없습니다.");
+        }
+    }
 }
