@@ -14,7 +14,7 @@ export function Block({ title, description, children, className, reveal }: Block
     <section className={['block', className].filter(Boolean).join(' ')} data-reveal={reveal ? '' : undefined}>
       {title ? <h3 className="block-title">{title}</h3> : null}
       {description ? (
-        <p style={{ fontSize: '.86rem', color: 'var(--text-dim)', marginBottom: '0.875rem' }}>{description}</p>
+        <p className="block-description">{description}</p>
       ) : null}
       {children}
     </section>
@@ -42,9 +42,9 @@ export function SideCard({ title, children, className }: SideCardProps) {
  */
 export function DetailGrid({ main, side }: { main: ReactNode; side?: ReactNode }) {
   return (
-    <div className={side ? 'mypage-grid' : 'mypage-grid is-single'}>
-      <div className="mypage-main">{main}</div>
-      {side ? <aside className="mypage-side">{side}</aside> : null}
+    <div className={side ? 'detail-grid' : 'detail-grid is-single'}>
+      <div className="detail-main">{main}</div>
+      {side ? <aside className="detail-aside">{side}</aside> : null}
     </div>
   );
 }

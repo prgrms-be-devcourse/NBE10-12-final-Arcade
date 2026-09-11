@@ -15,6 +15,7 @@ export function RadioChipGroup({ options, value, onChange }: RadioChipGroupProps
           key={option}
           type="button"
           className={option === value ? 'radio-chip is-active' : 'radio-chip'}
+          aria-pressed={option === value}
           onClick={() => onChange(option)}
         >
           {option}

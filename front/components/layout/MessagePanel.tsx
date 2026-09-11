@@ -44,8 +44,15 @@ export function MessagePanel() {
     const onClick = (event: MouseEvent) => {
       if (!wrapRef.current?.contains(event.target as Node)) setOpen(false);
     };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
     document.addEventListener('click', onClick);
-    return () => document.removeEventListener('click', onClick);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('click', onClick);
+      document.removeEventListener('keydown', onKeyDown);
+    };
   }, [open]);
 
   const unread = messages.filter((message) => message.unread).length;
@@ -90,10 +97,11 @@ export function MessagePanel() {
     <div className="msg-wrap" ref={wrapRef}>
       <button
         type="button"
-        className="icon-btn"
+        className={open ? 'icon-btn is-open' : 'icon-btn'}
         aria-label="쪽지함"
-        aria-haspopup="true"
+        aria-haspopup="dialog"
         aria-expanded={open}
+        aria-controls="message-panel"
         onClick={(event) => {
           event.stopPropagation();
           // 열 때 한 번 읽어둔다
@@ -106,7 +114,7 @@ export function MessagePanel() {
       </button>
 
       {open ? (
-        <div className="notif-panel msg-panel">
+        <div id="message-panel" className="notif-panel msg-panel" role="dialog" aria-label="쪽지함">
           <div className="notif-panel-head">
             <h4>도착한 쪽지</h4>
             <div className="notif-panel-actions">

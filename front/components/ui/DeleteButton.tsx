@@ -64,8 +64,7 @@ export function DeleteButton({
     <>
       <button
         type="button"
-        className={[className ?? 'btn btn-ghost', 'is-danger'].join(' ')}
-        style={block ? { width: '100%' } : undefined}
+        className={[className ?? 'btn btn-ghost', 'is-danger', block ? 'btn-block' : null].filter(Boolean).join(' ')}
         onClick={run}
         disabled={pending}
       >

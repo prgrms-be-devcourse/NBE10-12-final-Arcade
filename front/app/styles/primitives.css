@@ -1,0 +1,99 @@
+/* ---------- NOTIFICATIONS ---------- */
+.notif-wrap{position:relative;}
+.notif-badge{
+  position:absolute;top:-0.3125rem;right:-0.3125rem;min-width:1rem;height:1rem;padding:0 0.1875rem;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--accent);color:var(--accent-ink);border:0.125rem solid var(--bg);
+  font-family:var(--font-pixel);font-size:.5rem;line-height:1;
+}
+.notif-panel{
+  position:absolute;top:calc(100% + var(--space-3));right:0;z-index:50;width:min(22.5rem,calc(100vw - (var(--page-gutter) * 2)));
+  background:var(--surface);border:0.125rem solid var(--border-strong);box-shadow:var(--shadow-card);
+}
+.icon-btn.is-open{color:var(--accent);border-color:var(--accent);background:var(--accent-soft);}
+.notif-panel-head{
+  display:flex;align-items:center;justify-content:space-between;gap:0.625rem;
+  padding:0.875rem 1rem;border-bottom:0.125rem solid var(--border);
+}
+.notif-panel-head h4{font-size:.95rem;color:var(--text);}
+.notif-panel-actions{display:flex;gap:0.75rem;}
+.notif-action-btn{
+  background:none;border:none;padding:0;font-size:.76rem;font-weight:700;color:var(--text-dim);cursor:pointer;
+}
+.notif-action-btn:hover{color:var(--accent);}
+.notif-list{max-height:26.25rem;overflow-y:auto;}
+.notif-item{
+  display:flex;align-items:flex-start;gap:0.625rem;padding:0.875rem 1rem;border-bottom:0.125rem solid var(--border);
+  cursor:pointer;transition:background-color .15s ease;
+}
+.notif-item:last-child{border-bottom:none;}
+.notif-item:hover{background:var(--surface-2);}
+.notif-item[data-unread="true"]{background:rgba(49,233,210,.05);}
+.notif-icon{
+  width:1.875rem;height:1.875rem;flex-shrink:0;border-radius:0;background:var(--surface-2);border:0.125rem solid var(--border);
+  display:flex;align-items:center;justify-content:center;color:var(--text-dim);
+}
+.notif-item[data-unread="true"] .notif-icon{color:var(--accent);border-color:rgba(49,233,210,.4);}
+.notif-icon svg{width:0.875rem;height:0.875rem;}
+.notif-body{flex:1;min-width:0;}
+.notif-text{font-size:.84rem;color:var(--text);line-height:1.5;}
+.notif-item[data-unread="true"] .notif-text{font-weight:700;}
+.notif-time{margin-top:0.25rem;font-size:.72rem;color:var(--text-dim);}
+.notif-close{
+  flex-shrink:0;width:1.375rem;height:1.375rem;background:none;border:none;color:var(--text-dim);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+}
+.notif-close:hover{color:var(--gold);}
+.notif-close svg{width:0.75rem;height:0.75rem;}
+.notif-empty{padding:2rem 1rem;text-align:center;font-size:.84rem;color:var(--text-dim);}
+/* 알림은 이 드롭다운이 전부라 쪽 넘김 대신 이어 붙인다 */
+.notif-more{
+  width:100%;padding:0.75rem;border-top:0.125rem solid var(--border);
+  background:none;font-size:.82rem;color:var(--text-muted);cursor:pointer;
+}
+.notif-more:hover:not(:disabled){color:var(--text);}
+.notif-more:disabled{cursor:default;color:var(--text-dim);}
+
+/* ---------- BUTTONS ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:0.5rem;
+  padding:0.8125rem 1.375rem;border-radius:var(--radius-chip);
+  font-weight:800;font-size:.95rem;white-space:nowrap;
+  border:0.125rem solid var(--text);box-shadow:0.25rem 0.25rem 0 0 var(--text);
+  transition:transform .1s steps(1), box-shadow .1s steps(1), border-color .15s ease, background-color .15s ease, color .15s ease;
+}
+.btn:active{transform:translate(0.25rem,0.25rem);box-shadow:0 0 0 0 transparent;}
+.btn-primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent-ink);box-shadow:0.25rem 0.25rem 0 0 var(--accent-ink);}
+.btn-primary:hover{background:var(--accent-strong);}
+.btn-ghost{background:var(--surface);border-color:var(--border-strong);color:var(--text);box-shadow:0.25rem 0.25rem 0 0 var(--border-strong);}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent);box-shadow:0.25rem 0.25rem 0 0 var(--accent);}
+
+/* 공통 조작 상태와 디자인 시스템 primitives */
+.btn-sm{padding:0.5rem 0.75rem;font-size:.78rem;}
+.btn-md{padding:0.8125rem 1.375rem;}
+.btn-lg{padding:1rem 1.625rem;font-size:1rem;}
+.btn-block{width:100%;}
+.btn-loading{display:inline-flex;align-items:center;gap:.375rem;}
+.btn:disabled,.icon-btn:disabled,.page-btn:disabled,.filter-chip:disabled,.radio-chip:disabled{
+  opacity:.5;cursor:not-allowed;pointer-events:none;
+}
+.block-description{margin-bottom:.875rem;font-size:.86rem;color:var(--text-dim);}
+
+.ui-card{border:.125rem solid var(--border);border-radius:var(--radius-card);background:var(--surface);box-shadow:var(--shadow-card);}
+.ui-card--muted{background:var(--surface-2);}
+.ui-card--pad-none{padding:0;}.ui-card--pad-sm{padding:.75rem;}.ui-card--pad-md{padding:1rem;}.ui-card--pad-lg{padding:1.5rem;}
+.ui-card--hoverable{transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease;}
+.ui-card--hoverable:hover{transform:translateY(-.125rem);border-color:var(--accent);}
+.ui-panel{border-color:var(--border-strong);}
+
+.notice{padding:.75rem .875rem;border:.125rem solid var(--border);border-radius:var(--radius-input);font-size:.84rem;line-height:1.55;}
+.notice--info{color:var(--text-muted);background:var(--surface-2);}
+.notice--success{color:var(--color-success);border-color:color-mix(in srgb,var(--color-success) 45%,var(--border));background:color-mix(in srgb,var(--color-success) 10%,transparent);}
+.notice--warning{color:var(--color-warning);border-color:color-mix(in srgb,var(--color-warning) 45%,var(--border));background:color-mix(in srgb,var(--color-warning) 10%,transparent);}
+.notice--error{color:var(--color-danger);border-color:color-mix(in srgb,var(--color-danger) 45%,var(--border));background:color-mix(in srgb,var(--color-danger) 10%,transparent);}
+.field-message{margin-top:.375rem;font-size:.76rem;line-height:1.5;font-weight:700;}.field-message--info{color:var(--text-dim);}.field-message--success{color:var(--color-success);}.field-message--warning{color:var(--color-warning);}.field-message--error{color:var(--color-danger);}
+
+.status-pill--info{color:var(--accent);border-color:var(--accent);background:var(--accent-soft);}
+.status-pill--success{color:var(--color-success);border-color:var(--color-success);background:color-mix(in srgb,var(--color-success) 10%,transparent);}
+.status-pill--warning{color:var(--color-warning);border-color:var(--color-warning);background:color-mix(in srgb,var(--color-warning) 10%,transparent);}
+.status-pill--error{color:var(--color-danger);border-color:var(--color-danger);background:color-mix(in srgb,var(--color-danger) 10%,transparent);}

@@ -34,12 +34,21 @@ export function SourceBadge({ source }: { source: GoalSource }) {
   );
 }
 
-type PillTone = 'live' | 'review' | 'pending' | 'default';
+type PillTone = 'live' | 'review' | 'pending' | 'default' | 'info' | 'success' | 'warning' | 'error';
 
-export function StatusPill({ children, tone = 'default' }: { children: ReactNode; tone?: PillTone }) {
-  const className = tone === 'default' ? 'status-pill' : `status-pill ${tone}`;
+/** 도메인 상태가 같은 레이블과 tone을 쓰도록 한 곳에 둔다. */
+export const STATUS_TONE: Record<string, PillTone> = {
+  ACTIVE: 'success', LIVE: 'success', OPEN: 'success', ACHIEVED: 'success',
+  PENDING: 'pending', REVIEW: 'review', REQUESTED: 'warning',
+  CLOSED: 'error', REJECTED: 'error', FAILED: 'error',
+};
+
+export function StatusPill({ children, tone = 'default', className }: { children: ReactNode; tone?: PillTone; className?: string }) {
+  const classes = ['status-pill', tone === 'default' ? null : tone === 'live' || tone === 'review' || tone === 'pending' ? tone : `status-pill--${tone}`, className]
+    .filter(Boolean)
+    .join(' ');
   return (
-    <span className={className}>
+    <span className={classes}>
       {tone === 'pending' ? <span className="dot" /> : null}
       {children}
     </span>

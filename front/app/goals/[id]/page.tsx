@@ -36,7 +36,7 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
     // 로그인 화면으로 밀어내지 않고 안내만 하고, 돌아갈 길을 남긴다.
     return (
       <main>
-        <div className="board-wrap container" style={{ maxWidth: '40rem' }}>
+        <div className="board-wrap container container--reading">
           <BackLink href="/" label="메인으로" />
           <SectionHead
             title="로그인이 필요해요"
