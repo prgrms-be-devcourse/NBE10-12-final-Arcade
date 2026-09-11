@@ -20,6 +20,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -110,11 +111,13 @@ public class MessageService {
             messagesById.put(message.getId(), message);
         }
 
-        return ids.stream()
-                .map(messagesById::get)
-                .peek(Message::read)
-                .map(MessageDto::new)
-                .toList();
+        List<MessageDto> result = new ArrayList<>(ids.size());
+        for (Long id : ids) {
+            Message message = messagesById.get(id);
+            markAsRead(message, actor);
+            result.add(new MessageDto(message));
+        }
+        return result;
     }
 
     @Transactional
@@ -127,9 +130,25 @@ public class MessageService {
             throw new ServiceException("403-1", "본인과 관련된 쪽지만 조회/처리할 수 있습니다.");
         }
         if (isRecipient) {
-            message.read();
+            markAsRead(message, actor);
         }
         return toDetailDto(message);
+    }
+
+    private void markAsRead(Message message, Member reader) {
+        if (!message.getRecipient().getId().equals(reader.getId())) {
+            throw new ServiceException("403-1", "수신자만 쪽지를 읽음 처리할 수 있습니다.");
+        }
+        if (message.isRead()) {
+            return;
+        }
+
+        message.read();
+        notificationService.create(
+                message.getSender(),
+                NotificationType.MESSAGE_READ,
+                reader.getName() + "님이 회원님이 보낸 쪽지를 읽었습니다."
+        );
     }
 
     private MessageListDto toListDto(Message message, Map<Long, MessageMemberDto> membersById) {

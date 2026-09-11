@@ -162,7 +162,7 @@ async function clearInvalidSessionCookies(path: string): Promise<void> {
 }
 
 function buildUrl(path: string, query?: RequestOptions["query"]): string {
-  const url = `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
+  const url = `${apiBase()}${path.startsWith("/") ? path : `/${path}`}`;
   if (!query) return url;
   const params = new URLSearchParams();
   Object.entries(query).forEach(([key, value]) => {
@@ -208,7 +208,8 @@ export async function request<T>(
 
   // FormData 는 그대로 보낸다. Content-Type 을 직접 넣으면 multipart 경계(boundary)가 빠져
   // 서버가 파트를 못 읽으므로, 그 헤더는 fetch 가 정하게 둔다.
-  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+  const isFormData =
+    typeof FormData !== "undefined" && body instanceof FormData;
 
   const response = await fetch(buildUrl(path, query), {
     ...rest,
@@ -217,7 +218,8 @@ export async function request<T>(
       ...(cookie ? { Cookie: cookie } : {}),
       ...headers,
     },
-    body: body === undefined ? undefined : isFormData ? body : JSON.stringify(body),
+    body:
+      body === undefined ? undefined : isFormData ? body : JSON.stringify(body),
     credentials: "include",
   });
 
@@ -239,7 +241,8 @@ export async function request<T>(
 
     // 토큰이 잘못되어 보호 API 접근이 거부된 경우, HttpOnly access/refresh 쿠키를 서버에서
     // 함께 지운다. 다음 화면에서는 비로그인 상태로 정상 진입한다.
-    if (response.status === 401) {
+    // 현재 비밀번호 불일치(401-5)는 세션 자체가 잘못된 것이 아니다.
+    if (response.status === 401 && resultCode !== "401-5") {
       await clearInvalidSessionCookies(path);
     }
 

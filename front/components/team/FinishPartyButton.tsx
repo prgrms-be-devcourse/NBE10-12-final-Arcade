@@ -4,8 +4,11 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { completeParty } from '@/lib/api';
 
-export function FinishPartyButton({ partyId }: { partyId: string }) {
+/** 팀 공간의 완료·전시 도구는 파티장에게만 노출한다. */
+export function FinishPartyButton({ partyId, isOwner }: { partyId: string; isOwner: boolean }) {
   const [done, setDone] = useState(false);
+
+  if (!isOwner) return null;
 
   return (
     <div className="side-card leader-tools">

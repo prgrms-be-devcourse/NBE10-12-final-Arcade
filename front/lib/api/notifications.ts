@@ -12,6 +12,8 @@ import { timeAgo } from './time';
 /** 백엔드 NotificationType. 지금은 파티 지원 승인 한 종류뿐이고 앞으로 늘어난다 */
 /** 백엔드 NotificationType (ARC-127 에서 PARTY_ASSEMBLED 가 모집마감·매칭확정 둘로 갈렸다) */
 export type ServerNotificationType =
+  | 'MESSAGE_RECEIVED'
+  | 'MESSAGE_READ'
   | 'PARTY_APPLICATION_RECEIVED'
   | 'PARTY_APPLICATION_APPROVED'
   | 'PARTY_RECRUITMENT_COMPLETED'
@@ -40,6 +42,8 @@ export interface NotificationPageResponse {
 
 /** 서버 타입 → 화면 아이콘 구분 */
 const NOTIFICATION_TYPES: Record<ServerNotificationType, NotificationType> = {
+  MESSAGE_RECEIVED: 'message',
+  MESSAGE_READ: 'message',
   PARTY_APPLICATION_RECEIVED: 'applicant',
   PARTY_APPLICATION_APPROVED: 'approval',
   PARTY_RECRUITMENT_COMPLETED: 'deadline',
@@ -56,6 +60,8 @@ const NOTIFICATION_TYPES: Record<ServerNotificationType, NotificationType> = {
  * 전시 게시만 파티와 무관한 목록(전시관)으로 보낼 수 있다.
  */
 const NOTIFICATION_TARGETS: Record<ServerNotificationType, NotificationTarget> = {
+  MESSAGE_RECEIVED: 'mypageMessages',
+  MESSAGE_READ: 'mypageMessages',
   PARTY_APPLICATION_RECEIVED: 'mypageManage',
   PARTY_APPLICATION_APPROVED: 'mypageManage',
   PARTY_RECRUITMENT_COMPLETED: 'mypageManage',
