@@ -7,8 +7,8 @@ import { BackLink } from '@/components/ui/BackLink';
 import { Block, DetailGrid, SideCard } from '@/components/ui/Block';
 import { LeaderRow } from '@/components/ui/Avatar';
 import { ChipRow, SkillChip } from '@/components/ui/Tag';
-import { fetchExhibition, fetchExhibitionCommits } from '@/lib/api';
-import { MOCK_CURRENT_USER_ID, MOCK_USER_SUMMARIES } from '@/lib/mock';
+import { fetchExhibition, fetchExhibitionComments, fetchExhibitionCommits } from '@/lib/api';
+import { MOCK_CURRENT_USER_ID } from '@/lib/mock';
 
 export default async function ExhibitionDetailPage({
   params,
@@ -23,7 +23,7 @@ export default async function ExhibitionDetailPage({
    * 전시관 '목록' 카드는 다르다 - toExhibitionProject 의 id 는 **goal id** 이고 partyId 는
    * sourcePartyId 에 따로 담긴다. 목록 쪽 규칙을 여기 적용하지 말 것.
    */
-  const [project, commits] = await Promise.all([
+  const [project, commits, comments] = await Promise.all([
     fetchExhibition(id),
     fetchExhibitionCommits(id) as Promise<
       {
@@ -35,8 +35,8 @@ export default async function ExhibitionDetailPage({
         approvers: string[];
       }[]
     >,
+    fetchExhibitionComments(id),
   ]);
-  const currentUser = MOCK_USER_SUMMARIES[MOCK_CURRENT_USER_ID];
   const githubUrl = project.links.find((link) => link.label === 'GitHub')?.url;
 
   return (
@@ -123,11 +123,7 @@ export default async function ExhibitionDetailPage({
                 작성한 댓글은 새로고침하면 사라진다 - lib/api/exhibitions.ts 의 댓글 함수들이
                 목 모드로 고정돼 있기 때문이다. 서버가 생기면 그쪽만 열면 된다.
               */}
-              <CommentSection
-                exhibitionId={project.id}
-                comments={project.comments}
-                currentUserName={currentUser.name}
-              />
+              <CommentSection exhibitionId={project.id} comments={comments} />
             </>
           }
           side={
