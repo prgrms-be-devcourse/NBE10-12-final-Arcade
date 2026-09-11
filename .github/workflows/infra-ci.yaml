@@ -55,6 +55,14 @@ jobs:
       - name: actionlint
         run: docker run --rm -v "$PWD":/repo -w /repo "$ACTIONLINT" -no-color
 
+      - name: 배포 연속성 실행 스크립트 문법
+        run: bash -n .github/scripts/run-deploy-continuity.sh
+
+      - name: k6 배포 연속성 시나리오 파싱
+        run: |
+          docker run --rm -v "$PWD/tests/k6":/scripts:ro grafana/k6:2.2.0 \
+            inspect /scripts/deploy-continuity.js
+
   # 기존 경고는 보여주되 머지를 막지 않는다.
   report:
     name: 리포트 (차단 안 함)
