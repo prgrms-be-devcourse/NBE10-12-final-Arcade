@@ -916,8 +916,17 @@
 button.admin-link{background:none;border:0;padding:0;font:inherit;cursor:pointer;text-align:left;}
 
 /* 전시 댓글 — 파티원 표시와 삭제된 자리 (ARC-160) */
+/*
+  .ci-comment-top 이 align-items:baseline 이라, 작은 글씨(.66rem)를 큰 이름(.8rem)의
+  베이스라인에 맞추면 상자가 아래로 늘어나 글자가 위로 붙어 보인다.
+  상자는 가운데 정렬하고(align-self), 글자는 상자 안에서 다시 가운데로 둔다.
+  간격은 부모의 gap 이 준다 - margin 을 더하면 이름과 두 배로 벌어진다.
+*/
 .ci-comment-badge{
-  margin-left:0.375rem;padding:0.0625rem 0.3125rem;font-size:.66rem;
+  align-self:center;
+  display:inline-flex;align-items:center;
+  padding:0.125rem 0.3125rem;
+  font-size:.66rem;line-height:1;
   border:0.0625rem solid var(--accent);color:var(--accent);border-radius:0.125rem;
 }
 .ci-comment-text.is-deleted{color:var(--text-dim);font-style:italic;}
