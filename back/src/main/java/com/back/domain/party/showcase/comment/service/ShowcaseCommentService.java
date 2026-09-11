@@ -126,13 +126,14 @@ public class ShowcaseCommentService {
     }
 
     private ShowcaseCommentDto toDto(ShowcaseComment comment, List<ShowcaseComment> replies, Set<Long> partyMemberIds) {
+        boolean deleted = comment.isDeleted();
         return new ShowcaseCommentDto(
                 comment.getId(),
                 comment.getAuthor().getId(),
-                comment.getAuthor().getName(),
+                deleted ? "익명" : comment.getAuthor().getName(),
                 partyMemberIds.contains(comment.getAuthor().getId()),
-                comment.isDeleted() ? "삭제된 댓글입니다." : comment.getContent(),
-                comment.isDeleted(),
+                deleted ? "삭제된 댓글입니다." : comment.getContent(),
+                deleted,
                 comment.getCreateDate(),
                 replies.stream().map(r -> toDto(r, List.of(), partyMemberIds)).toList()
         );

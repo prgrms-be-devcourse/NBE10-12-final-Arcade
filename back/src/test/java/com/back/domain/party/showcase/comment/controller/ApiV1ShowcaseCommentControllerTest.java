@@ -282,8 +282,10 @@ public class ApiV1ShowcaseCommentControllerTest {
         resultActions.andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].deleted").value(true))
                 .andExpect(jsonPath("$.data[0].content").value("삭제된 댓글입니다."))
+                .andExpect(jsonPath("$.data[0].authorName").value("익명"))
                 .andExpect(jsonPath("$.data[0].replies.length()").value(1))
-                .andExpect(jsonPath("$.data[0].replies[0].content").value("대댓글"));
+                .andExpect(jsonPath("$.data[0].replies[0].content").value("대댓글"))
+                .andExpect(jsonPath("$.data[0].replies[0].authorName").value("유저2"));
     }
 
     @Test
