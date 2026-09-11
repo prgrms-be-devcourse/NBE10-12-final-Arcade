@@ -165,6 +165,10 @@ export interface UserProfile extends UserSummary {
   /** 최근 8주(56일) 활동 농도 0~3. GET /members/me/summary 가 준다 */
   activityHeatmap?: number[];
   badges: BadgeItem[];
+  /** 이용약관 동의 일시(ISO). 없으면 온보딩이 필요하다 */
+  termsAgreedAt?: string;
+  /** 개인정보 수집·이용 동의 일시(ISO). 없으면 서버가 이용을 막는다 */
+  privacyAgreedAt?: string;
   /**
    * 가입 시각(ISO). 프로필 카드의 '크루온 활동 N개월째' 를 여기서 센다.
    * 요약 API 가 주기 전(비로그인·목)에는 없어서, 없으면 그 문구를 아예 그리지 않는다.

@@ -28,6 +28,8 @@ public class SecurityConfig {
     private final CustomOAuth2AuthorizationRequestResolver customOAuth2AuthorizationRequestResolver;
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuth2SocialLoginGuardFilter oAuth2SocialLoginGuardFilter;
+    /** 약관 미동의 차단. custom.agreement.guard.enabled 가 true 일 때만 빈이 만들어진다 */
+    private final org.springframework.beans.factory.ObjectProvider<MemberAgreementGuardFilter> agreementGuardFilter;
     private final CustomConfigProperties customConfigProperties;
 
     @Bean
@@ -140,6 +142,11 @@ public class SecurityConfig {
                                         }
                                 )
                 );
+        // 약관 미동의 차단 필터는 설정으로 켤 때만 존재한다(MemberAgreementGuardFilter).
+        // 인증이 끝난 뒤에 놓아야 누구인지 보고 판단할 수 있다.
+        agreementGuardFilter.ifAvailable(filter ->
+                http.addFilterAfter(filter, CustomAuthenticationFilter.class));
+
 
         return http.build();
     }

@@ -9,11 +9,10 @@ import { finishTodo, saveSoloMemo, type SoloSpaceDetail } from '@/lib/api';
 
 interface SoloSpaceProps {
   space: SoloSpaceDetail;
-  ownerName: string;
 }
 
 /** 개인 TODO 상세 = 승인 절차가 없는 1인 팀 스페이스 */
-export function SoloSpace({ space, ownerName }: SoloSpaceProps) {
+export function SoloSpace({ space }: SoloSpaceProps) {
   const [memo, setMemo] = useState(space.memo);
   const [memoSaved, setMemoSaved] = useState(false);
   const [finished, setFinished] = useState(false);
@@ -64,7 +63,7 @@ export function SoloSpace({ space, ownerName }: SoloSpaceProps) {
           </Block>
 
           <Block title="진행 체크리스트">
-            <Checklist todoId={space.id} items={space.checklist} ownerName={ownerName} />
+            <Checklist todoId={space.id} items={space.checklist} />
           </Block>
         </>
       }

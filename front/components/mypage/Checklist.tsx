@@ -18,14 +18,13 @@ interface ChecklistProps {
   /** 개인 TODO id */
   todoId: string;
   items: ChecklistItem[];
-  ownerName: string;
 }
 
 /**
  * 개인 TODO 체크리스트 — 백엔드 PersonalTodoItem(`/api/v1/todos/{id}/items/**`).
  * 혼자 관리하는 목록이라 담당자·동료 승인 없이 바로 완료 처리된다.
  */
-export function Checklist({ todoId, items: initialItems, ownerName }: ChecklistProps) {
+export function Checklist({ todoId, items: initialItems }: ChecklistProps) {
   const { confirm, dialog } = useConfirm();
   const [items, setItems] = useState<ChecklistItem[]>(initialItems);
   const [content, setContent] = useState('');
@@ -90,11 +89,6 @@ export function Checklist({ todoId, items: initialItems, ownerName }: ChecklistP
     <>
       <ProgressBar done={done} total={items.length} />
 
-      <p className="checklist-quorum">
-        개인 목록이라 승인 절차 없이 바로 완료 처리돼요. 담당자는 생성자인 <b>{ownerName}</b>로
-        고정됩니다.
-      </p>
-
       <div className="checklist">
         {items.map((item) => (
           <div key={item.id} className="checklist-item" data-state={item.state}>
@@ -155,9 +149,6 @@ export function Checklist({ todoId, items: initialItems, ownerName }: ChecklistP
               }}
             />
           </FormGroup>
-          {/* <FormGroup label="담당자">
-            <TextField value={`${ownerName} (생성자 고정)`} disabled />
-          </FormGroup> */}
         </div>
         <div className="cc-foot">
           {editingId ? (
