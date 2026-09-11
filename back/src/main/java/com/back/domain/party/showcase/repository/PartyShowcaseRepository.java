@@ -18,6 +18,9 @@ import java.util.Optional;
 public interface PartyShowcaseRepository extends JpaRepository<PartyShowcase, Long> {
     Optional<PartyShowcase> findByParty(Party party);
 
+    // TOP3 배치 대상 전체 - 후보군 자체가 적어 페이징 없이 한 번에 읽는다.
+    List<PartyShowcase> findAllByPublishedTrue();
+
     // 모집 단계 전용이 아니라 PartyShowcase.viewCount(전시 단계 전용)를 쓴다
     // 기획서 3.2 팀 논의 갱신으로 두 카운터가 완전히 분리됐다.
     // 호출부에서 PageRequest.of(0, 3)으로 넘기면 상위 3개만 나옴
