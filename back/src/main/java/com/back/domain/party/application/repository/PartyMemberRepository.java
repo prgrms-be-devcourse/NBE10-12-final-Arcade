@@ -122,4 +122,14 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
         return countApplicantsByPartyIdIn(partyIds).stream()
                 .collect(Collectors.toMap(PartyApplicantCount::partyId, PartyApplicantCount::count));
     }
+
+    // 회원 이력(관리자) - 이 회원이 지원한 파티 전체를 최신순으로. Party/Position을 fetch join해 N+1 방지.
+    @Query("""
+        select pm from PartyMember pm
+        join fetch pm.party
+        join fetch pm.position
+        where pm.member = :member
+        order by pm.createDate desc
+        """)
+    List<PartyMember> findAllByMemberOrderByCreateDateDesc(@Param("member") Member member);
 }

@@ -8,6 +8,7 @@ import com.back.domain.goal.goal.dtos.GoalDetailReqBody;
 import com.back.domain.goal.goal.dtos.GoalUpdateReqBody;
 import com.back.domain.goal.goal.dtos.GoalDetailResponseDto;
 import com.back.domain.goal.goal.dtos.GoalDto;
+import com.back.domain.goal.goal.dtos.MemberAchievementItemDto;
 import com.back.domain.goal.goal.dtos.ProjectContextDto;
 import com.back.domain.goal.goal.dtos.TodoContextDto;
 import com.back.domain.goal.goal.entity.EvidenceStatus;
@@ -536,5 +537,12 @@ public class GoalService {
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    public List<MemberAchievementItemDto> getAchievementsForAdmin(Member owner) {
+        return goalRepository.findByOwnerOrderByCreateDateDesc(owner)
+                .stream()
+                .map(MemberAchievementItemDto::new)
+                .toList();
     }
 }
