@@ -121,12 +121,6 @@ export default async function TeamSpacePage({ params, searchParams }: { params: 
                 />
               </Block>
 
-              <Block title="진행 기록 · 커밋">
-                <p className="checklist-note">
-                  커밋 단위 수집·승인·댓글 API는 아직 제공되지 않습니다. 현재 서버에서 동기화하는
-                  진행 기록은 위 PR 목록입니다.
-                </p>
-              </Block>
             </>
           }
           side={
