@@ -1,12 +1,16 @@
 package com.back.domain.goal.goal.repository;
 
 import com.back.domain.goal.goal.dtos.OwnerAchievementCount;
+import com.back.domain.goal.goal.entity.EvidenceStatus;
 import com.back.domain.goal.goal.entity.Goal;
 import com.back.domain.goal.goal.entity.GoalStatus;
 import com.back.domain.goal.goal.entity.GoalType;
 import com.back.domain.goal.goal.entity.PersonalChecklist;
+import com.back.domain.goal.goal.entity.PersonalContest;
 import com.back.domain.goal.goal.entity.Project;
 import com.back.domain.member.member.entity.Member;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -16,6 +20,25 @@ import java.util.List;
 import java.util.Optional;
 
 public interface GoalRepository extends JpaRepository<Goal, Long>, GoalRepositoryCustom {
+
+    /**
+     * 관리자 증빙 검수 목록. 상태로만 거른다 - 파일이 없는 성취는 evidenceStatus 가 null 이라 애초에 안 걸린다.
+     *
+     * 목록에 올린 사람 이름을 같이 그리므로 owner 를 fetch join 한다. 안 하면 한 줄마다 MEMBER 를 다시 읽는다.
+     * fetch join 과 Pageable 을 같이 쓰면 count 쿼리를 따로 줘야 한다.
+     */
+    @Query(
+            value = """
+                    select c from PersonalContest c
+                    join fetch c.owner
+                    where c.evidenceStatus = :status
+                    """,
+            countQuery = "select count(c) from PersonalContest c where c.evidenceStatus = :status"
+    )
+    Page<PersonalContest> findByEvidenceStatus(
+            @Param("status") EvidenceStatus status,
+            Pageable pageable
+    );
 
     // 파티 확정 이벤트가 중복 수신돼도 같은 사람에게 같은 파티의 성취가 두 번 생기지 않게 막는다.
     // GOAL.party_assemble_to_member_id UK와 같은 목적이지만, 그 값이 이벤트에 아직 실려오지 않아 이쪽으로 먼저 방어한다.
