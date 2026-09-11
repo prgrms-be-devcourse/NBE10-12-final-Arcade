@@ -9,7 +9,7 @@ import { fetchSoloSpace, type SoloSpaceDetail } from '@/lib/api';
  * 목 모드에서는 방금 만든 항목이 브라우저 쪽 저장소에만 있어, 서버에서 찾으면 비어 보이기 때문이다.
  * 실제 API 로 바뀌어도 호출부는 그대로다.
  */
-export function SoloSpaceLoader({ id, ownerName }: { id: string; ownerName: string }) {
+export function SoloSpaceLoader({ id }: { id: string }) {
   const [space, setSpace] = useState<SoloSpaceDetail | null>(null);
 
   useEffect(() => {
@@ -26,5 +26,5 @@ export function SoloSpaceLoader({ id, ownerName }: { id: string; ownerName: stri
     return <p className="notif-empty">목록을 불러오는 중이에요.</p>;
   }
 
-  return <SoloSpace space={space} ownerName={ownerName} />;
+  return <SoloSpace space={space} />;
 }

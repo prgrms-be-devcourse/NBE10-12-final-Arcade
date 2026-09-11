@@ -38,12 +38,18 @@ export interface MemberProfileResponse {
   /** GitHub 이 준 아바타. 서버가 profileImageUrl 과 합치지 않고 따로 내려준다 */
   githubAvatarUrl: string | null;
   githubLinked: boolean;
+  /** 계정 권한. 화면의 대표 포지션(position)과 다른 개념이다 */
+  role: MemberRole;
   bio: string | null;
   /** 대표 포지션 하나. 고르지 않았으면 null */
   position: PositionType | null;
   techStacks: string[];
   careers: MemberCareerResponse[];
   links: MemberLinkResponse[];
+  /** 이용약관 동의 일시. null 이면 아직 동의하지 않은 계정이다 */
+  termsAgreedAt: string | null;
+  /** 개인정보 수집·이용 동의 일시. null 이면 온보딩이 필요하다 */
+  privacyAgreedAt: string | null;
 }
 
 export interface MemberCareerResponse {
@@ -77,7 +83,8 @@ function toPeriod(startDate: string | null, endDate: string | null): string {
  * - stats, streakDays, activityHeatmap, badges : GET /members/me/summary 가 따로 준다(fetchMySummary).
  *   집계 쿼리가 무거워 서버가 일부러 나눠 뒀다 - 세션 확인용 GET /me 마다 돌면 안 된다
  * - achievements  : GET /goals/me 로 따로 읽어 마이페이지에서 합친다
- * - memberRole    : 응답에 role 이 없다. 로그인 응답에서 받아 덮어쓴다
+ * - memberRole    : 이제 응답의 role 을 쓴다. 인자로 넘어온 값은 기본값일 뿐이다
+ *                   (예전엔 응답에 없어 로그인 응답에서 받아 덮어썼고, 새로고침하면 알 수 없었다)
  */
 export function toUserProfile(
   dto: MemberProfileResponse,
@@ -98,7 +105,7 @@ export function toUserProfile(
     uploadedImageUrl: dto.profileImageUrl ?? undefined,
     // UserSummary.role 은 계정 권한이 아니라 화면에 보여주는 대표 포지션 문구다
     role: dto.position ? positionLabel(dto.position) : '',
-    memberRole,
+    memberRole: dto.role ?? memberRole,
     githubLinked: dto.githubLinked,
     bio: dto.bio ?? '',
     // 고르지 않았으면 null 이 온다. 화면 select 의 기본값을 BACK 으로 둔다
@@ -123,6 +130,8 @@ export function toUserProfile(
       label: link.label,
       url: link.url,
     })),
+    termsAgreedAt: dto.termsAgreedAt ?? undefined,
+    privacyAgreedAt: dto.privacyAgreedAt ?? undefined,
   };
 }
 
@@ -256,6 +265,37 @@ export async function fetchMemberShowcases(id: string): Promise<ExhibitionProjec
     if (error instanceof ApiError && (error.status === 404 || error.status === 401)) return [];
     throw error;
   }
+}
+
+/**
+ * POST /api/v1/members/me/agreements — 필수 약관 동의 기록.
+ *
+ * 여러 번 불러도 안전하다. 서버가 **이미 동의한 계정의 시각을 덮어쓰지 않는다** -
+ * 최초 동의 시점이 증빙이라 재시도로 날짜가 밀리면 안 된다.
+ */
+export async function agreeToRequiredTerms(): Promise<void> {
+  if (USE_MOCK) return mockResponse(undefined as void);
+  await http.post<void>('/members/me/agreements');
+}
+
+/**
+ * GitHub 온보딩 완료 — 동의를 남기고 닉네임·포지션을 저장한다.
+ *
+ * **동의를 먼저 보낸다.** 프로필 저장이 실패해도 동의는 남아 사용자가 게이트에 갇히지 않는다.
+ * 순서를 뒤집으면 프로필은 저장됐는데 동의가 없어 계속 온보딩이 뜨는 상태가 될 수 있다.
+ */
+export async function completeOnboarding(payload: {
+  nickname: string;
+  position: PositionType;
+}): Promise<void> {
+  await agreeToRequiredTerms();
+
+  if (USE_MOCK) return mockResponse(undefined as void);
+  // 보낸 항목만 바뀐다(ARC-120). 온보딩은 이 둘만 다룬다
+  await http.patch<MemberProfileResponse>('/members/me', {
+    nickname: payload.nickname,
+    position: payload.position,
+  });
 }
 
 /**

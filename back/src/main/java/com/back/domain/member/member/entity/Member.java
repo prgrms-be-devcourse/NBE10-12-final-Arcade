@@ -44,6 +44,14 @@ public class Member extends BaseEntity {
     private Long githubUserId = null;
     private String githubEmail = null;
 
+    /**
+     * 이용약관 동의 일시. null 이면 아직 동의하지 않은 계정이다.
+     */
+    private LocalDateTime termsAgreedAt;
+
+    /** 개인정보 수집·이용 동의 일시. null 이면 서비스 이용을 막는다(추후 필터) */
+    private LocalDateTime privacyAgreedAt;
+
     /** JWT 인증 정보를 담는 비영속 임시 회원 객체용 생성자다. */
     public Member(long id, Role role) {
         setId(id);
@@ -56,6 +64,22 @@ public class Member extends BaseEntity {
         this.name = name;
         this.profileImgUrl = profileImgUrl;
         this.apiKey = UUID.randomUUID().toString();
+    }
+
+    /**
+     * 필수 약관 두 가지에 동의한 시점을 기록한다.
+     *
+     * 이미 동의한 계정은 시각을 덮어쓰지 않는다 - 최초 동의 시점이 증빙이라,
+     * 재호출(중복 요청·재시도)로 날짜가 밀리면 안 된다.
+     */
+    public void agreeToRequiredTerms(LocalDateTime agreedAt) {
+        if (this.termsAgreedAt == null) this.termsAgreedAt = agreedAt;
+        if (this.privacyAgreedAt == null) this.privacyAgreedAt = agreedAt;
+    }
+
+    /** 필수 약관에 모두 동의했는지. 서버가 이용을 막을지 판단하는 기준이다 */
+    public boolean hasAgreedToRequiredTerms() {
+        return termsAgreedAt != null && privacyAgreedAt != null;
     }
 
     public void setGithubSocial(String githubProviderUserId, String githubEmail) {
@@ -103,7 +127,16 @@ public class Member extends BaseEntity {
         this.password = encodedPassword;
     }
 
+    /**
+     * 관리자로 올린다. 약관 동의 기록도 함께 남긴다.
+     *
+     * 운영 계정은 회원용 온보딩 화면을 통과할 수 없어, 기록이 없으면
+     * 동의 강제 필터가 켜지는 순간 관리자 콘솔부터 막힌다.
+     * 필터에 역할 예외를 두는 대신 여기서 채워 **규칙을 하나로 유지**한다.
+     */
     public void grantAdmin() {
+        agreeToRequiredTerms(LocalDateTime.now());
+
         this.role = Role.ADMIN;
     }
 

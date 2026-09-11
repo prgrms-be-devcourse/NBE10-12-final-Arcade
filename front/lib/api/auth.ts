@@ -105,10 +105,11 @@ export async function socialLogin(
 /**
  * POST /api/v1/members/signup
  *
- * 서버 가입 API 는 email·password·name 만 받는다.
  * 가입만으로는 로그인 상태가 되지 않으므로 이어서 로그인하고,
  * 가입 화면에서 고른 포지션은 PATCH /members/me 로 프로필에 저장한다(안 하면 그대로 버려진다).
- * 약관 동의(agreements)를 보관하는 필드는 아직 서버에 없다.
+ *
+ * 필수 약관 동의는 **가입 요청에 함께 싣는다** - 가입과 같은 트랜잭션에 기록돼야
+ * "가입은 됐는데 동의 기록이 없는" 계정이 생기지 않는다.
  */
 export async function signup(
   payload: SignupPayload & { memberType: MemberType },
@@ -132,6 +133,9 @@ export async function signup(
     email,
     password,
     name: payload.nickname,
+    // 화면이 필수 둘 다 체크해야 여기까지 온다. 서버도 둘 다 true 일 때만 기록한다
+    agreedTerms: payload.agreements.includes("terms"),
+    agreedPrivacy: payload.agreements.includes("privacy"),
   });
 
   const { role } = await http.post<LoginResponse>("/members/login", {
