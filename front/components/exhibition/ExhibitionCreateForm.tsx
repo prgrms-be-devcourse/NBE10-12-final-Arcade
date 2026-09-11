@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useLeaveTo } from '@/lib/navigation';
 import Link from 'next/link';
 import { FormActions, FormGroup, TextAreaField, TextField } from '@/components/ui/Field';
-import { ApiError, fetchExhibition, publishPartyShowcase } from '@/lib/api';
+import { ApiError, fetchExhibitionDraft, publishPartyShowcase } from '@/lib/api';
 
 /**
  * 전시 게시 폼.
@@ -35,7 +35,8 @@ export function ExhibitionCreateForm({ partyId }: { partyId?: string }) {
     if (!partyId) return;
     let alive = true;
 
-    fetchExhibition(partyId)
+    // 아직 게시하지 않은 파티라 게시본 경로(/showcase)는 404 다 - 초안 경로를 쓴다 (ARC-160)
+    fetchExhibitionDraft(partyId)
       .then((draft) => {
         if (!alive) return;
         setTitle(draft.title);

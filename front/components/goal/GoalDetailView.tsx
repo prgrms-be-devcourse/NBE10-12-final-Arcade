@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { httpUrlOrNull } from '@/lib/externalUrl';
 import Link from 'next/link';
 import { Icon } from '@/components/icons/Icon';
 import { BackLink } from '@/components/ui/BackLink';
@@ -322,13 +323,14 @@ function ContestSection({ goal }: { goal: GoalDetailResponse }) {
             ['수상 결과', detail.result],
             ['수상일', toDateText(detail.awardDate)],
             [
+              // 서버가 검증하지 않는 자유 입력이라, http·https 일 때만 링크로 건다
               '대회 링크',
-              detail.contestUrl ? (
+              httpUrlOrNull(detail.contestUrl) ? (
                 <a href={detail.contestUrl} target="_blank" rel="noopener noreferrer">
                   {detail.contestUrl} ↗
                 </a>
               ) : (
-                ''
+                detail.contestUrl ?? ''
               ),
             ],
             // 자기신고는 외부 대회를 적는 것이라 보통 비어 있다. 크루온 대회와 이어졌을 때만 보여준다
