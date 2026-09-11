@@ -11,7 +11,9 @@ import com.back.domain.member.member.repository.MemberRepository;
 import com.back.domain.member.profile.entity.MemberProfile;
 import com.back.domain.member.profile.repository.MemberProfileRepository;
 import com.back.domain.party.application.entity.PartyMember;
+import com.back.domain.party.application.entity.PartyMemberStatus;
 import com.back.domain.party.application.repository.PartyMemberRepository;
+import com.back.domain.party.party.dtos.MemberPartyHistoryDto;
 import com.back.domain.party.party.dtos.PartyDto;
 import com.back.domain.party.party.dtos.PartyListItemDto;
 import com.back.domain.party.party.entity.Party;
@@ -22,6 +24,7 @@ import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.position.entity.Position;
 import com.back.domain.party.position.repository.PositionRepository;
 import com.back.global.exception.ServiceException;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -178,5 +181,30 @@ class PartyServiceAdminTest {
                 TopicType.STUDY, PartyTag.WEB, null, LocalDateTime.now().plusDays(7),
                 List.of(new PartyService.PositionCreateSpec(PositionType.BACK, 3))
         );
+    }
+
+    @Test
+    @DisplayName("관리자 회원 이력: 내가 만든 파티와 지원한 파티가 구분되어 나온다")
+    void getHistoryForAdmin_separatesOwnedAndApplied() {
+        Member owner = saveMember("adm-history-owner@test.com");
+        Member applicant = saveMember("adm-history-applicant@test.com");
+        PartyDto created = createParty(owner, "이력 테스트 파티");
+        Position position = positionRepository.findById(created.positions().get(0).id()).orElseThrow();
+
+        partyMemberRepository.save(new PartyMember(
+                partyRepository.findById(created.id()).orElseThrow(), applicant, position, "지원합니다"));
+
+        MemberPartyHistoryDto ownerHistory = partyService.getHistoryForAdmin(owner);
+        assertThat(ownerHistory.ownedParties()).extracting(MemberPartyHistoryDto.OwnedPartyItem::partyId)
+                .contains(created.id());
+        assertThat(ownerHistory.appliedParties()).isEmpty();
+
+        MemberPartyHistoryDto applicantHistory = partyService.getHistoryForAdmin(applicant);
+        assertThat(applicantHistory.ownedParties()).isEmpty();
+        assertThat(applicantHistory.appliedParties())
+                .extracting(MemberPartyHistoryDto.AppliedPartyItem::partyId)
+                .contains(created.id());
+        assertThat(applicantHistory.appliedParties().getFirst().applicationStatus())
+                .isEqualTo(PartyMemberStatus.PENDING);
     }
 }
