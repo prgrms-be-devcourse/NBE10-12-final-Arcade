@@ -1,12 +1,16 @@
-# 수동 배포: EICE 위 SSH로 환경 파일과 배포 파일을 전송한다.
+# 수동 실행 또는 develop CI 성공 후 EICE 위 SSH로 배포한다.
 name: CD
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [develop]
 
 # 무중단 교체 중인 배포는 취소하거나 겹치지 않는다.
 concurrency:
-  group: cd-${{ github.ref }}
+  group: cd-dev
   cancel-in-progress: false
 
 permissions:
@@ -16,11 +20,19 @@ permissions:
 
 jobs:
   deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'develop')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: dev
     steps:
       - uses: actions/checkout@v5
+        with:
+          # 자동 배포는 성공한 CI가 검사·빌드한 커밋의 배포 파일을 사용한다.
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       - uses: docker/login-action@v4.6.0
         with:
@@ -76,6 +88,7 @@ jobs:
             [ -n "$sha_tag" ] \
               || { echo "::error::$ref 와 같은 digest의 SHA 태그를 찾지 못했다."; return 1; }
             echo "$component=$pinned_ref" >> "$GITHUB_OUTPUT"
+            echo "${component}_version=$sha_tag" >> "$GITHUB_OUTPUT"
           }
 
           describe_image backend "${{ steps.image.outputs.backend }}"
@@ -96,6 +109,9 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BACKEND: ${{ steps.resolved_image.outputs.backend }}
           FRONTEND: ${{ steps.resolved_image.outputs.frontend }}
+          BACKEND_VERSION: ${{ steps.resolved_image.outputs.backend_version }}
+          K6_DURATION: ${{ vars.K6_DURATION || '7m' }}
+          K6_RATE: ${{ vars.K6_RATE || '5' }}
         run: |
           [ -n "$ENV_PROD" ] || { echo "::error::dev Environment에 ENV_PROD Secret을 등록한다."; exit 1; }
           umask 077
@@ -107,12 +123,30 @@ jobs:
           args=(--env-file runner.env)
           [ -n "$BACKEND" ] && args+=(--backend-image "$BACKEND")
           [ -n "$FRONTEND" ] && args+=(--frontend-image "$FRONTEND")
-          ./infra/scripts/eice-deploy.sh "${args[@]}"
 
           origin=$(sed -n 's/^PUBLIC_ORIGIN=//p' runner.env | head -n1)
           origin="${origin%/}"
           [[ "$origin" == https://* ]] \
             || { echo "::error::PUBLIC_ORIGIN이 HTTPS 주소가 아니다."; exit 1; }
+
+          previous_headers=$(mktemp)
+          curl --fail --silent --show-error \
+            --connect-timeout 5 --max-time 20 \
+            --dump-header "$previous_headers" --output /dev/null \
+            "$origin/api/v1/parties?size=1"
+          old_version=$(sed -n 's/^[Xx]-[Aa]pp-[Vv]ersion:[[:space:]]*//p' "$previous_headers" \
+            | tr -d '\r' | head -n1)
+          old_version="${old_version:-missing}"
+          echo "배포 전 백엔드 응답 버전: $old_version"
+
+          ./.github/scripts/run-deploy-continuity.sh \
+            --origin "$origin" \
+            --expected-version "$BACKEND_VERSION" \
+            --old-version "$old_version" \
+            --duration "$K6_DURATION" \
+            --rate "$K6_RATE" \
+            --results-dir deploy-continuity-results \
+            -- ./infra/scripts/eice-deploy.sh "${args[@]}"
 
           echo "== 외부 smoke test =="
           for path in /healthz '/api/v1/parties?size=1'; do
@@ -122,4 +156,50 @@ jobs:
               --retry 5 --retry-delay 3 --retry-all-errors \
               --output /dev/null "$origin$path"
           done
+          headers=$(mktemp)
+          curl --fail --silent --show-error \
+            --connect-timeout 5 --max-time 20 \
+            --dump-header "$headers" --output /dev/null \
+            "$origin/api/v1/parties?size=1"
+          actual_version=$(sed -n 's/^[Xx]-[Aa]pp-[Vv]ersion:[[:space:]]*//p' "$headers" \
+            | tr -d '\r' | head -n1)
+          [ "$actual_version" = "$BACKEND_VERSION" ] || {
+            echo "::error::응답 버전이 배포 이미지와 다르다. expected=$BACKEND_VERSION actual=${actual_version:-missing}"
+            exit 1
+          }
+          echo "  백엔드 응답 버전: $actual_version"
           echo "  프론트와 백엔드 공개 경로 정상"
+
+      - name: 무중단 검증 요약
+        if: always()
+        run: |
+          result=deploy-continuity-results
+          {
+            echo "## 배포 연속성 검증"
+            if [ -f "$result/status.env" ]; then
+              sed 's/^/- /' "$result/status.env"
+            else
+              echo "- k6 실행 전 실패"
+            fi
+            if [ -f "$result/summary.json" ]; then
+              jq -r '
+                .metrics as $m
+                | "- HTTP 실패율: \($m.http_req_failed.values.rate // "기록 없음")",
+                  "- 누락 iteration: \($m.dropped_iterations.values.count // 0)",
+                  "- 응답시간 p95: \($m.http_req_duration.values["p(95)"] // "기록 없음") ms",
+                  "- 응답시간 p99: \($m.http_req_duration.values["p(99)"] // "기록 없음") ms"
+              ' "$result/summary.json"
+            fi
+            if [ -f "$result/samples.json" ]; then
+              echo "- 관찰한 백엔드 버전: $(jq -r 'select(.metric == "application_version_responses") | .data.tags.version' "$result/samples.json" | sort -u | paste -sd, -)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 무중단 검증 결과 보관
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: deploy-continuity-${{ github.run_attempt }}
+          path: deploy-continuity-results/
+          if-no-files-found: warn
+          retention-days: 7

@@ -25,10 +25,13 @@ RUN java -Djarmode=tools -jar app.jar extract --layers --launcher --destination 
 # ---------- 3. 런타임 ----------
 FROM eclipse-temurin:25-jre-alpine AS runtime
 
+ARG APP_VERSION=local
+
 RUN addgroup -S app \
  && adduser -S app -G app
 
 ENV TZ=Asia/Seoul \
+    APP_VERSION=${APP_VERSION} \
     JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
 
 WORKDIR /app
