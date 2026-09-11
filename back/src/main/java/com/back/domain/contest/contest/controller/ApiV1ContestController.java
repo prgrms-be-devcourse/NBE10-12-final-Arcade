@@ -182,13 +182,13 @@ public class ApiV1ContestController {
         );
     }
 
-    private static final int VIEW_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24;
+    private static final String VIEW_COOKIE_PATH = "/api/v1/contests";
 
     @GetMapping("/{contest-id}")
     @Operation(summary = "대회 상세 조회")
     public RsData<ContestResponseDto> getDetail(@PathVariable("contest-id") long contestId) {
         String viewCookieName = "contest_viewed_" + contestId;
-        boolean alreadyViewed = rq.getCookieValue(viewCookieName, null) != null;
+        boolean alreadyViewed = rq.hasViewCookie(viewCookieName);
         List<Party> relatedPartyEntities = partyContestLookupPort
                 .findByTargetContestId(contestId, PartyStatus.RECRUITING, PartyStatus.IN_PROGRESS);
         Map<Long, Long> applicantCounts = partyMemberRepository.countApplicantsByPartyIds(
@@ -201,7 +201,7 @@ public class ApiV1ContestController {
         contestResponseDto = contestResponseDto.withRelatedParties(relatedParties.size(), relatedParties);
 
         if (!alreadyViewed) {
-            rq.setCookie(viewCookieName, "true", VIEW_COOKIE_MAX_AGE_SECONDS);
+            rq.setViewCookie(viewCookieName, VIEW_COOKIE_PATH);
         }
 
         return new RsData<>(

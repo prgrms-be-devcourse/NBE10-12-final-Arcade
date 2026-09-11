@@ -100,6 +100,11 @@ services:
       CUSTOM__GITHUB__APP__TOKEN_ENCRYPTION_KEY: ${CUSTOM__GITHUB__APP__TOKEN_ENCRYPTION_KEY:-}
       CUSTOM__GITHUB__WEBHOOK__SECRET: ${CUSTOM__GITHUB__WEBHOOK__SECRET:-}
 
+      # 비밀번호 재설정 등 트랜잭션 메일 발송. enabled=false면 No-op 발송기를 사용한다.
+      CUSTOM__MAIL__ENABLED: ${CUSTOM__MAIL__ENABLED:-false}
+      CUSTOM__MAIL__FROM: ${CUSTOM__MAIL__FROM:-Arcade <onboarding@resend.dev>}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+
       # prod는 인스턴스 역할을 사용하는 S3 저장소로 설정한다.
       CUSTOM__STORAGE__TYPE: ${CUSTOM__STORAGE__TYPE:-local}
       CUSTOM__STORAGE__LOCAL__PATH: ${CUSTOM__STORAGE__LOCAL__PATH:-.uploads}

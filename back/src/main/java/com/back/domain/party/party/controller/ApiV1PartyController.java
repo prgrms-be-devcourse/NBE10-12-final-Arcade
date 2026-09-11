@@ -216,11 +216,20 @@ public class ApiV1PartyController {
         );
     }
 
+    private static final String VIEW_COOKIE_PATH = "/api/v1/parties";
+
     @GetMapping("/{partyId}")
     public RsData<PartyDto> detail(
             @PathVariable long partyId
     ) {
-        PartyDto partyDto = partyService.getDetail(partyId);
+        String viewCookieName = "party_viewed_" + partyId;
+        boolean alreadyViewed = rq.hasViewCookie(viewCookieName);
+
+        PartyDto partyDto = partyService.getDetail(partyId, !alreadyViewed);
+
+        if (!alreadyViewed) {
+            rq.setViewCookie(viewCookieName, VIEW_COOKIE_PATH);
+        }
 
         return new RsData<>(
                 "200-1",

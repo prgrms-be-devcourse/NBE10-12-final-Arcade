@@ -80,10 +80,33 @@ public class Rq {
     }
 
     public void setCookie(String name, String value, int maxAgeSeconds) {
+        addCookie(name, value, maxAgeSeconds, "/");
+    }
+
+    public void deleteCookie(String name) {
+        setCookie(name, null);
+    }
+
+    private static final int VIEW_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24;
+
+    /** 이 방문자가 오늘(24h) 이미 조회수를 올린 대상인지 - 쿠키 유무로만 판단한다 */
+    public boolean hasViewCookie(String name) {
+        return getCookieValue(name, null) != null;
+    }
+
+    /**
+     * 조회수 쿠키는 accessToken/refreshToken과 달리 요청마다 새로 생기고 대상 수만큼 쌓이므로,
+     * path="/"로 전체 도메인 요청에 실리지 않게 그 기능의 API prefix로 좁혀서 심는다.
+     */
+    public void setViewCookie(String name, String path) {
+        addCookie(name, "true", VIEW_COOKIE_MAX_AGE_SECONDS, path);
+    }
+
+    private void addCookie(String name, String value, int maxAgeSeconds, String path) {
         if (value == null) value = "";
 
         Cookie cookie = new Cookie(name, value);
-        cookie.setPath("/");
+        cookie.setPath(path);
         cookie.setHttpOnly(true);
         cookie.setSecure(customConfigProperties.getCookie().isSecure());
         cookie.setAttribute("SameSite", customConfigProperties.getCookie().getSameSite());
@@ -91,10 +114,6 @@ public class Rq {
         cookie.setMaxAge(value.isBlank() ? 0 : maxAgeSeconds);
 
         resp.addCookie(cookie);
-    }
-
-    public void deleteCookie(String name) {
-        setCookie(name, null);
     }
 
     @SneakyThrows

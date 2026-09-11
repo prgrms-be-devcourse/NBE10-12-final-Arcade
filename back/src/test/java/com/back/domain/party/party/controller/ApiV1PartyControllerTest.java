@@ -13,6 +13,7 @@ import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
 import com.back.domain.party.party.repository.PartyRepository;
 import com.back.domain.party.position.entity.Position;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -550,7 +551,7 @@ public class ApiV1PartyControllerTest {
     }
 
     @Test
-    @DisplayName("파티 상세 조회: 조회할 때마다 viewCount가 증가한다")
+    @DisplayName("파티 상세 조회: 조회 쿠키가 없으면 viewCount가 증가한다")
     @WithUserDetails("user1@test.com")
     void getPartyDetailIncreasesViewCount() throws Exception {
         Party party = savePartyOwnedBy("user1@test.com", 2);
@@ -560,6 +561,24 @@ public class ApiV1PartyControllerTest {
 
         mvc.perform(get("/api/v1/parties/" + party.getId()))
                 .andExpect(jsonPath("$.data.viewCount").value(2));
+    }
+
+    @Test
+    @DisplayName("파티 상세 조회: 조회 쿠키를 가진 방문자가 다시 조회하면 viewCount가 증가하지 않는다")
+    @WithUserDetails("user1@test.com")
+    void getPartyDetailWithViewCookieDoesNotIncreaseViewCount() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 2);
+
+        ResultActions first = mvc.perform(get("/api/v1/parties/" + party.getId()));
+        first.andExpect(jsonPath("$.data.viewCount").value(1));
+
+        Cookie viewCookie = first.andReturn().getResponse().getCookie("party_viewed_" + party.getId());
+        assertThat(viewCookie).isNotNull();
+        assertThat(viewCookie.getPath()).isEqualTo("/api/v1/parties");
+
+        mvc.perform(get("/api/v1/parties/" + party.getId()).cookie(viewCookie))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.viewCount").value(1));
     }
 
     @Test

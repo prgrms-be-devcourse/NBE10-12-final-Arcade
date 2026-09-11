@@ -325,13 +325,16 @@ public class PartyService {
     }
 
     @Transactional
-    public PartyDto getDetail(long partyId) {
+    public PartyDto getDetail(long partyId, boolean countView) {
         Party party = findByIdOrThrow(partyId);
         // 관리자가 숨긴 파티는 목록뿐 아니라 상세 직접 접근도 막는다 - 삭제된 것과 동일하게 404 처리.
         if (party.isHidden()) {
             throw new ServiceException("404-1", "존재하지 않는 파티입니다.");
         }
-        party.increaseViewCount();
+        if (countView) {
+            partyRepository.increaseViewCount(partyId);
+            party = findByIdOrThrow(partyId);
+        }
         return new PartyDto(party, partyMemberRepository.countApplicantsByPartyId(partyId));
     }
 
