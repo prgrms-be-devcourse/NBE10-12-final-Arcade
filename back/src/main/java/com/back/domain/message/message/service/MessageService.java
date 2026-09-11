@@ -112,7 +112,7 @@ public class MessageService {
 
         return ids.stream()
                 .map(messagesById::get)
-                .peek(Message::read)
+                .peek(message -> markAsRead(message, actor))
                 .map(MessageDto::new)
                 .toList();
     }
@@ -127,9 +127,22 @@ public class MessageService {
             throw new ServiceException("403-1", "본인과 관련된 쪽지만 조회/처리할 수 있습니다.");
         }
         if (isRecipient) {
-            message.read();
+            markAsRead(message, actor);
         }
         return toDetailDto(message);
+    }
+
+    private void markAsRead(Message message, Member reader) {
+        if (message.isRead()) {
+            return;
+        }
+
+        message.read();
+        notificationService.create(
+                message.getSender(),
+                NotificationType.MESSAGE_READ,
+                reader.getName() + "님이 보낸 쪽지를 읽었습니다."
+        );
     }
 
     private MessageListDto toListDto(Message message, Map<Long, MessageMemberDto> membersById) {

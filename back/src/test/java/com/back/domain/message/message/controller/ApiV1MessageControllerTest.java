@@ -298,6 +298,14 @@ class ApiV1MessageControllerTest {
         entityManager.clear();
         assertThat(messageRepository.findById(first.getId()).orElseThrow().isRead()).isTrue();
         assertThat(messageRepository.findById(second.getId()).orElseThrow().isRead()).isTrue();
+
+        Member sender = member("user2@test.com");
+        assertThat(notificationRepository.findByMember(sender, org.springframework.data.domain.Pageable.unpaged())
+                .getContent())
+                .filteredOn(notification -> notification.getType() == NotificationType.MESSAGE_READ)
+                .hasSize(2)
+                .allSatisfy(notification -> assertThat(notification.getContent())
+                        .isEqualTo(member("user1@test.com").getName() + "님이 보낸 쪽지를 읽었습니다."));
     }
 
     @Test
@@ -387,6 +395,33 @@ class ApiV1MessageControllerTest {
                 .andExpect(jsonPath("$.data.content").value("쪽지 상세 내용입니다."))
                 .andExpect(jsonPath("$.data.isRead").value(true))
                 .andExpect(jsonPath("$.data.createAt").isNotEmpty());
+
+        Member sender = member("user2@test.com");
+        assertThat(notificationRepository.findByMember(sender, org.springframework.data.domain.Pageable.unpaged())
+                .getContent())
+                .anySatisfy(notification -> {
+                    assertThat(notification.getType()).isEqualTo(NotificationType.MESSAGE_READ);
+                    assertThat(notification.getContent())
+                            .isEqualTo(member("user1@test.com").getName() + "님이 보낸 쪽지를 읽었습니다.");
+                });
+    }
+
+    @Test
+    @DisplayName("쪽지 상세 조회: 이미 읽은 쪽지를 다시 조회해도 발신자 알림을 중복 생성하지 않는다")
+    @WithUserDetails("user1@test.com")
+    void getReadMessageDetailDoesNotCreateDuplicateNotification() throws Exception {
+        Message message = saveMessage("user2@test.com", "user1@test.com", "한 번만 알릴 쪽지입니다.");
+
+        mvc.perform(get("/api/v1/members/me/messages/{messageId}", message.getId()))
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/v1/members/me/messages/{messageId}", message.getId()))
+                .andExpect(status().isOk());
+
+        Member sender = member("user2@test.com");
+        assertThat(notificationRepository.findByMember(sender, org.springframework.data.domain.Pageable.unpaged())
+                .getContent())
+                .filteredOn(notification -> notification.getType() == NotificationType.MESSAGE_READ)
+                .hasSize(1);
     }
 
     @Test
