@@ -165,41 +165,53 @@ export async function logout(): Promise<void> {
   await http.post<void>("/members/logout");
 }
 
-/**
- * 비밀번호 변경. 백엔드 미구현(기획서 11장 '회원관리 확장')이라 데모 동작만 한다.
- */
-export async function changePassword(payload: {
-  verificationCode: string;
-  newPassword: string;
-}): Promise<{ changed: boolean; message: string }> {
-  const valid = payload.newPassword.length >= 8;
-  return mockResponse({
-    changed: valid,
-    message: valid
-      ? "비밀번호를 변경했어요. 다음 로그인부터 새 비밀번호를 사용해 주세요."
-      : "비밀번호는 8자 이상이어야 해요.",
-  });
+/** POST /api/v1/members/password/reset-requests — 가입 여부와 무관하게 같은 성공 응답을 받는다. */
+export async function requestPasswordReset(email: string): Promise<void> {
+  if (USE_MOCK) return mockResponse(undefined as void);
+  await http.post<void>("/members/password/reset-requests", { email });
 }
 
-/**
- * 이메일 인증번호 발송. 백엔드 미구현이라 데모에서는 언제나 성공하며 인증번호는 6자리면 통과한다.
- */
-export async function requestEmailVerification(
-  email: string,
-): Promise<{ sent: boolean }> {
+/** GET /api/v1/members/password/reset-tokens/{token} — 링크를 소비하지 않고 유효성만 확인한다. */
+export async function validatePasswordResetToken(token: string): Promise<boolean> {
+  if (USE_MOCK) return mockResponse(/^[A-Za-z0-9_-]{43}$/.test(token));
+  const result = await http.get<{ valid: boolean }>(
+    `/members/password/reset-tokens/${encodeURIComponent(token)}`,
+  );
+  return result.valid;
+}
+
+/** POST /api/v1/members/password/resets — 일회용 토큰으로 비밀번호를 재설정한다. */
+export async function resetPassword(payload: {
+  token: string;
+  newPassword: string;
+  newPasswordConfirm: string;
+}): Promise<void> {
+  if (USE_MOCK) return mockResponse(undefined as void);
+  await http.post<void>("/members/password/resets", payload);
+}
+
+/** PATCH /api/v1/members/me/password — 현재 비밀번호 확인 후 모든 refresh token을 폐기한다. */
+export async function changePassword(payload: {
+  currentPassword: string;
+  newPassword: string;
+  newPasswordConfirm: string;
+}): Promise<void> {
+  if (USE_MOCK) return mockResponse(undefined as void);
+  await http.patch<void>("/members/me/password", payload);
+}
+
+/** 회원가입 이메일 인증은 아직 별도 백엔드 계약이 없어 데모 흐름을 유지한다. */
+export async function requestEmailVerification(email: string): Promise<{ sent: boolean }> {
   return mockResponse({ sent: Boolean(email) });
 }
 
-/** 이메일 인증번호 확인. 백엔드 미구현. */
 export async function confirmEmailVerification(
   email: string,
   code: string,
 ): Promise<{ verified: boolean; message: string }> {
-  const verified = code.length === 6;
+  const verified = Boolean(email) && code.length === 6;
   return mockResponse({
     verified,
-    message: verified
-      ? "이메일 인증이 완료됐어요."
-      : "인증번호 6자리를 입력해 주세요.",
+    message: verified ? "이메일 인증이 완료됐어요." : "인증번호 6자리를 입력해 주세요.",
   });
 }
