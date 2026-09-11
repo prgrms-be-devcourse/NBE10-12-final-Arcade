@@ -7,7 +7,6 @@ import com.back.global.jpa.entity.BaseEntity;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Column;
 import lombok.Getter;
@@ -30,7 +29,7 @@ public class ShowcaseComment extends BaseEntity {
     @JoinColumn(name = "parent_comment_id")
     private ShowcaseComment parent;
 
-    @Lob
+    @Column(columnDefinition = "TEXT")
     private String content;
 
     @Column(nullable = false)

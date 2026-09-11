@@ -46,6 +46,7 @@ public class ShowcaseCommentService {
 
     @Transactional
     public ShowcaseCommentDto write(long partyId, Member actor, Long parentId, String content) {
+        requireActor(actor);
         PartyShowcase showcase = findPublishedShowcaseOrThrow(partyId);
         ShowcaseComment parent = resolveParent(showcase, parentId);
 
@@ -58,20 +59,31 @@ public class ShowcaseCommentService {
 
     @Transactional
     public void edit(long partyId, long commentId, Member actor, String content) {
+        requireActor(actor);
         ShowcaseComment comment = findCommentOrThrow(partyId, commentId);
-        if (!comment.isAuthor(actor)) {
-            throw new ServiceException("403-1", "작성자만 수정할 수 있습니다.");
+        if (!comment.isAuthor(actor) && !actor.isAdmin()) {
+            throw new ServiceException("403-1", "작성자 또는 관리자만 수정할 수 있습니다.");
         }
         comment.edit(content);
     }
 
     @Transactional
     public void delete(long partyId, long commentId, Member actor) {
+        requireActor(actor);
         ShowcaseComment comment = findCommentOrThrow(partyId, commentId);
         if (!comment.isAuthor(actor) && !actor.isAdmin()) {
             throw new ServiceException("403-1", "작성자 또는 관리자만 삭제할 수 있습니다.");
         }
         comment.softDelete();
+    }
+
+    // 지금은 SecurityConfig가 쓰기 요청을 인증 필수로 막아둬서 actor가 null일 수 없지만,
+    // 그 설정에만 기대면 나중에 실수로 바뀌었을 때 403 대신 NPE(500)로 죽는다 - 방어적으로 처리
+    // (PartyShowcaseService.checkViewableAsDraft와 같은 이유)
+    private void requireActor(Member actor) {
+        if (actor == null) {
+            throw new ServiceException("401-1", "로그인이 필요합니다.");
+        }
     }
 
     private ShowcaseComment resolveParent(PartyShowcase showcase, Long parentId) {

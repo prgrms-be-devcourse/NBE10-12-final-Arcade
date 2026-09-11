@@ -221,7 +221,7 @@ public class ApiV1ShowcaseCommentControllerTest {
     }
 
     @Test
-    @DisplayName("댓글 수정: 작성자가 아니면 403-1이다")
+    @DisplayName("댓글 수정: 작성자도 관리자도 아니면 403-1이다")
     @WithUserDetails("user2@test.com")
     void editByNonAuthorFails() throws Exception {
         Party party = savePublishedShowcase("user1@test.com");
@@ -237,6 +237,28 @@ public class ApiV1ShowcaseCommentControllerTest {
 
         resultActions.andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.resultCode").value("403-1"));
+    }
+
+    @Test
+    @DisplayName("댓글 수정: 작성자가 아니어도 관리자면 수정할 수 있다")
+    @WithUserDetails("user2@test.com")
+    void editByAdmin() throws Exception {
+        Party party = savePublishedShowcase("user1@test.com");
+        PartyShowcase showcase = partyShowcaseRepository.findByParty(party).orElseThrow();
+        Member owner = memberRepository.findByEmail("user1@test.com").orElseThrow();
+        Member admin = memberRepository.findByEmail("user2@test.com").orElseThrow();
+        admin.grantAdmin();
+        memberRepository.save(admin);
+        ShowcaseComment comment = showcaseCommentRepository.save(
+                new ShowcaseComment(showcase, owner, null, "원본 내용"));
+
+        ResultActions resultActions = mvc.perform(put(
+                        "/api/v1/parties/" + party.getId() + "/showcase/comments/" + comment.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(writeRequestJson("관리자가 수정", null)));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.resultCode").value("200-1"));
     }
 
     @Test
