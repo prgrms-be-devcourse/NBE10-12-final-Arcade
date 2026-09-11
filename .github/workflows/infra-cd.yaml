@@ -1,12 +1,16 @@
-# 수동 배포: EICE 위 SSH로 환경 파일과 배포 파일을 전송한다.
+# 수동 실행 또는 develop CI 성공 후 EICE 위 SSH로 배포한다.
 name: CD
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [develop]
 
 # 무중단 교체 중인 배포는 취소하거나 겹치지 않는다.
 concurrency:
-  group: cd-${{ github.ref }}
+  group: cd-dev
   cancel-in-progress: false
 
 permissions:
@@ -16,11 +20,19 @@ permissions:
 
 jobs:
   deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'develop')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: dev
     steps:
       - uses: actions/checkout@v5
+        with:
+          # 자동 배포는 성공한 CI가 검사·빌드한 커밋의 배포 파일을 사용한다.
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       - uses: docker/login-action@v4.6.0
         with:
