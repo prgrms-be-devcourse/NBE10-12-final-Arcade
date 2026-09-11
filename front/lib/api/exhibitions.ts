@@ -1,12 +1,13 @@
 import type {
-  ExhibitionComment,
   ExhibitionDetail,
   ExhibitionProject,
   GoalSource,
   GoalStatus,
   GoalType,
   PositionType,
+  ThreadComment,
 } from '@/lib/types';
+import { timeAgo } from './time';
 import {
   MOCK_EXHIBITIONS,
   MOCK_EXHIBITION_DETAILS,
@@ -21,7 +22,8 @@ import { toDateText } from './time';
  * 이 모듈에서 **아직 서버가 없는 기능**만 데모 데이터로 고정하는 스위치다.
  *
  * 목록·상세·게시·좋아요·북마크는 서버가 있어서 client 의 USE_MOCK(USE_API_MOCK)을 쓴다.
- * 남은 것은 댓글·커밋 스냅샷·전시 직접 등록/수정/삭제로, 대응 엔드포인트가 없다.
+ * 남은 것은 커밋 스냅샷·전시 직접 등록/수정/삭제로, 대응 엔드포인트가 없다.
+ * (댓글은 ARC-160 으로 서버가 생겨 USE_API_MOCK 으로 옮겼다)
  *
  * 없는 경로로 요청하면 서버 SecurityConfig 의 전체 경로 인증 규칙에 먼저 걸려 404 가 아니라 401 이 오고,
  * 서버 컴포넌트에서 호출한 경우 페이지 전체가 500 으로 죽는다. 그래서 이 상수로 막아 둔다.
@@ -160,16 +162,32 @@ function toExhibitionDetail(dto: PartyShowcaseResponse): ExhibitionDetail {
 }
 
 /**
- * GET /api/v1/parties/{partyId}/showcase — 파티 전시 상세.
+ * GET /api/v1/parties/{partyId}/showcase — **게시된** 파티 전시 상세.
  *
  * 전시는 파티에 종속이라 id 는 goal id 가 아니라 **partyId** 다.
- * 게시 전 초안은 파티원만 볼 수 있고, 게시된 뒤에는 누구나 볼 수 있다.
+ * 비로그인도 볼 수 있다. 아직 게시하지 않은 파티는 404 이므로,
+ * 게시 화면처럼 초안을 읽어야 하는 곳은 fetchExhibitionDraft 를 쓴다 (ARC-160 에서 경로가 갈렸다).
  */
 export async function fetchExhibition(id: string): Promise<ExhibitionDetail> {
   if (USE_API_MOCK) {
     return mockResponse(MOCK_EXHIBITION_DETAILS[id] ?? MOCK_EXHIBITION_DETAILS['settlement-api']);
   }
   return toExhibitionDetail(await http.get<PartyShowcaseResponse>(`/parties/${id}/showcase`));
+}
+
+/**
+ * GET /api/v1/parties/{partyId}/showcase/draft — 게시 전 초안.
+ *
+ * 파티장·승인된 파티원만 볼 수 있다(403). 게시 여부와 무관하게 내려오므로
+ * 게시 화면이 제목·설명을 채워 넣을 때 쓴다.
+ */
+export async function fetchExhibitionDraft(partyId: string): Promise<ExhibitionDetail> {
+  if (USE_API_MOCK) {
+    return mockResponse(MOCK_EXHIBITION_DETAILS['settlement-api']);
+  }
+  return toExhibitionDetail(
+    await http.get<PartyShowcaseResponse>(`/parties/${partyId}/showcase/draft`),
+  );
 }
 
 
@@ -237,42 +255,93 @@ export async function toggleExhibitionBookmark(id: string, bookmarked: boolean):
   await http.delete<void>(`/goals/${id}/bookmarks`);
 }
 
+/** 백엔드 ShowcaseCommentDto — GET /parties/{partyId}/showcase/comments */
+interface ShowcaseCommentResponse {
+  id: number;
+  authorId: number;
+  authorName: string;
+  isPartyMember: boolean;
+  content: string;
+  deleted: boolean;
+  createDate: string;
+  replies: ShowcaseCommentResponse[];
+}
+
 /**
- * POST /exhibitions/{id}/comments
- * parentId 를 주면 그 원댓글의 답글이 된다 — 답글의 답글은 허용하지 않는다 (기획서 3.8).
+ * 지워진 댓글도 그대로 내려온다(soft delete) - 달린 답글을 살리기 위해서다.
+ * 화면이 내용 대신 안내를 보여줄 수 있게 deleted 를 그대로 넘긴다.
+ */
+function toThreadComment(dto: ShowcaseCommentResponse): ThreadComment {
+  return {
+    id: String(dto.id),
+    authorId: String(dto.authorId),
+    authorName: dto.authorName,
+    authorInitial: dto.authorName?.trim().charAt(0) ?? '?',
+    content: dto.content,
+    createdAt: timeAgo(dto.createDate),
+    deleted: dto.deleted,
+    isPartyMember: dto.isPartyMember,
+    replies: (dto.replies ?? []).map(toThreadComment),
+  };
+}
+
+/** GET /api/v1/parties/{partyId}/showcase/comments — 전시 댓글 목록(답글 포함) */
+export async function fetchExhibitionComments(partyId: string): Promise<ThreadComment[]> {
+  if (USE_API_MOCK) return mockResponse([] as ThreadComment[]);
+
+  const rows = await http.get<ShowcaseCommentResponse[]>(
+    `/parties/${partyId}/showcase/comments`,
+  );
+  return rows.map(toThreadComment);
+}
+
+/**
+ * POST /api/v1/parties/{partyId}/showcase/comments
+ * parentId 를 주면 그 원댓글의 답글이 된다 — 답글의 답글은 서버가 막는다(1단계 제한).
  */
 export async function createExhibitionComment(
-  id: string,
+  partyId: string,
   payload: { content: string; parentId?: string },
-): Promise<ExhibitionComment> {
-  if (USE_MOCK) {
+): Promise<ThreadComment> {
+  if (USE_API_MOCK) {
     const me = MOCK_PROFILES.haneul;
     return mockResponse({
       id: `cm-${Date.now()}`,
+      authorId: 'me',
       authorName: me.name,
       authorInitial: me.initial,
       content: payload.content,
       createdAt: '방금 전',
+      deleted: false,
+      isPartyMember: false,
       replies: [],
     });
   }
-  return http.post<ExhibitionComment>(`/exhibitions/${id}/comments`, payload);
+  return toThreadComment(
+    await http.post<ShowcaseCommentResponse>(`/parties/${partyId}/showcase/comments`, {
+      content: payload.content,
+      parentId: payload.parentId ? Number(payload.parentId) : null,
+    }),
+  );
 }
 
-/** PUT /exhibitions/{id}/comments/{commentId} */
+/** PUT /api/v1/parties/{partyId}/showcase/comments/{commentId} — 작성자와 관리자만 */
 export async function updateExhibitionComment(
-  id: string,
+  partyId: string,
   commentId: string,
   content: string,
 ): Promise<void> {
-  if (USE_MOCK) return mockResponse(undefined as void);
-  return http.put<void>(`/exhibitions/${id}/comments/${commentId}`, { content });
+  if (USE_API_MOCK) return mockResponse(undefined as void);
+  return http.put<void>(`/parties/${partyId}/showcase/comments/${commentId}`, { content });
 }
 
-/** DELETE /exhibitions/{id}/comments/{commentId} */
-export async function deleteExhibitionComment(id: string, commentId: string): Promise<void> {
-  if (USE_MOCK) return mockResponse(undefined as void);
-  return http.delete<void>(`/exhibitions/${id}/comments/${commentId}`);
+/** DELETE /api/v1/parties/{partyId}/showcase/comments/{commentId} — soft delete */
+export async function deleteExhibitionComment(
+  partyId: string,
+  commentId: string,
+): Promise<void> {
+  if (USE_API_MOCK) return mockResponse(undefined as void);
+  return http.delete<void>(`/parties/${partyId}/showcase/comments/${commentId}`);
 }
 
 export interface ExhibitionFormPayload {

@@ -358,10 +358,19 @@ export interface ChecklistItem {
  */
 export interface ThreadComment {
   id: ID;
+  /** 수정·삭제 권한 판정에 쓴다. 이름은 겹칠 수 있어 id 로 본다 */
+  authorId: ID;
   authorName: string;
   authorInitial: string;
   content: string;
   createdAt: string;
+  /**
+   * 지워진 댓글. 서버가 soft delete 라 달린 답글을 살리려고 자리만 남긴다.
+   * 내용 대신 안내 문구를 보여주고 수정·삭제·답글을 막는다.
+   */
+  deleted: boolean;
+  /** 작성자가 그 파티의 파티원인지. 전시 글에서 참여자 댓글을 구분해 보여준다 */
+  isPartyMember: boolean;
   /** 원댓글에만 값이 있다. 답글은 항상 빈 배열이다. */
   replies: ThreadComment[];
 }
