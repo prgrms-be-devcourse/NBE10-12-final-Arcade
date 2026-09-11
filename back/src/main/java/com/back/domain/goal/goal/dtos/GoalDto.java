@@ -28,7 +28,8 @@ public record GoalDto(
                 goal.getSource(),
                 goal.getSourcePartyId(),
                 goal.getPartyAssembleToMemberId(),
-                GoalDetailDto.from(goal),
+                // 목록은 공개 프로필에도 그대로 나가므로 본인 전용 값을 빼고 담는다
+                GoalDetailDto.from(goal, false),
                 goal.getCreateDate(),
                 goal.getModifyDate()
         );
