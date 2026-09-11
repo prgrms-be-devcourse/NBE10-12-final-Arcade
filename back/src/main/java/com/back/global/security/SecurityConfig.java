@@ -3,6 +3,7 @@ package com.back.global.security;
 import com.back.global.app.CustomConfigProperties;
 import com.back.global.rsData.RsData;
 import com.back.standard.util.Util;
+import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -38,6 +39,10 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(
                         auth -> auth
+                                // SseEmitter 전송·완료 시 컨테이너가 ASYNC dispatch로 다시 진입한다.
+                                // 최초 REQUEST는 아래 /api 규칙에서 인증·인가되므로, 이미 열린 스트림의
+                                // 후속 dispatch만 허용해야 "response is already committed" 오류가 나지 않는다.
+                                .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                                 .requestMatchers(
                                         HttpMethod.GET,
                                         "/api/*/members/{id:\\d+}",
