@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Icon } from '@/components/icons/Icon';
 import type { HeroSlide } from '@/lib/types';
+import { ActionGroup } from '@/components/ui/ActionGroup';
 
 const AUTO_PLAY_MS = 6000;
 
@@ -51,7 +52,7 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
                 {slide.tag ? <span className="slide-tag">{slide.tag}</span> : null}
                 <HeroHeadline slide={slide} primary={slideIndex === 0} />
                 <p className="hero-sub">{slide.sub}</p>
-                <div className="hero-actions">
+                <ActionGroup className="hero-actions">
                   {slide.actions.map((action) => (
                     <Link
                       key={action.label}
@@ -61,7 +62,7 @@ export function HeroSlider({ slides }: { slides: HeroSlide[] }) {
                       {action.label}
                     </Link>
                   ))}
-                </div>
+                </ActionGroup>
               </div>
 
               <div className="hero-art" aria-hidden="true">

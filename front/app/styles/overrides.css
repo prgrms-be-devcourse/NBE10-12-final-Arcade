@@ -543,9 +543,6 @@ body{
 .exh-actions .bookmark-btn{height:2.625rem;padding:0 0.9375rem;}
 .exh-action-btn{border-radius:1.0625rem;}
 
-/* 파티 상세 : 소개 섹션 위 여백 */
-.block-spaced{margin-top:1.75rem;}
-
 /* 전시 등록 : 기술 칩과 입력창 사이 간격 */
 .form-group > .chip-row{margin-bottom:0.75rem;}
 
@@ -716,7 +713,7 @@ body{
   font-size:.8rem;font-weight:800;color:var(--text);text-decoration:none;transition:.2s ease;
 }
 .nav-login:hover{border-color:var(--accent);color:var(--accent);background:var(--surface-2);}
-.user-chip:hover{border-color:var(--accent);background:var(--surface-2);}
+.user-chip:hover{border-color:var(--accent);background:var(--surface-2);box-shadow:0 0.1875rem 0 0 var(--accent), 0 0 1rem var(--accent-glow);}
 .user-chip.is-open{border-color:var(--accent);}
 .user-chip:active{transform:scale(.94);}
 .user-chip:disabled{opacity:.5;cursor:not-allowed;}

@@ -3,10 +3,9 @@ import { CommentSection } from '@/components/exhibition/CommentSection';
 import { ExhibitionActions } from '@/components/exhibition/ExhibitionActions';
 import { DetailActions } from '@/components/ui/DetailActions';
 import { SendMessageButton } from '@/components/message/SendMessageButton';
-import { BackLink } from '@/components/ui/BackLink';
-import { Block, DetailGrid, SideCard } from '@/components/ui/Block';
+import { Block, DetailGrid, DetailLayout, SideCard } from '@/components/ui/Block';
 import { LeaderRow } from '@/components/ui/Avatar';
-import { ChipRow, SkillChip } from '@/components/ui/Tag';
+import { ChipRow, SkillChip, Tag, TagRow } from '@/components/ui/Tag';
 import { notFound } from 'next/navigation';
 import {
   ApiError,
@@ -16,6 +15,7 @@ import {
   fetchMyProfileOrNull,
 } from '@/lib/api';
 import type { ExhibitionDetail } from '@/lib/types';
+import { GOAL_SOURCE_LABELS } from '@/lib/constants';
 
 /**
  * 없는 파티이거나 아직 게시하지 않은 전시면 404 다 (ARC-160 에서 게시본 전용 경로가 됐다).
@@ -63,14 +63,15 @@ export default async function ExhibitionDetailPage({
   const githubUrl = project.links.find((link) => link.label === 'GitHub')?.url;
 
   return (
-    <main>
-      <div className="board-wrap container">
-        <BackLink href="/exhibition" />
-
+    <DetailLayout backHref="/exhibition">
         <DetailGrid
           main={
             <>
               <div className="detail-header">
+                <TagRow>
+                  <Tag>{project.category}</Tag>
+                  <Tag accent>{GOAL_SOURCE_LABELS[project.source]}</Tag>
+                </TagRow>
                 <div className="detail-header-right" style={{ marginLeft: 'auto' }}>
                   <span className="detail-views">
                     <Icon name="i-eye" />
@@ -164,7 +165,6 @@ export default async function ExhibitionDetailPage({
             </SideCard>
           }
         />
-      </div>
-    </main>
+    </DetailLayout>
   );
 }
