@@ -10,7 +10,8 @@
 [data-theme="light"] .hero-scrim{
   background:linear-gradient(100deg, rgba(255,255,255,.95) 0%, rgba(255,255,255,.82) 46%, rgba(255,255,255,.25) 74%, rgba(255,255,255,0) 100%);
 }
-[data-theme="light"] .slider-arrow{background:rgba(255,255,255,.9);}
+[data-theme="light"] .slider-arrow,
+[data-theme="light"] .position-scroll-btn{background:rgba(255,255,255,.9);}
 [data-theme="light"] .hero-chip{background:rgba(255,255,255,.92);border-color:var(--border-strong);color:var(--text-muted);}
 [data-theme="light"] .hero-logo-mark,[data-theme="light"] .hero-logo-sub{color:var(--accent);}
 [data-theme="light"] .host-card{background:linear-gradient(135deg,#ffffff,#e8ebf4);}

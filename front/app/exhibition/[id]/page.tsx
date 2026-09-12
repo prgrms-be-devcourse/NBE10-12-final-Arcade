@@ -67,20 +67,16 @@ export default async function ExhibitionDetailPage({
         <DetailGrid
           main={
             <>
-              <div className="detail-header">
-                <TagRow>
-                  <Tag>{project.category}</Tag>
-                  <Tag accent>{GOAL_SOURCE_LABELS[project.source]}</Tag>
-                </TagRow>
-                <div className="detail-header-right" style={{ marginLeft: 'auto' }}>
+              <h1 className="detail-title">{project.title}</h1>
+              <div className="detail-summary-row">
+                <p className="pboard-meta">{project.summary}</p>
+                <div className="detail-summary-actions">
                   <span className="detail-views">
                     <Icon name="i-eye" />
                     조회 {project.viewCount.toLocaleString()}
                   </span>
-                  {/* 좋아요 · 북마크는 대회 상세와 같은 공용 컴포넌트를 쓴다 */}
                   <DetailActions
                     target="party"
-                    // 위 주석대로 project.id 와 같은 값이다. 공용 타입에서 optional 이라 ?? 만 붙여 둔다
                     id={project.sourcePartyId ?? project.id}
                     likeCount={project.likeCount}
                     likedByMe={project.likedByMe}
@@ -88,11 +84,6 @@ export default async function ExhibitionDetailPage({
                   />
                 </div>
               </div>
-
-              <h1 className="detail-title">{project.title}</h1>
-              <p className="pboard-meta" style={{ marginTop: '0.625rem' }}>
-                {project.summary}
-              </p>
 
               <div
                 className={project.coverImageUrl ? 'exh-hero-thumb has-cover' : 'exh-hero-thumb'}
@@ -151,8 +142,15 @@ export default async function ExhibitionDetailPage({
             </>
           }
           side={
+            <>
+            <SideCard title="추가 정보">
+              <TagRow>
+                <Tag>{project.category}</Tag>
+                <Tag accent>{GOAL_SOURCE_LABELS[project.source]}</Tag>
+              </TagRow>
+            </SideCard>
             <SideCard title="참여 팀원">
-              {project.members.map((member) => (
+              {project.members.length === 0 ? <p className="empty-state">참여한 팀원이 없습니다.</p> : project.members.map((member) => (
                 <div key={member.id || member.name} className="member-contact-row">
                   {/* 서버 전시 상세는 참여자를 이름 목록으로만 준다 - id 가 없으면 링크를 걸지 않는다 */}
                   <LeaderRow user={member} href={member.id ? `/profile/${member.id}` : undefined} card />
@@ -163,6 +161,7 @@ export default async function ExhibitionDetailPage({
               ))}
               <p className="leader-stat-line">진행 기간 {project.period}</p>
             </SideCard>
+            </>
           }
         />
     </DetailLayout>

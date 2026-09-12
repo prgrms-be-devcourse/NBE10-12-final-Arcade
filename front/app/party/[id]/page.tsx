@@ -1,11 +1,11 @@
 import Link from 'next/link';
 import { Icon } from '@/components/icons/Icon';
-import { ApplyPanel } from '@/components/party/ApplyPanel';
+import { PositionApplyButton } from '@/components/party/PositionApplyButton';
+import { PositionScroller } from '@/components/party/PositionScroller';
 import { DetailActions } from '@/components/ui/DetailActions';
 import { LeaderTools } from '@/components/party/LeaderTools';
 import { SendMessageButton } from '@/components/message/SendMessageButton';
-import { BackLink } from '@/components/ui/BackLink';
-import { Block, DetailGrid, SideCard } from '@/components/ui/Block';
+import { Block, DetailGrid, DetailLayout, SideCard } from '@/components/ui/Block';
 import { LeaderRow } from '@/components/ui/Avatar';
 import { Tag, TagRow } from '@/components/ui/Tag';
 import { fetchContest, fetchParty } from '@/lib/api';
@@ -33,25 +33,17 @@ export default async function PartyDetailPage({ params }: { params: Promise<{ id
   // 매칭 전 문의는 팀원 목록의 쪽지 아이콘으로, 매칭 후 협업 대화는 팀 스페이스의 채팅이 담당한다
 
   return (
-    <main>
-      <div className="board-wrap container party-detail-wrap">
-        <BackLink href="/party" />
-
+    <DetailLayout backHref="/party">
         <DetailGrid
           main={
             <>
-              <div className="detail-header">
-                <TagRow>
-                  <Tag>{TOPIC_TYPE_LABELS[party.topicType]}</Tag>
-                  {party.contestFormat ? (
-                    <Tag>{CONTEST_FORMAT_LABELS[party.contestFormat]}</Tag>
-                  ) : null}
-                  <Tag>{party.subCategory}</Tag>
-                  <Tag accent={party.status !== 'RECRUITING'}>
-                    {PARTY_STATUS_LABELS[party.status]}
-                  </Tag>
-                </TagRow>
-                <div className="detail-header-right">
+              <h1 className="detail-title">{party.title}</h1>
+              <div className="detail-summary-row">
+                <div className="pboard-meta">
+                  <Icon name="i-users" />
+                  지원자 {party.applicants}명 · 조회 {party.viewCount.toLocaleString()}
+                </div>
+                <div className="detail-summary-actions">
                   <DetailActions
                     target="party"
                     id={party.id}
@@ -62,40 +54,21 @@ export default async function PartyDetailPage({ params }: { params: Promise<{ id
                 </div>
               </div>
 
-              <h1 className="detail-title">{party.title}</h1>
-              <div className="pboard-meta" style={{ marginTop: '0.625rem' }}>
-                <Icon name="i-users" />
-                지원자 {party.applicants}명 · 조회 {party.viewCount.toLocaleString()}
-              </div>
-
-              {party.contestName ? (
-                <div className="contest-link-card">
-                  <div>
-                    <p className="clc-label">연동 대회</p>
-                    <h4>{party.contestName}</h4>
-                    <p className="clc-sub">접수 마감 {party.deadline}</p>
-                  </div>
-                  {contestLinkUrl ? (
-                    // 크루온 상세가 아니라 주최측이 운영하는 원본 공고로 보낸다
-                    <a
-                      className="card-link"
-                      href={contestLinkUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      대회 공고 보기 ↗
-                    </a>
-                  ) : null}
-                </div>
-              ) : null}
-
-              <Block title="파티 소개" className="block-spaced">
+              <Block title="파티 소개">
                 <p className="detail-desc">{party.description}</p>
               </Block>
 
               <Block title="모집 포지션">
-                <div className="position-list">
-                  {party.positions.map((position, index) => {
+                <PositionScroller className={party.status !== 'RECRUITING' ? 'is-closed' : undefined}>
+                  {party.positions
+                    .map((position, index) => ({ position, index }))
+                    .sort(({ position: a }, { position: b }) => {
+                      const complete = (position: typeof a) =>
+                        position.capacity === 0 || position.filledCount >= position.capacity;
+                      return Number(complete(a)) - Number(complete(b));
+                    })
+                    .map(({ position, index }) => {
+                    const isAvailable = party.status === 'RECRUITING' && position.capacity > 0 && position.filledCount < position.capacity;
                     const state =
                       position.capacity === 0
                         ? 'none'
@@ -105,31 +78,26 @@ export default async function PartyDetailPage({ params }: { params: Promise<{ id
                     return (
                       <div
                         key={`${position.type}-${index}`}
-                        className={['position-row', state].filter(Boolean).join(' ')}
+                        className={['position-row', state, isAvailable ? 'is-available' : null].filter(Boolean).join(' ')}
                       >
-                        <div>
+                        <div className="position-summary">
                           <p className="name">{POSITION_LABELS[position.type]}</p>
-                          <p className="req">
-                            {party.requirements[index] ??
-                              '자세한 내용은 파티 소개를 확인해 주세요.'}
-                          </p>
+                          <span className="frac">{position.filledCount}/{position.capacity}</span>
                         </div>
-                        <span className="frac">
-                          {position.filledCount}/{position.capacity}
-                          {position.capacity === 0
-                            ? ''
-                            : position.filledCount >= position.capacity
-                              ? ' · 마감'
-                              : ' · 모집중'}
-                        </span>
+                        <PositionApplyButton
+                          partyId={party.id}
+                          position={position.type}
+                          leaderId={party.leader.id}
+                          disabled={party.status !== 'RECRUITING' || position.capacity === 0 || position.filledCount >= position.capacity}
+                        />
                       </div>
                     );
-                  })}
-                </div>
+                    })}
+                </PositionScroller>
               </Block>
 
               <Block title="현재 팀원">
-                <div className="member-list">
+                {party.members.length === 0 ? <p className="empty-state">아직 확정된 팀원이 없습니다.</p> : <div className="member-list">
                   {party.members.map((member) => (
                     <div key={member.id} className="member-row">
                       <LeaderRow user={member} href={`/profile/${member.id}`} />
@@ -142,12 +110,35 @@ export default async function PartyDetailPage({ params }: { params: Promise<{ id
                       </span>
                     </div>
                   ))}
-                </div>
+                </div>}
               </Block>
             </>
           }
           side={
             <>
+              <SideCard title="추가 정보">
+                <TagRow>
+                  <Tag>{TOPIC_TYPE_LABELS[party.topicType]}</Tag>
+                  {party.contestFormat ? <Tag>{CONTEST_FORMAT_LABELS[party.contestFormat]}</Tag> : null}
+                  <Tag>{party.subCategory}</Tag>
+                  <Tag accent={party.status !== 'RECRUITING'}>{PARTY_STATUS_LABELS[party.status]}</Tag>
+                </TagRow>
+              </SideCard>
+              {party.contestName ? (
+                <SideCard title="연동 대회">
+                  <div className="contest-link-card">
+                    <div>
+                      <h4>{party.contestName}</h4>
+                      <p className="clc-sub">접수 마감 {party.deadline}</p>
+                    </div>
+                    {contestLinkUrl ? (
+                      <a className="card-link" href={contestLinkUrl} target="_blank" rel="noopener noreferrer">
+                        대회 공고 보기 ↗
+                      </a>
+                    ) : null}
+                  </div>
+                </SideCard>
+              ) : null}
               <SideCard title="파티장">
                 <div className="party-leader-head">
                   <LeaderRow
@@ -165,7 +156,6 @@ export default async function PartyDetailPage({ params }: { params: Promise<{ id
 
               {party.status === 'RECRUITING' ? (
                 <>
-                  <ApplyPanel party={party} />
                   <LeaderTools party={party} />
                 </>
               ) : party.status === 'IN_PROGRESS' ? (
@@ -189,7 +179,6 @@ export default async function PartyDetailPage({ params }: { params: Promise<{ id
             </>
           }
         />
-      </div>
-    </main>
+    </DetailLayout>
   );
 }

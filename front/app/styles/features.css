@@ -148,9 +148,9 @@
   font-size:.8rem;font-weight:800;color:var(--text-muted);cursor:pointer;transition:.15s ease;
 }
 .bookmark-btn svg{width:0.9375rem;height:0.9375rem;}
-.bookmark-btn:hover{border-color:var(--gold);color:var(--gold);}
-.bookmark-btn.is-active{border-color:var(--gold);color:var(--gold);background:rgba(245,196,81,.1);}
-.bookmark-btn.is-active svg{fill:var(--gold);}
+.bookmark-btn:hover{border-color:var(--accent);color:var(--accent);}
+.bookmark-btn.is-active{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);}
+.bookmark-btn.is-active svg{fill:var(--accent);}
 
 /* ---------- (3) 전시관 댓글 ---------- */
 .comment-count{
