@@ -160,7 +160,7 @@ public class PartyGithubBindingService {
         PartyGithubBinding binding = bindingRepository.save(new PartyGithubBinding(party, repository, actor));
         auditRepository.save(new PartyGithubBindingAudit(party, repository, actor,
                 PartyGithubBindingAuditAction.CONNECTED, null));
-        partyPrService.syncExistingPullRequests(party, pullRequests);
+        partyPrService.syncExistingPullRequests(party, pullRequests, binding.getTrackingStartedAt());
         binding.activate();
         return new PartyGithubBindingDto(binding);
     }
