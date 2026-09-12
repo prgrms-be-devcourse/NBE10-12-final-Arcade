@@ -12,43 +12,54 @@ import { useEffect } from 'react';
  */
 export function useReveal() {
   useEffect(() => {
-    // IntersectionObserver 가 없는 환경에서는 애니메이션 없이 바로 보여준다.
-    if (!('IntersectionObserver' in window)) {
-      const showAll = () =>
+    // React hydration이 완료된 다음 DOM 클래스를 변경한다. 너무 이르게
+    // classList를 바꾸면 서버 HTML과 클라이언트 HTML이 달라져 경고가 난다.
+    let intersections: IntersectionObserver | null = null;
+    let mutations: MutationObserver | null = null;
+    let cancelled = false;
+
+    const timer = window.setTimeout(() => {
+      if (cancelled) return;
+
+      // IntersectionObserver가 없는 환경에서는 애니메이션 없이 바로 보여준다.
+      if (!('IntersectionObserver' in window)) {
+        const showAll = () =>
+          document
+            .querySelectorAll('[data-reveal]:not(.in-view)')
+            .forEach((el) => el.classList.add('in-view'));
+        showAll();
+        mutations = new MutationObserver(showAll);
+        mutations.observe(document.body, { childList: true, subtree: true });
+        return;
+      }
+
+      intersections = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('in-view');
+              intersections?.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.12 },
+      );
+
+      const observeNew = () =>
         document
           .querySelectorAll('[data-reveal]:not(.in-view)')
-          .forEach((el) => el.classList.add('in-view'));
-      showAll();
-      const mutations = new MutationObserver(showAll);
+          .forEach((el) => intersections?.observe(el));
+
+      observeNew();
+      mutations = new MutationObserver(observeNew);
       mutations.observe(document.body, { childList: true, subtree: true });
-      return () => mutations.disconnect();
-    }
-
-    const intersections = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('in-view');
-            intersections.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.12 },
-    );
-
-    const observeNew = () =>
-      document
-        .querySelectorAll('[data-reveal]:not(.in-view)')
-        .forEach((el) => intersections.observe(el));
-
-    observeNew();
-
-    const mutations = new MutationObserver(observeNew);
-    mutations.observe(document.body, { childList: true, subtree: true });
+    }, 0);
 
     return () => {
-      mutations.disconnect();
-      intersections.disconnect();
+      cancelled = true;
+      window.clearTimeout(timer);
+      mutations?.disconnect();
+      intersections?.disconnect();
     };
   }, []);
 }

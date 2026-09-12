@@ -254,11 +254,49 @@ body{
   box-shadow:0 0 0.875rem rgba(49,233,210,.5), 0.125rem 0.125rem 0 0 rgba(0,0,0,.6);
   text-shadow:0 0 0.5rem var(--accent-glow);
 }
-/* 섹션 제목 앞 아케이드 커서 */
+/* 대표 제목(h1)은 전원 버튼, 섹션 제목(h2)은 콘텐츠 상태 마커로 구분한다. */
+.detail-title::before,
+.auth-title::before,
+.admin-head h1::before,
+.system-state h1::before{
+  content:"";display:inline-block;vertical-align:.08em;width:.72rem;height:.72rem;margin-right:.75rem;
+  background:var(--accent);border:.125rem solid var(--accent-ink);
+  box-shadow:.125rem .125rem 0 var(--accent-ink),0 0 .625rem var(--accent-glow);
+  transition:transform .18s steps(2,end),background-color .18s ease;
+}
+.detail-title:hover::before,
+.detail-title:focus-visible::before,
+.auth-title:hover::before,
+.auth-title:focus-visible::before,
+.admin-head h1:hover::before,
+.admin-head h1:focus-visible::before,
+.system-state h1:hover::before,
+.system-state h1:focus-visible::before{
+  animation:title-power-pulse .55s steps(2,end);
+  transform:scale(1.2) rotate(45deg);
+}
+@keyframes title-power-pulse{50%{background:var(--accent-strong);box-shadow:0 0 .875rem var(--accent-glow);}}
+/* h2 섹션 제목은 네비게이션 커서와 다른 모션을 사용한다. */
 .section-head h2::before{
-  content:"";display:inline-block;width:0.8125rem;height:0.9375rem;margin-right:0.6875rem;
-  background:var(--neon-pink);clip-path:polygon(0 0,100% 50%,0 100%);
-  filter:drop-shadow(0 0 0.5625rem rgba(255,79,163,.9));
+  content:"";display:inline-block;vertical-align:.08em;width:.7rem;height:.7rem;margin-right:.75rem;
+  background:var(--neon-pink);border:.125rem solid var(--neon-pink);
+  box-shadow:0 0 0.5625rem rgba(255,79,163,.9);
+  transition:transform .2s steps(2,end), background-color .2s ease;
+}
+.section-head h2:hover::before,
+.section-head h2:focus-visible::before{
+  animation:section-marker-pulse .5s steps(2,end);
+}
+.section-head--party h2::before{clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);}
+.section-head--party h2:hover::before,.section-head--party h2:focus-visible::before{transform:rotate(90deg);}
+.section-head--contest h2::before{clip-path:polygon(50% 0,61% 36%,100% 50%,61% 64%,50% 100%,39% 64%,0 50%,39% 36%);}
+.section-head--contest h2:hover::before,.section-head--contest h2:focus-visible::before{transform:scale(1.25) rotate(45deg);}
+.section-head--exhibition h2::before{background:transparent;clip-path:none;}
+.section-head--exhibition h2:hover::before,.section-head--exhibition h2:focus-visible::before{transform:translateX(.3rem);background:var(--neon-pink);}
+@keyframes section-marker-pulse{50%{opacity:.35;filter:brightness(1.7);}}
+@media (prefers-reduced-motion:reduce){
+  .detail-title::before,.auth-title::before,.admin-head h1::before,.system-state h1::before,.section-head h2::before{transition:none;}
+  .detail-title:hover::before,.detail-title:focus-visible::before,.auth-title:hover::before,.auth-title:focus-visible::before,.admin-head h1:hover::before,.admin-head h1:focus-visible::before,.system-state h1:hover::before,.system-state h1:focus-visible::before,.section-head h2:hover::before,.section-head h2:focus-visible::before{animation:none;}
 }
 .block-title::before{
   content:"";display:inline-block;width:0.625rem;height:0.625rem;margin-right:0.5625rem;

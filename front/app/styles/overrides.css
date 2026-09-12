@@ -716,7 +716,7 @@ body{
   font-size:.8rem;font-weight:800;color:var(--text);text-decoration:none;transition:.2s ease;
 }
 .nav-login:hover{border-color:var(--accent);color:var(--accent);background:var(--surface-2);}
-.user-chip:hover{border-color:var(--border-strong);background:var(--surface-2);}
+.user-chip:hover{border-color:var(--accent);background:var(--surface-2);}
 .user-chip.is-open{border-color:var(--accent);}
 .user-chip:active{transform:scale(.94);}
 .user-chip:disabled{opacity:.5;cursor:not-allowed;}

@@ -52,7 +52,7 @@
   background:var(--surface);border:0.125rem solid var(--border);
   color:var(--text-muted);transition:.2s ease;
 }
-.icon-btn:hover{color:var(--accent);border-color:var(--border-strong);}
+.icon-btn:hover{color:var(--accent);border-color:var(--accent);}
 .icon-btn svg{width:1.125rem;height:1.125rem;}
 .icon-btn:active{transform:scale(.94);}
 .icon-btn:disabled{opacity:.5;cursor:not-allowed;}
