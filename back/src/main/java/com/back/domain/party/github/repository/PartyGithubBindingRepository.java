@@ -10,5 +10,6 @@ import java.util.Optional;
 public interface PartyGithubBindingRepository extends JpaRepository<PartyGithubBinding, Long> {
     Optional<PartyGithubBinding> findFirstByPartyIdOrderByIdDesc(Long partyId);
     Optional<PartyGithubBinding> findByPartyIdAndStatus(Long partyId, PartyGithubBindingStatus status);
+    List<PartyGithubBinding> findAllByStatus(PartyGithubBindingStatus status);
     List<PartyGithubBinding> findAllByInstallationRepositoryIdAndStatus(Long installationRepositoryId, PartyGithubBindingStatus status);
 }

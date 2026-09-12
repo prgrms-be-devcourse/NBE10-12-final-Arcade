@@ -13,4 +13,5 @@ public interface PartyGithubConnectionRepository extends JpaRepository<PartyGith
     Optional<PartyGithubConnection> findByInstallationIdAndRepositoryId(Long installationId, Long repositoryId);
     List<PartyGithubConnection> findAllByInstallationId(Long installationId);
     List<PartyGithubConnection> findAllByRepositoryIdAndInstallationIdAndStatus(Long repositoryId, Long installationId, PartyGithubConnectionStatus status);
+    List<PartyGithubConnection> findAllByStatus(PartyGithubConnectionStatus status);
 }

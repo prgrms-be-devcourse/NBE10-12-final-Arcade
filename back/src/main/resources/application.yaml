@@ -94,6 +94,8 @@ custom:
       tokenEncryptionKey: ${CUSTOM__GITHUB__APP__TOKEN_ENCRYPTION_KEY:}
     webhook:
       secret: ${CUSTOM__GITHUB__WEBHOOK__SECRET:}
+    pull-request-sync:
+      fixed-delay-millis: ${CUSTOM__GITHUB__PULL_REQUEST_SYNC__FIXED_DELAY_MILLIS:3600000}
   storage:
     # local = 서버 디스크. MinIO 없이 개발할 때 쓴다. s3 = S3/MinIO.
     type: ${CUSTOM__STORAGE__TYPE:local}
