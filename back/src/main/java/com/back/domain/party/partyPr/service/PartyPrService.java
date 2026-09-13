@@ -196,11 +196,22 @@ public class PartyPrService {
 
     /** GitHub App installation token으로 조회한 기존 PR을 반영한다. */
     @Transactional
+    public void syncExistingPullRequests(long partyId, List<GithubPullRequestResponse> pullRequests) {
+        syncExistingPullRequests(party(partyId), pullRequests, null);
+    }
+
+    @Transactional
     public void syncExistingPullRequests(Party party, List<GithubPullRequestResponse> pullRequests) {
         syncExistingPullRequests(party, pullRequests, null);
     }
 
     /** 연결 이후 생성된 PR만 최초 동기화할 때 사용하는 경로다. */
+    @Transactional
+    public void syncExistingPullRequests(long partyId, List<GithubPullRequestResponse> pullRequests,
+                                         OffsetDateTime trackingStartedAt) {
+        syncExistingPullRequests(party(partyId), pullRequests, trackingStartedAt);
+    }
+
     @Transactional
     public void syncExistingPullRequests(Party party, List<GithubPullRequestResponse> pullRequests,
                                          OffsetDateTime trackingStartedAt) {

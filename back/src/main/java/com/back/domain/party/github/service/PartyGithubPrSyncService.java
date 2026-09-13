@@ -14,6 +14,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -22,6 +23,7 @@ import java.util.Set;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class PartyGithubPrSyncService {
     private static final int SYNC_BATCH_SIZE = 100;
 
@@ -58,7 +60,8 @@ public class PartyGithubPrSyncService {
             String token = githubAppClient.createInstallationToken(
                     binding.getInstallationRepository().getInstallation().getInstallationId());
             var pullRequests = githubAppClient.getAllPullRequests(token, binding.getInstallationRepository().getFullName());
-            partyPrService.syncExistingPullRequests(binding.getParty(), pullRequests, binding.getTrackingStartedAt());
+            long partyId = binding.getParty().getId();
+            partyPrService.syncExistingPullRequests(partyId, pullRequests, binding.getTrackingStartedAt());
             log.info("Party GitHub PR sync completed: partyId={}, count={}", binding.getParty().getId(), pullRequests.size());
         } catch (RuntimeException exception) {
             log.warn("Party GitHub PR sync failed: partyId={}", binding.getParty().getId(), exception);
@@ -70,7 +73,8 @@ public class PartyGithubPrSyncService {
             if (connection.getInstallationId() == null || connection.getRepositoryId() == null) return;
             String token = githubAppClient.createInstallationToken(connection.getInstallationId());
             var pullRequests = githubAppClient.getAllPullRequests(token, connection.getRepositoryFullName());
-            partyPrService.syncExistingPullRequests(connection.getParty(), pullRequests);
+            long partyId = connection.getParty().getId();
+            partyPrService.syncExistingPullRequests(partyId, pullRequests);
             log.info("Legacy Party GitHub PR sync completed: partyId={}, count={}", connection.getParty().getId(), pullRequests.size());
         } catch (RuntimeException exception) {
             log.warn("Legacy Party GitHub PR sync failed: partyId={}", connection.getParty().getId(), exception);
