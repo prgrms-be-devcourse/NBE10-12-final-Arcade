@@ -101,6 +101,7 @@ export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) 
     const base = query ? (results ?? []) : parties;
     return [...base.filter(matchesFilters)].sort(comparePartiesBy(sort));
   }, [parties, results, query, filters, sort]);
+  const recruiting = visible.filter((party) => party.status === 'RECRUITING');
 
   return (
     <>
@@ -206,15 +207,13 @@ export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) 
       </div>
 
       <div className="board-grid">
-        {visible.map((party) => (
-          <PartyCard key={party.id} party={party} />
-        ))}
+        {recruiting.map((party) => <PartyCard key={party.id} party={party} />)}
       </div>
       {searching ? (
         <p className="notif-empty">검색 중…</p>
       ) : searchFailed ? (
         <p className="notif-empty">검색 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요.</p>
-      ) : visible.length === 0 ? (
+      ) : recruiting.length === 0 ? (
         <p className="notif-empty">
           {query ? `'${query}' 검색 결과가 없어요.` : '조건에 맞는 파티가 없어요.'}
         </p>

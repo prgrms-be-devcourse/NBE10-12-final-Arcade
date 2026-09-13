@@ -4,8 +4,7 @@ import { GithubConnectionCard } from '@/components/team/GithubConnectionCard';
 import { PullRequestList } from '@/components/team/PullRequestList';
 import { SendMessageButton } from '@/components/message/SendMessageButton';
 import { FinishPartyButton } from '@/components/team/FinishPartyButton';
-import { BackLink } from '@/components/ui/BackLink';
-import { Block, DetailGrid, SideCard } from '@/components/ui/Block';
+import { Block, DetailGrid, DetailLayout, SideCard } from '@/components/ui/Block';
 import { LeaderRow } from '@/components/ui/Avatar';
 import { DDay, Tag, TagRow } from '@/components/ui/Tag';
 import {
@@ -15,6 +14,7 @@ import {
   membersOf,
   fetchMyProfileOrNull,
 } from '@/lib/api';
+import { TOPIC_TYPE_LABELS } from '@/lib/constants';
 
 export default async function TeamSpacePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ githubRepoManager?: string }> }) {
   const { id } = await params;
@@ -34,46 +34,18 @@ export default async function TeamSpacePage({ params, searchParams }: { params: 
   const members = membersOf(prGroups);
 
   return (
-    <main>
-      <div className="board-wrap container">
-        <BackLink href="/mypage" />
-
+    <DetailLayout backHref="/mypage">
         <DetailGrid
           main={
             <>
-              <div className="detail-header">
-                <TagRow>
-                  <Tag>해커톤</Tag>
-                  <Tag>{party.subCategory}</Tag>
-                  <Tag accent>매칭 완료</Tag>
-                </TagRow>
-                <DDay>{party.dday}</DDay>
-              </div>
-
               <h1 className="detail-title">{party.title}</h1>
-              <div className="pboard-meta" style={{ marginTop: '0.625rem' }}>
-                <Icon name="i-users" />
-                모집 정원 {party.positions.reduce((total, position) => total + position.capacity, 0)}명
-              </div>
-
-              {party.contestName ? (
-                <div className="contest-link-card">
-                  <div>
-                    <p className="clc-label">연동 공모전</p>
-                    <h4>{party.contestName}</h4>
-                    <p className="clc-sub">파티에 연결된 공모전이에요.</p>
-                  </div>
-                  {party.contestId ? (
-                    <Link className="card-link" href={`/contests/${party.contestId}`}>
-                      공모전 보기 →
-                    </Link>
-                  ) : party.contestLinkUrl ? (
-                    <a className="card-link" href={party.contestLinkUrl} target="_blank" rel="noopener noreferrer">
-                      공모전 보기 ↗
-                    </a>
-                  ) : null}
+              <div className="detail-summary-row">
+                <div className="pboard-meta">
+                  <Icon name="i-users" />
+                  모집 정원 {party.positions.reduce((total, position) => total + position.capacity, 0)}명
                 </div>
-              ) : null}
+                <div className="detail-summary-actions"><DDay>{party.dday}</DDay></div>
+              </div>
 
               <Block title="팀원">
                 <div className="member-list">
@@ -125,6 +97,19 @@ export default async function TeamSpacePage({ params, searchParams }: { params: 
           }
           side={
             <>
+              <SideCard title="추가 정보">
+                <TagRow>
+                  <Tag>{TOPIC_TYPE_LABELS[party.topicType]}</Tag>
+                  <Tag>{party.subCategory}</Tag>
+                  <Tag accent>매칭 완료</Tag>
+                </TagRow>
+              </SideCard>
+              {party.contestName ? <SideCard title="연동 대회">
+                <div className="contest-link-card">
+                  <div><h4>{party.contestName}</h4><p className="clc-sub">파티에 연결된 대회예요.</p></div>
+                  {party.contestId ? <Link className="card-link" href={`/contests/${party.contestId}`}>대회 보기 →</Link> : party.contestLinkUrl ? <a className="card-link" href={party.contestLinkUrl} target="_blank" rel="noopener noreferrer">대회 보기 ↗</a> : null}
+                </div>
+              </SideCard> : null}
               <SideCard title="파티장">
                 <LeaderRow user={leader} href={`/profile/${leader.id}`} card />
                 <div className="side-card-action">
@@ -151,7 +136,6 @@ export default async function TeamSpacePage({ params, searchParams }: { params: 
             </>
           }
         />
-      </div>
-    </main>
+    </DetailLayout>
   );
 }

@@ -14,8 +14,8 @@ export default async function PartyBoardPage() {
     <main>
       <div className="board-wrap container">
         <SectionHead
-          title="파티 모집"
-          description="포지션과 마감일을 확인하고, 파티장의 프로필로 신뢰도를 판단한 뒤 지원하세요."
+          title="모집"
+          description="함께할 동료를 찾고 있는 파티를 둘러보세요."
           action={<LinkButton href="/party/create">파티 만들기</LinkButton>}
         />
         <PartyBoard

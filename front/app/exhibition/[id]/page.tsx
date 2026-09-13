@@ -3,10 +3,9 @@ import { CommentSection } from '@/components/exhibition/CommentSection';
 import { ExhibitionActions } from '@/components/exhibition/ExhibitionActions';
 import { DetailActions } from '@/components/ui/DetailActions';
 import { SendMessageButton } from '@/components/message/SendMessageButton';
-import { BackLink } from '@/components/ui/BackLink';
-import { Block, DetailGrid, SideCard } from '@/components/ui/Block';
+import { Block, DetailGrid, DetailLayout, SideCard } from '@/components/ui/Block';
 import { LeaderRow } from '@/components/ui/Avatar';
-import { ChipRow, SkillChip } from '@/components/ui/Tag';
+import { ChipRow, SkillChip, Tag, TagRow } from '@/components/ui/Tag';
 import { notFound } from 'next/navigation';
 import {
   ApiError,
@@ -16,6 +15,7 @@ import {
   fetchMyProfileOrNull,
 } from '@/lib/api';
 import type { ExhibitionDetail } from '@/lib/types';
+import { GOAL_SOURCE_LABELS } from '@/lib/constants';
 
 /**
  * 없는 파티이거나 아직 게시하지 않은 전시면 404 다 (ARC-160 에서 게시본 전용 경로가 됐다).
@@ -63,23 +63,20 @@ export default async function ExhibitionDetailPage({
   const githubUrl = project.links.find((link) => link.label === 'GitHub')?.url;
 
   return (
-    <main>
-      <div className="board-wrap container">
-        <BackLink href="/exhibition" />
-
+    <DetailLayout backHref="/exhibition">
         <DetailGrid
           main={
             <>
-              <div className="detail-header">
-                <div className="detail-header-right" style={{ marginLeft: 'auto' }}>
+              <h1 className="detail-title">{project.title}</h1>
+              <div className="detail-summary-row">
+                <p className="pboard-meta">{project.summary}</p>
+                <div className="detail-summary-actions">
                   <span className="detail-views">
                     <Icon name="i-eye" />
                     조회 {project.viewCount.toLocaleString()}
                   </span>
-                  {/* 좋아요 · 북마크는 대회 상세와 같은 공용 컴포넌트를 쓴다 */}
                   <DetailActions
                     target="party"
-                    // 위 주석대로 project.id 와 같은 값이다. 공용 타입에서 optional 이라 ?? 만 붙여 둔다
                     id={project.sourcePartyId ?? project.id}
                     likeCount={project.likeCount}
                     likedByMe={project.likedByMe}
@@ -87,11 +84,6 @@ export default async function ExhibitionDetailPage({
                   />
                 </div>
               </div>
-
-              <h1 className="detail-title">{project.title}</h1>
-              <p className="pboard-meta" style={{ marginTop: '0.625rem' }}>
-                {project.summary}
-              </p>
 
               <div
                 className={project.coverImageUrl ? 'exh-hero-thumb has-cover' : 'exh-hero-thumb'}
@@ -150,8 +142,15 @@ export default async function ExhibitionDetailPage({
             </>
           }
           side={
+            <>
+            <SideCard title="추가 정보">
+              <TagRow>
+                <Tag>{project.category}</Tag>
+                <Tag accent>{GOAL_SOURCE_LABELS[project.source]}</Tag>
+              </TagRow>
+            </SideCard>
             <SideCard title="참여 팀원">
-              {project.members.map((member) => (
+              {project.members.length === 0 ? <p className="empty-state">참여한 팀원이 없습니다.</p> : project.members.map((member) => (
                 <div key={member.id || member.name} className="member-contact-row">
                   {/* 서버 전시 상세는 참여자를 이름 목록으로만 준다 - id 가 없으면 링크를 걸지 않는다 */}
                   <LeaderRow user={member} href={member.id ? `/profile/${member.id}` : undefined} card />
@@ -162,9 +161,9 @@ export default async function ExhibitionDetailPage({
               ))}
               <p className="leader-stat-line">진행 기간 {project.period}</p>
             </SideCard>
+            </>
           }
         />
-      </div>
-    </main>
+    </DetailLayout>
   );
 }

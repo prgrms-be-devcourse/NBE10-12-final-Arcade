@@ -3,25 +3,29 @@ import { HeroSlider } from '@/components/home/HeroSlider';
 import { ContestCard } from '@/components/contest/ContestCard';
 import { ProjectCard } from '@/components/exhibition/ProjectCard';
 import { RankCard } from '@/components/party/RankCard';
+import { MyPartyShortcuts } from '@/components/home/MyPartyShortcuts';
 import { SectionHead } from '@/components/ui/SectionHead';
 import {
   fetchHeroSlides,
   fetchPopularContests,
   fetchPopularExhibitions,
   fetchTopParties,
+  fetchMyPartiesOrEmpty,
 } from '@/lib/api';
 
 export default async function HomePage() {
-  const [slides, topParties, contests, exhibitions] = await Promise.all([
+  const [slides, topParties, contests, exhibitions, myParties] = await Promise.all([
     fetchHeroSlides(),
     fetchTopParties(),
     fetchPopularContests(),
     fetchPopularExhibitions(),
+    fetchMyPartiesOrEmpty(),
   ]);
 
   return (
     <main>
       <HeroSlider slides={slides} />
+      <MyPartyShortcuts parties={myParties} />
 
       <section className="section top3 container" data-reveal>
         <SectionHead

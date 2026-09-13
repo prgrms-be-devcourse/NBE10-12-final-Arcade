@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import { BackLink } from './BackLink';
+import { InteractiveTitle } from './InteractiveTitle';
 
 interface BlockProps {
   title?: ReactNode;
@@ -12,7 +14,7 @@ interface BlockProps {
 export function Block({ title, description, children, className, reveal }: BlockProps) {
   return (
     <section className={['block', className].filter(Boolean).join(' ')} data-reveal={reveal ? '' : undefined}>
-      {title ? <h3 className="block-title">{title}</h3> : null}
+      {title ? <InteractiveTitle className="block-title">{title}</InteractiveTitle> : null}
       {description ? (
         <p className="block-description">{description}</p>
       ) : null}
@@ -46,5 +48,23 @@ export function DetailGrid({ main, side }: { main: ReactNode; side?: ReactNode }
       <div className="detail-main">{main}</div>
       {side ? <aside className="detail-aside">{side}</aside> : null}
     </div>
+  );
+}
+
+interface DetailLayoutProps {
+  backHref: string;
+  children: ReactNode;
+  className?: string;
+}
+
+/** 상세 라우트가 공유하는 페이지 외곽 레이아웃 */
+export function DetailLayout({ backHref, children, className }: DetailLayoutProps) {
+  return (
+    <main>
+      <div className={['board-wrap', 'container', className].filter(Boolean).join(' ')}>
+        <BackLink href={backHref} />
+        {children}
+      </div>
+    </main>
   );
 }
