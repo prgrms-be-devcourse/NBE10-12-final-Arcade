@@ -11,7 +11,7 @@ export function SectionHead({ title, description, action }: SectionHeadProps) {
   const titleKind = title.includes('파티') ? 'party' : title.includes('공모전') || title.includes('대회') ? 'contest' : title.includes('전시') ? 'exhibition' : 'default';
   const head = (
     <div className={`section-head section-head--${titleKind}`}>
-      <h2 tabIndex={0}>{title}</h2>
+      <h2>{title}</h2>
       {description ? <p>{description}</p> : null}
     </div>
   );

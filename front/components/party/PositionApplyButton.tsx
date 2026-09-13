@@ -14,15 +14,19 @@ export function PositionApplyButton({ partyId, position, leaderId, disabled = fa
   const [message, setMessage] = useState('');
   const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   if (me === undefined || me?.profile.id === undefined || me.profile.id === leaderId) return null;
 
   const submit = async () => {
     setSubmitting(true);
+    setSubmitError('');
     try {
       await applyToParty(partyId, { position, message });
       setDone(true);
       setOpen(false);
+    } catch {
+      setSubmitError('지원에 실패했어요. 잠시 후 다시 시도해 주세요.');
     } finally {
       setSubmitting(false);
     }
@@ -30,20 +34,21 @@ export function PositionApplyButton({ partyId, position, leaderId, disabled = fa
 
   return (
     <>
-      <button type="button" className="btn btn-primary position-apply-btn" onClick={() => setOpen(true)} disabled={disabled || done}>
+      <button type="button" className="btn btn-primary position-apply-btn" onClick={() => { setSubmitError(''); setOpen(true); }} disabled={disabled || done}>
         {done ? '지원 완료' : '지원하기'}
       </button>
       <Modal
         open={open}
         title={`${POSITION_LABELS[position]}로 지원하기`}
         description="성취 프로필의 모든 항목이 파티장에게 함께 전달됩니다."
-        onClose={() => setOpen(false)}
+        onClose={() => { setSubmitError(''); setOpen(false); }}
         footerActions={
           <button type="button" className="btn btn-primary" onClick={submit} disabled={submitting}>
             {submitting ? '지원 중…' : '지원 완료'}
           </button>
         }
-      >
+        >
+        {submitError ? <p className="form-error">{submitError}</p> : null}
         <FormGroup label="파티장에게 한마디 (선택)">
           <TextAreaField
             id={`apply-message-${partyId}-${position}`}
