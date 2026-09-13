@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# EC2에서 SSM 설정으로 컨테이너를 배포한다.
+# shellcheck disable=SC2086 # Compose 파일 인자 문자열을 의도적으로 단어 분리한다.
+# EC2에서 전달받은 .env로 컨테이너를 배포한다.
 
 set -euo pipefail
 
@@ -10,7 +11,7 @@ APP_DIR="${APP_DIR:-/opt/arcade}"
 cd "$APP_DIR"
 
 # 외부에서 받은 .env는 SSM 값으로 덮어쓰지 않는다.
-if [ "${ENV_FROM_SSM:-1}" != "1" ]; then
+if [ "${ENV_FROM_SSM:-0}" != "1" ]; then
   echo "== .env 는 밖에서 받은 것을 쓴다 =="
   [ -s .env ] || { echo "  .env 가 없거나 비었다" >&2; exit 1; }
   echo "  $(grep -c . .env) 개 항목"
@@ -103,6 +104,15 @@ echo "  대상: $OTHERS"
 # shellcheck disable=SC2086
 docker compose $COMPOSE_FILES --env-file .env up -d --no-build --quiet-pull \
   --remove-orphans --no-deps $OTHERS
+
+# pg_dump에는 클러스터 전역 역할이 포함되지 않는다. 새 서버와 비밀번호 변경 배포에서
+# exporter 역할을 생성·동기화한 뒤 수집기를 다시 연결한다.
+if docker compose $COMPOSE_FILES --env-file .env config --services | grep -qx postgres-exporter; then
+  echo "== PostgreSQL exporter 역할 동기화 =="
+  APP_DIR="$APP_DIR" ./infra/scripts/server-init-postgres-exporter.sh
+  # restart는 생성 당시 환경변수를 유지하므로 비밀번호 변경을 반영하려면 재생성해야 한다.
+  docker compose $COMPOSE_FILES --env-file .env up -d --no-deps --force-recreate postgres-exporter >/dev/null
+fi
 
 # 새 backend가 healthy일 때만 기존 컨테이너를 제거한다.
 rolling_backend() {

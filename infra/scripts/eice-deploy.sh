@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2029 # 검증한 로컬 값을 EICE 원격 명령 인자로 확장한다.
 # EIC 임시 키와 EICE 터널로 배포 파일을 전송하고 서버 배포 스크립트를 실행한다.
 # GHCR_TOKEN은 인자가 아니라 환경변수로만 받는다.
+#
+# 일반 배포:
+#   ./infra/scripts/eice-deploy.sh <instance-id> --env-file .env.prod \
+#     --backend-image <image> --frontend-image <image>
+# 새 서버 복구:
+#   ./infra/scripts/eice-deploy.sh <instance-id> --env-file .env.prod \
+#     --backend-image <image> --frontend-image <image> \
+#     --certbot-email <email> --restore-dump <dump> --restore-confirm <db-name>
 
 set -euo pipefail
 
@@ -12,6 +21,9 @@ ENV_FILE=""
 BACKEND_IMAGE=""
 FRONTEND_IMAGE=""
 FILES_ONLY=0
+RESTORE_DUMP=""
+RESTORE_CONFIRM=""
+CERTBOT_EMAIL=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -21,6 +33,9 @@ while [ $# -gt 0 ]; do
     --env-file)       ENV_FILE="$2"; shift 2 ;;
     --backend-image)  BACKEND_IMAGE="$2"; shift 2 ;;
     --frontend-image) FRONTEND_IMAGE="$2"; shift 2 ;;
+    --restore-dump)   RESTORE_DUMP="$2"; shift 2 ;;
+    --restore-confirm) RESTORE_CONFIRM="$2"; shift 2 ;;
+    --certbot-email)  CERTBOT_EMAIL="$2"; shift 2 ;;
     --files-only)     FILES_ONLY=1; shift ;;
     -h|--help)
       sed -n '2,/^set -euo pipefail$/p' "$0" | sed '$d'
@@ -36,6 +51,16 @@ done
 [ -n "${GHCR_USER:-}" ] || { echo "GHCR_USER 가 필요하다" >&2; exit 1; }
 [ -n "${GHCR_TOKEN:-}" ] || { echo "GHCR_TOKEN 이 필요하다" >&2; exit 1; }
 [[ "$APP_DIR" =~ ^/[A-Za-z0-9._/-]+$ ]] || { echo "안전하지 않은 배포 경로: $APP_DIR" >&2; exit 1; }
+if [ -n "$RESTORE_DUMP" ]; then
+  [ -s "$RESTORE_DUMP" ] || { echo "복원 덤프가 없거나 비었다: $RESTORE_DUMP" >&2; exit 1; }
+  [ -n "$RESTORE_CONFIRM" ] || { echo "--restore-dump에는 --restore-confirm <DB명>이 필요하다" >&2; exit 1; }
+fi
+[ "$FILES_ONLY" = "0" ] || {
+  [ -z "$RESTORE_DUMP$CERTBOT_EMAIL" ] || {
+    echo "--files-only는 복원·인증서 발급 옵션과 함께 쓸 수 없다" >&2
+    exit 1
+  }
+}
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
@@ -49,6 +74,10 @@ FILES=(
   infra/monitoring/grafana
   infra/scripts/server-deploy.sh
   infra/scripts/server-backup.sh
+  infra/scripts/server-init-certbot.sh
+  infra/scripts/server-init-postgres-exporter.sh
+  infra/scripts/server-renew-certbot.sh
+  scripts/postgres-restore.sh
 )
 
 for file in "${FILES[@]}"; do
@@ -98,6 +127,11 @@ printf '%s' "$GHCR_USER" > "$METADATA_DIR/ghcr-user"
 printf '%s' "$GHCR_TOKEN" > "$METADATA_DIR/ghcr-token"
 printf '%s' "$BACKEND_IMAGE" > "$METADATA_DIR/backend-image"
 printf '%s' "$FRONTEND_IMAGE" > "$METADATA_DIR/frontend-image"
+printf '%s' "$RESTORE_CONFIRM" > "$METADATA_DIR/restore-confirm"
+printf '%s' "$CERTBOT_EMAIL" > "$METADATA_DIR/certbot-email"
+if [ -n "$RESTORE_DUMP" ]; then
+  install -m 600 "$RESTORE_DUMP" "$METADATA_DIR/postgres.dump"
+fi
 chmod 600 "$METADATA_DIR"/*
 
 echo "== 배포 묶음 생성 =="
@@ -161,6 +195,7 @@ install -d "$APP_DIR"
 tar --exclude='_deploy' -xzf "$BUNDLE" -C "$APP_DIR"
 find "$APP_DIR/infra" -name '._*' -delete
 chmod +x "$APP_DIR"/infra/scripts/*.sh
+chmod +x "$APP_DIR"/scripts/*.sh
 
 NEXT_ENV="$STAGE/.env.next"
 install -m 600 "$STAGE/_deploy/env" "$NEXT_ENV"
@@ -210,6 +245,19 @@ install -m 600 "$NEXT_ENV" "$APP_DIR/.env"
 if [ "$FILES_ONLY" = "1" ]; then
   echo "파일만 전송했다. 배포는 건너뛴다."
 else
+  certbot_email=$(cat "$STAGE/_deploy/certbot-email")
+  if [ -n "$certbot_email" ]; then
+    APP_DIR="$APP_DIR" "$APP_DIR/infra/scripts/server-init-certbot.sh" "$certbot_email"
+  fi
+
+  if [ -f "$STAGE/_deploy/postgres.dump" ]; then
+    restore_confirm=$(cat "$STAGE/_deploy/restore-confirm")
+    install -d -m 0700 "$APP_DIR/backups"
+    install -m 600 "$STAGE/_deploy/postgres.dump" "$APP_DIR/backups/recovery.dump"
+    RESTORE_CONFIRM="$restore_confirm" \
+      "$APP_DIR/scripts/postgres-restore.sh" "$APP_DIR/backups/recovery.dump" "$APP_DIR/.env"
+  fi
+
   cd "$APP_DIR"
   AWS_REGION="$REGION" APP_DIR="$APP_DIR" ENV_FROM_SSM=0 REGISTRY_AUTH_PRECONFIGURED=1 \
     ./infra/scripts/server-deploy.sh
