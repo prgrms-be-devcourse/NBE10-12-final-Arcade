@@ -19,9 +19,10 @@ export function GithubConnectionCard({ partyId, connection: initialConnection, i
   const loadManager = async () => { setManagerOpen(true); setMessage(''); if (active) return; setBusy(true); setRepositories(null); try { const status = await fetchGithubAppUserAuthorizationStatus(); setAuthorization(status); if (status.authorized && !status.expired) setRepositories(await fetchConnectableGithubRepositories()); } catch (e) { setMessage(errorText(e)); } finally { setBusy(false); } };
   useEffect(() => {
     if (!autoOpenManager || !isOwner || !canSelectRepository) return;
-    const timer = window.setTimeout(() => { void loadManager(); }, 0);
+    // 인증 완료 직후 모달을 즉시 열어야 하므로 별도 타이머로 지연하지 않는다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadManager();
     window.history.replaceState(null, '', window.location.pathname);
-    return () => window.clearTimeout(timer);
   // 인증 완료 직후 한 번만 모달을 여는 흐름이다.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
