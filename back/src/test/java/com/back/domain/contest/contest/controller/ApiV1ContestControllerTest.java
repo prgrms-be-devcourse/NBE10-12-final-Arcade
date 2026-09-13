@@ -6,7 +6,9 @@ import com.back.domain.contest.contest.entity.ContestTag;
 import com.back.domain.contest.contest.entity.Contest;
 import com.back.domain.contest.contest.repository.ContestPostRepository;
 import com.back.domain.contest.contest.repository.ContestRepository;
+import com.back.domain.contest.contest.service.ContestRankingBatchService;
 import com.back.domain.contest.contest.service.ContestService;
+import com.back.domain.interaction.bookmark.entity.Bookmark;
 import com.back.domain.interaction.bookmark.repository.BookmarkRepository;
 import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.interaction.like.repository.LikeActionRepository;
@@ -69,6 +71,9 @@ public class ApiV1ContestControllerTest {
 
     @Autowired
     private PartyRepository partyRepository;
+
+    @Autowired
+    private ContestRankingBatchService contestRankingBatchService;
 
     private Party savePartyForContest(long contestId, String partyName) {
         Member owner = memberRepository.findByEmail("admin").orElseThrow();
@@ -648,5 +653,34 @@ public class ApiV1ContestControllerTest {
                 .andExpect(jsonPath("$.data.teams").value(0))
                 .andExpect(jsonPath("$.data.relatedParties").isArray())
                 .andExpect(jsonPath("$.data.relatedParties").isEmpty());
+    }
+
+    @Test
+    @DisplayName("인기 대회 TOP3: 배치 전이면 좋아요순(POPULAR) 폴백으로 보여준다")
+    void getTop3FallsBackToPopularBeforeBatchRuns() throws Exception {
+        long contestId = writeContestAsAdmin("배치 전 대회");
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/contests/top3"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[?(@.id == " + contestId + ")]").exists());
+    }
+
+    @Test
+    @DisplayName("인기 대회 TOP3: 참여 파티 수가 북마크보다 가중치가 높다")
+    void getTop3OrderedByParticipatingPartyWeight() throws Exception {
+        long bookmarkOnlyId = writeContestAsAdmin("북마크만");
+        long partyOnlyId = writeContestAsAdmin("참여파티만");
+
+        Member bookmarker = memberRepository.findByEmail("user2@test.com").orElseThrow();
+        bookmarkRepository.save(new Bookmark(bookmarker, TargetType.CONTEST, bookmarkOnlyId));
+        savePartyForContest(partyOnlyId, "참여파티만 대회팀");
+
+        contestRankingBatchService.computeContestRanking();
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/contests/top3"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].id").value(partyOnlyId));
     }
 }

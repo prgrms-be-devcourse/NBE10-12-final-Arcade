@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -39,5 +40,16 @@ public interface PartyContestLookupPort {
       group by p.targetContest.id
       """)
     List<TeamCount> countGroupedByTargetContestIdIn(@Param("contestIds") Collection<Long> contestIds);
+
+    @Query("""
+        select p.targetContest.id as contestId, count(p) as count
+        from Party p
+        where p.targetContest.id in :contestIds and p.createDate >= :from
+        group by p.targetContest.id
+        """)
+    List<TeamCount> countGroupedByTargetContestIdInAndCreateDateAfter(
+            @Param("contestIds") Collection<Long> contestIds,
+            @Param("from") LocalDateTime from
+    );
 
 }

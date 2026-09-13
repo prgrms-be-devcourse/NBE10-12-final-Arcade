@@ -16,11 +16,11 @@ import com.back.domain.party.position.entity.Position;
 import com.back.domain.party.showcase.comment.entity.ShowcaseComment;
 import com.back.domain.party.showcase.comment.repository.ShowcaseCommentRepository;
 import com.back.domain.party.showcase.entity.PartyShowcase;
-import com.back.domain.party.showcase.ranking.entity.FeaturedRanking;
-import com.back.domain.party.showcase.ranking.entity.ShowcaseViewSnapshot;
-import com.back.domain.party.showcase.ranking.repository.FeaturedRankingRepository;
-import com.back.domain.party.showcase.ranking.repository.ShowcaseViewSnapshotRepository;
 import com.back.domain.party.showcase.repository.PartyShowcaseRepository;
+import com.back.domain.ranking.entity.FeaturedRanking;
+import com.back.domain.ranking.entity.ViewSnapshot;
+import com.back.domain.ranking.repository.FeaturedRankingRepository;
+import com.back.domain.ranking.repository.ViewSnapshotRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,7 +47,7 @@ class FeaturedRankingBatchServiceTest {
     private FeaturedRankingRepository featuredRankingRepository;
 
     @Autowired
-    private ShowcaseViewSnapshotRepository showcaseViewSnapshotRepository;
+    private ViewSnapshotRepository viewSnapshotRepository;
 
     @Autowired
     private MemberRepository memberRepository;
@@ -129,8 +129,8 @@ class FeaturedRankingBatchServiceTest {
     void viewScoreUsesWindowDelta() {
         PartyShowcase showcase = savePublishedShowcase("user1@test.com", "조회수 테스트");
 
-        showcaseViewSnapshotRepository.save(
-                new ShowcaseViewSnapshot(showcase.getId(), 2, LocalDate.now().minusDays(29)));
+        viewSnapshotRepository.save(
+                new ViewSnapshot(TargetType.PARTY_SHOWCASE, showcase.getId(), 2, LocalDate.now().minusDays(29)));
 
         for (int i = 0; i < 5; i++) {
             partyShowcaseRepository.increaseViewCount(showcase.getId());
@@ -155,9 +155,9 @@ class FeaturedRankingBatchServiceTest {
         featuredRankingBatchService.computeShowcaseRanking();
         featuredRankingBatchService.computeShowcaseRanking();
 
-        List<ShowcaseViewSnapshot> todaySnapshots = showcaseViewSnapshotRepository
-                .findAllByShowcaseIdInAndSnapshotDateGreaterThanEqual(
-                        List.of(showcase.getId()), LocalDate.now());
+        List<ViewSnapshot> todaySnapshots = viewSnapshotRepository
+                .findAllByTargetTypeAndTargetIdInAndSnapshotDateGreaterThanEqual(
+                        TargetType.PARTY_SHOWCASE, List.of(showcase.getId()), LocalDate.now());
 
         assertThat(todaySnapshots).hasSize(1);
     }

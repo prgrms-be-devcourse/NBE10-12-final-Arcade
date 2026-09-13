@@ -27,6 +27,9 @@ public interface ContestPostRepository extends JpaRepository<ContestPost, Long> 
     @Query("select cp from ContestPost cp join fetch cp.contest c where c.id in :contestIds")
     List<ContestPost> findAllByContestIdIn(@Param("contestIds") Collection<Long> contestIds);
 
+    @Query("select cp from ContestPost cp join fetch cp.contest c")
+    List<ContestPost> findAllWithContest();
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("delete from ContestPost cp where cp.contest.applicationPeriodEnd < :date")
     void deleteAllByContest_ApplicationPeriodEndBefore(@Param("date") LocalDate date);
