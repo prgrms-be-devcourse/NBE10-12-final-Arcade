@@ -8,6 +8,7 @@ import com.back.domain.interaction.like.repository.LikeActionRepository;
 import com.back.domain.interaction.like.repository.TargetCount;
 import com.back.domain.party.party.repository.PartyContestLookupPort;
 import com.back.domain.ranking.service.FeaturedRankingWriter;
+import com.back.domain.ranking.service.RankingComputer;
 import com.back.domain.ranking.service.ViewSnapshotService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -17,12 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -43,6 +40,7 @@ public class ContestRankingBatchService {
     private final LikeActionRepository likeActionRepository;
     private final ViewSnapshotService viewSnapshotService;
     private final FeaturedRankingWriter featuredRankingWriter;
+    private final RankingComputer rankingComputer;
 
     @Scheduled(cron = "0 0 0 * * *")
     @Transactional
@@ -53,7 +51,6 @@ public class ContestRankingBatchService {
         Map<Long, Integer> currentViewCounts = posts.stream()
                 .collect(Collectors.toMap(cp -> cp.getContest().getId(), ContestPost::getViewCount));
         viewSnapshotService.snapshotViewCounts(TargetType.CONTEST, currentViewCounts, today);
-        viewSnapshotService.pruneOldSnapshots(today);
 
         if (posts.isEmpty()) {
             featuredRankingWriter.replaceTop(TargetType.CONTEST, List.of(), Map.of());
@@ -81,56 +78,23 @@ public class ContestRankingBatchService {
                         LikeActionRepository.TargetLatest::getLatest
                 ));
 
-        List<Scored> scored = posts.stream()
-                .map(cp -> {
+        Map<Long, Double> scoreById = posts.stream()
+                .collect(Collectors.toMap(cp -> cp.getContest().getId(), cp -> {
                     long id = cp.getContest().getId();
                     long parties = participatingPartyCounts.getOrDefault(id, 0L);
                     long bookmarks = bookmarkCounts.getOrDefault(id, 0L);
                     long likes = likeCounts.getOrDefault(id, 0L);
                     int viewDelta = Math.max(0, cp.getViewCount() - viewBaselines.getOrDefault(id, 0));
-                    double score = PARTICIPATING_PARTY_WEIGHT * parties + BOOKMARK_WEIGHT * bookmarks
+                    return PARTICIPATING_PARTY_WEIGHT * parties + BOOKMARK_WEIGHT * bookmarks
                             + LIKE_WEIGHT * likes + VIEW_WEIGHT * viewDelta;
-                    return new Scored(id, score);
-                })
+                }));
+
+        List<Long> fallbackOrderedIds = contestPostRepository
+                .searchOrderByPopular(null, null, PageRequest.of(0, TOP_N * 2))
+                .getContent().stream()
+                .map(cp -> cp.getContest().getId())
                 .toList();
 
-        Comparator<Scored> byScore = Comparator
-                .comparingDouble(Scored::score).reversed()
-                .thenComparing((Scored s) -> latestLikeAt.getOrDefault(s.contestId(), LocalDateTime.MIN), Comparator.reverseOrder())
-                .thenComparing(Scored::contestId, Comparator.reverseOrder());
-
-        List<Long> ranked = scored.stream()
-                .filter(Scored::hasActivity)
-                .sorted(byScore)
-                .map(Scored::contestId)
-                .collect(Collectors.toCollection(ArrayList::new));
-
-        if (ranked.size() < TOP_N) {
-            Set<Long> already = new HashSet<>(ranked);
-            List<ContestPost> fallback = contestPostRepository
-                    .searchOrderByPopular(null, null, PageRequest.of(0, TOP_N + already.size()))
-                    .getContent();
-            for (ContestPost cp : fallback) {
-                if (ranked.size() >= TOP_N) {
-                    break;
-                }
-                long id = cp.getContest().getId();
-                if (already.add(id)) {
-                    ranked.add(id);
-                }
-            }
-        }
-
-        List<Long> top = ranked.stream().limit(TOP_N).toList();
-        Map<Long, Double> scoreById = scored.stream()
-                .collect(Collectors.toMap(Scored::contestId, Scored::score));
-
-        featuredRankingWriter.replaceTop(TargetType.CONTEST, top, scoreById);
-    }
-
-    private record Scored(long contestId, double score) {
-        boolean hasActivity() {
-            return score > 0;
-        }
+        rankingComputer.computeAndSave(TargetType.CONTEST, contestIds, scoreById, latestLikeAt, fallbackOrderedIds);
     }
 }

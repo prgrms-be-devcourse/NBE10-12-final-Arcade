@@ -8,6 +8,7 @@ import com.back.domain.party.showcase.comment.repository.ShowcaseCommentReposito
 import com.back.domain.party.showcase.entity.PartyShowcase;
 import com.back.domain.party.showcase.repository.PartyShowcaseRepository;
 import com.back.domain.ranking.service.FeaturedRankingWriter;
+import com.back.domain.ranking.service.RankingComputer;
 import com.back.domain.ranking.service.ViewSnapshotService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -17,11 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -42,6 +40,7 @@ public class FeaturedRankingBatchService {
     private final ShowcaseCommentRepository showcaseCommentRepository;
     private final ViewSnapshotService viewSnapshotService;
     private final FeaturedRankingWriter featuredRankingWriter;
+    private final RankingComputer rankingComputer;
 
     @Scheduled(cron = "0 0 0 * * *")
     @Transactional
@@ -52,7 +51,6 @@ public class FeaturedRankingBatchService {
         Map<Long, Integer> currentViewCounts = published.stream()
                 .collect(Collectors.toMap(PartyShowcase::getId, PartyShowcase::getViewCount));
         viewSnapshotService.snapshotViewCounts(TargetType.PARTY_SHOWCASE, currentViewCounts, today);
-        viewSnapshotService.pruneOldSnapshots(today);
 
         if (published.isEmpty()) {
             featuredRankingWriter.replaceTop(TargetType.PARTY_SHOWCASE, List.of(), Map.of());
@@ -83,58 +81,22 @@ public class FeaturedRankingBatchService {
                         LikeActionRepository.TargetLatest::getLatest
                 ));
 
-        List<Scored> scored = published.stream()
-                .map(ps -> {
+        Map<Long, Double> scoreById = published.stream()
+                .collect(Collectors.toMap(PartyShowcase::getId, ps -> {
                     long id = ps.getId();
                     long bookmarks = bookmarkCounts.getOrDefault(id, 0L);
                     long comments = commentCounts.getOrDefault(id, 0L);
                     long likes = likeCounts.getOrDefault(id, 0L);
                     int viewDelta = Math.max(0, ps.getViewCount() - viewBaselines.getOrDefault(id, 0));
-                    double score = BOOKMARK_WEIGHT * bookmarks + COMMENT_WEIGHT * comments
+                    return BOOKMARK_WEIGHT * bookmarks + COMMENT_WEIGHT * comments
                             + LIKE_WEIGHT * likes + VIEW_WEIGHT * viewDelta;
-                    return new Scored(ps, score);
-                })
+                }));
+
+        List<Long> fallbackOrderedIds = partyShowcaseRepository
+                .findPublishedOrderByViewCountDesc(PageRequest.of(0, TOP_N * 2)).stream()
+                .map(PartyShowcase::getId)
                 .toList();
 
-        Comparator<Scored> byScore = Comparator
-                .comparingDouble(Scored::score).reversed()
-                .thenComparing((Scored s) -> latestLikeAt.getOrDefault(s.showcase().getId(), LocalDateTime.MIN), Comparator.reverseOrder())
-                .thenComparing((Scored s) -> s.showcase().getId(), Comparator.reverseOrder());
-
-        List<PartyShowcase> ranked = scored.stream()
-                .filter(Scored::hasActivity)
-                .sorted(byScore)
-                .map(Scored::showcase)
-                .collect(Collectors.toCollection(ArrayList::new));
-
-        if (ranked.size() < TOP_N) {
-            Set<Long> already = ranked.stream().map(PartyShowcase::getId).collect(Collectors.toSet());
-            List<PartyShowcase> fallback = partyShowcaseRepository
-                    .findPublishedOrderByViewCountDesc(PageRequest.of(0, TOP_N + already.size()));
-            for (PartyShowcase ps : fallback) {
-                if (ranked.size() >= TOP_N) {
-                    break;
-                }
-                if (already.add(ps.getId())) {
-                    ranked.add(ps);
-                }
-            }
-        }
-
-        List<PartyShowcase> top = ranked.stream().limit(TOP_N).toList();
-        Map<Long, Double> scoreById = scored.stream()
-                .collect(Collectors.toMap(s -> s.showcase().getId(), Scored::score));
-
-        featuredRankingWriter.replaceTop(
-                TargetType.PARTY_SHOWCASE,
-                top.stream().map(PartyShowcase::getId).toList(),
-                scoreById
-        );
-    }
-
-    private record Scored(PartyShowcase showcase, double score) {
-        boolean hasActivity() {
-            return score > 0;
-        }
+        rankingComputer.computeAndSave(TargetType.PARTY_SHOWCASE, showcaseIds, scoreById, latestLikeAt, fallbackOrderedIds);
     }
 }
