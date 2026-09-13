@@ -547,8 +547,8 @@
 .social-btn-group.is-disabled{opacity:.35;pointer-events:none;filter:grayscale(1);}
 
 /* ===== 홈 : 인기 전시회 ===== */
-.exh-top-row{display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem;}
-@media (max-width:64rem){.exh-top-row{grid-template-columns:1fr;}}
+.exh-top-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.25rem;}
+@media (max-width:64rem){.exh-top-row{grid-template-columns:repeat(2,minmax(0,1fr));}}
 .exh-rank{
   position:absolute;top:0.625rem;left:0.625rem;width:1.625rem;height:1.625rem;
   background:var(--bg);border:0.125rem solid var(--accent);color:var(--accent);
