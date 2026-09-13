@@ -169,6 +169,7 @@ public class PartyPrService {
         GithubPullRequestSnapshot data = toSnapshot(event.pullRequest());
 
         var parties = new LinkedHashMap<Long, Party>();
+        var trackingStartedAtByPartyId = new LinkedHashMap<Long, OffsetDateTime>();
         githubConnectionRepository
             .findAllByRepositoryIdAndInstallationIdAndStatus(repositoryId, installationId, PartyGithubConnectionStatus.ACTIVE)
             .forEach(connection -> parties.put(connection.getParty().getId(), connection.getParty()));
@@ -176,9 +177,17 @@ public class PartyPrService {
         installationRepositoryRepository.findByInstallationInstallationIdAndRepositoryId(installationId, repositoryId)
                 .ifPresent(repository -> bindingRepository
                         .findAllByInstallationRepositoryIdAndStatus(repository.getId(), PartyGithubBindingStatus.ACTIVE)
-                        .forEach(binding -> parties.put(binding.getParty().getId(), binding.getParty())));
+                        .forEach(binding -> {
+                            long partyId = binding.getParty().getId();
+                            parties.put(partyId, binding.getParty());
+                            trackingStartedAtByPartyId.put(partyId, binding.getTrackingStartedAt());
+                        }));
 
         for (Party party : parties.values()) {
+            OffsetDateTime trackingStartedAt = trackingStartedAtByPartyId.get(party.getId());
+            if (trackingStartedAt != null && (data.openedAt() == null || data.openedAt().isBefore(trackingStartedAt))) {
+                continue;
+            }
             upsert(party, data);
         }
 
@@ -187,8 +196,29 @@ public class PartyPrService {
 
     /** GitHub App installation token으로 조회한 기존 PR을 반영한다. */
     @Transactional
+    public void syncExistingPullRequests(long partyId, List<GithubPullRequestResponse> pullRequests) {
+        syncExistingPullRequests(party(partyId), pullRequests, null);
+    }
+
+    @Transactional
     public void syncExistingPullRequests(Party party, List<GithubPullRequestResponse> pullRequests) {
-        List<GithubPullRequestSnapshot> snapshots = pullRequests.stream().map(this::toSnapshot).toList();
+        syncExistingPullRequests(party, pullRequests, null);
+    }
+
+    /** 연결 이후 생성된 PR만 최초 동기화할 때 사용하는 경로다. */
+    @Transactional
+    public void syncExistingPullRequests(long partyId, List<GithubPullRequestResponse> pullRequests,
+                                         OffsetDateTime trackingStartedAt) {
+        syncExistingPullRequests(party(partyId), pullRequests, trackingStartedAt);
+    }
+
+    @Transactional
+    public void syncExistingPullRequests(Party party, List<GithubPullRequestResponse> pullRequests,
+                                         OffsetDateTime trackingStartedAt) {
+        List<GithubPullRequestSnapshot> snapshots = pullRequests.stream().map(this::toSnapshot)
+                .filter(snapshot -> trackingStartedAt == null
+                        || (snapshot.openedAt() != null && !snapshot.openedAt().isBefore(trackingStartedAt)))
+                .toList();
         if (snapshots.isEmpty()) return;
 
         Map<Long, PartyPr> existingByGithubPrId = partyPrRepository
