@@ -4,6 +4,7 @@ import com.back.domain.party.github.entity.PartyGithubBinding;
 import com.back.domain.party.github.entity.PartyGithubBindingStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -13,6 +14,7 @@ public interface PartyGithubBindingRepository extends JpaRepository<PartyGithubB
     Optional<PartyGithubBinding> findFirstByPartyIdOrderByIdDesc(Long partyId);
     Optional<PartyGithubBinding> findByPartyIdAndStatus(Long partyId, PartyGithubBindingStatus status);
     List<PartyGithubBinding> findAllByStatus(PartyGithubBindingStatus status);
+    @EntityGraph(attributePaths = {"party", "party.owner", "installationRepository", "installationRepository.installation"})
     Page<PartyGithubBinding> findAllByStatus(PartyGithubBindingStatus status, Pageable pageable);
     List<PartyGithubBinding> findAllByInstallationRepositoryIdAndStatus(Long installationRepositoryId, PartyGithubBindingStatus status);
 }

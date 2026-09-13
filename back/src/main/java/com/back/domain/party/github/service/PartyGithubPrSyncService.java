@@ -14,7 +14,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -32,7 +31,6 @@ public class PartyGithubPrSyncService {
     private final PartyPrService partyPrService;
 
     @Scheduled(fixedDelayString = "${custom.github.pull-request-sync.fixed-delay-millis:3600000}")
-    @Transactional(readOnly = true)
     public void syncActiveConnections() {
         Set<Long> syncedPartyIds = new HashSet<>();
         var pageable = PageRequest.of(0, SYNC_BATCH_SIZE, Sort.by(Sort.Direction.ASC, "id"));
