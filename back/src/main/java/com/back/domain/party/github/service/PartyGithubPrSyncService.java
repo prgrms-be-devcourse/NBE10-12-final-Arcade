@@ -10,8 +10,11 @@ import com.back.domain.party.partyPr.service.PartyPrService;
 import com.back.global.github.client.GithubAppClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -21,20 +24,35 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class PartyGithubPrSyncService {
+    private static final int SYNC_BATCH_SIZE = 100;
+
     private final PartyGithubBindingRepository bindingRepository;
     private final PartyGithubConnectionRepository connectionRepository;
     private final GithubAppClient githubAppClient;
     private final PartyPrService partyPrService;
 
     @Scheduled(fixedDelayString = "${custom.github.pull-request-sync.fixed-delay-millis:3600000}")
+    @Transactional(readOnly = true)
     public void syncActiveConnections() {
         Set<Long> syncedPartyIds = new HashSet<>();
-        bindingRepository.findAllByStatus(PartyGithubBindingStatus.ACTIVE).forEach(binding -> {
-            if (syncedPartyIds.add(binding.getParty().getId())) sync(binding);
-        });
-        connectionRepository.findAllByStatus(PartyGithubConnectionStatus.ACTIVE).forEach(connection -> {
-            if (syncedPartyIds.add(connection.getParty().getId())) sync(connection);
-        });
+        var pageable = PageRequest.of(0, SYNC_BATCH_SIZE, Sort.by(Sort.Direction.ASC, "id"));
+        var bindings = bindingRepository.findAllByStatus(PartyGithubBindingStatus.ACTIVE, pageable);
+        while (true) {
+            bindings.forEach(binding -> {
+                if (syncedPartyIds.add(binding.getParty().getId())) sync(binding);
+            });
+            if (!bindings.hasNext()) break;
+            bindings = bindingRepository.findAllByStatus(PartyGithubBindingStatus.ACTIVE, bindings.nextPageable());
+        }
+
+        var connections = connectionRepository.findAllByStatus(PartyGithubConnectionStatus.ACTIVE, pageable);
+        while (true) {
+            connections.forEach(connection -> {
+                if (syncedPartyIds.add(connection.getParty().getId())) sync(connection);
+            });
+            if (!connections.hasNext()) break;
+            connections = connectionRepository.findAllByStatus(PartyGithubConnectionStatus.ACTIVE, connections.nextPageable());
+        }
     }
 
     private void sync(PartyGithubBinding binding) {
