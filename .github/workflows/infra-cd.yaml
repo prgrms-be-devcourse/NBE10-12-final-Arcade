@@ -110,7 +110,8 @@ jobs:
           BACKEND: ${{ steps.resolved_image.outputs.backend }}
           FRONTEND: ${{ steps.resolved_image.outputs.frontend }}
           BACKEND_VERSION: ${{ steps.resolved_image.outputs.backend_version }}
-          K6_DURATION: ${{ vars.K6_DURATION || '7m' }}
+          K6_MAX_DURATION: ${{ vars.K6_MAX_DURATION || '10m' }}
+          K6_POST_DEPLOY_SECONDS: ${{ vars.K6_POST_DEPLOY_SECONDS || '60' }}
           K6_RATE: ${{ vars.K6_RATE || '5' }}
         run: |
           [ -n "$ENV_PROD" ] || { echo "::error::dev Environment에 ENV_PROD Secret을 등록한다."; exit 1; }
@@ -143,7 +144,8 @@ jobs:
             --origin "$origin" \
             --expected-version "$BACKEND_VERSION" \
             --old-version "$old_version" \
-            --duration "$K6_DURATION" \
+            --max-duration "$K6_MAX_DURATION" \
+            --post-deploy-seconds "$K6_POST_DEPLOY_SECONDS" \
             --rate "$K6_RATE" \
             --results-dir deploy-continuity-results \
             -- ./infra/scripts/eice-deploy.sh "${args[@]}"
@@ -184,10 +186,10 @@ jobs:
             if [ -f "$result/summary.json" ]; then
               jq -r '
                 .metrics as $m
-                | "- HTTP 실패율: \($m.http_req_failed.values.rate // "기록 없음")",
-                  "- 누락 iteration: \($m.dropped_iterations.values.count // 0)",
-                  "- 응답시간 p95: \($m.http_req_duration.values["p(95)"] // "기록 없음") ms",
-                  "- 응답시간 p99: \($m.http_req_duration.values["p(99)"] // "기록 없음") ms"
+                | "- HTTP 실패율: \($m.http_req_failed.value // "기록 없음")",
+                  "- 누락 iteration: \($m.dropped_iterations.count // 0)",
+                  "- 응답시간 p95: \($m.http_req_duration["p(95)"] // "기록 없음") ms",
+                  "- 응답시간 p99: \($m.http_req_duration["p(99)"] // "기록 없음") ms"
               ' "$result/summary.json"
             fi
             if [ -f "$result/samples.json" ]; then

@@ -17,8 +17,11 @@ export const options = {
       executor: 'constant-arrival-rate',
       rate: Number(__ENV.RATE || 5),
       timeUnit: '1s',
-      duration: __ENV.DURATION || '7m',
-      preAllocatedVUs: 5,
+      // 실제 종료 시점은 배포 완료 후 관찰 시간이 지난 뒤 REST API로 결정한다.
+      // 이 값은 배포가 비정상적으로 오래 걸릴 때를 위한 상한이다.
+      duration: __ENV.MAX_DURATION || '10m',
+      // 실행 중 VU 추가가 늦어 iteration을 누락하지 않도록 처음부터 준비한다.
+      preAllocatedVUs: 20,
       maxVUs: 20,
       gracefulStop: '5s',
     },
