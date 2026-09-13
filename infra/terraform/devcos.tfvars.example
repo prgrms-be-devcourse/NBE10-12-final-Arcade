@@ -1,0 +1,21 @@
+# 실제 값으로 복사한 파일은 커밋하지 않는다.
+aws_account_id = "111122223333"
+team_tag       = "devcos-team05"
+region         = "ap-northeast-2"
+
+github_repo                = "prgrms-be-devcourse/NBE10-12-final-Arcade"
+github_repository_owner_id = "88020948"
+github_repository_id       = "1340144699"
+deploy_environment         = "prod"
+
+vpc_cidr           = "10.5.0.0/16"
+public_subnet_cidr = "10.5.1.0/24"
+domain             = "crewon.cloud"
+
+# 현재 접속 위치와 서비스 공개 범위를 명시한다.
+operator_ssh_public_key = "ssh-ed25519 AAAA... operator@example"
+app_cidrs              = ["0.0.0.0/0"]
+ssh_allowed_cidrs      = []
+
+# S3 버킷 이름은 전체 AWS에서 고유해야 한다.
+s3_bucket_name = "arcade-devcos-team05-unique-suffix"

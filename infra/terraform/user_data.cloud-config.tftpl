@@ -1,0 +1,36 @@
+#cloud-config
+# 변경하면 `user_data_replace_on_change`에 따라 EC2가 교체된다.
+swap:
+  filename: /swapfile
+  size: ${swap_size_bytes}
+  maxsize: ${swap_size_bytes}
+
+package_update: true
+packages:
+  - docker
+
+write_files:
+  - path: /home/ec2-user/.ssh/authorized_keys
+    owner: ec2-user:ec2-user
+    permissions: "0600"
+    defer: true
+    content: |
+      ${operator_ssh_public_key}
+  - path: /etc/sysctl.d/99-arcade.conf
+    content: |
+      vm.swappiness=10
+
+runcmd:
+  - install -d -m 0700 -o ec2-user -g ec2-user /home/ec2-user/.ssh
+  - sysctl -p /etc/sysctl.d/99-arcade.conf
+  - systemctl enable --now docker
+  - usermod -aG docker ec2-user
+  # AL2023 저장소에 없는 Compose 플러그인은 checksum을 검증해 설치한다.
+  - install -d /usr/local/lib/docker/cli-plugins
+  - curl -fsSL "https://github.com/docker/compose/releases/download/v${compose_version}/docker-compose-linux-x86_64" -o /tmp/docker-compose
+  - echo "${compose_sha256}  /tmp/docker-compose" | sha256sum -c -
+  - install -m 0755 /tmp/docker-compose /usr/local/lib/docker/cli-plugins/docker-compose
+  - rm -f /tmp/docker-compose
+  - install -d -o ec2-user -g ec2-user /opt/arcade
+  # cloud-init 완료 확인용
+  - echo "user_data 완료" > /var/log/arcade-bootstrap.done
