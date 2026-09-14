@@ -19,6 +19,7 @@ public interface PartySearchKeywordRepository extends JpaRepository<PartySearchK
                 JOIN party p ON p.id = psk.party_id
                 WHERE to_tsvector('simple', psk.keywords) @@ to_tsquery('simple', :tsQuery)
                   AND p.status = :status
+                  AND p.hidden = false
                   AND (:partyTag IS NULL OR p.party_tag = :partyTag)
                   AND (:topicType IS NULL OR p.topic_type = :topicType)
                   AND (:positionType IS NULL OR EXISTS (
@@ -31,6 +32,7 @@ public interface PartySearchKeywordRepository extends JpaRepository<PartySearchK
                 JOIN party p ON p.id = psk.party_id
                 WHERE to_tsvector('simple', psk.keywords) @@ to_tsquery('simple', :tsQuery)
                   AND p.status = :status
+                  AND p.hidden = false
                   AND (:partyTag IS NULL OR p.party_tag = :partyTag)
                   AND (:topicType IS NULL OR p.topic_type = :topicType)
                   AND (:positionType IS NULL OR EXISTS (
