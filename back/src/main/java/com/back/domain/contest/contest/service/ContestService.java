@@ -12,6 +12,11 @@ import com.back.domain.interaction.bookmark.service.BookmarkInteractionPort;
 import com.back.domain.interaction.like.entity.TargetType;
 import com.back.domain.interaction.like.service.LikeInteractionPort;
 import com.back.domain.member.member.entity.Member;
+import com.back.domain.party.application.repository.PartyMemberRepository;
+import com.back.domain.party.party.dtos.PartyListItemDto;
+import com.back.domain.party.party.entity.Party;
+import com.back.domain.party.party.repository.PartyContestLookupPort;
+import com.back.domain.party.position.entity.PartyStatus;
 import com.back.domain.ranking.entity.FeaturedRanking;
 import com.back.domain.ranking.repository.FeaturedRankingRepository;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +44,8 @@ public class ContestService {
     private final LikeInteractionPort likeInteractionPort;
     private final BookmarkInteractionPort bookmarkInteractionPort;
     private final FeaturedRankingRepository featuredRankingRepository;
+    private final PartyContestLookupPort partyContestLookupPort;
+    private final PartyMemberRepository partyMemberRepository;
 
     public long count() {
         return contestRepository.count();
@@ -99,8 +106,22 @@ public class ContestService {
                         contestPost = contestPostRepository.findByContest(contest).orElseThrow();
                     }
 
-                    return new ContestResponseDto(contest, contestPost);
+                    List<PartyListItemDto> relatedParties = findRelatedParties(contestId);
+
+                    return new ContestResponseDto(contest, contestPost)
+                            .withRelatedParties(relatedParties.size(), relatedParties);
                 });
+    }
+
+    private List<PartyListItemDto> findRelatedParties(long contestId) {
+        List<Party> relatedPartyEntities = partyContestLookupPort
+                .findByTargetContestId(contestId, PartyStatus.RECRUITING, PartyStatus.IN_PROGRESS);
+        Map<Long, Long> applicantCounts = partyMemberRepository.countApplicantsByPartyIds(
+                relatedPartyEntities.stream().map(Party::getId).toList());
+
+        return relatedPartyEntities.stream()
+                .map(party -> new PartyListItemDto(party, applicantCounts.getOrDefault(party.getId(), 0L)))
+                .toList();
     }
 
     @Transactional
