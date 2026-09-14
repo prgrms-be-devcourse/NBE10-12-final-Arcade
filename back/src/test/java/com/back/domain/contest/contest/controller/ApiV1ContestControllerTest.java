@@ -200,6 +200,54 @@ public class ApiV1ContestControllerTest {
     }
 
     @Test
+    @DisplayName("대회 등록: linkUrl에 scheme이 없으면 400-1이다")
+    @WithUserDetails("admin")
+    void writeWithSchemelessLinkUrl() throws Exception {
+        ResultActions resultActions = mvc.perform(post("/api/v1/contests")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(writeRequestJson("AI 해커톤", "www.example.com")));
+
+        resultActions.andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-1"));
+    }
+
+    @Test
+    @DisplayName("대회 등록: linkUrl이 상대 경로면 400-1이다")
+    @WithUserDetails("admin")
+    void writeWithRelativeLinkUrl() throws Exception {
+        ResultActions resultActions = mvc.perform(post("/api/v1/contests")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(writeRequestJson("AI 해커톤", "/relative/path")));
+
+        resultActions.andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-1"));
+    }
+
+    @Test
+    @DisplayName("대회 등록: linkUrl이 빈 문자열이면 400-1이다")
+    @WithUserDetails("admin")
+    void writeWithBlankLinkUrl() throws Exception {
+        ResultActions resultActions = mvc.perform(post("/api/v1/contests")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(writeRequestJson("AI 해커톤", "")));
+
+        resultActions.andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-1"));
+    }
+
+    @Test
+    @DisplayName("대회 등록: linkUrl 스킴은 대소문자를 가리지 않는다")
+    @WithUserDetails("admin")
+    void writeWithUppercaseSchemeLinkUrl() throws Exception {
+        ResultActions resultActions = mvc.perform(post("/api/v1/contests")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(writeRequestJson("AI 해커톤", "HTTPS://example.com/contest")));
+
+        resultActions.andExpect(status().isCreated())
+                .andExpect(jsonPath("$.resultCode").value("201-1"));
+    }
+
+    @Test
     @DisplayName("대회 등록: 모집 시작일이 종료일보다 늦으면 400-3이다")
     @WithUserDetails("admin")
     void writeWithStartAfterEnd() throws Exception {
@@ -266,6 +314,20 @@ public class ApiV1ContestControllerTest {
         ResultActions resultActions = mvc.perform(patch("/api/v1/contests/" + contestId)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(modifyRequestJson("", "https://example.com/modified")));
+
+        resultActions.andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-1"));
+    }
+
+    @Test
+    @DisplayName("대회 수정: linkUrl에 scheme이 없으면 400-1이다")
+    @WithUserDetails("admin")
+    void modifyWithSchemelessLinkUrl() throws Exception {
+        long contestId = writeContestAsAdmin("수정 전 제목");
+
+        ResultActions resultActions = mvc.perform(patch("/api/v1/contests/" + contestId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(modifyRequestJson("수정된 제목", "www.example.com")));
 
         resultActions.andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.resultCode").value("400-1"));

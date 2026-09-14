@@ -10,6 +10,7 @@ import com.back.domain.party.party.service.PartyLifecycleService;
 import com.back.domain.party.party.service.PartyService;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
+import com.back.global.validation.ValidHttpUrl;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -52,6 +53,7 @@ public class ApiV1PartyController {
             @Size(max = 20000) String description,
             Long targetContestId,
             String contestTitle,
+            @ValidHttpUrl
             String contestLinkUrl,
             @NotNull TopicType topicType,
             @NotNull PartyTag partyTag,
@@ -106,6 +108,7 @@ public class ApiV1PartyController {
             @Size(max = 20000) String description,
             Long targetContestId,
             String contestTitle,
+            @ValidHttpUrl
             String contestLinkUrl,
             @NotNull TopicType topicType,
             @NotNull PartyTag partyTag,
