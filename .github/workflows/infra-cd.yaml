@@ -27,7 +27,7 @@ jobs:
       github.event.workflow_run.head_branch == 'develop')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    environment: dev
+    environment: prod
     steps:
       - uses: actions/checkout@v5
         with:
@@ -111,10 +111,10 @@ jobs:
           FRONTEND: ${{ steps.resolved_image.outputs.frontend }}
           BACKEND_VERSION: ${{ steps.resolved_image.outputs.backend_version }}
           K6_MAX_DURATION: ${{ vars.K6_MAX_DURATION || '10m' }}
-          K6_POST_DEPLOY_SECONDS: ${{ vars.K6_POST_DEPLOY_SECONDS || '60' }}
+          K6_POST_DEPLOY_SECONDS: ${{ vars.K6_POST_DEPLOY_SECONDS || '10' }}
           K6_RATE: ${{ vars.K6_RATE || '5' }}
         run: |
-          [ -n "$ENV_PROD" ] || { echo "::error::dev Environment에 ENV_PROD Secret을 등록한다."; exit 1; }
+          [ -n "$ENV_PROD" ] || { echo "::error::prod Environment에 ENV_PROD Secret을 등록한다."; exit 1; }
           umask 077
           printf '%s' "$ENV_PROD" > runner.env
           trap 'shred -u runner.env 2>/dev/null || rm -f runner.env' EXIT
