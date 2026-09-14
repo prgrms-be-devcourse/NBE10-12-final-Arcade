@@ -51,7 +51,10 @@ public class PartyRecommendationCandidateService {
      * 후보 파티 id를 매칭 점수순으로 뽑는다. 본인이 만들었거나 이미 지원/참여한 파티는 제외한다.
      */
     public List<Long> selectCandidatePartyIds(Member member, int limit) {
-        MemberProfile profile = memberProfileRepository.findByMember(member).orElseThrow();
+        MemberProfile profile = memberProfileRepository.findWithTechStacksByMember(member).orElse(null);
+        if (profile == null) {
+            return List.of();
+        }
 
         Set<String> keywords = new LinkedHashSet<>();
         profile.getTechStacks().stream()
