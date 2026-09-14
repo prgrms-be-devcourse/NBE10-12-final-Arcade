@@ -9,6 +9,7 @@ import { Block, DetailGrid, DetailLayout, SideCard } from '@/components/ui/Block
 import { LeaderRow } from '@/components/ui/Avatar';
 import { Tag, TagRow } from '@/components/ui/Tag';
 import { fetchContest, fetchParty } from '@/lib/api';
+import { httpUrlOrNull } from '@/lib/externalUrl';
 import { MOCK_CURRENT_USER_ID } from '@/lib/mock';
 import {
   CONTEST_FORMAT_LABELS,
@@ -24,11 +25,13 @@ export default async function PartyDetailPage({ params }: { params: Promise<{ id
   // 연동 대회의 원본 페이지 주소.
   // 크루온에 등록된 대회는 링크가 CONTEST 쪽에 있어 한 번 더 읽고,
   // 미등록 외부 대회는 파티에 자유 입력된 링크를 그대로 쓴다 (기획서 3.5).
-  const contestLinkUrl = party.contestId
-    ? await fetchContest(party.contestId)
-        .then((contest) => contest.linkUrl)
-        .catch(() => undefined)
-    : party.contestLinkUrl;
+  const contestLinkUrl = httpUrlOrNull(
+    party.contestId
+      ? await fetchContest(party.contestId)
+          .then((contest) => contest.linkUrl)
+          .catch(() => undefined)
+      : party.contestLinkUrl,
+  );
 
   // 매칭 전 문의는 팀원 목록의 쪽지 아이콘으로, 매칭 후 협업 대화는 팀 스페이스의 채팅이 담당한다
 

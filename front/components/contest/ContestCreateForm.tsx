@@ -15,6 +15,7 @@ import {
 import { RadioChipGroup } from '@/components/ui/RadioChipGroup';
 import { createContest, updateContest } from '@/lib/api';
 import { CONTEST_FORMATS, CONTEST_FORMAT_LABELS, CONTEST_TAGS } from '@/lib/constants';
+import { httpUrlOrNull } from '@/lib/externalUrl';
 import { useLeaveTo } from '@/lib/navigation';
 import type { ContestFormat, ContestTag } from '@/lib/types';
 
@@ -44,6 +45,8 @@ export function ContestCreateForm({ editId }: { editId?: string }) {
     if (!title.trim()) next.title = '대회명을 입력해 주세요.';
     if (!tag) next.tag = '분야를 선택해 주세요.';
     if (!linkUrl.trim()) next.linkUrl = '원본 페이지 링크를 입력해 주세요.';
+    else if (!httpUrlOrNull(linkUrl.trim()))
+      next.linkUrl = 'http:// 또는 https://로 시작하는 주소를 입력해 주세요.';
     if (!startDate) next.startDate = '접수 시작일을 선택해 주세요.';
     if (!endDate) next.endDate = '접수 종료일을 선택해 주세요.';
     else if (startDate && endDate < startDate) next.endDate = '접수 종료일이 시작일보다 빨라요.';
