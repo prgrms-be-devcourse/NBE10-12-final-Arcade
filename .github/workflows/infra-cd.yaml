@@ -193,7 +193,7 @@ jobs:
               ' "$result/summary.json"
             fi
             if [ -f "$result/samples.json" ]; then
-              echo "- 관찰한 백엔드 버전: $(jq -r 'select(.metric == "application_version_responses") | .data.tags.version' "$result/samples.json" | sort -u | paste -sd, -)"
+              echo "- 관찰한 백엔드 버전: $(jq -r 'select(.metric == "application_version_responses") | .data.tags.version // empty' "$result/samples.json" | sort -u | paste -sd, -)"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
