@@ -46,6 +46,23 @@ function apiBase(): string {
   return API_BASE_URL;
 }
 
+/**
+ * 서버가 내려주는 업로드 파일 URL(`/uploads/...`)은 서버 자신을 기준으로 한 상대 경로다.
+ * 프론트와 백엔드가 다른 오리진(로컬은 :3000/:8080, 배포는 서로 다른 도메인)이라
+ * 그대로 <img>·background-image 에 쓰면 프론트 자신의 오리진에서 찾아 404가 난다 —
+ * API_BASE_URL 에서 "/api/v1" 을 떼어낸 서버 오리진을 붙여 절대 주소로 만들어야 한다.
+ * 이미 절대 주소(https://... 등, 예: GitHub 아바타)면 그대로 둔다.
+ */
+export function resolveMediaUrl(url: string): string;
+export function resolveMediaUrl(url: string | null | undefined): string | undefined;
+export function resolveMediaUrl(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  if (/^(https?:)?\/\//.test(url)) return url;
+
+  const origin = API_BASE_URL.replace(/\/api\/v\d+\/?$/, "");
+  return `${origin}${url}`;
+}
+
 /** 목 응답에 약간의 지연을 줘서 로딩 상태를 실제처럼 확인할 수 있게 한다. */
 const MOCK_LATENCY_MS = 180;
 
