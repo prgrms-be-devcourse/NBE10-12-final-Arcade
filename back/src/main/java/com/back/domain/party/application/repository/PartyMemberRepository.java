@@ -132,4 +132,8 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
         order by pm.createDate desc
         """)
     List<PartyMember> findAllByMemberOrderByCreateDateDesc(@Param("member") Member member);
+
+    // 추천 후보에서 이미 지원/참여한 파티를 빼기 위한 파티 id 목록. 상태 불문(거절 포함) - 이미 접점이 있던 파티라 다시 추천할 이유가 없다.
+    @Query("select distinct pm.party.id from PartyMember pm where pm.member = :member")
+    List<Long> findPartyIdsByMember(@Param("member") Member member);
 }

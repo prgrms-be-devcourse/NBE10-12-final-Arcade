@@ -285,6 +285,7 @@ export async function agreeToRequiredTerms(): Promise<void> {
  * 순서를 뒤집으면 프로필은 저장됐는데 동의가 없어 계속 온보딩이 뜨는 상태가 될 수 있다.
  */
 export async function completeOnboarding(payload: {
+  realName: string;
   nickname: string;
   position: PositionType;
 }): Promise<void> {
@@ -293,6 +294,7 @@ export async function completeOnboarding(payload: {
   if (USE_MOCK) return mockResponse(undefined as void);
   // 보낸 항목만 바뀐다(ARC-120). 온보딩은 이 둘만 다룬다
   await http.patch<MemberProfileResponse>('/members/me', {
+    name: payload.realName,
     nickname: payload.nickname,
     position: payload.position,
   });
