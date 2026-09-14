@@ -14,6 +14,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -52,6 +53,7 @@ public class ApiV1PartyController {
             @Size(max = 20000) String description,
             Long targetContestId,
             String contestTitle,
+            @Pattern(regexp = "^$|^https?://.+", message = "http:// 또는 https://로 시작하는 URL만 허용됩니다.")
             String contestLinkUrl,
             @NotNull TopicType topicType,
             @NotNull PartyTag partyTag,
@@ -106,6 +108,7 @@ public class ApiV1PartyController {
             @Size(max = 20000) String description,
             Long targetContestId,
             String contestTitle,
+            @Pattern(regexp = "^$|^https?://.+", message = "http:// 또는 https://로 시작하는 URL만 허용됩니다.")
             String contestLinkUrl,
             @NotNull TopicType topicType,
             @NotNull PartyTag partyTag,
