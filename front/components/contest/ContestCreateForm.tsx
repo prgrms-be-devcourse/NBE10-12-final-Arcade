@@ -57,13 +57,13 @@ export function ContestCreateForm({ editId }: { editId?: string }) {
    */
   useEffect(() => {
     if (!editId) return;
-    // editId 가 언마운트 없이 A → B 로 바뀌는 경우(같은 컴포넌트가 재사용될 때)에도 다시 로딩 상태로
-    // 돌아가야 한다 - 안 그러면 B 를 불러오는 동안 화면엔 A 값이 남은 채로 저장 버튼이 눌릴 수 있다
-    setLoading(true);
-    setLoadError('');
     let alive = true;
 
     (async () => {
+      // editId 가 언마운트 없이 A → B 로 바뀌는 경우(같은 컴포넌트가 재사용될 때)에도 다시 로딩 상태로
+      // 돌아가야 한다 - 안 그러면 B 를 불러오는 동안 화면엔 A 값이 남은 채로 저장 버튼이 눌릴 수 있다
+      setLoading(true);
+      setLoadError('');
       try {
         const contest = await fetchContest(editId);
         if (!alive) return;
