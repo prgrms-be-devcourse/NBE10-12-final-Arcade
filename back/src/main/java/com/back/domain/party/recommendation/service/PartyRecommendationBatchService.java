@@ -9,6 +9,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +25,7 @@ import java.util.List;
 public class PartyRecommendationBatchService {
 
     private static final int RECOMMENDATION_SIZE = 10;
+    private static final int MEMBER_CHUNK_SIZE = 500;
 
     private final MemberProfileRepository memberProfileRepository;
     private final PartyRecommendationCandidateService candidateService;
@@ -34,17 +38,22 @@ public class PartyRecommendationBatchService {
     // 매일 새벽 3시 - 새벽대 트래픽이 가장 낮은 시간대. FeaturedRankingBatchService(자정)와 안 겹치게 띄운다.
     @Scheduled(cron = "0 0 3 * * *")
     public void computeAll() {
-        List<Member> membersWithProfile = memberProfileRepository.findAll().stream()
-                .map(MemberProfile::getMember)
-                .toList();
+        Pageable pageable = PageRequest.of(0, MEMBER_CHUNK_SIZE);
+        Page<MemberProfile> page;
+        do {
+            page = memberProfileRepository.findAll(pageable);
 
-        for (Member member : membersWithProfile) {
-            try {
-                self.computeForMember(member);
-            } catch (Exception e) {
-                log.warn("회원 {} 추천 계산 실패", member.getId(), e);
+            for (MemberProfile profile : page.getContent()) {
+                Member member = profile.getMember();
+                try {
+                    self.computeForMember(member);
+                } catch (Exception e) {
+                    log.warn("회원 {} 추천 계산 실패", member.getId(), e);
+                }
             }
-        }
+
+            pageable = pageable.next();
+        } while (page.hasNext());
     }
 
     @Transactional
