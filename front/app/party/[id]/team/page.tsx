@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { Icon } from '@/components/icons/Icon';
 import { GithubConnectionCard } from '@/components/team/GithubConnectionCard';
 import { PullRequestList } from '@/components/team/PullRequestList';
@@ -8,6 +7,7 @@ import { Block, DetailGrid, DetailLayout, SideCard } from '@/components/ui/Block
 import { LeaderRow } from '@/components/ui/Avatar';
 import { DDay, Tag, TagRow } from '@/components/ui/Tag';
 import {
+  fetchContest,
   fetchParty,
   fetchPartyGithubConnectionOrNull,
   fetchPartyPrGroupsOrEmpty,
@@ -15,6 +15,7 @@ import {
   fetchMyProfileOrNull,
 } from '@/lib/api';
 import { TOPIC_TYPE_LABELS } from '@/lib/constants';
+import { httpUrlOrNull } from '@/lib/externalUrl';
 
 export default async function TeamSpacePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ githubRepoManager?: string }> }) {
   const { id } = await params;
@@ -32,6 +33,16 @@ export default async function TeamSpacePage({ params, searchParams }: { params: 
    * PR 0건이어도 모두 담아 주므로(ARC-108) 그 목록을 팀원 블록에 그대로 쓴다.
    */
   const members = membersOf(prGroups);
+
+  // 연동 대회의 원본 페이지 주소. 등록된 대회든 외부 대회든 항상 원본 링크로 연결한다
+  // (내부 Contest 상세로는 보내지 않는다 — 신청기한이 지나 archive된 대회는 내부 상세 경로가 없어도 되게 설계됨).
+  const contestLinkUrl = httpUrlOrNull(
+    party.contestId
+      ? await fetchContest(party.contestId)
+          .then((contest) => contest.linkUrl)
+          .catch(() => undefined)
+      : party.contestLinkUrl,
+  );
 
   return (
     <DetailLayout backHref="/mypage">
@@ -107,7 +118,7 @@ export default async function TeamSpacePage({ params, searchParams }: { params: 
               {party.contestName ? <SideCard title="연동 대회">
                 <div className="contest-link-card">
                   <div><h4>{party.contestName}</h4><p className="clc-sub">파티에 연결된 대회예요.</p></div>
-                  {party.contestId ? <Link className="card-link" href={`/contests/${party.contestId}`}>대회 보기 →</Link> : party.contestLinkUrl ? <a className="card-link" href={party.contestLinkUrl} target="_blank" rel="noopener noreferrer">대회 보기 ↗</a> : null}
+                  {contestLinkUrl ? <a className="card-link" href={contestLinkUrl} target="_blank" rel="noopener noreferrer">대회 보기 ↗</a> : null}
                 </div>
               </SideCard> : null}
               <SideCard title="파티장">
