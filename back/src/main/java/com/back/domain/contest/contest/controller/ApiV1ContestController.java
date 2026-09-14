@@ -188,7 +188,9 @@ public class ApiV1ContestController {
         String viewCookieName = "contest_viewed_" + contestId;
         boolean alreadyViewed = rq.hasViewCookie(viewCookieName);
 
-        ContestResponseDto contestResponseDto = contestService.getDetail(contestId, !alreadyViewed).orElseThrow();
+        ContestResponseDto contestResponseDto = contestService
+                .getDetail(contestId, !alreadyViewed, rq.getActorFromDb())
+                .orElseThrow();
 
         if (!alreadyViewed) {
             rq.setViewCookie(viewCookieName, VIEW_COOKIE_PATH);
