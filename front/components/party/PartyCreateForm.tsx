@@ -172,7 +172,9 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
 
   /** 스터디 · 기타는 포지션을 나눠 뽑지 않으므로 모집 포지션을 필수로 보지 않는다 */
   const positionRequired = topicType === 'CONTEST' || topicType === 'PROJECT';
-  const totalCapacity = positions.reduce((sum, row) => sum + (Number(row.capacity) || 0), 0);
+  // 제출 시에도 이 기준으로 걸러 보내므로(음수·0 정원 행은 안 보낸다), 합산·검증도 같은 기준을 써야 한다
+  const isFilled = (row: PositionRow) => Number(row.capacity) > 0;
+  const totalCapacity = positions.filter(isFilled).reduce((sum, row) => sum + Number(row.capacity), 0);
 
   const validate = () => {
     const next: Record<string, string> = {};
@@ -190,14 +192,15 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
       else if (!httpUrlOrNull(contestLinkUrl.trim()))
         next.contestLinkUrl = 'http:// 또는 https://로 시작하는 주소를 입력해 주세요.';
     }
-    if (positionRequired) {
-      const filled = positions.filter((row) => Number(row.capacity) > 0);
-      if (filled.length === 0) next.positions = '모집 포지션과 정원을 한 개 이상 입력해 주세요.';
-    }
+    // 여러 조건에 동시에 걸릴 수 있어 덮어쓰지 않고 모두 모아서 보여준다
+    const positionErrors: string[] = [];
+    if (positionRequired && positions.filter(isFilled).length === 0)
+      positionErrors.push('모집 포지션과 정원을 한 개 이상 입력해 주세요.');
     if (new Set(positions.map((row) => row.type)).size !== positions.length)
-      next.positions = '같은 포지션을 중복해서 추가할 수 없어요.';
+      positionErrors.push('같은 포지션을 중복해서 추가할 수 없어요.');
     if (totalCapacity > TOTAL_CAPACITY_MAX)
-      next.positions = `파티 총원은 ${TOTAL_CAPACITY_MAX}명을 넘을 수 없어요.`;
+      positionErrors.push(`파티 총원은 ${TOTAL_CAPACITY_MAX}명을 넘을 수 없어요.`);
+    if (positionErrors.length > 0) next.positions = positionErrors.join(' ');
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -217,7 +220,7 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
       description,
       coverFileName: coverFileName ?? undefined,
       positions: positions
-        .filter((row) => Number(row.capacity) > 0)
+        .filter(isFilled)
         .map(({ type, capacity }) => ({ type, capacity: Number(capacity) })),
       repositoryUrl: repositoryUrl || undefined,
     };
@@ -400,15 +403,14 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
         label="모집 포지션"
         required={positionRequired}
         hint={`총원 ${totalCapacity} / ${TOTAL_CAPACITY_MAX}명`}
-        error={positionRequired ? errors.positions : undefined}
+        error={errors.positions}
       >
         <div>
           {positions.map((position) => {
-            const rowMax = Math.max(
-              0,
-              TOTAL_CAPACITY_MAX -
-                (totalCapacity - (Number(position.capacity) || 0)),
-            );
+            // totalCapacity 는 isFilled 인 행만 더하므로, 이 행이 채워져 있을 때만 그 몫을 빼야
+            // "다른 행들의 합"이 맞게 나온다 (음수·0 정원 행은 애초에 총합에 안 들어가 있다)
+            const ownContribution = isFilled(position) ? Number(position.capacity) : 0;
+            const rowMax = Math.max(0, TOTAL_CAPACITY_MAX - (totalCapacity - ownContribution));
             return (
               <div key={position.key} className="position-input-row">
                 <SelectField
@@ -433,7 +435,13 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
                   placeholder="정원"
                   value={position.capacity}
                   onChange={(event) => {
-                    patchPosition(position.key, { capacity: event.target.value });
+                    // 버튼 클릭으로 제출하기 때문에(type="button") 네이티브 max 제약은 그 자체로는
+                    // 강제되지 않는다 - 여기서 직접 clamp 해야 실제로 rowMax 를 넘길 수 없다
+                    const raw = event.target.value;
+                    const parsed = Number(raw);
+                    const capacity =
+                      raw !== '' && !Number.isNaN(parsed) && parsed > rowMax ? String(rowMax) : raw;
+                    patchPosition(position.key, { capacity });
                     setErrors((prev) => ({ ...prev, positions: '' }));
                   }}
                 />
