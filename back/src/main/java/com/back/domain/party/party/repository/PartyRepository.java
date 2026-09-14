@@ -127,4 +127,8 @@ public interface PartyRepository extends JpaRepository<Party, Long>,PartyContest
     List<Party> findParticipatingBy(@Param("member") Member member);
 
     List<Party> findByOwnerOrderByCreateDateDesc(Member owner);
+
+    // 추천 후보에서 본인이 만든 파티를 빼기 위한 owner 파티 id 목록.
+    @Query("select p.id from Party p where p.owner = :owner")
+    List<Long> findIdsByOwner(@Param("owner") Member owner);
 }
