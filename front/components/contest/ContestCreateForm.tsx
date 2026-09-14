@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CoverUpload } from '@/components/ui/CoverUpload';
 import {
@@ -13,7 +13,7 @@ import {
   TextField,
 } from '@/components/ui/Field';
 import { RadioChipGroup } from '@/components/ui/RadioChipGroup';
-import { createContest, updateContest } from '@/lib/api';
+import { createContest, fetchContest, updateContest } from '@/lib/api';
 import { CONTEST_FORMATS, CONTEST_FORMAT_LABELS, CONTEST_TAGS } from '@/lib/constants';
 import { httpUrlOrNull } from '@/lib/externalUrl';
 import { useLeaveTo } from '@/lib/navigation';
@@ -39,6 +39,37 @@ export function ContestCreateForm({ editId }: { editId?: string }) {
   const [description, setDescription] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  /** 수정 진입 시 기존 값을 읽어오는 동안. 다 읽기 전에 저장하면 빈 값으로 덮인다 */
+  const [loading, setLoading] = useState(Boolean(editId));
+
+  /**
+   * 수정 진입이면 기존 대회를 읽어 폼을 채운다.
+   *
+   * 대표 이미지는 CoverUpload 가 기존 파일을 표시하는 방법이 없어(새 파일 선택 전용) 채우지 않는다 -
+   * 그래서 수정할 때는 새 이미지를 다시 올리지 않아도 되게 validate() 에서 이 필드를 건너뛴다.
+   */
+  useEffect(() => {
+    if (!editId) return;
+    let alive = true;
+
+    (async () => {
+      const contest = await fetchContest(editId);
+      if (!alive) return;
+
+      setTitle(contest.title);
+      setFormat(contest.format);
+      setTag(contest.tag);
+      setLinkUrl(contest.linkUrl);
+      setStartDate(contest.applicationPeriodStart);
+      setEndDate(contest.applicationPeriodEnd);
+      setDescription(contest.description);
+      setLoading(false);
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [editId]);
 
   const validate = () => {
     const next: Record<string, string> = {};
@@ -50,7 +81,7 @@ export function ContestCreateForm({ editId }: { editId?: string }) {
     if (!startDate) next.startDate = '접수 시작일을 선택해 주세요.';
     if (!endDate) next.endDate = '접수 종료일을 선택해 주세요.';
     else if (startDate && endDate < startDate) next.endDate = '접수 종료일이 시작일보다 빨라요.';
-    if (!coverFileName) next.cover = '대표 이미지를 1장 등록해 주세요.';
+    if (!editId && !coverFileName) next.cover = '대표 이미지를 1장 등록해 주세요.';
     if (!description.trim()) next.description = '공모전 소개를 입력해 주세요.';
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -194,8 +225,13 @@ export function ContestCreateForm({ editId }: { editId?: string }) {
       </FormGroup>
 
       <FormActions>
-        <button type="button" className="btn btn-primary" onClick={submit} disabled={submitting}>
-          {submitting ? '신청 중…' : editId ? '수정 저장' : '등록 신청'}
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={submit}
+          disabled={submitting || loading}
+        >
+          {loading ? '불러오는 중…' : submitting ? '신청 중…' : editId ? '수정 저장' : '등록 신청'}
         </button>
         <button type="button" className="btn btn-ghost" onClick={leave}>
           취소

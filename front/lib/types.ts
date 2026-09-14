@@ -285,6 +285,10 @@ export interface Contest {
   status: '접수중' | '마감임박' | '마감';
   dday: string;
   period: string;
+  /** 접수 시작·종료일 원본(YYYY-MM-DD). period 는 화면 표시용으로 연도가 생략돼 있어(예: "08.01 ~ 09.10")
+   *  수정 폼의 날짜 입력칸을 채우려면 이 값이 따로 필요하다 */
+  applicationPeriodStart: string;
+  applicationPeriodEnd: string;
   /** 원본 페이지 링크 — 필수 (기획서 3.5) */
   linkUrl: string;
   /** 등록한 대표 사진. 없으면 카드 상단이 기본 빗금 배경으로 보인다 */
