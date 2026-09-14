@@ -175,8 +175,11 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
       next.title = `모집글 제목은 ${TITLE_MAX}자까지 입력할 수 있어요.`;
     if (!description.trim()) next.description = '파티 소개를 입력해 주세요.';
     // pickedContest 가 있으면 linkUrl 은 대회 쪽 값을 그대로 쓰므로 이 입력칸 자체가 안 보인다
-    if (!pickedContest && contestLinkUrl.trim() && !httpUrlOrNull(contestLinkUrl.trim()))
-      next.contestLinkUrl = 'http:// 또는 https://로 시작하는 주소를 입력해 주세요.';
+    if (topicType === 'CONTEST' && !pickedContest) {
+      if (!contestLinkUrl.trim()) next.contestLinkUrl = '대회 원본 링크를 입력해 주세요.';
+      else if (!httpUrlOrNull(contestLinkUrl.trim()))
+        next.contestLinkUrl = 'http:// 또는 https://로 시작하는 주소를 입력해 주세요.';
+    }
     if (positionRequired) {
       const filled = positions.filter((row) => Number(row.capacity) > 0);
       if (filled.length === 0) next.positions = '모집 포지션과 정원을 한 개 이상 입력해 주세요.';
@@ -310,7 +313,8 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
         {pickedContest ? null : (
           <FormGroup
             label="대회 원본 링크"
-            hint="등록 여부와 관계없이 원본 페이지 링크는 항상 필요해요."
+            required
+            hint="대회 링크를 입력해주세요."
             error={errors.contestLinkUrl}
           >
             <TextField
