@@ -9,6 +9,7 @@ import { POSITION_LABELS, POSITION_TYPES } from '@/lib/constants';
 import type { PositionType } from '@/lib/types';
 
 export interface OnboardingResult {
+  realName: string;
   nickname: string;
   position: PositionType;
 }
@@ -35,6 +36,7 @@ interface OnboardingModalProps {
 export function OnboardingModal({ open, defaultNickname = '', onSubmit }: OnboardingModalProps) {
   const [agreements, setAgreements] = useState<string[]>([]);
   const [nickname, setNickname] = useState(defaultNickname);
+  const [realName, setRealName] = useState('');
   const [position, setPosition] = useState<PositionType>('BACK');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -49,12 +51,13 @@ export function OnboardingModal({ open, defaultNickname = '', onSubmit }: Onboar
 
   const submit = async () => {
     if (!agreedAll) return setError('필수 약관에 모두 동의해 주세요.');
+    if (!realName.trim()) return setError('실명을 입력해 주세요.');
     if (!nickname.trim()) return setError('닉네임을 입력해 주세요.');
 
     setError(null);
     setSubmitting(true);
     try {
-      await onSubmit({ nickname: nickname.trim(), position });
+      await onSubmit({ realName: realName.trim(), nickname: nickname.trim(), position });
     } catch {
       setError('저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
     } finally {
@@ -87,6 +90,14 @@ export function OnboardingModal({ open, defaultNickname = '', onSubmit }: Onboar
       </div>
 
       <div className="onboarding-fields">
+        <FormGroup label="실명" required>
+          <TextField
+            placeholder="실명을 입력해 주세요"
+            value={realName}
+            onChange={(event) => setRealName(event.target.value)}
+          />
+        </FormGroup>
+
         <FormGroup label="닉네임" required>
           <TextField
             placeholder="크루온에서 쓸 이름"
