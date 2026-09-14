@@ -228,7 +228,7 @@ public class ApiV1PartyController {
         String viewCookieName = "party_viewed_" + partyId;
         boolean alreadyViewed = rq.hasViewCookie(viewCookieName);
 
-        PartyDto partyDto = partyService.getDetail(partyId, !alreadyViewed);
+        PartyDto partyDto = partyService.getDetail(partyId, !alreadyViewed, rq.getActorFromDb());
 
         if (!alreadyViewed) {
             rq.setViewCookie(viewCookieName, VIEW_COOKIE_PATH);

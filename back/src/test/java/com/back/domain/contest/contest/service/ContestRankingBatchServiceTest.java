@@ -106,7 +106,7 @@ class ContestRankingBatchServiceTest {
                 new ViewSnapshot(TargetType.CONTEST, contestId, 2, LocalDate.now().minusDays(29)));
 
         for (int i = 0; i < 5; i++) {
-            contestService.getDetail(contestId, true);
+            contestService.getDetail(contestId, true, null);
         }
 
         contestRankingBatchService.computeContestRanking();
