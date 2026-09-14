@@ -30,7 +30,7 @@ public class PartyRecommendationService {
     private final MemberProfileRepository memberProfileRepository;
 
     public PartyRecommendationResultDto getRecommendations(Member actor) {
-        boolean hasProfile = memberProfileRepository.findByMember(actor).isPresent();
+        boolean hasProfile = memberProfileRepository.existsByMember(actor);
         if (!hasProfile) {
             return PartyRecommendationResultDto.needsProfile();
         }
