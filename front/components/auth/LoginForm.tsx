@@ -7,7 +7,7 @@ import { AuthLogo } from './AuthLogo';
 import { SocialButtons } from './SocialButtons';
 import { FormGroup, TextField } from '@/components/ui/Field';
 import { RadioChipGroup } from '@/components/ui/RadioChipGroup';
-import { login } from '@/lib/api';
+import { ApiError, login } from '@/lib/api';
 import type { MemberType } from '@/lib/api/auth';
 
 const MEMBER_TYPES = ['일반', '주최측'] as const;
@@ -15,15 +15,19 @@ const MEMBER_TYPES = ['일반', '주최측'] as const;
 export function LoginForm() {
   const router = useRouter();
   const [memberType, setMemberType] = useState<MemberType>('일반');
-  const [email, setEmail] = useState('haneul@crewon.dev');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   const submit = async () => {
+    setError('');
     setSubmitting(true);
     try {
       const user = await login({ email, password, memberType });
       router.push(user.role === 'HOST' ? '/host' : '/');
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : '이메일 또는 비밀번호를 확인해 주세요.');
     } finally {
       setSubmitting(false);
     }
@@ -83,6 +87,7 @@ export function LoginForm() {
               </Link>
             </div>
           </FormGroup>
+          {error ? <p className="form-error" role="alert">{error}</p> : null}
           <button
             type="button"
             className="btn btn-primary"
