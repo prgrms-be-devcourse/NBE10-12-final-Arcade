@@ -35,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.back.domain.party.party.entity.PartySortOption.DEADLINE;
 import static com.back.domain.party.party.entity.PartySortOption.VACANCY;
@@ -43,6 +44,9 @@ import static com.back.domain.party.party.entity.PartySortOption.VACANCY;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class PartyService {
+
+    // 프론트 PartyCreateForm.tsx의 TOTAL_CAPACITY_MAX와 같은 값
+    private static final int TOTAL_CAPACITY_MAX = 10;
 
     private final PartyRepository partyRepository;
     private final LikeInteractionPort likeInteractionPort;
@@ -83,6 +87,21 @@ public class PartyService {
                 throw new ServiceException("400-4", "포지션 정원은 1명 이상이어야 합니다.");
             }
         });
+
+        long distinctPositionTypes = positionSpecs.stream()
+                .map(PositionCreateSpec::type)
+                .distinct()
+                .count();
+        if (distinctPositionTypes != positionSpecs.size()) {
+            throw new ServiceException("400-4", "같은 포지션을 중복해서 추가할 수 없습니다.");
+        }
+
+        int totalCapacity = positionSpecs.stream()
+                .mapToInt(PositionCreateSpec::capacity)
+                .sum();
+        if (totalCapacity > TOTAL_CAPACITY_MAX) {
+            throw new ServiceException("400-4", "파티 총원은 " + TOTAL_CAPACITY_MAX + "명을 넘을 수 없습니다.");
+        }
 
         Contest targetContest = targetContestId == null
                 ? null
@@ -169,13 +188,28 @@ public class PartyService {
                 deadline
         );
 
-        if (positionCapacityUpdates != null) {
+        if (positionCapacityUpdates != null && !positionCapacityUpdates.isEmpty()) {
             positionCapacityUpdates.forEach(spec -> {
                 if (spec.capacity() <= 0) {
                     throw new ServiceException("400-4", "포지션 정원은 1명 이상이어야 합니다.");
                 }
-                party.findPosition(spec.positionId()).changeCapacity(spec.capacity());
             });
+
+            // update()는 기존 포지션의 정원만 바꾸고 새 포지션을 추가하지 않으므로,
+            // 수정 대상이 아닌 포지션은 현재 capacity를 그대로 더해 전체 총원을 계산한다.
+            Map<Long, Integer> newCapacityByPositionId = positionCapacityUpdates.stream()
+                    .collect(Collectors.toMap(PositionCapacityUpdateSpec::positionId, PositionCapacityUpdateSpec::capacity));
+
+            int totalCapacity = party.getPositions().stream()
+                    .mapToInt(position -> newCapacityByPositionId.getOrDefault(position.getId(), position.getCapacity()))
+                    .sum();
+            if (totalCapacity > TOTAL_CAPACITY_MAX) {
+                throw new ServiceException("400-4", "파티 총원은 " + TOTAL_CAPACITY_MAX + "명을 넘을 수 없습니다.");
+            }
+
+            positionCapacityUpdates.forEach(spec ->
+                    party.findPosition(spec.positionId()).changeCapacity(spec.capacity())
+            );
         }
 
         if (!previousTitle.equals(title)) {

@@ -161,6 +161,60 @@ public class ApiV1PartyControllerTest {
     }
 
     @Test
+    @DisplayName("파티 생성: 같은 포지션을 중복해서 추가하면 400-4이다")
+    @WithUserDetails("user1@test.com")
+    void createPartyWithDuplicatePositionType() throws Exception {
+        String body = """
+            {
+                "partyName": "오락실 팀",
+                "title": "오락실 공모전 팀원 모집",
+                "description": "테스트용 파티 설명입니다",
+                "topicType": "PROJECT",
+                "partyTag": "WEB",
+                "deadline": "%s",
+                "positions": [
+                    { "name": "BACK", "capacity": 1 },
+                    { "name": "BACK", "capacity": 1 }
+                ]
+            }
+            """.formatted(deadline);
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/parties")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body));
+
+        resultActions.andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.resultCode").value("400-4"));
+    }
+
+    @Test
+    @DisplayName("파티 생성: 포지션 정원 합이 10명을 넘으면 400-4이다")
+    @WithUserDetails("user1@test.com")
+    void createPartyWithTotalCapacityOverLimit() throws Exception {
+        String body = """
+            {
+                "partyName": "오락실 팀",
+                "title": "오락실 공모전 팀원 모집",
+                "description": "테스트용 파티 설명입니다",
+                "topicType": "PROJECT",
+                "partyTag": "WEB",
+                "deadline": "%s",
+                "positions": [
+                    { "name": "BACK", "capacity": 6 },
+                    { "name": "FRONT", "capacity": 5 }
+                ]
+            }
+            """.formatted(deadline);
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/parties")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body));
+
+        resultActions.andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.resultCode").value("400-4"));
+    }
+
+    @Test
     @DisplayName("파티 생성: 유효한 targetContestId로 대회와 연결되고 응답에 targetContest가 포함된다")
     @WithUserDetails("user1@test.com")
     void createPartyLinkedToContest() throws Exception {
@@ -391,6 +445,47 @@ public class ApiV1PartyControllerTest {
             ]
         }
         """.formatted(deadline, position.getId());
+
+        ResultActions resultActions = mvc.perform(patch("/api/v1/parties/" + party.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(updateBody));
+
+        resultActions.andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-4"));
+    }
+
+    @Test
+    @DisplayName("파티 수정: 수정 대상이 아닌 포지션까지 합쳐 정원이 10명을 넘으면 400-4이다")
+    @WithUserDetails("user1@test.com")
+    void updatePartyWithTotalCapacityOverLimit() throws Exception {
+        Member owner = memberRepository.findByEmail("user1@test.com").orElseThrow();
+        Party party = new Party(
+                owner, "오락실 팀", "오락실 공모전 팀원 모집", "설명",
+                null, null, null,
+                TopicType.PROJECT, PartyTag.WEB, null,
+                LocalDateTime.now().plusDays(7)
+        );
+        party.addPosition(new Position(PositionType.BACK, 6));
+        party.addPosition(new Position(PositionType.FRONT, 2));
+        party = partyRepository.save(party);
+
+        // BACK(수정 대상 X, 6명) + FRONT(5명으로 수정) = 11명으로 총원 상한 초과
+        Position frontPosition = party.getPositions().stream()
+                .filter(p -> p.getType() == PositionType.FRONT)
+                .findFirst().orElseThrow();
+
+        String updateBody = """
+            {
+                "partyName": "수정된 이름",
+                "title": "수정된 제목",
+                "topicType": "PROJECT",
+                "partyTag": "WEB",
+                "deadline": "%s",
+                "positions": [
+                    { "positionId": %d, "capacity": 5 }
+                ]
+            }
+            """.formatted(deadline, frontPosition.getId());
 
         ResultActions resultActions = mvc.perform(patch("/api/v1/parties/" + party.getId())
                 .contentType(MediaType.APPLICATION_JSON)
