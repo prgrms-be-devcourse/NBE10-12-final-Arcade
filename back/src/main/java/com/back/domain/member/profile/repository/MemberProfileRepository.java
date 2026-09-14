@@ -22,6 +22,6 @@ public interface MemberProfileRepository extends JpaRepository<MemberProfile, In
     boolean existsByMember(Member member);
 
     // 배치에서 전체 프로필을 청크 단위로 순회할 때, 엔티티 대신 회원 id만 페이징 조회한다.
-    @Query("select mp.member.id from MemberProfile mp")
+    @Query("select mp.member.id from MemberProfile mp order by mp.member.id asc")
     Page<Long> findAllMemberIds(Pageable pageable);
 }
