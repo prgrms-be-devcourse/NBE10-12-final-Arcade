@@ -291,6 +291,11 @@ export interface Contest {
   applicationPeriodEnd: string;
   /** 원본 페이지 링크 — 필수 (기획서 3.5) */
   linkUrl: string;
+  /**
+   * 게시글(ContestPost)이 아직 없는 대회. 이때 linkUrl·description·coverImageUrl 은 실제 값이 아니라
+   * 표시용 대체값(예: linkUrl='#')이므로, 수정 폼처럼 실제 값이 필요한 곳에서는 이 플래그로 걸러야 한다.
+   */
+  archived: boolean;
   /** 등록한 대표 사진. 없으면 카드 상단이 기본 빗금 배경으로 보인다 */
   coverImageUrl?: string;
   viewCount: number;

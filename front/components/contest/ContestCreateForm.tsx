@@ -13,7 +13,7 @@ import {
   TextField,
 } from '@/components/ui/Field';
 import { RadioChipGroup } from '@/components/ui/RadioChipGroup';
-import { createContest, fetchContest, updateContest } from '@/lib/api';
+import { ApiError, createContest, fetchContest, updateContest } from '@/lib/api';
 import { CONTEST_FORMATS, CONTEST_FORMAT_LABELS, CONTEST_TAGS } from '@/lib/constants';
 import { httpUrlOrNull } from '@/lib/externalUrl';
 import { useLeaveTo } from '@/lib/navigation';
@@ -36,11 +36,18 @@ export function ContestCreateForm({ editId }: { editId?: string }) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [coverFileName, setCoverFileName] = useState<string | null>(null);
+  /**
+   * 지금 등록된 대표 사진 URL. CoverUpload 가 기존 파일을 표시하는 방법이 없어(새 파일 선택 전용)
+   * 화면에 보여주지는 못하지만, 저장할 때 그대로 돌려보내야 updateContest 가 이 값을 지우지 않는다.
+   */
+  const [existingCoverImageUrl, setExistingCoverImageUrl] = useState<string | undefined>(undefined);
   const [description, setDescription] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   /** 수정 진입 시 기존 값을 읽어오는 동안. 다 읽기 전에 저장하면 빈 값으로 덮인다 */
   const [loading, setLoading] = useState(Boolean(editId));
+  /** 기존 값을 못 읽어왔을 때. 빈 폼으로 덮어쓰지 못하게 저장 버튼을 계속 막아 둔다 */
+  const [loadError, setLoadError] = useState('');
 
   /**
    * 수정 진입이면 기존 대회를 읽어 폼을 채운다.
@@ -50,20 +57,37 @@ export function ContestCreateForm({ editId }: { editId?: string }) {
    */
   useEffect(() => {
     if (!editId) return;
+    // editId 가 언마운트 없이 A → B 로 바뀌는 경우(같은 컴포넌트가 재사용될 때)에도 다시 로딩 상태로
+    // 돌아가야 한다 - 안 그러면 B 를 불러오는 동안 화면엔 A 값이 남은 채로 저장 버튼이 눌릴 수 있다
+    setLoading(true);
+    setLoadError('');
     let alive = true;
 
     (async () => {
-      const contest = await fetchContest(editId);
-      if (!alive) return;
+      try {
+        const contest = await fetchContest(editId);
+        if (!alive) return;
 
-      setTitle(contest.title);
-      setFormat(contest.format);
-      setTag(contest.tag);
-      setLinkUrl(contest.linkUrl);
-      setStartDate(contest.applicationPeriodStart);
-      setEndDate(contest.applicationPeriodEnd);
-      setDescription(contest.description);
-      setLoading(false);
+        setTitle(contest.title);
+        setFormat(contest.format);
+        setTag(contest.tag);
+        // 게시글이 없는(archived) 대회는 linkUrl 이 실제 값이 아니라 표시용 대체값('#')이라
+        // 그대로 채우면 검증에 걸리는 값으로 폼이 채워진 것처럼 보인다
+        setLinkUrl(contest.archived ? '' : contest.linkUrl);
+        setStartDate(contest.applicationPeriodStart);
+        setEndDate(contest.applicationPeriodEnd);
+        setDescription(contest.description);
+        setExistingCoverImageUrl(contest.coverImageUrl);
+      } catch (cause) {
+        if (!alive) return;
+        setLoadError(
+          cause instanceof ApiError
+            ? cause.message
+            : '대회 정보를 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.',
+        );
+      } finally {
+        if (alive) setLoading(false);
+      }
     })();
 
     return () => {
@@ -98,6 +122,7 @@ export function ContestCreateForm({ editId }: { editId?: string }) {
       startDate,
       endDate,
       coverFileName: coverFileName ?? undefined,
+      coverImageUrl: existingCoverImageUrl,
       description,
     };
     try {
@@ -116,6 +141,7 @@ export function ContestCreateForm({ editId }: { editId?: string }) {
 
   return (
     <form onSubmit={(event) => event.preventDefault()}>
+      {loadError ? <p className="form-error" role="alert">{loadError}</p> : null}
       <FormGroup label="대회명" required error={errors.title}>
         <TextField
           placeholder="예: 2026 공공데이터 활용 챌린지"
@@ -229,7 +255,7 @@ export function ContestCreateForm({ editId }: { editId?: string }) {
           type="button"
           className="btn btn-primary"
           onClick={submit}
-          disabled={submitting || loading}
+          disabled={submitting || loading || Boolean(loadError)}
         >
           {loading ? '불러오는 중…' : submitting ? '신청 중…' : editId ? '수정 저장' : '등록 신청'}
         </button>
