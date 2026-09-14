@@ -36,6 +36,7 @@ public class PartyMatchQueryLikeService implements PartyMatchQueryPort {
     ) {
         Specification<PartySearchKeyword> spec = matchesAnyKeyword(keywords)
                 .and(isRecruiting())
+                .and(isNotHidden())
                 .and(hasPartyEnumEquals("partyTag", partyTag))
                 .and(hasPartyEnumEquals("topicType", topicType))
                 .and(hasPositionType(positionType))
@@ -63,6 +64,10 @@ public class PartyMatchQueryLikeService implements PartyMatchQueryPort {
 
     private Specification<PartySearchKeyword> isRecruiting() {
         return (root, query, cb) -> cb.equal(root.get("party").get("status"), PartyStatus.RECRUITING);
+    }
+
+    private Specification<PartySearchKeyword> isNotHidden() {
+        return (root, query, cb) -> cb.isFalse(root.get("party").get("hidden"));
     }
 
     private <E extends Enum<E>> Specification<PartySearchKeyword> hasPartyEnumEquals(String attribute, E value) {

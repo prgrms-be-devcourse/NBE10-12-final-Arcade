@@ -80,6 +80,24 @@ class PartySearchKeywordRepositoryFtsTest {
     }
 
     @Test
+    void excludesHiddenParty() {
+        Member owner = memberRepository.save(new Member("fts-owner4@test.com", "pw", "owner4", null));
+        Party party = partyRepository.save(new Party(
+                owner, "파티명4", "제목4", null, null, "외부 대회", "https://example.com",
+                TopicType.STUDY, PartyTag.WEB, null, LocalDateTime.now().plusDays(7)
+        ));
+        party.hide();
+        partyRepository.save(party);
+        partySearchKeywordRepository.save(new PartySearchKeyword(party, "숨김 스터디"));
+
+        Page<Long> result = partySearchKeywordRepository.searchPartyIdsByKeywords(
+                "숨김", "RECRUITING", null, null, null, PageRequest.of(0, 10)
+        );
+
+        assertThat(result.getContent()).doesNotContain(party.getId());
+    }
+
+    @Test
     void acceptsCanonicalTermsWithSpecialCharacters() {
         Member owner = memberRepository.save(new Member("fts-owner3@test.com", "pw", "owner3", null));
         Party party = partyRepository.save(new Party(

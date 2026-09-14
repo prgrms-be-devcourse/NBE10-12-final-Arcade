@@ -63,4 +63,27 @@ class PartyMatchQueryLikeServicePaginationTest {
         assertThat(allIds).hasSize(5);
         assertThat(allIds).doesNotHaveDuplicates();
     }
+
+    @Test
+    void hiddenPartyIsExcludedFromResults() {
+        Member owner = memberRepository.save(new Member("hidden-owner@test.com", "pw", "owner", null));
+
+        Party visible = partyRepository.save(new Party(
+                owner, "공개팀", "공개 제목", null, null, "외부 대회", "https://example.com",
+                TopicType.STUDY, PartyTag.WEB, null, LocalDateTime.now().plusDays(7)
+        ));
+        partySearchKeywordRepository.save(new PartySearchKeyword(visible, "숨김테스트 스터디"));
+
+        Party hidden = partyRepository.save(new Party(
+                owner, "숨김팀", "숨김 제목", null, null, "외부 대회", "https://example.com",
+                TopicType.STUDY, PartyTag.WEB, null, LocalDateTime.now().plusDays(7)
+        ));
+        hidden.hide();
+        partySearchKeywordRepository.save(new PartySearchKeyword(hidden, "숨김테스트 스터디"));
+
+        Page<Long> result = partyMatchQueryLikeService.findMatchingPartyIds(
+                List.of("숨김테스트"), null, null, null, PageRequest.of(0, 10));
+
+        assertThat(result.getContent()).containsExactly(visible.getId());
+    }
 }
