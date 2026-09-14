@@ -96,7 +96,7 @@ public class ContestService {
     }
 
     @Transactional
-    public Optional<ContestResponseDto> getDetail(long contestId, boolean countView) {
+    public Optional<ContestResponseDto> getDetail(long contestId, boolean countView, Member actor) {
         return contestRepository.findById(contestId)
                 .map(contest -> {
                     ContestPost contestPost = contestPostRepository.findByContest(contest).orElse(null);
@@ -108,8 +108,14 @@ public class ContestService {
 
                     List<PartyListItemDto> relatedParties = findRelatedParties(contestId);
 
+                    boolean bookmarkedByMe = !bookmarkInteractionPort
+                            .findBookmarkedTargetIds(actor, TargetType.CONTEST, List.of(contestId)).isEmpty();
+                    boolean likedByMe = !likeInteractionPort
+                            .findLikedTargetIds(actor, TargetType.CONTEST, List.of(contestId)).isEmpty();
+
                     return new ContestResponseDto(contest, contestPost)
-                            .withRelatedParties(relatedParties.size(), relatedParties);
+                            .withRelatedParties(relatedParties.size(), relatedParties)
+                            .withMyInteractions(bookmarkedByMe, likedByMe);
                 });
     }
 

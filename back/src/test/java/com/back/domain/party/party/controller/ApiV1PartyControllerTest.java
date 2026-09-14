@@ -609,6 +609,32 @@ public class ApiV1PartyControllerTest {
     }
 
     @Test
+    @DisplayName("파티 상세 조회: 내가 좋아요·북마크한 파티는 likedByMe·bookmarkedByMe가 true다")
+    @WithUserDetails("user1@test.com")
+    void getPartyDetailReflectsMyInteractions() throws Exception {
+        Party party = savePartyOwnedBy("user2@test.com", 2);
+
+        mvc.perform(post("/api/v1/parties/" + party.getId() + "/likes")).andExpect(status().isCreated());
+        mvc.perform(post("/api/v1/parties/" + party.getId() + "/bookmarks")).andExpect(status().isCreated());
+
+        mvc.perform(get("/api/v1/parties/" + party.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.likedByMe").value(true))
+                .andExpect(jsonPath("$.data.bookmarkedByMe").value(true));
+    }
+
+    @Test
+    @DisplayName("파티 상세 조회: 비로그인이면 likedByMe·bookmarkedByMe가 false다")
+    void getPartyDetailWithoutLoginShowsFalseInteractions() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 2);
+
+        mvc.perform(get("/api/v1/parties/" + party.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.likedByMe").value(false))
+                .andExpect(jsonPath("$.data.bookmarkedByMe").value(false));
+    }
+
+    @Test
     @DisplayName("파티 상세 조회: 대회 연결 파티는 contestFormat, 지원자 있으면 applicantCount를 반환한다")
     @WithUserDetails("user1@test.com")
     void getPartyDetailIncludesContestFormatAndApplicantCount() throws Exception {

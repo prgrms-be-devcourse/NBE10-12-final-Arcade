@@ -325,7 +325,7 @@ public class PartyService {
     }
 
     @Transactional
-    public PartyDto getDetail(long partyId, boolean countView) {
+    public PartyDto getDetail(long partyId, boolean countView, Member actor) {
         Party party = findByIdOrThrow(partyId);
         // 관리자가 숨긴 파티는 목록뿐 아니라 상세 직접 접근도 막는다 - 삭제된 것과 동일하게 404 처리.
         if (party.isHidden()) {
@@ -335,7 +335,14 @@ public class PartyService {
             partyRepository.increaseViewCount(partyId);
             party = findByIdOrThrow(partyId);
         }
-        return new PartyDto(party, partyMemberRepository.countApplicantsByPartyId(partyId));
+        PartyDto partyDto = new PartyDto(party, partyMemberRepository.countApplicantsByPartyId(partyId));
+
+        boolean bookmarkedByMe = !bookmarkInteractionPort
+                .findBookmarkedTargetIds(actor, TargetType.PARTY, List.of(partyId)).isEmpty();
+        boolean likedByMe = !likeInteractionPort
+                .findLikedTargetIds(actor, TargetType.PARTY, List.of(partyId)).isEmpty();
+
+        return partyDto.withMyInteractions(bookmarkedByMe, likedByMe);
     }
 
     // delete()만 부르면 좋아요/북마크 삭제가 별도 트랜잭션으로 빠져 원자성이 깨질 수 있어서

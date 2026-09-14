@@ -37,7 +37,9 @@ public record PartyDto(
      * 지원자 수를 세지 않는 응답(생성·수정·마감·완료)에서는 null - 0(지원자 없음)과 구분된다.
      */
     Long applicantCount,
-    List<PositionDto> positions
+    List<PositionDto> positions,
+    boolean bookmarkedByMe,
+    boolean likedByMe
 ) {
     // 지원자 수를 세지 않는 응답용. 세는 쪽(상세 조회)은 아래 생성자로 값을 넘긴다.
     public PartyDto(Party party) {
@@ -65,7 +67,19 @@ public record PartyDto(
             party.getLikeCount(),
             party.getViewCount(),
             applicantCount,
-            party.getPositions().stream().map(PositionDto::new).toList()
+            party.getPositions().stream().map(PositionDto::new).toList(),
+            false,
+            false
+        );
+    }
+
+    public PartyDto withMyInteractions(boolean bookmarkedByMe, boolean likedByMe) {
+        return new PartyDto(
+            id, ownerId, ownerName, partyName, title, description,
+            targetContest, contestTitle, contestFormat, contestLinkUrl,
+            topicType, status, partyTag, githubRepoUrl, deadline, dDay,
+            likeCount, viewCount, applicantCount, positions,
+            bookmarkedByMe, likedByMe
         );
     }
 }
