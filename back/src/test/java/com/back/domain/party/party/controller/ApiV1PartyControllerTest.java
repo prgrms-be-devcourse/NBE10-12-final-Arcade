@@ -96,6 +96,24 @@ public class ApiV1PartyControllerTest {
             """.formatted(targetContestId, deadline);
     }
 
+    private String createPartyWithExternalContestRequestJson(String contestLinkUrl) {
+        return """
+            {
+                "partyName": "오락실 팀",
+                "title": "오락실 공모전 팀원 모집",
+                "description": "테스트용 파티 설명입니다",
+                "contestTitle": "미등록 외부 대회",
+                "contestLinkUrl": "%s",
+                "topicType": "CONTEST",
+                "partyTag": "WEB",
+                "deadline": "%s",
+                "positions": [
+                    { "name": "BACK", "capacity": 2 }
+                ]
+            }
+            """.formatted(contestLinkUrl, deadline);
+    }
+
     private String createPartyRequestJson(int backCapacity) {
         return """
             {
@@ -167,6 +185,68 @@ public class ApiV1PartyControllerTest {
 
         resultActions.andExpect(status().isNotFound())
             .andExpect(jsonPath("$.resultCode").value("404-1"));
+    }
+
+    @Test
+    @DisplayName("파티 생성: contestLinkUrl에 scheme이 없으면 400-1이다")
+    @WithUserDetails("user1@test.com")
+    void createPartyWithSchemelessContestLinkUrl() throws Exception {
+        ResultActions resultActions = mvc.perform(post("/api/v1/parties")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(createPartyWithExternalContestRequestJson("www.example.com")));
+
+        resultActions.andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.resultCode").value("400-1"));
+    }
+
+    @Test
+    @DisplayName("파티 생성: contestLinkUrl이 상대 경로면 400-1이다")
+    @WithUserDetails("user1@test.com")
+    void createPartyWithRelativeContestLinkUrl() throws Exception {
+        ResultActions resultActions = mvc.perform(post("/api/v1/parties")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(createPartyWithExternalContestRequestJson("/relative/path")));
+
+        resultActions.andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.resultCode").value("400-1"));
+    }
+
+    @Test
+    @DisplayName("파티 생성: contestLinkUrl이 유효한 https 주소면 정상 생성된다")
+    @WithUserDetails("user1@test.com")
+    void createPartyWithValidContestLinkUrl() throws Exception {
+        ResultActions resultActions = mvc.perform(post("/api/v1/parties")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(createPartyWithExternalContestRequestJson("https://example.com/contest")));
+
+        resultActions.andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.contestLinkUrl").value("https://example.com/contest"));
+    }
+
+    @Test
+    @DisplayName("파티 생성: contestLinkUrl을 생략해도(외부 대회 미기재) 정상 생성된다")
+    @WithUserDetails("user1@test.com")
+    void createPartyWithoutContestLinkUrl() throws Exception {
+        String body = """
+            {
+                "partyName": "오락실 팀",
+                "title": "오락실 공모전 팀원 모집",
+                "description": "테스트용 파티 설명입니다",
+                "contestTitle": "미등록 외부 대회",
+                "topicType": "CONTEST",
+                "partyTag": "WEB",
+                "deadline": "%s",
+                "positions": [
+                    { "name": "BACK", "capacity": 2 }
+                ]
+            }
+            """.formatted(deadline);
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/parties")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body));
+
+        resultActions.andExpect(status().isCreated());
     }
 
     @Test

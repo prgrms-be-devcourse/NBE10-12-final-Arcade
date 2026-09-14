@@ -17,6 +17,7 @@ import com.back.domain.party.position.entity.PartyStatus;
 import com.back.global.exception.ServiceException;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
+import com.back.global.validation.ValidHttpUrl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -71,6 +72,7 @@ public class ApiV1ContestController {
             String description,
             String imageUrl,
             @NotBlank
+            @ValidHttpUrl
             String linkUrl
     ) { }
 
@@ -112,6 +114,7 @@ public class ApiV1ContestController {
             @NotNull
             LocalDate applicationPeriodEnd,
             @NotBlank
+            @ValidHttpUrl
             String linkUrl,
             String imageUrl
     ) { }
