@@ -107,4 +107,7 @@ public interface GoalRepository extends JpaRepository<Goal, Long>, GoalRepositor
     // 회원 이력(관리자) - 이 회원의 성취 전체를 최신순으로. owner_id 인덱스(idx_goal_owner)를 탄다.
     // 파티 이력과 조회 목적이 달라 한 쿼리로 합치지 않는다.
     List<Goal> findByOwnerOrderByCreateDateDesc(Member owner);
+
+    // 추천 후보용 - 최근 N개만. 위 전체 조회와 달리 상한을 둬야 하는 용도라 오버로드로 분리.
+    List<Goal> findByOwnerOrderByCreateDateDesc(Member owner, Pageable pageable);
 }
