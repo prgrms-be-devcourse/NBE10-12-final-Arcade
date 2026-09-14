@@ -2,6 +2,7 @@ package com.back.domain.notification.notification.service;
 
 import com.back.domain.notification.notification.dtos.NotificationDto;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -50,15 +51,33 @@ public class NotificationSseService {
 
         emitters.forEach((emitterId, emitter) -> {
             try {
-                emitter.send(SseEmitter.event()
-                        .id(String.valueOf(notification.id()))
-                        .name("notification")
-                        .data(notification));
+                synchronized (emitter) {
+                    emitter.send(SseEmitter.event()
+                            .id(String.valueOf(notification.id()))
+                            .name("notification")
+                            .data(notification));
+                }
             } catch (IOException | IllegalStateException exception) {
                 log.debug("SSE emitter disconnected: memberId={}, emitterId={}", memberId, emitterId);
                 remove(memberId, emitterId);
             }
         });
+    }
+
+    @Scheduled(fixedDelayString = "${custom.notification.sse.heartbeat-millis:30000}")
+    public void heartbeat() {
+        emittersByMemberId.forEach((memberId, emitters) ->
+                emitters.forEach((emitterId, emitter) -> {
+                    try {
+                        synchronized (emitter) {
+                            emitter.send(SseEmitter.event().name("heartbeat").data("ping"));
+                        }
+                    } catch (IOException | IllegalStateException exception) {
+                        log.debug("Notification SSE emitter disconnected: memberId={}, emitterId={}", memberId, emitterId);
+                        remove(memberId, emitterId);
+                    }
+                })
+        );
     }
 
     private void remove(long memberId, String emitterId) {
