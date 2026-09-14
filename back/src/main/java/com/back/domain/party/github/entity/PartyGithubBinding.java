@@ -15,6 +15,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 /**
  * Party와 GitHub App installation 레포의 연결 이력이다.
@@ -44,6 +46,9 @@ public class PartyGithubBinding extends BaseEntity {
 
     @Column(nullable = false)
     private LocalDateTime linkedAt;
+    /** PR을 Party 활동으로 추적하기 시작한 시각. 최초 연결 시 한 번만 기록한다. */
+    @Column(nullable = false)
+    private OffsetDateTime trackingStartedAt;
     private LocalDateTime disconnectedAt;
     private String disconnectReason;
 
@@ -53,6 +58,7 @@ public class PartyGithubBinding extends BaseEntity {
         this.linkedBy = linkedBy;
         this.status = PartyGithubBindingStatus.SYNCING;
         this.linkedAt = LocalDateTime.now();
+        this.trackingStartedAt = OffsetDateTime.now(ZoneOffset.UTC);
     }
 
     public void archive() {

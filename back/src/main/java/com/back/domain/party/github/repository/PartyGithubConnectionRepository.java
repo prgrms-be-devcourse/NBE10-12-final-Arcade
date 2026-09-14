@@ -2,6 +2,9 @@ package com.back.domain.party.github.repository;
 
 import com.back.domain.party.github.entity.PartyGithubConnection;
 import com.back.domain.party.github.entity.PartyGithubConnectionStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -13,4 +16,7 @@ public interface PartyGithubConnectionRepository extends JpaRepository<PartyGith
     Optional<PartyGithubConnection> findByInstallationIdAndRepositoryId(Long installationId, Long repositoryId);
     List<PartyGithubConnection> findAllByInstallationId(Long installationId);
     List<PartyGithubConnection> findAllByRepositoryIdAndInstallationIdAndStatus(Long repositoryId, Long installationId, PartyGithubConnectionStatus status);
+    List<PartyGithubConnection> findAllByStatus(PartyGithubConnectionStatus status);
+    @EntityGraph(attributePaths = {"party", "party.owner"})
+    Page<PartyGithubConnection> findAllByStatus(PartyGithubConnectionStatus status, Pageable pageable);
 }
