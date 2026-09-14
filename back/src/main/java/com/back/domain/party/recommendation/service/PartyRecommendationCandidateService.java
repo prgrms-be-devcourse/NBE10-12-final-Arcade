@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -33,9 +34,13 @@ public class PartyRecommendationCandidateService {
 
     private static final int SEARCH_LOG_WINDOW_DAYS = 30;
     private static final int SEARCH_LOG_LIMIT = 6;
+    private static final int GOAL_LIMIT = 10;
 
     // 매칭 결과에서 본인 파티/지원 이력 파티를 뺀 뒤에도 limit을 채울 수 있도록 여유분을 두고 조회한다.
     private static final int CANDIDATE_FETCH_MULTIPLIER = 5;
+
+    // excluded가 많아 한 페이지로 안 채워질 때 추가로 넘겨볼 최대 페이지 수 - 무한 루프 방지용 안전장치.
+    private static final int MAX_CANDIDATE_PAGES = 5;
 
     private final MemberProfileRepository memberProfileRepository;
     private final SearchLogRepository searchLogRepository;
@@ -70,7 +75,7 @@ public class PartyRecommendationCandidateService {
                 .flatMap(List::stream)
                 .forEach(keywords::add);
 
-        goalRepository.findByOwnerOrderByCreateDateDesc(member).stream()
+        goalRepository.findByOwnerOrderByCreateDateDesc(member, PageRequest.of(0, GOAL_LIMIT)).stream()
                 .map(Goal::getTitle)
                 .map(keywordExtractionPort::extract)
                 .flatMap(List::stream)
@@ -85,14 +90,18 @@ public class PartyRecommendationCandidateService {
         Set<Long> excluded = new HashSet<>(partyRepository.findIdsByOwner(member));
         excluded.addAll(partyMemberRepository.findPartyIdsByMember(member));
 
-        Pageable pageable = PageRequest.of(0, limit * CANDIDATE_FETCH_MULTIPLIER);
-        Page<Long> matched = partyMatchQueryPort.findMatchingPartyIds(
-                normalized, null, null, profile.getPosition(), pageable
-        );
+        List<Long> candidates = new ArrayList<>();
+        Page<Long> matched;
+        int page = 0;
+        do {
+            Pageable pageable = PageRequest.of(page, limit * CANDIDATE_FETCH_MULTIPLIER);
+            matched = partyMatchQueryPort.findMatchingPartyIds(normalized, null, null, profile.getPosition(), pageable);
+            matched.getContent().stream()
+                    .filter(partyId -> !excluded.contains(partyId))
+                    .forEach(candidates::add);
+            page++;
+        } while (candidates.size() < limit && matched.hasNext() && page < MAX_CANDIDATE_PAGES);
 
-        return matched.getContent().stream()
-                .filter(partyId -> !excluded.contains(partyId))
-                .limit(limit)
-                .toList();
+        return candidates.stream().limit(limit).toList();
     }
 }
