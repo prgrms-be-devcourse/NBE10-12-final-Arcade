@@ -55,8 +55,10 @@ jobs:
       - name: actionlint
         run: docker run --rm -v "$PWD":/repo -w /repo "$ACTIONLINT" -no-color
 
-      - name: 배포 연속성 실행 스크립트 문법
-        run: bash -n .github/scripts/run-deploy-continuity.sh
+      - name: 배포 스크립트 문법
+        run: |
+          bash -n .github/scripts/run-deploy-continuity.sh
+          find infra/scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
 
       - name: k6 배포 연속성 시나리오 파싱
         run: |

@@ -97,13 +97,18 @@ echo "== 이미지 받기 =="
 # SSM 출력 한도를 보존하도록 pull 진행률을 숨긴다.
 docker compose $COMPOSE_FILES --env-file .env pull --quiet
 
-echo "== 기동 =="
-# 고아 서비스를 제거하되 backend는 아래에서 별도로 교체한다.
-OTHERS="$(docker compose $COMPOSE_FILES --env-file .env config --services | grep -vx backend | tr '\n' ' ')"
-echo "  대상: $OTHERS"
-# shellcheck disable=SC2086
-docker compose $COMPOSE_FILES --env-file .env up -d --no-build --quiet-pull \
-  --remove-orphans --no-deps $OTHERS
+echo "== 기반 서비스 기동 =="
+# 트래픽을 받는 세 서비스는 아래에서 별도로 기동·전환한다.
+mapfile -t OTHER_SERVICES < <(
+  docker compose $COMPOSE_FILES --env-file .env config --services \
+    | grep -Ev '^(backend|frontend|nginx)$'
+)
+echo "  대상: ${OTHER_SERVICES[*]}"
+if [ "${#OTHER_SERVICES[@]}" -gt 0 ]; then
+  # shellcheck disable=SC2086
+  docker compose $COMPOSE_FILES --env-file .env up -d --no-build --quiet-pull \
+    --remove-orphans --no-deps "${OTHER_SERVICES[@]}"
+fi
 
 # pg_dump에는 클러스터 전역 역할이 포함되지 않는다. 새 서버와 비밀번호 변경 배포에서
 # exporter 역할을 생성·동기화한 뒤 수집기를 다시 연결한다.
@@ -114,80 +119,196 @@ if docker compose $COMPOSE_FILES --env-file .env config --services | grep -qx po
   docker compose $COMPOSE_FILES --env-file .env up -d --no-deps --force-recreate postgres-exporter >/dev/null
 fi
 
-# 새 backend가 healthy일 때만 기존 컨테이너를 제거한다.
-rolling_backend() {
-  local old_id new_id i st
-  old_id="$(docker compose $COMPOSE_FILES --env-file .env ps -q backend 2>/dev/null | head -1)"
+# backend와 frontend를 모두 준비한 뒤 Nginx 대상을 한 번에 전환한다.
+NGINX_CONFIG="infra/nginx/nginx.prod.conf"
+NGINX_TEMPLATE="$(mktemp)"
+NGINX_RENDERED="$(mktemp)"
+NGINX_PREVIOUS="$(mktemp)"
+cp "$NGINX_CONFIG" "$NGINX_TEMPLATE"
+trap 'rm -f "$NGINX_TEMPLATE" "$NGINX_RENDERED" "$NGINX_PREVIOUS"' EXIT
 
-  if [ -z "$old_id" ]; then
-    echo "  기존 백엔드가 없다 (첫 기동). 그냥 띄운다"
-    docker compose $COMPOSE_FILES --env-file .env up -d --no-build backend
-    return 0
-  fi
-
-  echo "  새 백엔드를 옆에 띄운다"
-  if ! docker compose $COMPOSE_FILES --env-file .env up -d --no-build --no-deps \
-       --no-recreate --scale backend=2 backend >/dev/null 2>&1; then
-    echo "  scale 실패 — 옛것을 유지한 채 중단한다" >&2
+single_service_id() {
+  local service="$1"
+  local -a ids
+  mapfile -t ids < <(
+    docker compose $COMPOSE_FILES --env-file .env ps -q "$service" 2>/dev/null \
+      | sed '/^$/d'
+  )
+  [ "${#ids[@]}" -le 1 ] || {
+    echo "  $service 기존 컨테이너가 여러 개다: ${ids[*]}" >&2
     return 1
-  fi
-
-  new_id="$(docker compose $COMPOSE_FILES --env-file .env ps -q backend | grep -vx "$old_id" | head -1)"
-  if [ -z "$new_id" ]; then
-    echo "  새 컨테이너를 못 찾았다 — 이미지가 그대로면 겹치지 않는다" >&2
-    return 1
-  fi
-
-  # 두 backend가 CPU를 나눠 쓰므로 넉넉히 기다린다.
-  echo "  healthy 대기 (최대 240초)"
-  for i in $(seq 1 80); do
-    st="$(docker inspect "$new_id" --format '{{.State.Health.Status}}' 2>/dev/null)"
-    [ "$st" = healthy ] && { echo "  준비됨 ($((i * 3))초)"; break; }
-    [ "$st" = unhealthy ] && { echo "  unhealthy 판정 ($((i * 3))초)"; break; }
-    [ $((i % 10)) -eq 0 ] && echo "    $((i * 3))초 경과 — $st"
-    sleep 3
-  done
-  if [ "$st" != healthy ]; then
-    echo "  새 백엔드가 healthy 가 안 됐다($st)" >&2
-    echo "  --- 새 컨테이너 로그 (마지막 25줄) ---" >&2
-    docker logs "$new_id" 2>&1 | tail -25 >&2
-    echo "  --- 헬스체크 마지막 결과 ---" >&2
-    docker inspect "$new_id" --format '{{range .State.Health.Log}}{{.ExitCode}} {{.Output}}{{end}}' 2>/dev/null | tail -3 >&2
-    echo "  새것을 지우고 옛것을 남긴다" >&2
-    docker rm -f "$new_id" >/dev/null 2>&1
-    return 1
-  fi
-
-  echo "  옛 백엔드를 내린다 (stop_grace_period 만큼 기다린다)"
-  docker stop "$old_id" >/dev/null && docker rm "$old_id" >/dev/null
-  echo "  교체 완료"
+  }
+  [ "${#ids[@]}" -eq 0 ] || printf '%s\n' "${ids[0]}"
 }
 
+container_name() {
+  local name
+  name="$(docker inspect "$1" --format '{{.Name}}' 2>/dev/null)"
+  name="${name#/}"
+  [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]] || {
+    echo "  안전하지 않은 컨테이너 이름: $name" >&2
+    return 1
+  }
+  printf '%s\n' "$name"
+}
+
+wait_container_healthy() {
+  local service="$1" id="$2" max_seconds="$3" elapsed status
+  for elapsed in $(seq 0 3 "$max_seconds"); do
+    status="$(docker inspect "$id" --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' 2>/dev/null)"
+    [ "$status" = healthy ] && { echo "  $service 준비됨 (${elapsed}초)"; return 0; }
+    [ "$status" = unhealthy ] && break
+    [ "$elapsed" -gt 0 ] && [ $((elapsed % 30)) -eq 0 ] \
+      && echo "    $service ${elapsed}초 경과 — ${status:-조회 실패}"
+    sleep 3
+  done
+  echo "  $service가 healthy가 안 됐다 (${status:-조회 실패})" >&2
+  docker logs "$id" 2>&1 | tail -25 >&2
+  return 1
+}
+
+CANDIDATE_ID=""
+prepare_candidate() {
+  local service="$1" old_id="$2" max_seconds="$3"
+  local -a ids candidates
+  candidates=()
+  CANDIDATE_ID=""
+
+  echo "  새 $service 기동"
+  if [ -z "$old_id" ]; then
+    # shellcheck disable=SC2086
+    docker compose $COMPOSE_FILES --env-file .env up -d --no-build --no-deps "$service" >/dev/null
+  else
+    # shellcheck disable=SC2086
+    docker compose $COMPOSE_FILES --env-file .env up -d --no-build --no-deps \
+      --no-recreate --scale "$service=2" "$service" >/dev/null
+  fi
+
+  mapfile -t ids < <(
+    docker compose $COMPOSE_FILES --env-file .env ps -q "$service" 2>/dev/null \
+      | sed '/^$/d'
+  )
+  for id in "${ids[@]}"; do
+    [ "$id" = "$old_id" ] || candidates+=("$id")
+  done
+  [ "${#candidates[@]}" -eq 1 ] || {
+    echo "  새 $service 컨테이너를 하나로 식별하지 못했다: ${candidates[*]}" >&2
+    return 1
+  }
+
+  CANDIDATE_ID="${candidates[0]}"
+  wait_container_healthy "$service" "$CANDIDATE_ID" "$max_seconds"
+}
+
+render_nginx_config() {
+  local backend_name="$1" frontend_name="$2" output="$3"
+  sed -E \
+      -e "s|[^[:space:];]+:8080; # ACTIVE_BACKEND|$backend_name:8080; # ACTIVE_BACKEND|g" \
+      -e "s|[^[:space:];]+:3000; # ACTIVE_FRONTEND|$frontend_name:3000; # ACTIVE_FRONTEND|g" \
+      "$NGINX_TEMPLATE" > "$output"
+  [ "$(grep -Fc "$backend_name:8080; # ACTIVE_BACKEND" "$output")" -eq 4 ] \
+    && [ "$(grep -Fc "$frontend_name:3000; # ACTIVE_FRONTEND" "$output")" -eq 2 ]
+}
+
+remove_candidate() {
+  local new_id="$1" old_id="$2"
+  [ -z "$new_id" ] || [ "$new_id" = "$old_id" ] \
+    || docker rm -f "$new_id" >/dev/null 2>&1 || true
+}
+
+activate_nginx() {
+  local backend_name="$1" frontend_name="$2" was_running=0
+  docker compose $COMPOSE_FILES --env-file .env ps -q nginx 2>/dev/null | grep -q . \
+    && was_running=1
+
+  render_nginx_config "$backend_name" "$frontend_name" "$NGINX_RENDERED"
+  # bind mount가 계속 같은 inode를 보도록 mv 대신 내용을 덮어쓴다.
+  cat "$NGINX_RENDERED" > "$NGINX_CONFIG"
+
+  if [ "$was_running" -eq 0 ]; then
+    # shellcheck disable=SC2086
+    docker compose $COMPOSE_FILES --env-file .env up -d --no-build --no-deps nginx >/dev/null
+  fi
+
+  docker compose $COMPOSE_FILES --env-file .env exec -T nginx \
+    grep -Fq "$backend_name:8080" /etc/nginx/nginx.conf \
+    && docker compose $COMPOSE_FILES --env-file .env exec -T nginx \
+      grep -Fq "$frontend_name:3000" /etc/nginx/nginx.conf \
+    && docker compose $COMPOSE_FILES --env-file .env exec -T nginx nginx -t \
+    && { [ "$was_running" -eq 0 ] \
+      || docker compose $COMPOSE_FILES --env-file .env exec -T nginx nginx -s reload; } \
+    && return 0
+
+  echo "  nginx 전환 실패 — 기존 설정과 컨테이너를 유지한다" >&2
+  if [ -s "$NGINX_PREVIOUS" ]; then
+    cat "$NGINX_PREVIOUS" > "$NGINX_CONFIG"
+  fi
+  [ "$was_running" -eq 1 ] \
+    || docker compose $COMPOSE_FILES --env-file .env rm -sf nginx >/dev/null 2>&1 || true
+  return 1
+}
+
+OLD_BACKEND_ID="$(single_service_id backend)"
+OLD_FRONTEND_ID="$(single_service_id frontend)"
+if { [ -n "$OLD_BACKEND_ID" ] && [ -z "$OLD_FRONTEND_ID" ]; } \
+  || { [ -z "$OLD_BACKEND_ID" ] && [ -n "$OLD_FRONTEND_ID" ]; }; then
+  echo "  backend와 frontend 중 하나만 실행 중이다. 상태를 먼저 정리한다" >&2
+  exit 1
+fi
+
+if [ -n "$OLD_BACKEND_ID" ]; then
+  OLD_BACKEND_NAME="$(container_name "$OLD_BACKEND_ID")"
+  OLD_FRONTEND_NAME="$(container_name "$OLD_FRONTEND_ID")"
+  render_nginx_config "$OLD_BACKEND_NAME" "$OLD_FRONTEND_NAME" "$NGINX_PREVIOUS"
+  echo "== 기존 애플리케이션 대상으로 Nginx 고정 =="
+  activate_nginx "$OLD_BACKEND_NAME" "$OLD_FRONTEND_NAME" || exit 1
+fi
+
+NEW_BACKEND_ID=""
+NEW_FRONTEND_ID=""
 if [ "${ROLLING:-1}" = "1" ]; then
-  echo "== 백엔드 무중단 교체 =="
-  if ! rolling_backend; then
-    echo "  교체 실패." >&2
+  echo "== 애플리케이션 무중단 교체 =="
+  if ! prepare_candidate backend "$OLD_BACKEND_ID" 240; then
+    remove_candidate "$CANDIDATE_ID" "$OLD_BACKEND_ID"
     exit 1
   fi
+  NEW_BACKEND_ID="$CANDIDATE_ID"
+
+  if ! prepare_candidate frontend "$OLD_FRONTEND_ID" 120; then
+    remove_candidate "$CANDIDATE_ID" "$OLD_FRONTEND_ID"
+    remove_candidate "$NEW_BACKEND_ID" "$OLD_BACKEND_ID"
+    exit 1
+  fi
+  NEW_FRONTEND_ID="$CANDIDATE_ID"
 else
-  echo "== 백엔드 교체 (중단 허용) =="
-  docker compose $COMPOSE_FILES --env-file .env up -d --no-build backend
+  echo "== 애플리케이션 교체 (중단 허용) =="
+  # shellcheck disable=SC2086
+  docker compose $COMPOSE_FILES --env-file .env up -d --no-build backend frontend
+  NEW_BACKEND_ID="$(single_service_id backend)"
+  NEW_FRONTEND_ID="$(single_service_id frontend)"
+  wait_container_healthy backend "$NEW_BACKEND_ID" 240
+  wait_container_healthy frontend "$NEW_FRONTEND_ID" 120
 fi
 
-# bind mount 설정 변경은 Compose가 감지하지 못하므로 서비스를 갱신한다.
+NEW_BACKEND_NAME="$(container_name "$NEW_BACKEND_ID")"
+NEW_FRONTEND_NAME="$(container_name "$NEW_FRONTEND_ID")"
+echo "  활성 대상: backend=$NEW_BACKEND_NAME frontend=$NEW_FRONTEND_NAME"
+if ! activate_nginx "$NEW_BACKEND_NAME" "$NEW_FRONTEND_NAME"; then
+  remove_candidate "$NEW_FRONTEND_ID" "$OLD_FRONTEND_ID"
+  remove_candidate "$NEW_BACKEND_ID" "$OLD_BACKEND_ID"
+  exit 1
+fi
+
+if [ -n "$OLD_BACKEND_ID" ] && [ "${ROLLING:-1}" = "1" ]; then
+  echo "  기존 Nginx worker 요청 drain (16초)"
+  sleep 16
+  docker stop "$OLD_FRONTEND_ID" "$OLD_BACKEND_ID" >/dev/null
+  docker rm "$OLD_FRONTEND_ID" "$OLD_BACKEND_ID" >/dev/null
+fi
+echo "  애플리케이션 교체 완료"
+
 echo "== 설정을 파일에서 읽는 서비스 갱신 =="
 RUNNING=$(docker compose $COMPOSE_FILES --env-file .env ps --services --status running 2>/dev/null)
-
-# 진행 중인 연결을 보존하도록 nginx는 reload한다.
-if printf '%s\n' "$RUNNING" | grep -qx nginx; then
-  if docker compose $COMPOSE_FILES --env-file .env exec -T nginx nginx -s reload >/dev/null 2>&1; then
-    echo "  nginx reload"
-  else
-    echo "  nginx reload 실패 — 재시작으로 대체한다" >&2
-    docker compose $COMPOSE_FILES --env-file .env restart nginx >/dev/null 2>&1 \
-      && echo "  nginx 재시작" || echo "  nginx 재시작도 실패" >&2
-  fi
-fi
 
 for svc in caddy prometheus grafana; do
   if printf '%s\n' "$RUNNING" | grep -qx "$svc"; then
