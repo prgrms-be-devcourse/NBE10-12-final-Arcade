@@ -496,6 +496,34 @@ public class ApiV1ContestControllerTest {
     }
 
     @Test
+    @DisplayName("대회 상세 조회: 내가 좋아요·북마크한 대회는 likedByMe·bookmarkedByMe가 true다")
+    @WithUserDetails("admin")
+    void detailReflectsMyInteractions() throws Exception {
+        long contestId = writeContestAsAdmin("상세 조회 상호작용 테스트");
+
+        mvc.perform(post("/api/v1/contests/" + contestId + "/likes")).andExpect(status().isCreated());
+        mvc.perform(post("/api/v1/contests/" + contestId + "/bookmarks")).andExpect(status().isCreated());
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/contests/" + contestId));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.likedByMe").value(true))
+                .andExpect(jsonPath("$.data.bookmarkedByMe").value(true));
+    }
+
+    @Test
+    @DisplayName("대회 상세 조회: 비로그인이면 likedByMe·bookmarkedByMe가 false다")
+    void detailWithoutLoginShowsFalseInteractions() throws Exception {
+        long contestId = writeContestAsAdmin("비로그인 상세 조회 테스트");
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/contests/" + contestId));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.likedByMe").value(false))
+                .andExpect(jsonPath("$.data.bookmarkedByMe").value(false));
+    }
+
+    @Test
     @DisplayName("대회 목록 조회: format으로 필터링한다")
     void listFilteredByFormat() throws Exception {
         writeContestAsAdmin("해커톤 대회");
