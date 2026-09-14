@@ -36,6 +36,8 @@ import type { Contest, ContestFormat, PositionType, TopicType } from '@/lib/type
 /** 서버 PartyCreateReqBody 의 @Size 와 같은 값 */
 const PARTY_NAME_MAX = 10;
 const TITLE_MAX = 20;
+/** 파티 총원 상한 — 서버는 아직 이 값을 강제하지 않아 프론트에서만 막는다 */
+const TOTAL_CAPACITY_MAX = 10;
 
 interface PositionRow {
   key: string;
@@ -145,8 +147,15 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
     };
   }, [pickerOpen, trimmedKeyword]);
 
-  const addPosition = () =>
-    setPositions((prev) => [...prev, { key: `p${Date.now()}`, type: 'BACK', capacity: '' }]);
+  /** 포지션 종류는 4개뿐이라, 이미 쓰인 타입을 빼면 새 행에 기본으로 넣을 타입이 남았는지 알 수 있다 */
+  const unusedType = (rows: PositionRow[]) =>
+    POSITION_TYPES.find((type) => !rows.some((row) => row.type === type));
+
+  const addPosition = () => {
+    const type = unusedType(positions);
+    if (!type) return; // 포지션 종류를 모두 썼으면 더 추가할 게 없다
+    setPositions((prev) => [...prev, { key: `p${Date.now()}`, type, capacity: '' }]);
+  };
 
   const removePosition = async (key: string) => {
     const ok = await confirm({
@@ -163,6 +172,9 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
 
   /** 스터디 · 기타는 포지션을 나눠 뽑지 않으므로 모집 포지션을 필수로 보지 않는다 */
   const positionRequired = topicType === 'CONTEST' || topicType === 'PROJECT';
+  // 제출 시에도 이 기준으로 걸러 보내므로(음수·0 정원 행은 안 보낸다), 합산·검증도 같은 기준을 써야 한다
+  const isFilled = (row: PositionRow) => Number(row.capacity) > 0;
+  const totalCapacity = positions.filter(isFilled).reduce((sum, row) => sum + Number(row.capacity), 0);
 
   const validate = () => {
     const next: Record<string, string> = {};
@@ -180,10 +192,15 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
       else if (!httpUrlOrNull(contestLinkUrl.trim()))
         next.contestLinkUrl = 'http:// 또는 https://로 시작하는 주소를 입력해 주세요.';
     }
-    if (positionRequired) {
-      const filled = positions.filter((row) => Number(row.capacity) > 0);
-      if (filled.length === 0) next.positions = '모집 포지션과 정원을 한 개 이상 입력해 주세요.';
-    }
+    // 여러 조건에 동시에 걸릴 수 있어 덮어쓰지 않고 모두 모아서 보여준다
+    const positionErrors: string[] = [];
+    if (positionRequired && positions.filter(isFilled).length === 0)
+      positionErrors.push('모집 포지션과 정원을 한 개 이상 입력해 주세요.');
+    if (new Set(positions.map((row) => row.type)).size !== positions.length)
+      positionErrors.push('같은 포지션을 중복해서 추가할 수 없어요.');
+    if (totalCapacity > TOTAL_CAPACITY_MAX)
+      positionErrors.push(`파티 총원은 ${TOTAL_CAPACITY_MAX}명을 넘을 수 없어요.`);
+    if (positionErrors.length > 0) next.positions = positionErrors.join(' ');
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -203,7 +220,7 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
       description,
       coverFileName: coverFileName ?? undefined,
       positions: positions
-        .filter((row) => Number(row.capacity) > 0)
+        .filter(isFilled)
         .map(({ type, capacity }) => ({ type, capacity: Number(capacity) })),
       repositoryUrl: repositoryUrl || undefined,
     };
@@ -382,45 +399,74 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
         />
       </FormGroup>
 
-      <FormGroup label="모집 포지션" required={positionRequired} error={positionRequired ? errors.positions : undefined}>
+      <FormGroup
+        label="모집 포지션"
+        required={positionRequired}
+        hint={`총원 ${totalCapacity} / ${TOTAL_CAPACITY_MAX}명`}
+        error={errors.positions}
+      >
         <div>
-          {positions.map((position) => (
-            <div key={position.key} className="position-input-row">
-              <SelectField
-                value={position.type}
-                onChange={(event) =>
-                  patchPosition(position.key, { type: event.target.value as PositionType })
-                }
-              >
-                {POSITION_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {POSITION_LABELS[type]}
-                  </option>
-                ))}
-              </SelectField>
-              <TextField
-                type="number"
-                min={1}
-                aria-label="정원"
-                placeholder="정원"
-                value={position.capacity}
-                onChange={(event) => {
-                  patchPosition(position.key, { capacity: event.target.value });
-                  setErrors((prev) => ({ ...prev, positions: '' }));
-                }}
-              />
-              <button
-                type="button"
-                className="remove-row"
-                aria-label="포지션 삭제"
-                onClick={() => removePosition(position.key)}
-              >
-                <Icon name="i-x" />
-              </button>
-            </div>
-          ))}
+          {positions.map((position) => {
+            // totalCapacity 는 isFilled 인 행만 더하므로, 이 행이 채워져 있을 때만 그 몫을 빼야
+            // "다른 행들의 합"이 맞게 나온다 (음수·0 정원 행은 애초에 총합에 안 들어가 있다)
+            const ownContribution = isFilled(position) ? Number(position.capacity) : 0;
+            const rowMax = Math.max(0, TOTAL_CAPACITY_MAX - (totalCapacity - ownContribution));
+            return (
+              <div key={position.key} className="position-input-row">
+                <SelectField
+                  value={position.type}
+                  onChange={(event) =>
+                    patchPosition(position.key, { type: event.target.value as PositionType })
+                  }
+                >
+                  {POSITION_TYPES.filter(
+                    (type) => type === position.type || !positions.some((row) => row.type === type),
+                  ).map((type) => (
+                    <option key={type} value={type}>
+                      {POSITION_LABELS[type]}
+                    </option>
+                  ))}
+                </SelectField>
+                <TextField
+                  type="number"
+                  min={1}
+                  max={rowMax}
+                  aria-label="정원"
+                  placeholder="정원"
+                  value={position.capacity}
+                  onChange={(event) => {
+                    // 버튼 클릭으로 제출하기 때문에(type="button") 네이티브 min/max 제약은 그 자체로는
+                    // 강제되지 않는다 - 여기서 직접 [1, rowMax] 로 clamp 한다.
+                    // rowMax 가 0(남은 여유 없음)이면 최솟값도 0으로 내려서 1과 모순되지 않게 한다.
+                    const raw = event.target.value;
+                    const parsed = Number(raw);
+                    const lower = Math.min(1, rowMax);
+                    const capacity =
+                      raw !== '' && !Number.isNaN(parsed)
+                        ? String(Math.min(Math.max(parsed, lower), rowMax))
+                        : raw;
+                    patchPosition(position.key, { capacity });
+                    setErrors((prev) => ({ ...prev, positions: '' }));
+                  }}
+                />
+                <button
+                  type="button"
+                  className="remove-row"
+                  aria-label="포지션 삭제"
+                  onClick={() => removePosition(position.key)}
+                >
+                  <Icon name="i-x" />
+                </button>
+              </div>
+            );
+          })}
         </div>
-        <button type="button" className="add-row-btn" onClick={addPosition}>
+        <button
+          type="button"
+          className="add-row-btn"
+          onClick={addPosition}
+          disabled={!unusedType(positions)}
+        >
           <Icon name="i-plus" />
           포지션 추가
         </button>
