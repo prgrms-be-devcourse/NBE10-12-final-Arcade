@@ -45,7 +45,9 @@ public class ApiV1NotificationController {
             description = "로그인한 회원의 새 알림을 SSE 이벤트로 수신한다. 새 알림은 event: notification, data: NotificationDto 형식으로 전달된다."
     )
     public SseEmitter subscribe() {
-        return notificationSseService.subscribe(rq.getActorFromDb().getId());
+        // SSE 구독에는 회원 엔티티가 필요하지 않고 인증 컨텍스트의 ID만 필요하다.
+        // 장시간 유지되는 SSE 요청에서 불필요한 회원 DB 조회를 하지 않는다.
+        return notificationSseService.subscribe(rq.getActor().getId());
     }
 
     @GetMapping()
