@@ -6,8 +6,7 @@ import { Icon } from '@/components/icons/Icon';
 import { ContestOwnerTools } from './ContestOwnerTools';
 import { DetailActions } from '@/components/ui/DetailActions';
 import { PartyCard } from '@/components/party/PartyCard';
-import { BackLink } from '@/components/ui/BackLink';
-import { Block, DetailGrid, SideCard } from '@/components/ui/Block';
+import { Block, DetailGrid, DetailLayout, SideCard } from '@/components/ui/Block';
 import { DDay, Tag, TagRow } from '@/components/ui/Tag';
 import { fetchContest } from '@/lib/api';
 import { CONTEST_FORMAT_LABELS } from '@/lib/constants';
@@ -35,29 +34,23 @@ export function ContestDetailView({ id }: { id: string }) {
 
   if (!contest) {
     return (
-      <main>
-        <div className="board-wrap container">
-          <BackLink href="/contests" />
-          <p className="notif-empty">대회 정보를 불러오는 중이에요.</p>
-        </div>
-      </main>
+      <DetailLayout backHref="/contests">
+        <p className="notif-empty">대회 정보를 불러오는 중이에요.</p>
+      </DetailLayout>
     );
   }
 
   return (
-    <main>
-      <div className="board-wrap container">
-        <BackLink href="/contests" />
-
+    <DetailLayout backHref="/contests">
         <DetailGrid
           main={
             <>
-              <div className="detail-header">
-                <TagRow>
-                  <Tag accent>{CONTEST_FORMAT_LABELS[contest.format]}</Tag>
-                  <Tag>{contest.tag}</Tag>
-                </TagRow>
-                <div className="detail-header-right">
+              <h1 className="detail-title">{contest.title}</h1>
+              <div className="detail-summary-row">
+                <p className="pboard-meta">
+                  {contest.host} · 접수 {contest.period}
+                </p>
+                <div className="detail-summary-actions">
                   <span className="detail-views">
                     <Icon name="i-eye" />
                     조회 {contest.viewCount.toLocaleString()}
@@ -71,11 +64,6 @@ export function ContestDetailView({ id }: { id: string }) {
                   />
                 </div>
               </div>
-
-              <h1 className="detail-title">{contest.title}</h1>
-              <p className="pboard-meta" style={{ marginTop: '0.625rem' }}>
-                {contest.host} · 접수 {contest.period}
-              </p>
 
               <div
                 className={
@@ -127,6 +115,13 @@ export function ContestDetailView({ id }: { id: string }) {
                 </div>
               </SideCard>
 
+              <SideCard title="태그">
+                <TagRow>
+                  <Tag accent>{CONTEST_FORMAT_LABELS[contest.format]}</Tag>
+                  <Tag>{contest.tag}</Tag>
+                </TagRow>
+              </SideCard>
+
               <SideCard>
                 <Link className="btn btn-primary" style={{ width: '100%' }} href="/party/create">
                   이 대회로 파티 만들기
@@ -146,7 +141,6 @@ export function ContestDetailView({ id }: { id: string }) {
             </>
           }
         />
-      </div>
-    </main>
+    </DetailLayout>
   );
 }
