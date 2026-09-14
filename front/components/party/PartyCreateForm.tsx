@@ -41,6 +41,8 @@ const TOTAL_CAPACITY_MAX = 10;
 
 interface PositionRow {
   key: string;
+  /** 수정 시 서버가 요구하는 기존 포지션 ID */
+  positionId?: number;
   type: PositionType;
   /** 빈 칸으로 시작할 수 있도록 문자열로 다룬다 */
   capacity: string;
@@ -96,28 +98,40 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
     let alive = true;
 
     (async () => {
-      const party = await fetchParty(editId);
-      // 연결된 대회 카드(포스터·주최·접수기간)를 그리려면 대회 상세가 필요하다
-      const contest = party.contestId ? await fetchContest(party.contestId) : null;
-      if (!alive) return;
+      try {
+        const party = await fetchParty(editId);
+        // 연결된 대회 카드 조회가 실패해도 파티 수정은 계속할 수 있어야 한다.
+        const contest = party.contestId
+          ? await fetchContest(party.contestId).catch(() => null)
+          : null;
+        if (!alive) return;
 
-      setTopicType(party.topicType);
-      setPartyName(party.partyName ?? '');
-      setTitle(party.title);
-      setDescription(party.description);
-      setRepositoryUrl(party.githubRepoUrl ?? '');
-      setContestLinkUrl(party.contestLinkUrl ?? '');
-      setPickedContest(contest);
-      setContestKeyword(contest ? '' : (party.contestName ?? ''));
-      setPositions(
-        party.positions.map((position, index) => ({
-          key: `p${index}`,
-          type: position.type,
-          capacity: String(position.capacity),
-        })),
-      );
-      setCarried({ subCategory: party.subCategory, deadline: party.deadline });
-      setLoading(false);
+        setTopicType(party.topicType);
+        setPartyName(party.partyName ?? '');
+        setTitle(party.title);
+        if (party.title.length > TITLE_MAX) {
+          setErrors((prev) => ({
+            ...prev,
+            title: `모집글 제목은 ${TITLE_MAX}자까지 입력할 수 있어요. (현재 ${party.title.length}자)`,
+          }));
+        }
+        setDescription(party.description);
+        setRepositoryUrl(party.githubRepoUrl ?? '');
+        setContestLinkUrl(party.contestLinkUrl ?? '');
+        setPickedContest(contest);
+        setContestKeyword(contest ? '' : (party.contestName ?? ''));
+        setPositions(
+          party.positions.map((position, index) => ({
+            key: `p${index}`,
+            positionId: position.id,
+            type: position.type,
+            capacity: String(position.capacity),
+          })),
+        );
+        setCarried({ subCategory: party.subCategory, deadline: party.deadline });
+      } finally {
+        if (alive) setLoading(false);
+      }
     })();
 
     return () => {
@@ -202,11 +216,20 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
       positionErrors.push(`파티 총원은 ${TOTAL_CAPACITY_MAX}명을 넘을 수 없어요.`);
     if (positionErrors.length > 0) next.positions = positionErrors.join(' ');
     setErrors(next);
-    return Object.keys(next).length === 0;
+    return next;
   };
 
   const submit = async () => {
-    if (!validate()) return;
+    const validationErrors = validate();
+    if (Object.keys(validationErrors).length > 0) {
+      const invalidFields = Object.values(validationErrors).filter(Boolean);
+      await confirm({
+        title: '입력 내용을 확인해 주세요',
+        description: invalidFields.length > 0 ? invalidFields.join(' ') : '필수 입력값을 확인해 주세요.',
+        confirmLabel: '확인',
+      });
+      return;
+    }
     setSubmitting(true);
     const payload = {
       ...carried,
@@ -221,13 +244,17 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
       coverFileName: coverFileName ?? undefined,
       positions: positions
         .filter(isFilled)
-        .map(({ type, capacity }) => ({ type, capacity: Number(capacity) })),
+        .map(({ positionId, type, capacity }) => ({
+          positionId,
+          type,
+          capacity: Number(capacity),
+        })),
       repositoryUrl: repositoryUrl || undefined,
     };
     try {
       const result = editId ? await updateParty(editId, payload) : await createParty(payload);
       if (editId) {
-        leaveEdit();
+        router.replace(`/party/${editId}`);
         router.refresh();
       } else {
         // 새로 만든 파티로 가는 건 앞으로 가는 이동이라 히스토리에 쌓는 게 맞다
@@ -370,8 +397,15 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
           maxLength={TITLE_MAX}
           value={title}
           onChange={(event) => {
-            setTitle(event.target.value);
-            setErrors((prev) => ({ ...prev, title: '' }));
+            const nextTitle = event.target.value;
+            setTitle(nextTitle);
+            setErrors((prev) => ({
+              ...prev,
+              title:
+                nextTitle.trim().length > TITLE_MAX
+                  ? `모집글 제목은 ${TITLE_MAX}자까지 입력할 수 있어요. (현재 ${nextTitle.trim().length}자)`
+                  : '',
+            }));
           }}
         />
       </FormGroup>
