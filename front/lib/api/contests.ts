@@ -117,7 +117,10 @@ export function toContest(dto: ContestResponse): Contest {
     status: toStatus(dto.applicationPeriodEnd),
     dday: toDday(dto.applicationPeriodEnd),
     period: toPeriod(dto.applicationPeriodStart, dto.applicationPeriodEnd),
+    applicationPeriodStart: dto.applicationPeriodStart,
+    applicationPeriodEnd: dto.applicationPeriodEnd,
     linkUrl: dto.linkUrl ?? '#',
+    archived: dto.archived,
     coverImageUrl: dto.imageUrl ?? undefined,
     viewCount: dto.viewCount ?? 0,
     likeCount: dto.likeCount ?? 0,
@@ -195,7 +198,10 @@ function emptyContestDetail(id: string): ContestDetail {
     status: '접수중',
     dday: '-',
     period: '-',
+    applicationPeriodStart: '',
+    applicationPeriodEnd: '',
     linkUrl: '#',
+    archived: true,
     viewCount: 0,
     likeCount: 0,
     teams: 0,
@@ -215,7 +221,11 @@ function toContestDetail(id: string, payload: ContestFormPayload): ContestDetail
     status: '접수중',
     dday: toDday(payload.endDate),
     period: toPeriod(payload.startDate, payload.endDate),
+    applicationPeriodStart: payload.startDate,
+    applicationPeriodEnd: payload.endDate,
     linkUrl: payload.linkUrl,
+    archived: false,
+    coverImageUrl: payload.coverImageUrl,
     viewCount: 0,
     likeCount: 0,
     teams: 0,
@@ -263,6 +273,12 @@ export interface ContestFormPayload {
   startDate: string;
   endDate: string;
   coverFileName?: string;
+  /**
+   * 지금 등록돼 있는 대표 사진 URL(있다면). 실제 업로드가 아직 안 붙어 있어 coverFileName 은
+   * 서버로 못 보내지만, 수정 화면은 이 값을 그대로 되돌려 보내 기존 이미지를 보존해야 한다 —
+   * 안 그러면(예: null) PATCH 가 imageUrl 을 통째로 덮어써서 제목만 고쳐도 이미지가 지워진다.
+   */
+  coverImageUrl?: string;
   /** 상세의 '공모전 소개' — 상금·시상 내역·참가 대상도 여기에 함께 적는다. 서버 검증상 10자 이상 */
   description: string;
 }
@@ -322,7 +338,9 @@ export async function updateContest(
     applicationPeriodStart: payload.startDate,
     applicationPeriodEnd: payload.endDate,
     linkUrl: payload.linkUrl,
-    imageUrl: null,
+    // coverFileName 은 아직 실제 업로드가 없어 서버로 못 보낸다. 그렇다고 null 을 보내면
+    // PATCH 가 전체 교체라서 기존 이미지가 지워지므로, 읽어온 값을 그대로 돌려보내 보존한다.
+    imageUrl: payload.coverImageUrl ?? null,
   });
   return { id: String(updated.id) };
 }
