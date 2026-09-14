@@ -26,6 +26,8 @@ spring:
   datasource:
     hikari:
       auto-commit: false
+  jpa:
+    open-in-view: false
   security:
     oauth2:
       client:
