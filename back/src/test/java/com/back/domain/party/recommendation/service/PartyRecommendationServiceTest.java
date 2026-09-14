@@ -6,6 +6,7 @@ import com.back.domain.member.member.repository.MemberRepository;
 import com.back.domain.member.profile.entity.MemberProfile;
 import com.back.domain.member.profile.repository.MemberProfileRepository;
 import com.back.domain.party.party.dtos.PartyDto;
+import com.back.domain.party.party.entity.Party;
 import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
 import com.back.domain.party.party.repository.PartyRepository;
@@ -106,5 +107,22 @@ class PartyRecommendationServiceTest {
                 TopicType.STUDY, PartyTag.WEB, null, LocalDateTime.now().plusDays(7),
                 List.of(new PartyService.PositionCreateSpec(PositionType.BACK, 3))
         );
+    }
+
+    @Test
+    @DisplayName("배치 계산 이후 숨김 처리된 파티는 결과에서 빠진다")
+    void getRecommendations_skipsHiddenParty() {
+        Member member = saveMemberWithProfile("rec-hidden-party@test.com");
+        Member owner = saveMemberWithProfile("rec-hidden-owner@test.com");
+        PartyDto partyDto = createParty(owner, "숨김될 파티");
+
+        partyRecommendationRepository.save(new PartyRecommendation(member.getId(), partyDto.id(), 1, null));
+
+        Party party = partyRepository.findById(partyDto.id()).orElseThrow();
+        party.hide();
+
+        PartyRecommendationResultDto result = partyRecommendationService.getRecommendations(member);
+
+        assertThat(result.items()).isEmpty();
     }
 }

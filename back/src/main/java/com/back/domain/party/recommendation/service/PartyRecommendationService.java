@@ -44,6 +44,7 @@ public class PartyRecommendationService {
 
         // 배치 계산 이후 삭제된 파티가 있을 수 있어, 실제로 살아있는 파티만 골라낸다.
         Map<Long, Party> partyById = partyRepository.findAllByIdIn(partyIds).stream()
+                .filter(party -> !party.isHidden())
                 .collect(Collectors.toMap(Party::getId, Function.identity()));
         Map<Long, Long> applicantCounts = partyMemberRepository.countApplicantsByPartyIds(partyIds);
 
