@@ -91,12 +91,16 @@ public class MemberProfileService {
 
     @Transactional
     public MemberProfileDto modifyProfile(
-            Member actor, String nickname, String webpage, String profileImageUrl,
+            Member actor, String name, String nickname, String webpage, String profileImageUrl,
             String bio,
             PositionType position, List<String> techStacks,
             List<CareerCommand> careers, List<LinkCommand> links) {
 
         MemberProfile profile = getOrCreateProfile(actor);
+
+        if (name != null) {
+            actor.modify(name.trim(), actor.getProfileImgUrl());
+        }
 
         profile.modify(nickname, webpage, profileImageUrl, bio,
                 position, techStacks, careers, links);
@@ -112,6 +116,15 @@ public class MemberProfileService {
         }
 
         return new MemberProfileDto(profile);
+    }
+
+    /** 기존 호출부 호환용. 이름을 변경하지 않는 일반 프로필 수정은 그대로 둔다. */
+    public MemberProfileDto modifyProfile(
+            Member actor, String nickname, String webpage, String profileImageUrl,
+            String bio, PositionType position, List<String> techStacks,
+            List<CareerCommand> careers, List<LinkCommand> links) {
+        return modifyProfile(actor, null, nickname, webpage, profileImageUrl, bio,
+                position, techStacks, careers, links);
     }
 
     // 조회(GET /me)와 자동저장(PATCH /me)이 동시에 들어와 각자 INSERT 하면 member 유니크 제약에 걸린다.
