@@ -435,12 +435,16 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
                   placeholder="정원"
                   value={position.capacity}
                   onChange={(event) => {
-                    // 버튼 클릭으로 제출하기 때문에(type="button") 네이티브 max 제약은 그 자체로는
-                    // 강제되지 않는다 - 여기서 직접 clamp 해야 실제로 rowMax 를 넘길 수 없다
+                    // 버튼 클릭으로 제출하기 때문에(type="button") 네이티브 min/max 제약은 그 자체로는
+                    // 강제되지 않는다 - 여기서 직접 [1, rowMax] 로 clamp 한다.
+                    // rowMax 가 0(남은 여유 없음)이면 최솟값도 0으로 내려서 1과 모순되지 않게 한다.
                     const raw = event.target.value;
                     const parsed = Number(raw);
+                    const lower = Math.min(1, rowMax);
                     const capacity =
-                      raw !== '' && !Number.isNaN(parsed) && parsed > rowMax ? String(rowMax) : raw;
+                      raw !== '' && !Number.isNaN(parsed)
+                        ? String(Math.min(Math.max(parsed, lower), rowMax))
+                        : raw;
                     patchPosition(position.key, { capacity });
                     setErrors((prev) => ({ ...prev, positions: '' }));
                   }}
