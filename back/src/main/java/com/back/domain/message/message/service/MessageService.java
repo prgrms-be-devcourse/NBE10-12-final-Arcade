@@ -191,9 +191,17 @@ public class MessageService {
 
         return membersById.values().stream().collect(Collectors.toMap(
                 Member::getId,
-                member -> new MessageMemberDto(member.getId(), member.getName(), nicknameByMemberId.get(member.getId())),
+                member -> {
+                    String nickname = nicknameByMemberId.get(member.getId());
+                    String name = hasText(member.getName()) ? member.getName() : nickname;
+                    return new MessageMemberDto(member.getId(), name, nickname);
+                },
                 (first, ignored) -> first,
                 LinkedHashMap::new
         ));
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 }
