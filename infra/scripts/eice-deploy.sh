@@ -16,7 +16,7 @@ set -euo pipefail
 REGION="${AWS_REGION:-ap-northeast-2}"
 APP_DIR="/opt/arcade"
 INSTANCE=""
-NAME_TAG="arcade-dev"
+NAME_TAG="arcade-ec2"
 ENV_FILE=""
 BACKEND_IMAGE=""
 FRONTEND_IMAGE=""
