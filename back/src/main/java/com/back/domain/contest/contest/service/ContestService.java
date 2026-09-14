@@ -19,6 +19,9 @@ import com.back.domain.party.party.repository.PartyContestLookupPort;
 import com.back.domain.party.position.entity.PartyStatus;
 import com.back.domain.ranking.entity.FeaturedRanking;
 import com.back.domain.ranking.repository.FeaturedRankingRepository;
+import com.back.global.app.CustomConfigProperties;
+import com.back.global.exception.ServiceException;
+import com.back.global.storage.FileStorage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -26,6 +29,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -46,9 +50,38 @@ public class ContestService {
     private final FeaturedRankingRepository featuredRankingRepository;
     private final PartyContestLookupPort partyContestLookupPort;
     private final PartyMemberRepository partyMemberRepository;
+    private final FileStorage fileStorage;
+    private final CustomConfigProperties customConfigProperties;
+
+    private static final String COVER_IMAGE_DIRECTORY = "contest";
+    private static final List<String> ALLOWED_IMAGE_TYPES = List.of("image/jpeg", "image/png");
 
     public long count() {
         return contestRepository.count();
+    }
+
+    /** 저장만 하고 URL 을 돌려준다. 대회 글에 반영하는 건 등록/수정 요청의 몫이다. */
+    public String uploadCoverImage(MultipartFile file) {
+        validateImage(file);
+
+        return fileStorage.upload(file, COVER_IMAGE_DIRECTORY);
+    }
+
+    private void validateImage(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new ServiceException("400-1", "이미지 파일이 비어 있습니다.");
+        }
+
+        String contentType = file.getContentType();
+        if (contentType == null || !ALLOWED_IMAGE_TYPES.contains(contentType)) {
+            throw new ServiceException("400-1", "jpg, png 이미지만 올릴 수 있습니다.");
+        }
+
+        long maxBytes = customConfigProperties.getStorage().getMaxFileSize().toBytes();
+        if (file.getSize() > maxBytes) {
+            throw new ServiceException("400-1",
+                    "이미지는 %dMB 까지 올릴 수 있습니다.".formatted(maxBytes / 1024 / 1024));
+        }
     }
 
     @Transactional
