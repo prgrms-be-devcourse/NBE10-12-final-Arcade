@@ -71,9 +71,9 @@ export function AgreementGate() {
   if (!open || skip) return null;
 
   return (
-    <OnboardingModal
+      <OnboardingModal
       open
-      defaultNickname={profile?.nickname ?? profile?.name ?? ''}
+      defaultNickname={profile?.nickname ?? ''}
       onSubmit={submit}
     />
   );
