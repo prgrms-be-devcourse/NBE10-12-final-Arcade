@@ -215,6 +215,33 @@ public class ApiV1PartyControllerTest {
     }
 
     @Test
+    @DisplayName("파티 생성: 정원 합이 int 범위를 넘겨도 총원 초과로 막힌다")
+    @WithUserDetails("user1@test.com")
+    void createPartyWithOverflowingCapacitySum() throws Exception {
+        String body = """
+            {
+                "partyName": "오락실 팀",
+                "title": "오락실 공모전 팀원 모집",
+                "description": "테스트용 파티 설명입니다",
+                "topicType": "PROJECT",
+                "partyTag": "WEB",
+                "deadline": "%s",
+                "positions": [
+                    { "name": "BACK", "capacity": 1500000000 },
+                    { "name": "FRONT", "capacity": 1500000000 }
+                ]
+            }
+            """.formatted(deadline);
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/parties")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body));
+
+        resultActions.andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.resultCode").value("400-4"));
+    }
+
+    @Test
     @DisplayName("파티 생성: 유효한 targetContestId로 대회와 연결되고 응답에 targetContest가 포함된다")
     @WithUserDetails("user1@test.com")
     void createPartyLinkedToContest() throws Exception {
@@ -486,6 +513,35 @@ public class ApiV1PartyControllerTest {
                 ]
             }
             """.formatted(deadline, frontPosition.getId());
+
+        ResultActions resultActions = mvc.perform(patch("/api/v1/parties/" + party.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(updateBody));
+
+        resultActions.andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-4"));
+    }
+
+    @Test
+    @DisplayName("파티 수정: 같은 포지션을 중복해서 보내면 500이 아니라 400-4이다")
+    @WithUserDetails("user1@test.com")
+    void updatePartyWithDuplicatePositionId() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 2);
+        Position position = party.getPositions().get(0);
+
+        String updateBody = """
+            {
+                "partyName": "수정된 이름",
+                "title": "수정된 제목",
+                "topicType": "PROJECT",
+                "partyTag": "WEB",
+                "deadline": "%s",
+                "positions": [
+                    { "positionId": %d, "capacity": 3 },
+                    { "positionId": %d, "capacity": 5 }
+                ]
+            }
+            """.formatted(deadline, position.getId(), position.getId());
 
         ResultActions resultActions = mvc.perform(patch("/api/v1/parties/" + party.getId())
                 .contentType(MediaType.APPLICATION_JSON)

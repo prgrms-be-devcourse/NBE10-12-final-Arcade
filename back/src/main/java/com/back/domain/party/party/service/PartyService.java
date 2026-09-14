@@ -45,7 +45,6 @@ import static com.back.domain.party.party.entity.PartySortOption.VACANCY;
 @Transactional(readOnly = true)
 public class PartyService {
 
-    // 프론트 PartyCreateForm.tsx의 TOTAL_CAPACITY_MAX와 같은 값
     private static final int TOTAL_CAPACITY_MAX = 10;
 
     private final PartyRepository partyRepository;
@@ -96,8 +95,8 @@ public class PartyService {
             throw new ServiceException("400-4", "같은 포지션을 중복해서 추가할 수 없습니다.");
         }
 
-        int totalCapacity = positionSpecs.stream()
-                .mapToInt(PositionCreateSpec::capacity)
+        long totalCapacity = positionSpecs.stream()
+                .mapToLong(PositionCreateSpec::capacity)
                 .sum();
         if (totalCapacity > TOTAL_CAPACITY_MAX) {
             throw new ServiceException("400-4", "파티 총원은 " + TOTAL_CAPACITY_MAX + "명을 넘을 수 없습니다.");
@@ -195,13 +194,19 @@ public class PartyService {
                 }
             });
 
-            // update()는 기존 포지션의 정원만 바꾸고 새 포지션을 추가하지 않으므로,
-            // 수정 대상이 아닌 포지션은 현재 capacity를 그대로 더해 전체 총원을 계산한다.
+            long distinctPositionIds = positionCapacityUpdates.stream()
+                    .map(PositionCapacityUpdateSpec::positionId)
+                    .distinct()
+                    .count();
+            if (distinctPositionIds != positionCapacityUpdates.size()) {
+                throw new ServiceException("400-4", "같은 포지션을 중복해서 수정할 수 없습니다.");
+            }
+
             Map<Long, Integer> newCapacityByPositionId = positionCapacityUpdates.stream()
                     .collect(Collectors.toMap(PositionCapacityUpdateSpec::positionId, PositionCapacityUpdateSpec::capacity));
 
-            int totalCapacity = party.getPositions().stream()
-                    .mapToInt(position -> newCapacityByPositionId.getOrDefault(position.getId(), position.getCapacity()))
+            long totalCapacity = party.getPositions().stream()
+                    .mapToLong(position -> newCapacityByPositionId.getOrDefault(position.getId(), position.getCapacity()))
                     .sum();
             if (totalCapacity > TOTAL_CAPACITY_MAX) {
                 throw new ServiceException("400-4", "파티 총원은 " + TOTAL_CAPACITY_MAX + "명을 넘을 수 없습니다.");
