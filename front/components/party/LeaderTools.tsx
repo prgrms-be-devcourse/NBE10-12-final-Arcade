@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { DeleteButton } from '@/components/ui/DeleteButton';
 import { useCurrentUser } from '@/lib/hooks/useCurrentUser';
 import { closePartyRecruit, deleteParty } from '@/lib/api';
@@ -29,6 +30,34 @@ export function LeaderTools({ party }: { party: PartyDetail }) {
     setClosed(true);
   };
 
+  if (closed) {
+    return (
+      <div className="side-card leader-tools">
+        <h4>파티 진행 중</h4>
+        <p className="apply-note">
+          모집이 완료되어 팀 공간에서 GitHub 저장소와 Pull Request 진행 기록을 관리할 수 있어요.
+        </p>
+        <Link
+          className="btn btn-primary"
+          style={{ display: 'block', marginTop: '0.875rem', textAlign: 'center' }}
+          href={`/party/${party.id}/team`}
+        >
+          팀 공간으로 이동
+        </Link>
+        <div className="tool-danger-zone">
+          <DeleteButton
+            label="파티 삭제"
+            confirmTitle="파티를 삭제할까요?"
+            confirmDescription={`'${party.title}' 모집글과 지원 내역이 모두 사라져요. 되돌릴 수 없습니다.`}
+            onDelete={() => deleteParty(party.id)}
+            redirectTo="/party"
+            block
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="side-card leader-tools">
       <h4>파티장 도구</h4>
@@ -47,9 +76,6 @@ export function LeaderTools({ party }: { party: PartyDetail }) {
       <button type="button" className="btn btn-ghost" onClick={close} disabled={closed}>
         인원 모집 완료
       </button>
-      {closed ? (
-        <p className="tool-done-note">모집이 마감됐어요. 지원 버튼이 닫히고 팀 스페이스가 열립니다.</p>
-      ) : null}
 
       <div className="tool-danger-zone">
         <DeleteButton

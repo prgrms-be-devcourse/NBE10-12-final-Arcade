@@ -116,7 +116,7 @@ export default async function PartyDetailPage({ params }: { params: Promise<{ id
           }
           side={
             <>
-              <SideCard title="추가 정보">
+              <SideCard title="태그">
                 <TagRow>
                   <Tag>{TOPIC_TYPE_LABELS[party.topicType]}</Tag>
                   {party.contestFormat ? <Tag>{CONTEST_FORMAT_LABELS[party.contestFormat]}</Tag> : null}

@@ -143,7 +143,7 @@ export default async function ExhibitionDetailPage({
           }
           side={
             <>
-            <SideCard title="추가 정보">
+            <SideCard title="태그">
               <TagRow>
                 <Tag>{project.category}</Tag>
                 <Tag accent>{GOAL_SOURCE_LABELS[project.source]}</Tag>
