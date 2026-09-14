@@ -14,6 +14,7 @@ cd "$APP_DIR"
 if [ "${ENV_FROM_SSM:-0}" != "1" ]; then
   echo "== .env 는 밖에서 받은 것을 쓴다 =="
   [ -s .env ] || { echo "  .env 가 없거나 비었다" >&2; exit 1; }
+  chmod 600 .env
   echo "  $(grep -c . .env) 개 항목"
 else
 
