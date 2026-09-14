@@ -12,7 +12,7 @@ import { UserMenu } from './UserMenu';
 
 const NAV_ITEMS = [
   { href: '/', label: '홈' },
-  { href: '/party', label: '파티' },
+  { href: '/party', label: '모집' },
   { href: '/contests', label: '공모전/대회' },
   { href: '/exhibition', label: '전시관' },
 ];

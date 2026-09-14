@@ -6,7 +6,7 @@ import { Icon, type IconName } from '@/components/icons/Icon';
 
 const ITEMS: { href: string; label: string; icon: IconName }[] = [
   { href: '/', label: '홈', icon: 'i-joystick' },
-  { href: '/party', label: '파티', icon: 'i-users' },
+  { href: '/party', label: '모집', icon: 'i-users' },
   { href: '/contests', label: '공모전', icon: 'i-trophy' },
   { href: '/exhibition', label: '전시관', icon: 'i-eye' },
 ];

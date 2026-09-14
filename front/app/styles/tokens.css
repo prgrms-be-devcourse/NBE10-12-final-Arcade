@@ -20,6 +20,7 @@
   --surface-2:#1b1b2b;
   --border:#26263a;
   --border-strong:#34344c;
+  --panel-border:#34344c;
   --text:#f2f3f8;
   --text-muted:#a6a6bd;
   --text-dim:#6f6f89;
@@ -74,6 +75,7 @@
   --surface-2:#f3f0ff;
   --border:#c8c1ef;
   --border-strong:#241d4a;
+  --panel-border:#9b93c7;
   --text:#171238;
   --text-muted:#453e6e;
   --text-dim:#7a72a6;
