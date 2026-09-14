@@ -17,12 +17,12 @@ import com.back.domain.party.position.entity.PartyStatus;
 import com.back.global.exception.ServiceException;
 import com.back.global.rq.Rq;
 import com.back.global.rsData.RsData;
+import com.back.global.validation.ValidHttpUrl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -72,7 +72,7 @@ public class ApiV1ContestController {
             String description,
             String imageUrl,
             @NotBlank
-            @Pattern(regexp = "^https?://.+", message = "http:// 또는 https://로 시작하는 URL만 허용됩니다.")
+            @ValidHttpUrl
             String linkUrl
     ) { }
 
@@ -114,7 +114,7 @@ public class ApiV1ContestController {
             @NotNull
             LocalDate applicationPeriodEnd,
             @NotBlank
-            @Pattern(regexp = "^https?://.+", message = "http:// 또는 https://로 시작하는 URL만 허용됩니다.")
+            @ValidHttpUrl
             String linkUrl,
             String imageUrl
     ) { }
