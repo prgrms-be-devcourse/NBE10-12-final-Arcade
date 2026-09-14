@@ -1,4 +1,4 @@
-package com.back.domain.party.showcase.ranking.entity;
+package com.back.domain.ranking.entity;
 
 import com.back.domain.interaction.like.entity.TargetType;
 import com.back.global.jpa.entity.BaseEntity;
