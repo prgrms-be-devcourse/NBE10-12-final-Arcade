@@ -256,7 +256,6 @@ body{
   text-shadow:0 0 0.5rem var(--accent-glow);
 }
 /* 대표 제목(h1)은 전원 버튼, 섹션 제목(h2)은 콘텐츠 상태 마커로 구분한다. */
-.detail-title::before,
 .auth-title::before,
 .admin-head h1::before,
 .system-state h1::before{
@@ -265,8 +264,19 @@ body{
   box-shadow:.125rem .125rem 0 var(--accent-ink),0 0 .625rem var(--accent-glow);
   transition:transform .18s steps(2,end),background-color .18s ease;
 }
-.detail-title:hover::before,
-.detail-title:focus-visible::before,
+.interactive-title{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;column-gap:.75rem;}
+.interactive-title .block-title{margin:0;line-height:1.4;}
+.title-arcade-button{position:relative;align-self:center;width:1.5rem;height:1.7rem;padding:0;background:transparent !important;border:0;box-shadow:none;cursor:pointer;transform:translateY(-.0625rem);}
+.title-arcade-button svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;color:var(--accent-strong);}
+.title-arcade-button .title-arcade-base{z-index:2;color:var(--accent);}
+.title-arcade-button .title-arcade-fill{z-index:1;color:var(--accent);display:none;transform-origin:50% 100%;}
+.title-arcade-button .title-arcade-body{z-index:1;color:var(--text);transform-origin:50% 100%;transform:scaleY(.68);transition:transform .09s steps(2,end),color .09s ease;}
+.title-arcade-button:hover{color:var(--accent);}
+.interactive-title.is-pressed .title-arcade-button{color:var(--accent);}
+.interactive-title.is-pressed .title-arcade-button .title-arcade-base{color:var(--accent);}
+.interactive-title.is-pressed .block-title{color:var(--accent);text-shadow:0 0 .625rem var(--accent-glow);}
+.interactive-title.is-pressed .title-arcade-button .title-arcade-body{transform:translateY(.08rem) scaleY(.58);color:var(--accent);}
+.interactive-title.is-pressed .title-arcade-button .title-arcade-fill{display:none;}
 .auth-title:hover::before,
 .auth-title:focus-visible::before,
 .admin-head h1:hover::before,
@@ -296,12 +306,9 @@ body{
 .section-head--exhibition h2:hover::before,.section-head--exhibition h2:focus-visible::before{transform:translateX(.3rem);background:var(--neon-pink);}
 @keyframes section-marker-pulse{50%{opacity:.35;filter:brightness(1.7);}}
 @media (prefers-reduced-motion:reduce){
-  .detail-title::before,.auth-title::before,.admin-head h1::before,.system-state h1::before,.section-head h2::before{transition:none;}
-  .detail-title:hover::before,.detail-title:focus-visible::before,.auth-title:hover::before,.auth-title:focus-visible::before,.admin-head h1:hover::before,.admin-head h1:focus-visible::before,.system-state h1:hover::before,.system-state h1:focus-visible::before,.section-head h2:hover::before,.section-head h2:focus-visible::before{animation:none;}
-}
-.block-title::before{
-  content:"";display:inline-block;width:0.625rem;height:0.625rem;margin-right:0.5625rem;
-  background:var(--accent);filter:drop-shadow(0 0 0.4375rem var(--accent-glow));
+  .auth-title::before,.admin-head h1::before,.system-state h1::before,.section-head h2::before{transition:none;}
+  .auth-title:hover::before,.auth-title:focus-visible::before,.admin-head h1:hover::before,.admin-head h1:focus-visible::before,.system-state h1:hover::before,.system-state h1:focus-visible::before,.section-head h2:hover::before,.section-head h2:focus-visible::before{animation:none;}
+  .title-arcade-button,.title-arcade-button .title-arcade-body{transition:none;}
 }
 .section-head h2,
 .block-title,
