@@ -12,6 +12,11 @@
 export function httpUrlOrNull(value: string | null | undefined): string | null {
   if (!value) return null;
 
+  // new URL() 은 'https:example.com'·'https:/example.com'처럼 // 가 없거나 하나뿐이어도
+  // http/https 같은 특수 스킴은 관대하게 통과시킨다. 백엔드 HttpUrlValidator(^https?://.+)와
+  // 기준을 맞추려면 // 존재를 직접 확인해야 한다.
+  if (!/^https?:\/\//i.test(value)) return null;
+
   try {
     const url = new URL(value);
     return url.protocol === 'http:' || url.protocol === 'https:' ? value : null;

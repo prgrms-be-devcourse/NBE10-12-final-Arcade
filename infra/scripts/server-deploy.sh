@@ -14,6 +14,7 @@ cd "$APP_DIR"
 if [ "${ENV_FROM_SSM:-0}" != "1" ]; then
   echo "== .env 는 밖에서 받은 것을 쓴다 =="
   [ -s .env ] || { echo "  .env 가 없거나 비었다" >&2; exit 1; }
+  chmod 600 .env
   echo "  $(grep -c . .env) 개 항목"
 else
 
@@ -119,7 +120,7 @@ if docker compose $COMPOSE_FILES --env-file .env config --services | grep -qx po
   docker compose $COMPOSE_FILES --env-file .env up -d --no-deps --force-recreate postgres-exporter >/dev/null
 fi
 
-# backend와 frontend를 모두 준비한 뒤 Nginx 대상을 한 번에 전환한다.
+# 변경된 애플리케이션만 준비한 뒤 Nginx 대상을 한 번에 전환한다.
 NGINX_CONFIG="infra/nginx/nginx.prod.conf"
 NGINX_TEMPLATE="$(mktemp)"
 NGINX_RENDERED="$(mktemp)"
@@ -150,6 +151,34 @@ container_name() {
     return 1
   }
   printf '%s\n' "$name"
+}
+
+service_needs_replacement() {
+  local service="$1" current_id="$2"
+  local desired_hash current_hash desired_ref desired_image current_image
+
+  [ -n "$current_id" ] || return 0
+
+  desired_hash="$(
+    docker compose $COMPOSE_FILES --env-file .env config --hash "$service" \
+      | awk -v service="$service" '$1 == service { print $2 }'
+  )"
+  current_hash="$(
+    docker inspect "$current_id" \
+      --format '{{index .Config.Labels "com.docker.compose.config-hash"}}' 2>/dev/null
+  )"
+  desired_ref="$(
+    docker compose $COMPOSE_FILES --env-file .env config --format json \
+      | jq -r --arg service "$service" '.services[$service].image // empty'
+  )"
+  desired_image="$(docker image inspect "$desired_ref" --format '{{.Id}}' 2>/dev/null)"
+  current_image="$(docker inspect "$current_id" --format '{{.Image}}' 2>/dev/null)"
+
+  if [ -n "$desired_hash" ] && [ "$desired_hash" = "$current_hash" ] \
+    && [ -n "$desired_image" ] && [ "$desired_image" = "$current_image" ]; then
+    return 1
+  fi
+  return 0
 }
 
 wait_container_healthy() {
@@ -266,20 +295,34 @@ fi
 
 NEW_BACKEND_ID=""
 NEW_FRONTEND_ID=""
+BACKEND_CHANGED=1
+FRONTEND_CHANGED=1
 if [ "${ROLLING:-1}" = "1" ]; then
   echo "== 애플리케이션 무중단 교체 =="
-  if ! prepare_candidate backend "$OLD_BACKEND_ID" 240; then
-    remove_candidate "$CANDIDATE_ID" "$OLD_BACKEND_ID"
-    exit 1
+  if service_needs_replacement backend "$OLD_BACKEND_ID"; then
+    if ! prepare_candidate backend "$OLD_BACKEND_ID" 240; then
+      remove_candidate "$CANDIDATE_ID" "$OLD_BACKEND_ID"
+      exit 1
+    fi
+    NEW_BACKEND_ID="$CANDIDATE_ID"
+  else
+    BACKEND_CHANGED=0
+    NEW_BACKEND_ID="$OLD_BACKEND_ID"
+    echo "  backend 변경 없음 — 기존 컨테이너 유지"
   fi
-  NEW_BACKEND_ID="$CANDIDATE_ID"
 
-  if ! prepare_candidate frontend "$OLD_FRONTEND_ID" 120; then
-    remove_candidate "$CANDIDATE_ID" "$OLD_FRONTEND_ID"
-    remove_candidate "$NEW_BACKEND_ID" "$OLD_BACKEND_ID"
-    exit 1
+  if service_needs_replacement frontend "$OLD_FRONTEND_ID"; then
+    if ! prepare_candidate frontend "$OLD_FRONTEND_ID" 120; then
+      remove_candidate "$CANDIDATE_ID" "$OLD_FRONTEND_ID"
+      remove_candidate "$NEW_BACKEND_ID" "$OLD_BACKEND_ID"
+      exit 1
+    fi
+    NEW_FRONTEND_ID="$CANDIDATE_ID"
+  else
+    FRONTEND_CHANGED=0
+    NEW_FRONTEND_ID="$OLD_FRONTEND_ID"
+    echo "  frontend 변경 없음 — 기존 컨테이너 유지"
   fi
-  NEW_FRONTEND_ID="$CANDIDATE_ID"
 else
   echo "== 애플리케이션 교체 (중단 허용) =="
   # shellcheck disable=SC2086
@@ -293,17 +336,22 @@ fi
 NEW_BACKEND_NAME="$(container_name "$NEW_BACKEND_ID")"
 NEW_FRONTEND_NAME="$(container_name "$NEW_FRONTEND_ID")"
 echo "  활성 대상: backend=$NEW_BACKEND_NAME frontend=$NEW_FRONTEND_NAME"
-if ! activate_nginx "$NEW_BACKEND_NAME" "$NEW_FRONTEND_NAME"; then
+if { [ "$BACKEND_CHANGED" -eq 1 ] || [ "$FRONTEND_CHANGED" -eq 1 ]; } \
+  && ! activate_nginx "$NEW_BACKEND_NAME" "$NEW_FRONTEND_NAME"; then
   remove_candidate "$NEW_FRONTEND_ID" "$OLD_FRONTEND_ID"
   remove_candidate "$NEW_BACKEND_ID" "$OLD_BACKEND_ID"
   exit 1
 fi
 
-if [ -n "$OLD_BACKEND_ID" ] && [ "${ROLLING:-1}" = "1" ]; then
+if [ -n "$OLD_BACKEND_ID" ] && [ "${ROLLING:-1}" = "1" ] \
+  && { [ "$BACKEND_CHANGED" -eq 1 ] || [ "$FRONTEND_CHANGED" -eq 1 ]; }; then
   echo "  기존 Nginx worker 요청 drain (16초)"
   sleep 16
-  docker stop "$OLD_FRONTEND_ID" "$OLD_BACKEND_ID" >/dev/null
-  docker rm "$OLD_FRONTEND_ID" "$OLD_BACKEND_ID" >/dev/null
+  OLD_IDS=()
+  [ "$FRONTEND_CHANGED" -eq 0 ] || OLD_IDS+=("$OLD_FRONTEND_ID")
+  [ "$BACKEND_CHANGED" -eq 0 ] || OLD_IDS+=("$OLD_BACKEND_ID")
+  docker stop "${OLD_IDS[@]}" >/dev/null
+  docker rm "${OLD_IDS[@]}" >/dev/null
 fi
 echo "  애플리케이션 교체 완료"
 

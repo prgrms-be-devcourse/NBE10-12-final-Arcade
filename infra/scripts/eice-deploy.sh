@@ -192,7 +192,32 @@ trap cleanup EXIT
 mkdir -m 700 "$DOCKER_CONFIG"
 tar xzf "$BUNDLE" -C "$STAGE"
 install -d "$APP_DIR"
-tar --exclude='_deploy' -xzf "$BUNDLE" -C "$APP_DIR"
+
+# 파일 단위 bind mount는 호스트 파일이 교체되면 실행 중인 컨테이너가
+# 이전 inode를 계속 본다. 번들에서는 제외하고 기존 파일 내용을 덮어쓴다.
+BIND_MOUNT_FILES=(
+  infra/caddy/Caddyfile
+  infra/caddy/Caddyfile.monitoring
+  infra/nginx/nginx.prod.conf
+  infra/monitoring/prometheus/prometheus.yml
+)
+TAR_EXCLUDES=(--exclude='_deploy')
+for file in "${BIND_MOUNT_FILES[@]}"; do
+  TAR_EXCLUDES+=(--exclude="$file")
+done
+tar "${TAR_EXCLUDES[@]}" -xzf "$BUNDLE" -C "$APP_DIR"
+
+for file in "${BIND_MOUNT_FILES[@]}"; do
+  source_file="$STAGE/$file"
+  target_file="$APP_DIR/$file"
+  [ -f "$source_file" ] || continue
+  install -d "$(dirname "$target_file")"
+  if [ -f "$target_file" ]; then
+    cat "$source_file" > "$target_file"
+  else
+    install -m 644 "$source_file" "$target_file"
+  fi
+done
 find "$APP_DIR/infra" -name '._*' -delete
 chmod +x "$APP_DIR"/infra/scripts/*.sh
 chmod +x "$APP_DIR"/scripts/*.sh

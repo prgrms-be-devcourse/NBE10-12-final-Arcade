@@ -10,6 +10,7 @@ import { Block, DetailGrid, DetailLayout, SideCard } from '@/components/ui/Block
 import { DDay, Tag, TagRow } from '@/components/ui/Tag';
 import { fetchContest } from '@/lib/api';
 import { CONTEST_FORMAT_LABELS } from '@/lib/constants';
+import { httpUrlOrNull } from '@/lib/externalUrl';
 import type { ContestDetail } from '@/lib/types';
 
 /**
@@ -39,6 +40,8 @@ export function ContestDetailView({ id }: { id: string }) {
       </DetailLayout>
     );
   }
+
+  const externalLinkUrl = httpUrlOrNull(contest.linkUrl);
 
   return (
     <DetailLayout backHref="/contests">
@@ -126,15 +129,17 @@ export function ContestDetailView({ id }: { id: string }) {
                 <Link className="btn btn-primary" style={{ width: '100%' }} href="/party/create">
                   이 대회로 파티 만들기
                 </Link>
-                <a
-                  className="btn btn-ghost"
-                  style={{ width: '100%', marginTop: '0.625rem' }}
-                  href={contest.linkUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  외부 사이트에서 보기 ↗
-                </a>
+                {externalLinkUrl ? (
+                  <a
+                    className="btn btn-ghost"
+                    style={{ width: '100%', marginTop: '0.625rem' }}
+                    href={externalLinkUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    외부 사이트에서 보기 ↗
+                  </a>
+                ) : null}
               </SideCard>
 
               <ContestOwnerTools contest={contest} />
