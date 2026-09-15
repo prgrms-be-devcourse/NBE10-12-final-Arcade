@@ -35,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.back.domain.party.party.entity.PartySortOption.DEADLINE;
@@ -374,7 +375,17 @@ public class PartyService {
             partyRepository.increaseViewCount(partyId);
             party = findByIdOrThrow(partyId);
         }
-        PartyDto partyDto = new PartyDto(party, partyMemberRepository.countApplicantsByPartyId(partyId));
+        var myApplication = actor == null
+                ? Optional.<PartyMemberRepository.ApplicationSummary>empty()
+                : partyMemberRepository.findApplicationSummaryByPartyAndMember(party, actor)
+                        .stream()
+                        .findFirst();
+        PartyDto partyDto = new PartyDto(
+                party,
+                partyMemberRepository.countApplicantsByPartyId(partyId),
+                myApplication.map(PartyMemberRepository.ApplicationSummary::getStatus).orElse(null),
+                myApplication.map(PartyMemberRepository.ApplicationSummary::getPositionType).orElse(null)
+        );
 
         boolean bookmarkedByMe = !bookmarkInteractionPort
                 .findBookmarkedTargetIds(actor, TargetType.PARTY, List.of(partyId)).isEmpty();

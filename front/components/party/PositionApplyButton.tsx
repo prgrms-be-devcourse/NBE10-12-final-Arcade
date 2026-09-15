@@ -8,7 +8,7 @@ import { FormGroup, TextAreaField } from '@/components/ui/Field';
 import { POSITION_LABELS } from '@/lib/constants';
 import type { PositionType } from '@/lib/types';
 
-export function PositionApplyButton({ partyId, position, leaderId, disabled = false }: { partyId: string; position: PositionType; leaderId: string; disabled?: boolean }) {
+export function PositionApplyButton({ partyId, position, leaderId, disabled = false, onApplied }: { partyId: string; position: PositionType; leaderId: string; disabled?: boolean; onApplied?: () => void }) {
   const me = useCurrentUser();
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState('');
@@ -24,6 +24,7 @@ export function PositionApplyButton({ partyId, position, leaderId, disabled = fa
     try {
       await applyToParty(partyId, { position, message });
       setDone(true);
+      onApplied?.();
       setOpen(false);
     } catch {
       setSubmitError('지원에 실패했어요. 잠시 후 다시 시도해 주세요.');
