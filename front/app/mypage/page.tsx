@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation';
 import { MypageView } from '@/components/mypage/MypageView';
 import { MESSAGE_PAGE_SIZE, TODO_PAGE_SIZE } from '@/lib/constants';
-import { isMypageTabKey, type MypageTabKey } from '@/lib/mypageTabs';
 import {
   fetchMessagesOrEmpty,
   fetchMyApplications,
@@ -25,14 +24,7 @@ function toMyParties(applicants: Applicant[]) {
   return Array.from(byId, ([id, title]) => ({ id, title }));
 }
 
-export default async function MyPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ tab?: string }>;
-}) {
-  const { tab } = await searchParams;
-  const activeTab: MypageTabKey = isMypageTabKey(tab) ? tab : 'identity';
-
+export default async function MyPage() {
   const [
     profile,
     summary,
@@ -67,7 +59,6 @@ export default async function MyPage({
 
   return (
     <MypageView
-      initialTab={activeTab}
       profile={{ ...profile, ...summary, achievements }}
       todos={todos.items}
       todoTotalPages={todos.totalPages}
