@@ -71,16 +71,26 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [subCategory, setSubCategory] = useState<string>('기타');
   /**
-   * YYYY-MM-DD (date input 값). 수정 진입이면 기존 파티를 읽어올 때 채우고,
-   * 새 파티는 서버 fallback과 동일한 +30일을 기본값으로 미리 채워둔다.
+   * YYYY-MM-DD (date input 값). 수정 진입이면 기존 파티를 읽어올 때(아래 다른 이펙트) 채운다.
+   * 새 파티의 기본값(+30일)은 마운트 후 이펙트에서만 채운다 — 렌더 중 new Date() 를 쓰면
+   * 서버가 계산한 시각과 하이드레이션 시점의 시각이 달라 mismatch 가 날 수 있다.
    */
-  const [deadline, setDeadline] = useState(() =>
-    editId ? '' : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-  );
-  /** date input min 힌트·검증에 같이 쓴다. 렌더마다 다시 구해도 하루 단위 값이라 부담 없다 */
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const [deadline, setDeadline] = useState('');
+  /** date input min 힌트·검증에 같이 쓴다. 마감일 기본값과 같은 이유로 마운트 후에만 채운다 */
+  const [todayStr, setTodayStr] = useState('');
   /** 수정 진입 시 기존 값을 읽어오는 동안. 다 읽기 전에 저장하면 빈 값으로 덮인다 */
   const [loading, setLoading] = useState(Boolean(editId));
+
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- new Date() 를 렌더 중에 쓰면 서버·클라이언트
+       hydration mismatch 위험이 있어, 오늘 날짜·기본 마감일을 마운트 후(effect)에만 채운다 */
+    const today = new Date();
+    setTodayStr(today.toISOString().slice(0, 10));
+    if (!editId) {
+      setDeadline(new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [editId]);
 
   // 공모전 연동 검색
   const [contestKeyword, setContestKeyword] = useState('');

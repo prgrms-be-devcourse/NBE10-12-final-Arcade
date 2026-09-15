@@ -7,9 +7,11 @@ import { fetchMyProfileOrNull, fetchParty } from '@/lib/api';
 export default async function PartyCreatePage({
   searchParams,
 }: {
-  searchParams: Promise<{ edit?: string }>;
+  searchParams: Promise<{ edit?: string | string[] }>;
 }) {
-  const { edit } = await searchParams;
+  const { edit: rawEdit } = await searchParams;
+  // ?edit=1&edit=2 처럼 중복 쿼리로 들어오면 배열이 된다 — 첫 값만 쓴다
+  const edit = Array.isArray(rawEdit) ? rawEdit[0] : rawEdit;
 
   /**
    * 수정 진입은 "파티장 본인 + 모집 중" 일 때만 허용한다.
