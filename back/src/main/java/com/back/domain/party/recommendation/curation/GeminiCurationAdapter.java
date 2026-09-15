@@ -12,6 +12,7 @@ import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -152,11 +153,11 @@ public class GeminiCurationAdapter implements PartyCurationPort {
         Set<Long> validPartyIds = candidates.stream().map(PartyCandidate::partyId).collect(Collectors.toSet());
 
         List<CurationResult> results = new ArrayList<>();
+        Set<Long> seenPartyIds = new HashSet<>();
         for (JsonNode item : parsed) {
             long partyId = item.path("partyId").asLong();
-            if (!validPartyIds.contains(partyId)) {
-                continue; // 후보에 없는 id를 지어내면 버린다.
-            }
+            if (!validPartyIds.contains(partyId)) continue; // 후보에 없는 id를 지어내면 버린다.
+            if (!seenPartyIds.add(partyId)) continue;        // 같은 파티 중복 언급은 첫 번째만 남긴다
             int rank = item.path("rank").asInt();
             String reason = truncate(item.path("reason").asString(""), REASON_MAX_LENGTH);
             results.add(new CurationResult(partyId, rank, reason));
