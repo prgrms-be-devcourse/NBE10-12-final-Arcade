@@ -99,6 +99,7 @@ export function PartyCreateForm({ editId, contestId }: { editId?: string; contes
   const [contestKeyword, setContestKeyword] = useState('');
   const [pickedContest, setPickedContest] = useState<Contest | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   /** 검색 결과를 요청한 키워드와 함께 보관해, 입력이 바뀌면 자동으로 무효화되게 한다 */
   const [search, setSearch] = useState<{ keyword: string; results: Contest[] }>({
     keyword: '',
@@ -290,6 +291,7 @@ export function PartyCreateForm({ editId, contestId }: { editId?: string; contes
       return;
     }
     setSubmitting(true);
+    setSubmitError('');
     const payload = {
       subCategory,
       deadline: `${deadline}T23:59:59`,
@@ -298,7 +300,11 @@ export function PartyCreateForm({ editId, contestId }: { editId?: string; contes
       contestFormat: topicType === 'CONTEST' ? contestFormat : undefined,
       contestId: pickedContest?.id,
       contestName: pickedContest?.title ?? (topicType === 'CONTEST' ? contestKeyword : undefined),
-      contestLinkUrl: pickedContest?.linkUrl ?? (contestLinkUrl || undefined),
+      // 게시글이 없는(archived) 대회는 linkUrl 이 실제 주소가 아니라 표시용 대체값('#')이라
+      // 그대로 보내면 백엔드 @ValidHttpUrl 에 걸려 400이 난다. 그런 경우는 contestId 로만
+      // 연동하고 linkUrl 은 생략한다 - 수동 입력값이 있으면 그걸 대신 쓴다.
+      contestLinkUrl:
+        (pickedContest && httpUrlOrNull(pickedContest.linkUrl)) || (contestLinkUrl || undefined),
       title,
       description,
       coverFileName: coverFileName ?? undefined,
@@ -320,6 +326,12 @@ export function PartyCreateForm({ editId, contestId }: { editId?: string; contes
         // 새로 만든 파티로 가는 건 앞으로 가는 이동이라 히스토리에 쌓는 게 맞다
         router.push(`/party/${result.id}`);
       }
+    } catch (cause) {
+      setSubmitError(
+        cause instanceof ApiError
+          ? cause.message
+          : '저장하지 못했어요. 잠시 후 다시 시도해 주세요.',
+      );
     } finally {
       setSubmitting(false);
     }
@@ -337,9 +349,11 @@ export function PartyCreateForm({ editId, contestId }: { editId?: string; contes
           options={TOPIC_TYPES.map((type) => TOPIC_TYPE_LABELS[type])}
           value={TOPIC_TYPE_LABELS[topicType]}
           disabled={loading}
-          onChange={(label) =>
-            setTopicType(TOPIC_TYPES.find((type) => TOPIC_TYPE_LABELS[type] === label) ?? 'ETC')
-          }
+          onChange={(label) => {
+            setTopicType(TOPIC_TYPES.find((type) => TOPIC_TYPE_LABELS[type] === label) ?? 'ETC');
+            // CONTEST 를 벗어나면 대회 프리필 실패는 더 이상 의미가 없다 - 제출을 계속 막아 두면 안 된다
+            setLoadError('');
+          }}
         />
       </FormGroup>
 
@@ -379,6 +393,7 @@ export function PartyCreateForm({ editId, contestId }: { editId?: string; contes
                 onClick={() => {
                   setPickedContest(null);
                   setContestKeyword('');
+                  setLoadError('');
                 }}
               >
                 연결 해제
@@ -405,7 +420,10 @@ export function PartyCreateForm({ editId, contestId }: { editId?: string; contes
                       key={contest.id}
                       type="button"
                       className="picker-item"
-                      onClick={() => setPickedContest(contest)}
+                      onClick={() => {
+                        setPickedContest(contest);
+                        setLoadError('');
+                      }}
                     >
                       <span className="picker-poster">{contest.tag}</span>
                       <span className="picker-meta">
@@ -605,6 +623,7 @@ export function PartyCreateForm({ editId, contestId }: { editId?: string; contes
         />
       </FormGroup>
 
+      {submitError ? <p className="form-error" role="alert">{submitError}</p> : null}
       <FormActions>
         <button
           type="button"
