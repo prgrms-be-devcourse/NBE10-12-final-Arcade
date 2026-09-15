@@ -330,9 +330,9 @@ public class ApiV1PersonalTodoControllerTest {
     }
 
     @Test
-    @DisplayName("수정: 이미 ACHIEVED인 성취는 TODO를 다시 ACHIEVED로 바꿔도 그대로다")
+    @DisplayName("수정: 이미 ACHIEVED인 성취도 TODO를 ACHIEVED로 보내면 그대로 ACHIEVED다 (멱등)")
     @WithUserDetails("user1@test.com")
-    void updateStatusToAchievedIsNoopForAlreadyAchievedGoal() throws Exception {
+    void updateStatusToAchievedIsIdempotentForAlreadyAchievedGoal() throws Exception {
         PersonalTodo todo = saveTodo("user1@test.com");
         PersonalChecklist goal = new PersonalChecklist(
                 member("user1@test.com"), GoalStatus.ACHIEVED, "정보처리기사 취득", null, null
@@ -352,9 +352,9 @@ public class ApiV1PersonalTodoControllerTest {
     }
 
     @Test
-    @DisplayName("수정: TODO를 IN_PROGRESS로 바꿔도 연결된 성취는 그대로다 (ACHIEVED 전이만 전파)")
+    @DisplayName("수정: TODO 상태를 바꾸면 연결된 성취도 그대로 따라간다 (양방향 동기화)")
     @WithUserDetails("user1@test.com")
-    void updateStatusToInProgressDoesNotTouchLinkedGoal() throws Exception {
+    void updateStatusSyncsLinkedGoalInBothDirections() throws Exception {
         PersonalTodo todo = saveTodo("user1@test.com");
         PersonalChecklist goal = new PersonalChecklist(
                 member("user1@test.com"), GoalStatus.WANT, "정보처리기사 취득", null, null
@@ -369,8 +369,47 @@ public class ApiV1PersonalTodoControllerTest {
                                 """))
                 .andExpect(status().isOk());
 
+        PersonalChecklist afterInProgress = (PersonalChecklist) goalRepository.findById(goal.getId()).orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(afterInProgress.getStatus()).isEqualTo(GoalStatus.IN_PROGRESS);
+    }
+
+    /**
+     * PR #183 리뷰에서 지적된 버그의 회귀 테스트.
+     *
+     * TODO를 ACHIEVED로 완료 -> 다시 IN_PROGRESS로 열었을 때, 연결된 성취도 같이 되돌아와야
+     * detachTodo()의 "완료된 성취는 못 뗀다" 가드에 걸리지 않고 그 TODO를 다시 지울 수 있다.
+     * 편도 동기화(markAchieved())였을 때는 성취가 ACHIEVED에 갇혀 이 삭제가 영구히 409-1 이었다.
+     */
+    @Test
+    @DisplayName("수정: ACHIEVED로 갔다가 다시 열면 연결된 성취도 되돌아와 TODO를 삭제할 수 있다")
+    @WithUserDetails("user1@test.com")
+    void reopeningAchievedTodoUnsticksLinkedGoalSoTodoCanBeDeleted() throws Exception {
+        PersonalTodo todo = saveTodo("user1@test.com");
+        PersonalChecklist goal = new PersonalChecklist(
+                member("user1@test.com"), GoalStatus.IN_PROGRESS, "정보처리기사 취득", null, null
+        );
+        goal.linkTodo(todo);
+        goalRepository.save(goal);
+
+        mvc.perform(patch("/api/v1/todos/" + todo.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "status": "ACHIEVED" }
+                                """))
+                .andExpect(status().isOk());
+
+        mvc.perform(patch("/api/v1/todos/" + todo.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "status": "IN_PROGRESS" }
+                                """))
+                .andExpect(status().isOk());
+
         PersonalChecklist reloaded = (PersonalChecklist) goalRepository.findById(goal.getId()).orElseThrow();
-        org.assertj.core.api.Assertions.assertThat(reloaded.getStatus()).isEqualTo(GoalStatus.WANT);
+        org.assertj.core.api.Assertions.assertThat(reloaded.getStatus()).isEqualTo(GoalStatus.IN_PROGRESS);
+
+        mvc.perform(delete("/api/v1/todos/" + todo.getId()))
+                .andExpect(status().isNoContent());
     }
 
     /* ---------- 삭제 ---------- */

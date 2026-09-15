@@ -1,7 +1,6 @@
 package com.back.domain.todo.todo.service;
 
 import com.back.domain.goal.goal.entity.GoalStatus;
-import com.back.domain.goal.goal.entity.PersonalChecklist;
 import com.back.domain.goal.goal.repository.GoalRepository;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.todo.todo.dtos.PersonalTodoDetailDto;
@@ -111,9 +110,7 @@ public class PersonalTodoService {
 
         if (request.status() != null) {
             todo.changeStatus(request.status());
-            if (request.status() == TodoStatus.ACHIEVED) {
-                achieveLinkedChecklist(todoId);
-            }
+            syncLinkedChecklistStatus(todoId, request.status());
         }
         todo.update(request.title(), request.category(), request.memo());
 
@@ -124,18 +121,21 @@ public class PersonalTodoService {
     }
 
     /**
-     * TODO가 ACHIEVED로 바뀔 때, 연결된 성취(CHECKLIST)도 함께 완료 처리한다.
+     * 연결된 성취(CHECKLIST)가 있으면 상태를 TODO와 똑같이 맞춘다.
      *
-     * 성취 쪽 changeStatus()는 사용자가 직접 일으키는 전이만 검증하므로(Goal.changeStatus),
-     * TODO 완료라는 시스템 이벤트로 넘어올 때는 Project.complete()와 같은 자리인
-     * Goal.markAchieved()로 전이 규칙을 거치지 않고 바로 완료시킨다.
-     * 이미 ACHIEVED인 성취는 건드리지 않는다 - Goal.changeStatus()와 달리 markAchieved()는
-     * 재호출을 막지 않아, 걸러주지 않으면 이미 완료된 성취의 @LastModifiedDate만 불필요하게 갱신된다.
+     * PersonalTodo.changeStatus() 는 전이 규칙이 없어 완료했다가 다시 여는 것도 자유롭다.
+     * 처음엔 ACHIEVED로 갈 때만 Goal.markAchieved()로 편도 완료시켰는데, 그러면 TODO를 다시
+     * 열어도 성취는 ACHIEVED에 갇힌다 - detachTodo() 가 "완료된 성취"라며 이 TODO의 삭제까지
+     * 영구히 막아버려(409-1), TODO 쪽의 "자유롭게 되돌릴 수 있다"는 보장이 깨진다.
+     *
+     * 그래서 연결의 성취 -> TODO FK 방향과 별개로, 상태만큼은 TODO 쪽 변경을 그대로 따라가도록
+     * 양방향으로 동기화한다. TodoStatus 와 GoalStatus 는 상수 구성이 동일하게 설계돼 있다.
+     * Goal.changeStatus() 의 사용자용 전이 규칙(canTransitionTo)은 여기서는 적용하지 않는다 -
+     * 이 값은 사람이 직접 고르는 게 아니라 연결된 TODO 상태를 그대로 반영하는 파생값이기 때문이다.
      */
-    private void achieveLinkedChecklist(long todoId) {
+    private void syncLinkedChecklistStatus(long todoId, TodoStatus next) {
         goalRepository.findChecklistByPersonalTodoId(todoId)
-                .filter(checklist -> checklist.getStatus() != GoalStatus.ACHIEVED)
-                .ifPresent(PersonalChecklist::markAchieved);
+                .ifPresent(checklist -> checklist.syncStatus(GoalStatus.valueOf(next.name())));
     }
 
     /**

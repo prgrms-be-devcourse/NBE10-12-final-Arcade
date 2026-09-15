@@ -134,4 +134,12 @@ public abstract class Goal extends BaseEntity {
     public void markAchieved() {
         this.status = GoalStatus.ACHIEVED;
     }
+
+    // 연결된 개인 TODO 상태를 그대로 반영하는 경로 (PersonalTodoService).
+    // TODO는 완료 후 재오픈이 자유로워서, changeStatus()의 편도 전이 규칙(ACHIEVED에서 못 나감)을
+    // 그대로 적용하면 TODO를 다시 열어도 성취가 ACHIEVED에 갇혀버린다. 이 값은 사람이 직접
+    // 고르는 게 아니라 TODO 상태를 그대로 따라가는 파생값이라 전이 규칙 자체가 적용 대상이 아니다.
+    public void syncStatus(GoalStatus next) {
+        this.status = next;
+    }
 }
