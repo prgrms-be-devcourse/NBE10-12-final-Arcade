@@ -34,8 +34,9 @@ public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> 
             select pm.status as status, pm.position.type as positionType
             from PartyMember pm
             where pm.party = :party and pm.member = :member
+            order by pm.createDate desc
             """)
-    Optional<ApplicationSummary> findApplicationSummaryByPartyAndMember(
+    List<ApplicationSummary> findApplicationSummaryByPartyAndMember(
             @Param("party") Party party,
             @Param("member") Member member
     );

@@ -377,7 +377,9 @@ public class PartyService {
         }
         var myApplication = actor == null
                 ? Optional.<PartyMemberRepository.ApplicationSummary>empty()
-                : partyMemberRepository.findApplicationSummaryByPartyAndMember(party, actor);
+                : partyMemberRepository.findApplicationSummaryByPartyAndMember(party, actor)
+                        .stream()
+                        .findFirst();
         PartyDto partyDto = new PartyDto(
                 party,
                 partyMemberRepository.countApplicantsByPartyId(partyId),
