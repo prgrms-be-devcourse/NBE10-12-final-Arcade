@@ -104,24 +104,19 @@ export function PartyBoard({ parties, recommended }: PartyBoardProps) {
 
   return (
     <>
-      <section className="reco-row" data-reveal suppressHydrationWarning>
-        <div className="reco-head">
-          <span className="reco-tag">FOR YOU</span>
-          <p className="reco-desc">성취 키워드 &quot;{keywords}&quot;와 잘 맞는 파티예요.</p>
-        </div>
-        <div className="reco-cards">
-          {recommended.map((party) => (
-            <Link key={party.id} href={`/party/${party.id}`} className="reco-card">
-              <div className="reco-top">
-                <Tag accent>키워드 일치 {party.matchScore ?? 0}%</Tag>
-                <DDay>{party.dday}</DDay>
-              </div>
-              <h4>{party.title}</h4>
-              <p className="reco-why">{party.why}</p>
-              <div className="position-slots">
-                {party.positions.slice(0, 1).map((slot, index) => (
-                  <span key={`${slot.type}-${index}`} className="slot-chip">
-                    {POSITION_LABELS[slot.type]} {slot.filledCount}/{slot.capacity}
+      {recommended.length > 0 && (
+        <section className="reco-row" data-reveal>
+          <div className="reco-head">
+            <span className="reco-tag">FOR YOU</span>
+            <p className="reco-desc">회원님의 데이터로 추천드려요.</p>
+          </div>
+          <div className="reco-cards">
+            {recommended.map((party) => (
+              <Link key={party.id} href={`/party/${party.id}`} className="reco-card">
+                <div className="reco-top">
+                  <span className="reco-match">
+                    <Icon name="i-joystick" />
+                    추천
                   </span>
                   <DDay>{party.dday}</DDay>
                 </div>
