@@ -12,10 +12,10 @@ import com.back.domain.member.member.entity.PositionType;
 import com.back.domain.member.member.repository.MemberRepository;
 import com.back.domain.member.profile.entity.MemberProfile;
 import com.back.domain.member.profile.repository.MemberProfileRepository;
-import com.back.global.app.CustomConfigProperties;
 import com.back.global.exception.ServiceException;
 import com.back.domain.party.showcase.repository.PartyShowcaseRepository;
 import com.back.global.storage.FileStorage;
+import com.back.global.storage.ImageUploadValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.core.NestedExceptionUtils;
@@ -32,8 +32,6 @@ import java.util.Locale;
 public class MemberProfileService {
 
     private static final String PROFILE_IMAGE_DIRECTORY = "profile";
-    private static final List<String> ALLOWED_IMAGE_TYPES =
-            List.of("image/jpeg", "image/png");
 
     private final MemberProfileRepository memberProfileRepository;
     private final MemberRepository memberRepository;
@@ -41,7 +39,7 @@ public class MemberProfileService {
     private final PartyShowcaseRepository partyShowcaseRepository;
     private final GoalService goalService;
     private final FileStorage fileStorage;
-    private final CustomConfigProperties customConfigProperties;
+    private final ImageUploadValidator imageUploadValidator;
 
     @Transactional
     public MemberProfileDto me(Member actor) {
@@ -141,30 +139,9 @@ public class MemberProfileService {
 
     /** 저장만 하고 URL 을 돌려준다. 프로필에 반영하는 건 수정 요청의 몫이다. */
     public String uploadProfileImage(MultipartFile file) {
-        validateImage(file);
+        imageUploadValidator.validate(file);
 
         return fileStorage.upload(file, PROFILE_IMAGE_DIRECTORY);
-    }
-
-    private void validateImage(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new ServiceException("400-1", "이미지 파일이 비어 있습니다.");
-        }
-
-        // Content-Type 헤더가 없는 파트면 getContentType() 이 null 이다.
-        // List.of() 로 만든 목록은 contains(null) 에서 NPE 를 내므로 먼저 거른다.
-        String contentType = file.getContentType();
-
-        if (contentType == null || !ALLOWED_IMAGE_TYPES.contains(contentType)) {
-            throw new ServiceException("400-1", "jpg, png 이미지만 올릴 수 있습니다.");
-        }
-
-        long maxBytes = customConfigProperties.getStorage().getMaxFileSize().toBytes();
-
-        if (file.getSize() > maxBytes) {
-            throw new ServiceException("400-1",
-                    "이미지는 %dMB 까지 올릴 수 있습니다.".formatted(maxBytes / 1024 / 1024));
-        }
     }
 
     private boolean isNicknameDuplicate(DataIntegrityViolationException e) {
