@@ -74,38 +74,52 @@ public class PartyRecommendationBatchService {
         } while (page.hasNext());
     }
 
-    @Transactional
+    // 트랜잭션 없이 오케스트레이션만 담당: 조회(읽기 전용 트랜잭션) → Gemini 호출(트랜잭션 밖) → 저장(쓰기 트랜잭션)
     public void computeForMember(Long memberId) {
-        Member member = memberRepository.findById(memberId).orElseThrow();
+        Member member = self.loadMember(memberId);
         computeForMember(member);
     }
 
-    @Transactional
     public void computeForMember(Member member) {
-        List<Long> candidatePartyIds = candidateService.selectCandidatePartyIds(member, candidateLimit);
+        CurationInput input = self.loadCurationInput(member);
 
-        partyRecommendationRepository.deleteByMemberId(member.getId());
+        List<CurationResult> results = input.candidates().isEmpty()
+                ? List.of()
+                : partyCurationPort.curate(input.context(), input.candidates());
 
-        List<PartyRecommendation> recommendations = curate(member, candidatePartyIds).stream()
-                .limit(RECOMMENDATION_SIZE)
-                .map(result -> new PartyRecommendation(member.getId(), result.partyId(), result.rank(), result.reason()))
-                .toList();
-
-        partyRecommendationRepository.saveAll(recommendations);
+        self.saveRecommendations(member.getId(), results);
     }
 
-    private List<CurationResult> curate(Member member, List<Long> candidatePartyIds) {
-        if (candidatePartyIds.isEmpty()) {
-            return List.of();
-        }
+    @Transactional(readOnly = true)
+    public Member loadMember(Long memberId) {
+        return memberRepository.findById(memberId).orElseThrow();
+    }
 
-        List<PartyCandidate> candidates = partyRepository.findAllById(candidatePartyIds).stream()
+    @Transactional(readOnly = true)
+    public CurationInput loadCurationInput(Member member) {
+        List<Long> candidatePartyIds = candidateService.selectCandidatePartyIds(member, candidateLimit);
+
+        List<PartyCandidate> candidates = candidatePartyIds.isEmpty()
+                ? List.of()
+                : partyRepository.findAllById(candidatePartyIds).stream()
                 .map(this::toPartyCandidate)
                 .toList();
 
         MemberCurationContext context = buildMemberContext(member);
 
-        return partyCurationPort.curate(context, candidates);
+        return new CurationInput(candidates, context);
+    }
+
+    @Transactional
+    public void saveRecommendations(Long memberId, List<CurationResult> results) {
+        partyRecommendationRepository.deleteByMemberId(memberId);
+
+        List<PartyRecommendation> recommendations = results.stream()
+                .limit(RECOMMENDATION_SIZE)
+                .map(result -> new PartyRecommendation(memberId, result.partyId(), result.rank(), result.reason()))
+                .toList();
+
+        partyRecommendationRepository.saveAll(recommendations);
     }
 
     private PartyCandidate toPartyCandidate(Party party) {
@@ -125,4 +139,6 @@ public class PartyRecommendationBatchService {
 
         return new MemberCurationContext(profile == null ? null : profile.getPosition(), techStacks, recentKeywords);
     }
+
+    private record CurationInput(List<PartyCandidate> candidates, MemberCurationContext context) {}
 }
