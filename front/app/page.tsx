@@ -27,7 +27,7 @@ export default async function HomePage() {
       <HeroSlider slides={slides} />
       <MyPartyShortcuts parties={myParties} />
 
-      <section className="section top3 container" data-reveal>
+      <section className="section top3 container" data-reveal suppressHydrationWarning>
         <SectionHead
           title="지금 가장 핫한 파티"
           description="지원자가 몰리는 파티 TOP3를 확인하고, 마감 전에 지원하세요."
@@ -39,7 +39,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="section contests container" data-reveal>
+      <section className="section contests container" data-reveal suppressHydrationWarning>
         <SectionHead
           title="인기 공모전 · 대회"
           description="지금 팀을 모집 중인 공모전을 둘러보세요."
@@ -51,7 +51,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="section exhibition-top container" data-reveal>
+      <section className="section exhibition-top container" data-reveal suppressHydrationWarning>
         <SectionHead
           title="인기 전시회"
           description="이번 주 가장 많이 본 완료 프로젝트 TOP 3이에요."
