@@ -2,12 +2,23 @@ package com.back.domain.party.recommendation.service;
 
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.member.member.repository.MemberRepository;
+import com.back.domain.member.profile.entity.MemberProfile;
+import com.back.domain.member.profile.entity.MemberProfileTechStack;
 import com.back.domain.member.profile.repository.MemberProfileRepository;
+import com.back.domain.party.party.entity.Party;
+import com.back.domain.party.party.repository.PartyRepository;
+import com.back.domain.party.recommendation.curation.CurationResult;
+import com.back.domain.party.recommendation.curation.MemberCurationContext;
+import com.back.domain.party.recommendation.curation.PartyCandidate;
+import com.back.domain.party.recommendation.curation.PartyCurationPort;
 import com.back.domain.party.recommendation.entity.PartyRecommendation;
 import com.back.domain.party.recommendation.repository.PartyRecommendationRepository;
+import com.back.domain.search.search.entity.SearchLog;
+import com.back.domain.search.search.repository.SearchLogRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -16,7 +27,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Slf4j
@@ -26,18 +37,25 @@ public class PartyRecommendationBatchService {
 
     private static final int RECOMMENDATION_SIZE = 10;
     private static final int MEMBER_CHUNK_SIZE = 500;
+    private static final int SEARCH_LOG_WINDOW_DAYS = 30;
+    private static final int SEARCH_LOG_LIMIT = 6;
 
     private final MemberRepository memberRepository;
     private final MemberProfileRepository memberProfileRepository;
     private final PartyRecommendationCandidateService candidateService;
     private final PartyRecommendationRepository partyRecommendationRepository;
+    private final PartyRepository partyRepository;
+    private final SearchLogRepository searchLogRepository;
+    private final PartyCurationPort partyCurationPort;
+
+    @Value("${custom.curation.candidate-limit:15}")
+    private int candidateLimit;
 
     @Autowired
     @Lazy
     private PartyRecommendationBatchService self;
 
-    // 매일 새벽 3시 - 새벽대 트래픽이 가장 낮은 시간대. FeaturedRankingBatchService(자정)와 안 겹치게 띄운다.
-    @Scheduled(cron = "0 0 3 * * *")
+    @Scheduled(cron = "${custom.curation.batch-cron:0 0 3 * * *}")
     public void computeAll() {
         Pageable pageable = PageRequest.of(0, MEMBER_CHUNK_SIZE);
         Slice<Long> page;
@@ -56,24 +74,71 @@ public class PartyRecommendationBatchService {
         } while (page.hasNext());
     }
 
-    // 배치 경로 전용 진입점 - 트랜잭션 안에서 member를 새로 조회해 항상 영속 상태로 넘긴다.
-    @Transactional
+    // 트랜잭션 없이 오케스트레이션만 담당: 조회(읽기 전용 트랜잭션) → Gemini 호출(트랜잭션 밖) → 저장(쓰기 트랜잭션)
     public void computeForMember(Long memberId) {
-        Member member = memberRepository.findById(memberId).orElseThrow();
+        Member member = self.loadMember(memberId);
         computeForMember(member);
     }
 
-    @Transactional
     public void computeForMember(Member member) {
-        List<Long> candidatePartyIds = candidateService.selectCandidatePartyIds(member, RECOMMENDATION_SIZE);
+        CurationInput input = self.loadCurationInput(member);
 
-        partyRecommendationRepository.deleteByMemberId(member.getId());
+        List<CurationResult> results = input.candidates().isEmpty()
+                ? List.of()
+                : partyCurationPort.curate(input.context(), input.candidates());
 
-        List<PartyRecommendation> recommendations = new ArrayList<>();
-        int rank = 1;
-        for (Long partyId : candidatePartyIds) {
-            recommendations.add(new PartyRecommendation(member.getId(), partyId, rank++, null));
-        }
+        self.saveRecommendations(member.getId(), results);
+    }
+
+    @Transactional(readOnly = true)
+    public Member loadMember(Long memberId) {
+        return memberRepository.findById(memberId).orElseThrow();
+    }
+
+    @Transactional(readOnly = true)
+    public CurationInput loadCurationInput(Member member) {
+        List<Long> candidatePartyIds = candidateService.selectCandidatePartyIds(member, candidateLimit);
+
+        List<PartyCandidate> candidates = candidatePartyIds.isEmpty()
+                ? List.of()
+                : partyRepository.findAllById(candidatePartyIds).stream()
+                .map(this::toPartyCandidate)
+                .toList();
+
+        MemberCurationContext context = buildMemberContext(member);
+
+        return new CurationInput(candidates, context);
+    }
+
+    @Transactional
+    public void saveRecommendations(Long memberId, List<CurationResult> results) {
+        partyRecommendationRepository.deleteByMemberId(memberId);
+
+        List<PartyRecommendation> recommendations = results.stream()
+                .limit(RECOMMENDATION_SIZE)
+                .map(result -> new PartyRecommendation(memberId, result.partyId(), result.rank(), result.reason()))
+                .toList();
+
         partyRecommendationRepository.saveAll(recommendations);
     }
+
+    private PartyCandidate toPartyCandidate(Party party) {
+        return new PartyCandidate(party.getId(), party.getTitle(), party.getDescription(), party.getTopicType(), party.getPartyTag());
+    }
+
+    private MemberCurationContext buildMemberContext(Member member) {
+        MemberProfile profile = memberProfileRepository.findWithTechStacksByMember(member).orElse(null);
+        List<String> techStacks = profile == null ? List.of() : profile.getTechStacks().stream()
+                .map(MemberProfileTechStack::getTechStack)
+                .toList();
+
+        List<SearchLog> recentLogs = searchLogRepository.findByMemberAndCreateDateAfterOrderByCreateDateDesc(
+                member, LocalDateTime.now().minusDays(SEARCH_LOG_WINDOW_DAYS), PageRequest.of(0, SEARCH_LOG_LIMIT)
+        );
+        List<String> recentKeywords = recentLogs.stream().map(SearchLog::getKeyword).toList();
+
+        return new MemberCurationContext(profile == null ? null : profile.getPosition(), techStacks, recentKeywords);
+    }
+
+    private record CurationInput(List<PartyCandidate> candidates, MemberCurationContext context) {}
 }

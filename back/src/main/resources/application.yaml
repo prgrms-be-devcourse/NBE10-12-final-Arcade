@@ -96,6 +96,13 @@ custom:
       tokenEncryptionKey: ${CUSTOM__GITHUB__APP__TOKEN_ENCRYPTION_KEY:}
     webhook:
       secret: ${CUSTOM__GITHUB__WEBHOOK__SECRET:}
+  curation:
+    enabled: ${CUSTOM__CURATION__ENABLED:false}
+    model: ${CUSTOM__CURATION__MODEL:gemini-3.5-flash-lite}
+    batch-cron: ${CUSTOM__CURATION__BATCH_CRON:0 5 10 * * *}
+    candidate-limit: ${CUSTOM__CURATION__CANDIDATE_LIMIT:15}
+    gemini:
+      api-key: ${CUSTOM__CURATION__GEMINI__API_KEY:}
   storage:
     # local = 서버 디스크. MinIO 없이 개발할 때 쓴다. s3 = S3/MinIO.
     type: ${CUSTOM__STORAGE__TYPE:local}

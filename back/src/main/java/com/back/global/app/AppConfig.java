@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.client.RestClient;
 import tools.jackson.databind.ObjectMapper;
 
 @Configuration
@@ -52,5 +53,10 @@ public class AppConfig {
     @PostConstruct
     public void postConstruct() {
         Util.json.objectMapper = objectMapper;
+    }
+
+    @Bean
+    public RestClient.Builder restClientBuilder() {
+        return RestClient.builder();
     }
 }

@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 @Service
@@ -64,6 +65,7 @@ public class PartyRecommendationCandidateService {
         Set<String> keywords = new LinkedHashSet<>();
         profile.getTechStacks().stream()
                 .map(MemberProfileTechStack::getTechStack)
+                .map(techStack -> techStack.toLowerCase(Locale.ROOT))
                 .forEach(keywords::add);
 
         List<SearchLog> recentLogs = searchLogRepository.findByMemberAndCreateDateAfterOrderByCreateDateDesc(
