@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/Field';
 import { POSITION_LABELS, POSITION_TYPES } from '@/lib/constants';
 import { updateMyProfile, uploadProfileImage } from '@/lib/api';
+import { CURRENT_USER_EVENT } from '@/lib/hooks/useCurrentUser';
 import { SkillField } from './SkillField';
 import type {
   CareerItem,
@@ -70,6 +71,8 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
         careers,
         links,
       });
+      // 헤더 아바타 등 다른 useCurrentUser 인스턴스가 최신 프로필을 다시 읽도록 알린다
+      window.dispatchEvent(new Event(CURRENT_USER_EVENT));
       onSaved(updated);
     } catch (error) {
       // 서버가 형식·크기 위반을 msg 로 알려준다. 화면 문구를 따로 들고 있으면 서버와 어긋난다.

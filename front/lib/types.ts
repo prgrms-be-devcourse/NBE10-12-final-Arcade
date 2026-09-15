@@ -203,6 +203,8 @@ export interface MyParty {
 /* ---------- 파티(팀 모집) ---------- */
 
 export interface PartyPosition {
+  /** 서버 포지션 식별자 — 수정 API에서 사용한다 */
+  id?: number;
   type: PositionType;
   /** 정원 — 이미 승인된 filledCount 보다 낮게 수정할 수 없다 (기획서 2.1) */
   capacity: number;
