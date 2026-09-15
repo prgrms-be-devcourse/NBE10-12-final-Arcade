@@ -480,10 +480,9 @@ sudo tee /etc/systemd/system/arcade-backup.timer >/dev/null <<UNIT
 Description=Arcade DB dump daily
 
 [Timer]
-OnCalendar=daily
+OnCalendar=*-*-* 17:55:00 Asia/Seoul
 # 놓친 실행은 다음 부팅 때 따라잡는다.
 Persistent=true
-RandomizedDelaySec=15m
 
 [Install]
 WantedBy=timers.target
