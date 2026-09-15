@@ -509,6 +509,11 @@ button.party-mini:hover{border-color:var(--accent);}
 }
 .select-field:focus{outline:none;border-color:var(--accent);}
 .filter-group{display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;}
+
+/* 필터 여러 개가 아니라 정렬 하나만 단독으로 뜰 때 쓰는 가벼운 버전 */
+.sort-row{display:flex;justify-content:flex-end;margin-top:0.875rem;}
+/* padding-right 는 overrides.css 가 화살표 아이콘 자리로 예약해 둔 값(2.125rem)이라 건드리지 않는다 */
+.sort-row .select-field{width:auto;min-width:0;padding:0.4375rem 2.125rem 0.4375rem 0.625rem;font-size:.8rem;}
 .filter-label{font-size:.76rem;font-weight:800;color:var(--text-dim);min-width:2.75rem;}
 .filter-chip{
   padding:0.4375rem 0.875rem;border:0.125rem solid var(--border-strong);background:var(--surface);
