@@ -6,6 +6,7 @@ import { Icon } from '@/components/icons/Icon';
 import {
   FormActions,
   FormGroup,
+  FormRow,
   SelectField,
   TextAreaField,
   TextField,
@@ -26,6 +27,7 @@ import { useLeaveTo } from '@/lib/navigation';
 import {
   CONTEST_FORMATS,
   CONTEST_FORMAT_LABELS,
+  PARTY_FIELDS,
   POSITION_LABELS,
   POSITION_TYPES,
   TOPIC_TYPES,
@@ -46,6 +48,8 @@ interface PositionRow {
   type: PositionType;
   /** 빈 칸으로 시작할 수 있도록 문자열로 다룬다 */
   capacity: string;
+  /** 이미 승인된 인원 수. 서버가 정원을 이보다 작게 줄이는 걸 막는다(400-4) — 새로 추가한 행은 0 */
+  filledCount?: number;
 }
 
 export function PartyCreateForm({ editId }: { editId?: string }) {
@@ -65,11 +69,14 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
     { key: 'p1', type: 'BACK', capacity: '' },
   ]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [subCategory, setSubCategory] = useState<string>('기타');
   /**
-   * 폼에 입력칸이 없는 값. 수정할 때 그대로 돌려보내지 않으면 분야가 ETC 로,
-   * 모집 기한이 30일 뒤로 덮인다 (toPartyRequestBody 의 기본값).
+   * YYYY-MM-DD (date input 값). 수정 진입이면 기존 파티를 읽어올 때 채우고,
+   * 새 파티는 서버 fallback과 동일한 +30일을 기본값으로 미리 채워둔다.
    */
-  const [carried, setCarried] = useState<{ subCategory?: string; deadline?: string }>({});
+  const [deadline, setDeadline] = useState(() =>
+    editId ? '' : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+  );
   /** 수정 진입 시 기존 값을 읽어오는 동안. 다 읽기 전에 저장하면 빈 값으로 덮인다 */
   const [loading, setLoading] = useState(Boolean(editId));
 
@@ -126,9 +133,11 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
             positionId: position.id,
             type: position.type,
             capacity: String(position.capacity),
+            filledCount: position.filledCount,
           })),
         );
-        setCarried({ subCategory: party.subCategory, deadline: party.deadline });
+        setSubCategory(party.subCategory ?? '기타');
+        setDeadline(party.deadline ? party.deadline.slice(0, 10) : '');
       } finally {
         if (alive) setLoading(false);
       }
@@ -200,8 +209,11 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
     else if (title.trim().length > TITLE_MAX)
       next.title = `모집글 제목은 ${TITLE_MAX}자까지 입력할 수 있어요.`;
     if (!description.trim()) next.description = '파티 소개를 입력해 주세요.';
-    // pickedContest 가 있으면 linkUrl 은 대회 쪽 값을 그대로 쓰므로 이 입력칸 자체가 안 보인다
+    if (!deadline) next.deadline = '마감일을 선택해 주세요.';
+    // pickedContest 가 있으면 이름·linkUrl 모두 대회 쪽 값을 그대로 쓰므로 이 입력칸들이 안 보인다.
+    // 서버는 등록된 대회가 없으면 대회명을 반드시 요구한다(400-1) — 여기서 먼저 잡는다.
     if (topicType === 'CONTEST' && !pickedContest) {
+      if (!contestKeyword.trim()) next.contestName = '대회명을 입력하거나 목록에서 선택해 주세요.';
       if (!contestLinkUrl.trim()) next.contestLinkUrl = '대회 원본 링크를 입력해 주세요.';
       else if (!httpUrlOrNull(contestLinkUrl.trim()))
         next.contestLinkUrl = 'http:// 또는 https://로 시작하는 주소를 입력해 주세요.';
@@ -214,6 +226,16 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
       positionErrors.push('같은 포지션을 중복해서 추가할 수 없어요.');
     if (totalCapacity > TOTAL_CAPACITY_MAX)
       positionErrors.push(`파티 총원은 ${TOTAL_CAPACITY_MAX}명을 넘을 수 없어요.`);
+    // 서버가 승인 인원보다 적은 정원을 400-4 로 거절한다(Position.changeCapacity) — 제출 전에 먼저 알려준다
+    const underfilled = positions.filter(
+      (row) => (row.filledCount ?? 0) > 0 && Number(row.capacity) < (row.filledCount ?? 0),
+    );
+    if (underfilled.length > 0) {
+      const names = underfilled
+        .map((row) => `${POSITION_LABELS[row.type]}(승인 ${row.filledCount}명)`)
+        .join(', ');
+      positionErrors.push(`${names}은 승인한 인원보다 정원을 적게 설정할 수 없어요.`);
+    }
     if (positionErrors.length > 0) next.positions = positionErrors.join(' ');
     setErrors(next);
     return next;
@@ -232,7 +254,8 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
     }
     setSubmitting(true);
     const payload = {
-      ...carried,
+      subCategory,
+      deadline: `${deadline}T23:59:59`,
       partyName,
       topicType,
       contestFormat: topicType === 'CONTEST' ? contestFormat : undefined,
@@ -299,6 +322,7 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
         <FormGroup
           label="연동할 대회"
           hint="등록된 대회 목록에서 선택해 연결해요. 검색 결과에 없는 외부 대회면 이름과 원본 링크를 직접 입력해도 모집글은 정상 등록되지만, 대회 허브에는 노출되지 않아요."
+          error={pickedContest ? undefined : errors.contestName}
         >
           {pickedContest ? (
             <div className="picked-card">
@@ -327,7 +351,10 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
                   placeholder="대회명으로 검색 (예: 프로그래머스 오락실)"
                   autoComplete="off"
                   value={contestKeyword}
-                  onChange={(event) => setContestKeyword(event.target.value)}
+                  onChange={(event) => {
+                    setContestKeyword(event.target.value);
+                    setErrors((prev) => ({ ...prev, contestName: '' }));
+                  }}
                 />
               </div>
               {contestResults.length > 0 ? (
@@ -421,6 +448,28 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
         />
       </FormGroup>
 
+      <FormRow>
+        <FormGroup label="분야" required>
+          <SelectField value={subCategory} onChange={(event) => setSubCategory(event.target.value)}>
+            {PARTY_FIELDS.map((field) => (
+              <option key={field} value={field}>
+                {field}
+              </option>
+            ))}
+          </SelectField>
+        </FormGroup>
+        <FormGroup label="마감일" required error={errors.deadline}>
+          <TextField
+            type="date"
+            value={deadline}
+            onChange={(event) => {
+              setDeadline(event.target.value);
+              setErrors((prev) => ({ ...prev, deadline: '' }));
+            }}
+          />
+        </FormGroup>
+      </FormRow>
+
       <FormGroup label="대표 사진">
         <CoverUpload
           onChange={setCoverFileName}
@@ -463,7 +512,7 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
                 </SelectField>
                 <TextField
                   type="number"
-                  min={1}
+                  min={Math.max(1, position.filledCount ?? 0)}
                   max={rowMax}
                   aria-label="정원"
                   placeholder="정원"
