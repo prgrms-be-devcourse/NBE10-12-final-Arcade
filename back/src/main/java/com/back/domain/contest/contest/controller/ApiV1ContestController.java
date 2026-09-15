@@ -1,5 +1,6 @@
 package com.back.domain.contest.contest.controller;
 
+import com.back.domain.contest.contest.dtos.ContestImageDto;
 import com.back.domain.contest.contest.dtos.ContestResponseDto;
 import com.back.domain.contest.contest.entity.ContestFormat;
 import com.back.domain.contest.contest.entity.ContestSortOption;
@@ -23,6 +24,7 @@ import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -30,8 +32,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import com.back.domain.party.party.repository.PartyContestLookupPort.TeamCount;
 
 import java.time.LocalDate;
@@ -95,6 +99,31 @@ public class ApiV1ContestController {
                 "201-1",
                 "공모전 등록 성공",
                 contestResponseDto
+        );
+    }
+
+    @PostMapping(value = "/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(
+            summary = "대회 대표 이미지 업로드",
+            description = """
+                    이미지를 저장하고 그 URL 을 돌려준다. 대회 글에 반영되지는 않으니,
+                    화면은 받은 imageUrl 을 등록(POST /contests) 또는 수정(PATCH /contests/{contest-id})
+                    요청의 같은 이름 필드에 실어 보내야 한다.
+
+                    jpg, png 만 받고 custom.storage.max-file-size 까지다.
+
+                    예외
+                    - 400-1 : 파일이 비었거나, 허용하지 않는 형식이거나, 용량 초과
+                    - 401-1 : 미로그인
+                    """
+    )
+    public RsData<ContestImageDto> uploadImage(
+            @RequestPart("file") MultipartFile file
+    ) {
+        return new RsData<>(
+                "201-1",
+                "대회 이미지 업로드 성공",
+                new ContestImageDto(contestService.uploadCoverImage(file))
         );
     }
 

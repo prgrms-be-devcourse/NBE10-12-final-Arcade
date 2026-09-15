@@ -19,6 +19,8 @@ import com.back.domain.party.party.repository.PartyContestLookupPort;
 import com.back.domain.party.position.entity.PartyStatus;
 import com.back.domain.ranking.entity.FeaturedRanking;
 import com.back.domain.ranking.repository.FeaturedRankingRepository;
+import com.back.global.storage.FileStorage;
+import com.back.global.storage.ImageUploadValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -26,6 +28,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -46,9 +49,20 @@ public class ContestService {
     private final FeaturedRankingRepository featuredRankingRepository;
     private final PartyContestLookupPort partyContestLookupPort;
     private final PartyMemberRepository partyMemberRepository;
+    private final FileStorage fileStorage;
+    private final ImageUploadValidator imageUploadValidator;
+
+    private static final String COVER_IMAGE_DIRECTORY = "contest";
 
     public long count() {
         return contestRepository.count();
+    }
+
+    /** 저장만 하고 URL 을 돌려준다. 대회 글에 반영하는 건 등록/수정 요청의 몫이다. */
+    public String uploadCoverImage(MultipartFile file) {
+        imageUploadValidator.validate(file);
+
+        return fileStorage.upload(file, COVER_IMAGE_DIRECTORY);
     }
 
     @Transactional

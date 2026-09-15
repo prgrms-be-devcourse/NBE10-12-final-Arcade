@@ -1,17 +1,17 @@
 import Link from 'next/link';
 import { Icon } from '@/components/icons/Icon';
+import { resolveMediaUrl } from '@/lib/api/client';
 import { CONTEST_FORMAT_LABELS } from '@/lib/constants';
 import type { Contest } from '@/lib/types';
 
 /** 공모전 카드 — 홈 가로 스크롤 · 공모전 허브 그리드에서 공용 */
 export function ContestCard({ contest }: { contest: Contest }) {
+  const coverImageUrl = resolveMediaUrl(contest.coverImageUrl);
   return (
     <Link href={`/contests/${contest.id}`} className="contest-card">
       <div
-        className={contest.coverImageUrl ? 'contest-poster has-cover' : 'contest-poster'}
-        style={
-          contest.coverImageUrl ? { backgroundImage: `url(${contest.coverImageUrl})` } : undefined
-        }
+        className={coverImageUrl ? 'contest-poster has-cover' : 'contest-poster'}
+        style={coverImageUrl ? { backgroundImage: `url(${coverImageUrl})` } : undefined}
       >
         <span className="cat">
           {CONTEST_FORMAT_LABELS[contest.format]} · {contest.tag}

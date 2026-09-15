@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CoverUpload } from '@/components/ui/CoverUpload';
 import {
@@ -13,7 +13,7 @@ import {
   TextField,
 } from '@/components/ui/Field';
 import { RadioChipGroup } from '@/components/ui/RadioChipGroup';
-import { ApiError, createContest, fetchContest, updateContest } from '@/lib/api';
+import { ApiError, createContest, fetchContest, updateContest, uploadContestImage } from '@/lib/api';
 import { CONTEST_FORMATS, CONTEST_FORMAT_LABELS, CONTEST_TAGS } from '@/lib/constants';
 import { httpUrlOrNull } from '@/lib/externalUrl';
 import { useLeaveTo } from '@/lib/navigation';
@@ -35,15 +35,22 @@ export function ContestCreateForm({ editId }: { editId?: string }) {
   const [linkUrl, setLinkUrl] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [coverFileName, setCoverFileName] = useState<string | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  /**
+   * coverFile 을 마지막으로 업로드해서 받은 URL. 저장이 실패해 coverFile 을 그대로 둔 채
+   * 재시도하면, 이 캐시가 같은 파일임을 알아채 재업로드(=서버에 고아 파일 추가)를 건너뛴다.
+   */
+  const uploadedCoverRef = useRef<{ file: File; url: string } | null>(null);
   /**
    * 지금 등록된 대표 사진 URL. CoverUpload 가 기존 파일을 표시하는 방법이 없어(새 파일 선택 전용)
-   * 화면에 보여주지는 못하지만, 저장할 때 그대로 돌려보내야 updateContest 가 이 값을 지우지 않는다.
+   * 화면에 보여주지는 못하지만, 새 파일을 고르지 않았을 때 저장 시 그대로 돌려보내야
+   * updateContest 가 이 값을 지우지 않는다.
    */
   const [existingCoverImageUrl, setExistingCoverImageUrl] = useState<string | undefined>(undefined);
   const [description, setDescription] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   /** 수정 진입 시 기존 값을 읽어오는 동안. 다 읽기 전에 저장하면 빈 값으로 덮인다 */
   const [loading, setLoading] = useState(Boolean(editId));
   /** 기존 값을 못 읽어왔을 때. 빈 폼으로 덮어쓰지 못하게 저장 버튼을 계속 막아 둔다 */
@@ -105,7 +112,7 @@ export function ContestCreateForm({ editId }: { editId?: string }) {
     if (!startDate) next.startDate = '접수 시작일을 선택해 주세요.';
     if (!endDate) next.endDate = '접수 종료일을 선택해 주세요.';
     else if (startDate && endDate < startDate) next.endDate = '접수 종료일이 시작일보다 빨라요.';
-    if (!editId && !coverFileName) next.cover = '대표 이미지를 1장 등록해 주세요.';
+    if (!editId && !coverFile) next.cover = '대표 이미지를 1장 등록해 주세요.';
     if (!description.trim()) next.description = '공모전 소개를 입력해 주세요.';
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -114,18 +121,28 @@ export function ContestCreateForm({ editId }: { editId?: string }) {
   const submit = async () => {
     if (!validate()) return;
     setSubmitting(true);
-    const payload = {
-      title,
-      format,
-      tag: tag as ContestTag,
-      linkUrl,
-      startDate,
-      endDate,
-      coverFileName: coverFileName ?? undefined,
-      coverImageUrl: existingCoverImageUrl,
-      description,
-    };
+    setSubmitError('');
     try {
+      // 새 파일을 골랐을 때만 올려서 실어 보낸다. 안 골랐으면(수정 화면) 기존 URL을 그대로 유지한다.
+      // 이미 이 파일로 업로드해둔 URL이 있으면(직전 저장 실패 후 재시도) 재업로드하지 않고 재사용한다.
+      let coverImageUrl = existingCoverImageUrl;
+      if (coverFile) {
+        coverImageUrl =
+          uploadedCoverRef.current?.file === coverFile
+            ? uploadedCoverRef.current.url
+            : await uploadContestImage(coverFile);
+        uploadedCoverRef.current = { file: coverFile, url: coverImageUrl };
+      }
+      const payload = {
+        title,
+        format,
+        tag: tag as ContestTag,
+        linkUrl,
+        startDate,
+        endDate,
+        coverImageUrl,
+        description,
+      };
       const result = editId ? await updateContest(editId, payload) : await createContest(payload);
       if (editId) {
         leave();
@@ -134,6 +151,12 @@ export function ContestCreateForm({ editId }: { editId?: string }) {
         // 새로 만든 대회로 가는 건 앞으로 가는 이동이라 히스토리에 쌓는 게 맞다
         router.push(`/contests/${result.id}`);
       }
+    } catch (cause) {
+      setSubmitError(
+        cause instanceof ApiError
+          ? cause.message
+          : '저장하지 못했어요. 잠시 후 다시 시도해 주세요.',
+      );
     } finally {
       setSubmitting(false);
     }
@@ -142,6 +165,7 @@ export function ContestCreateForm({ editId }: { editId?: string }) {
   return (
     <form onSubmit={(event) => event.preventDefault()}>
       {loadError ? <p className="form-error" role="alert">{loadError}</p> : null}
+      {submitError ? <p className="form-error" role="alert">{submitError}</p> : null}
       <FormGroup label="대회명" required error={errors.title}>
         <TextField
           placeholder="예: 2026 공공데이터 활용 챌린지"
@@ -221,8 +245,8 @@ export function ContestCreateForm({ editId }: { editId?: string }) {
 
       <FormGroup label="메인 사진" required error={errors.cover}>
         <CoverUpload
-          onChange={(name) => {
-            setCoverFileName(name);
+          onFileChange={(file) => {
+            setCoverFile(file);
             setErrors((prev) => ({ ...prev, cover: '' }));
           }}
           hint={
