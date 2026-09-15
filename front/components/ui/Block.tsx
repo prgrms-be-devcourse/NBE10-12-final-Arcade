@@ -13,7 +13,7 @@ interface BlockProps {
 /** 상세/마이페이지에서 반복되는 카드형 섹션 */
 export function Block({ title, description, children, className, reveal }: BlockProps) {
   return (
-    <section className={['block', className].filter(Boolean).join(' ')} data-reveal={reveal ? '' : undefined}>
+    <section className={['block', className].filter(Boolean).join(' ')} data-reveal={reveal ? '' : undefined} suppressHydrationWarning={reveal}>
       {title ? <InteractiveTitle className="block-title">{title}</InteractiveTitle> : null}
       {description ? (
         <p className="block-description">{description}</p>

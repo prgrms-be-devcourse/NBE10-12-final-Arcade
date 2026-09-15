@@ -22,7 +22,7 @@ export function HeroStats({ streakDays, activityHeatmap }: HeroStatsProps) {
 
   return (
     // 배지 칸을 숨긴 동안에는 한 칸만 쓴다. 2단 그대로 두면 오른쪽이 빈 채로 남는다.
-    <section className="hero-stats" data-reveal style={{ gridTemplateColumns: '1fr' }}>
+    <section className="hero-stats" data-reveal suppressHydrationWarning style={{ gridTemplateColumns: '1fr' }}>
       <div className="hero-stats-col">
         <h4>연속 활동</h4>
         <StreakHeatmap levels={activityHeatmap?.length ? activityHeatmap : undefined} />
