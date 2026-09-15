@@ -37,11 +37,3 @@ custom:
     allowed-origins: http://localhost:3000,https://cdpn.io
   openapi:
     api-docs-url: ${CUSTOM__OPENAPI__API_DOCS_URL:http://localhost:${SERVER_PORT:8080}/v3/api-docs/apiV1}
-  curation:
-    enabled: ${CUSTOM__CURATION__ENABLED:true}
-    model: ${CUSTOM__CURATION__MODEL:gemini-3.6-flash}
-    batch-cron: ${CUSTOM__CURATION__BATCH_CRON:0 0 3 * * *}
-    candidate-limit: ${CUSTOM__CURATION__CANDIDATE_LIMIT:15}
-    gemini:
-      api-key: ${CUSTOM__CURATION__GEMINI__API_KEY:}
-
