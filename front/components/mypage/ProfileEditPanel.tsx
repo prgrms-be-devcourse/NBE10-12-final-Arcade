@@ -34,6 +34,7 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
   // 표시명(profile.name)이 아니라 실제 저장된 닉네임으로 시작한다.
   // 표시명에는 닉네임이 없을 때 쓰는 대체 문구가 들어 있어, 그대로 저장하면 그게 닉네임이 된다.
   const [nickname, setNickname] = useState(profile.nickname ?? '');
+  const [realName, setRealName] = useState(profile.realName ?? '');
   const [position, setPosition] = useState(profile.position);
   const [bio, setBio] = useState(profile.bio);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -64,6 +65,7 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
       const updated = await updateMyProfile({
         // 아직 닉네임이 없는 회원이 칸을 비워둔 채 저장하면 키를 빼서 그대로 둔다
         nickname: trimmedNickname || undefined,
+        name: realName.trim() || undefined,
         position,
         bio,
         profileImageUrl,
@@ -102,6 +104,15 @@ export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPane
               아바타가 표시됩니다.
             </>
           }
+        />
+      </FormGroup>
+
+      <FormGroup label="이름" htmlFor="editRealName">
+        <TextField
+          id="editRealName"
+          placeholder="실명을 입력해 주세요"
+          value={realName}
+          onChange={(event) => setRealName(event.target.value)}
         />
       </FormGroup>
 

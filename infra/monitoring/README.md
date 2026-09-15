@@ -1,11 +1,12 @@
 # 모니터링 스택
 
-Prometheus 와 Grafana. 실행 방법이 **셋**이고, 목적이 다르다.
+Prometheus 와 Grafana. 앱과 모니터링은 루트 Compose와 override를 조합해 같은 프로젝트로
+실행한다. 로컬 전용 Compose를 별도로 유지하지 않는다.
 
 | 방법 | 파일 | 언제 |
 | --- | --- | --- |
-| **앱과 함께** | 루트의 `docker-compose.monitoring.yml` | 서버 배포. 앱 컨테이너를 실제로 관측할 때 |
-| **단독** | `local/docker-compose.yml` | 로컬에서 모니터링 스택만 확인할 때 |
+| **앱과 함께** | `docker-compose.yml` + `docker-compose.monitoring.yml` | 로컬·서버에서 앱 컨테이너를 실제로 관측할 때 |
+| **모니터링만** | 같은 두 파일에서 서비스만 지정 | 대시보드·프로비저닝 설정만 확인할 때 |
 | **dev·prod 조회** | `remote/docker-compose.yml` | 로컬 Grafana에서 두 서버 Prometheus를 전환해 볼 때 |
 
 `prometheus/`와 `grafana/`는 앱과 함께 실행하는 모니터링 원본이다. 두 원격 환경을 조회하는
@@ -34,22 +35,24 @@ Grafana 가 Prometheus 보다 훨씬 무겁다(실측 264~505MB 대 42~56MB). �
 
 포트로 가른다. 앱은 `:80`, 모니터링은 `:8081`.
 
-## 단독 실행 (로컬 전용)
+## 모니터링만 실행
 
 ```bash
-docker compose -f infra/monitoring/local/docker-compose.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.monitoring.yml \
+  --env-file .env.local \
+  --profile monitoring --profile grafana \
+  up -d --no-deps prometheus grafana
 ```
 
-앱과 무관하게 모니터링만 띄워 볼 때 쓴다. **이 방식으로는 백엔드 지표를 못 받는다** —
-`prometheus.yml` 의 수집 대상이 `backend:8080` 인데 같은 네트워크가 아니라서 그 이름을
-찾지 못한다.
+중복 Compose 없이 같은 이미지·볼륨·프로비저닝 설정을 검사한다. 앱을 띄우지 않았으므로
+Prometheus의 `backend:8080` 수집 대상은 정상적으로 down이다.
 
 ## 접근 주소
 
-| | 앱과 함께 | 단독 |
+| | 앱과 함께 | 모니터링만 |
 | --- | --- | --- |
-| Grafana | `http://<호스트>:8081` | `http://grafana.localhost:8081` 또는 `http://localhost:3001` |
-| Prometheus | `http://<호스트>:8081/prometheus` | `http://prometheus.localhost:8081` 또는 `http://localhost:9090` |
+| Grafana | `http://<호스트>:8081` 또는 `http://localhost:3001` | `http://localhost:3001` |
+| Prometheus | `http://<호스트>:8081/prometheus` 또는 `http://localhost:9090/prometheus` | `http://localhost:9090/prometheus` |
 
 Caddy 포트는 `MONITORING_HTTP_PORT` 로 바꾼다. TLS 는 쓰지 않는다.
 

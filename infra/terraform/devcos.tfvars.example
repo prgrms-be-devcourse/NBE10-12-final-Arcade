@@ -1,6 +1,7 @@
 # 실제 값으로 복사한 파일은 커밋하지 않는다.
 aws_account_id = "111122223333"
 team_tag       = "devcos-team05"
+environment    = "prod"
 region         = "ap-northeast-2"
 
 github_repo                = "prgrms-be-devcourse/NBE10-12-final-Arcade"

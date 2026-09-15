@@ -34,6 +34,16 @@ variable "region" {
   }
 }
 
+variable "environment" {
+  description = "리소스를 구분할 배포 환경 이름."
+  type        = string
+
+  validation {
+    condition     = contains(["dev", "prod"], var.environment)
+    error_message = "environment는 dev 또는 prod여야 한다."
+  }
+}
+
 # GitHub Actions OIDC 배포 대상
 variable "github_repo" {
   description = "OIDC 신뢰 대상 GitHub 저장소(owner/name)."
@@ -67,14 +77,9 @@ variable "github_repository_id" {
 }
 
 variable "deploy_environment" {
-  description = "CD job과 OIDC subject에 사용할 prod GitHub Environment 이름."
+  description = "CD job과 OIDC subject에 사용할 GitHub Environment 이름."
   type        = string
   default     = "prod"
-
-  validation {
-    condition     = var.deploy_environment == "prod"
-    error_message = "배포 워크플로와 일치하도록 prod Environment를 사용해야 한다."
-  }
 }
 
 # 네트워크와 서비스 주소
