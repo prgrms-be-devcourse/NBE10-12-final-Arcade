@@ -98,7 +98,7 @@ custom:
       secret: ${CUSTOM__GITHUB__WEBHOOK__SECRET:}
   curation:
     enabled: ${CUSTOM__CURATION__ENABLED:false}
-    model: ${CUSTOM__CURATION__MODEL:gemini-2.0-flash}
+    model: ${CUSTOM__CURATION__MODEL:gemini-3.6-flash}
     batch-cron: ${CUSTOM__CURATION__BATCH_CRON:0 0 3 * * *}
     candidate-limit: ${CUSTOM__CURATION__CANDIDATE_LIMIT:15}
     gemini:
