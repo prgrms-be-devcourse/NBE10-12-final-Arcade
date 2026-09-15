@@ -99,6 +99,7 @@ export function toUserProfile(
     name: displayName,
     // 표시명(displayName)과 달리 대체 문구를 넣지 않는다 - 수정 폼이 이 값을 초기값으로 쓴다
     nickname: dto.nickname?.trim() || undefined,
+    realName: dto.name ?? undefined,
     initial: displayName.charAt(0) || 'C',
     // 서버가 둘을 합치지 않고 그대로 내려주므로 화면이 고른다
     avatarUrl: dto.profileImageUrl ?? dto.githubAvatarUrl ?? undefined,
@@ -331,6 +332,8 @@ export interface ProfileUpdatePayload {
   profileImageUrl?: string | null;
   /** undefined 면 닉네임을 그대로 둔다. 서버가 빈 문자열을 거절하므로(400-1) 비울 수는 없다 */
   nickname?: string;
+  /** undefined 면 이름을 그대로 둔다. 빈 문자열을 보내면 서버가 지운다 */
+  name?: string;
   skills: string[];
   careers: CareerItem[];
   links: ProfileLink[];
@@ -377,6 +380,7 @@ export async function updateMyProfile(payload: ProfileUpdatePayload): Promise<Us
     links: payload.links.map((link) => ({ label: link.label, url: link.url })),
     // 닉네임은 비울 수 없다(@Pattern). 안 바꿨으면 키를 빼서 서버가 그대로 두게 한다
     ...(payload.nickname === undefined ? {} : { nickname: payload.nickname }),
+    ...(payload.name === undefined ? {} : { name: payload.name }),
     // undefined 면 키 자체가 빠져 서버가 지금 이미지를 유지한다. null 은 '지워 달라'라서 '' 로 보낸다
     ...(payload.profileImageUrl === undefined
       ? {}
