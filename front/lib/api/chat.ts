@@ -138,7 +138,11 @@ export function connectChatSocket(
     return () => {};
   }
 
-  const wsUrl = `${API_BASE_URL.replace(/^http/, 'ws')}/chat-rooms/${roomId}/subscribe`;
+  const wsUrl = new URL(
+    `${API_BASE_URL}/chat-rooms/${roomId}/subscribe`,
+    window.location.origin,
+  );
+  wsUrl.protocol = wsUrl.protocol === 'https:' ? 'wss:' : 'ws:';
   onStatus?.('connecting');
 
   const socket = new WebSocket(wsUrl);

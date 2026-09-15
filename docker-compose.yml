@@ -135,8 +135,6 @@ services:
     build:
       context: ./front
       args:
-        # Dockerfile이 공개 API 주소를 조립한다.
-        PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?PUBLIC_ORIGIN is required}
         NEXT_PUBLIC_USE_MOCK: ${NEXT_PUBLIC_USE_MOCK:-false}
     restart: unless-stopped
     environment:

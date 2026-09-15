@@ -6,6 +6,7 @@
 		path /api/*
 		path /login/*
 		path /oauth2/*
+		path /uploads/*
 	}
 	handle @backend {
 		reverse_proxy backend:8080
