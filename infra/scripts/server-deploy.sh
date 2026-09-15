@@ -35,6 +35,22 @@ env_value() {
   sed -n "s/^$1=//p" .env | head -n1
 }
 
+PUBLIC_ORIGIN="$(env_value PUBLIC_ORIGIN)"
+case "$PUBLIC_ORIGIN" in
+  https://*) APP_DOMAIN="${PUBLIC_ORIGIN#https://}" ;;
+  *) echo "PUBLIC_ORIGIN은 HTTPS 주소여야 한다: $PUBLIC_ORIGIN" >&2; exit 1 ;;
+esac
+APP_DOMAIN="${APP_DOMAIN%%/*}"
+APP_DOMAIN="${APP_DOMAIN%%:*}"
+METRICS_DOMAIN="$(env_value METRICS_DOMAIN)"
+[ -n "$METRICS_DOMAIN" ] || METRICS_DOMAIN="metrics.$APP_DOMAIN"
+for domain in "$APP_DOMAIN" "$METRICS_DOMAIN"; do
+  [[ "$domain" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]$ ]] \
+    || { echo "유효하지 않은 도메인: $domain" >&2; exit 1; }
+done
+echo "== 환경별 Nginx 도메인 =="
+echo "  app=$APP_DOMAIN metrics=$METRICS_DOMAIN"
+
 echo "== 레지스트리 로그인 =="
 # <접두사>_USER 와 <접두사>_TOKEN 이 .env 에 있는 레지스트리에만 로그인한다.
 # 없으면 그 레지스트리는 공개 이미지만 받는다 — 배포를 여기서 멈추지 않는다.
@@ -121,11 +137,13 @@ if docker compose $COMPOSE_FILES --env-file .env config --services | grep -qx po
 fi
 
 # 변경된 애플리케이션만 준비한 뒤 Nginx 대상을 한 번에 전환한다.
+NGINX_TEMPLATE_SOURCE="infra/nginx/nginx.prod.conf.template"
 NGINX_CONFIG="infra/nginx/nginx.prod.conf"
 NGINX_TEMPLATE="$(mktemp)"
 NGINX_RENDERED="$(mktemp)"
 NGINX_PREVIOUS="$(mktemp)"
-cp "$NGINX_CONFIG" "$NGINX_TEMPLATE"
+cp "$NGINX_TEMPLATE_SOURCE" "$NGINX_TEMPLATE"
+[ ! -s "$NGINX_CONFIG" ] || cp "$NGINX_CONFIG" "$NGINX_PREVIOUS"
 trap 'rm -f "$NGINX_TEMPLATE" "$NGINX_RENDERED" "$NGINX_PREVIOUS"' EXIT
 
 single_service_id() {
@@ -231,18 +249,59 @@ prepare_candidate() {
 
 render_nginx_config() {
   local backend_name="$1" frontend_name="$2" output="$3"
+  local expected_backend_count expected_frontend_count actual_backend_count actual_frontend_count
+
+  expected_backend_count=$(awk 'index($0, "; # ACTIVE_BACKEND") { count++ } END { print count + 0 }' "$NGINX_TEMPLATE")
+  expected_frontend_count=$(awk 'index($0, "; # ACTIVE_FRONTEND") { count++ } END { print count + 0 }' "$NGINX_TEMPLATE")
+  if [ "$expected_backend_count" -eq 0 ] || [ "$expected_frontend_count" -eq 0 ]; then
+    echo "  Nginx 활성 대상 마커가 없다: backend=$expected_backend_count frontend=$expected_frontend_count" >&2
+    return 1
+  fi
+
   sed -E \
       -e "s|[^[:space:];]+:8080; # ACTIVE_BACKEND|$backend_name:8080; # ACTIVE_BACKEND|g" \
       -e "s|[^[:space:];]+:3000; # ACTIVE_FRONTEND|$frontend_name:3000; # ACTIVE_FRONTEND|g" \
+      -e "s|__APP_DOMAIN__|$APP_DOMAIN|g" \
+      -e "s|__METRICS_DOMAIN__|$METRICS_DOMAIN|g" \
       "$NGINX_TEMPLATE" > "$output"
-  [ "$(grep -Fc "$backend_name:8080; # ACTIVE_BACKEND" "$output")" -eq 4 ] \
-    && [ "$(grep -Fc "$frontend_name:3000; # ACTIVE_FRONTEND" "$output")" -eq 2 ]
+
+  actual_backend_count=$(grep -Fc "$backend_name:8080; # ACTIVE_BACKEND" "$output" || true)
+  actual_frontend_count=$(grep -Fc "$frontend_name:3000; # ACTIVE_FRONTEND" "$output" || true)
+  if [ "$actual_backend_count" -ne "$expected_backend_count" ] \
+    || [ "$actual_frontend_count" -ne "$expected_frontend_count" ] \
+    || grep -Eq '__APP_DOMAIN__|__METRICS_DOMAIN__' "$output"; then
+    echo "  Nginx 활성 대상 치환 실패: backend=$actual_backend_count/$expected_backend_count frontend=$actual_frontend_count/$expected_frontend_count" >&2
+    return 1
+  fi
 }
 
 remove_candidate() {
   local new_id="$1" old_id="$2"
   [ -z "$new_id" ] || [ "$new_id" = "$old_id" ] \
     || docker rm -f "$new_id" >/dev/null 2>&1 || true
+}
+
+nginx_exec() {
+  local attempt output
+  for attempt in {1..10}; do
+    if output="$(docker compose $COMPOSE_FILES --env-file .env exec -T nginx "$@" 2>&1)"; then
+      [ -z "$output" ] || printf '%s\n' "$output"
+      return 0
+    fi
+
+    case "$output" in
+      *"OCI runtime exec failed"*|*"is restarting"*|*"is not running"*|*"No such container"*)
+        if [ "$attempt" -lt 10 ]; then
+          echo "  nginx exec 준비 대기 ($attempt/10)"
+          sleep 1
+          continue
+        fi
+        ;;
+    esac
+
+    printf '%s\n' "$output" >&2
+    return 1
+  done
 }
 
 activate_nginx() {
@@ -259,16 +318,18 @@ activate_nginx() {
     docker compose $COMPOSE_FILES --env-file .env up -d --no-build --no-deps nginx >/dev/null
   fi
 
-  docker compose $COMPOSE_FILES --env-file .env exec -T nginx \
-    grep -Fq "$backend_name:8080" /etc/nginx/nginx.conf \
-    && docker compose $COMPOSE_FILES --env-file .env exec -T nginx \
-      grep -Fq "$frontend_name:3000" /etc/nginx/nginx.conf \
-    && docker compose $COMPOSE_FILES --env-file .env exec -T nginx nginx -t \
+  nginx_exec sh -ceu '
+      grep -Fq "$1:8080" /etc/nginx/nginx.conf
+      grep -Fq "$2:3000" /etc/nginx/nginx.conf
+      nginx -t
+    ' sh "$backend_name" "$frontend_name" \
     && { [ "$was_running" -eq 0 ] \
-      || docker compose $COMPOSE_FILES --env-file .env exec -T nginx nginx -s reload; } \
+      || nginx_exec nginx -s reload; } \
     && return 0
 
   echo "  nginx 전환 실패 — 기존 설정과 컨테이너를 유지한다" >&2
+  docker compose $COMPOSE_FILES --env-file .env ps nginx >&2 || true
+  docker compose $COMPOSE_FILES --env-file .env logs --tail=50 nginx >&2 || true
   if [ -s "$NGINX_PREVIOUS" ]; then
     cat "$NGINX_PREVIOUS" > "$NGINX_CONFIG"
   fi
@@ -288,7 +349,6 @@ fi
 if [ -n "$OLD_BACKEND_ID" ]; then
   OLD_BACKEND_NAME="$(container_name "$OLD_BACKEND_ID")"
   OLD_FRONTEND_NAME="$(container_name "$OLD_FRONTEND_ID")"
-  render_nginx_config "$OLD_BACKEND_NAME" "$OLD_FRONTEND_NAME" "$NGINX_PREVIOUS"
   echo "== 기존 애플리케이션 대상으로 Nginx 고정 =="
   activate_nginx "$OLD_BACKEND_NAME" "$OLD_FRONTEND_NAME" || exit 1
 fi

@@ -69,7 +69,7 @@ FILES=(
   docker-compose.yml
   docker-compose.monitoring.yml
   infra/caddy
-  infra/nginx/nginx.prod.conf
+  infra/nginx/nginx.prod.conf.template
   infra/monitoring/prometheus
   infra/monitoring/grafana
   infra/scripts/server-deploy.sh
@@ -198,7 +198,6 @@ install -d "$APP_DIR"
 BIND_MOUNT_FILES=(
   infra/caddy/Caddyfile
   infra/caddy/Caddyfile.monitoring
-  infra/nginx/nginx.prod.conf
   infra/monitoring/prometheus/prometheus.yml
 )
 TAR_EXCLUDES=(--exclude='_deploy')
