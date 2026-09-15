@@ -77,6 +77,8 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
   const [deadline, setDeadline] = useState(() =>
     editId ? '' : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
   );
+  /** date input min 힌트·검증에 같이 쓴다. 렌더마다 다시 구해도 하루 단위 값이라 부담 없다 */
+  const todayStr = new Date().toISOString().slice(0, 10);
   /** 수정 진입 시 기존 값을 읽어오는 동안. 다 읽기 전에 저장하면 빈 값으로 덮인다 */
   const [loading, setLoading] = useState(Boolean(editId));
 
@@ -210,6 +212,7 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
       next.title = `모집글 제목은 ${TITLE_MAX}자까지 입력할 수 있어요.`;
     if (!description.trim()) next.description = '파티 소개를 입력해 주세요.';
     if (!deadline) next.deadline = '마감일을 선택해 주세요.';
+    else if (deadline < todayStr) next.deadline = '마감일은 오늘 이후로 설정해 주세요.';
     // pickedContest 가 있으면 이름·linkUrl 모두 대회 쪽 값을 그대로 쓰므로 이 입력칸들이 안 보인다.
     // 서버는 등록된 대회가 없으면 대회명을 반드시 요구한다(400-1) — 여기서 먼저 잡는다.
     if (topicType === 'CONTEST' && !pickedContest) {
@@ -461,6 +464,7 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
         <FormGroup label="마감일" required error={errors.deadline}>
           <TextField
             type="date"
+            min={todayStr}
             value={deadline}
             onChange={(event) => {
               setDeadline(event.target.value);
