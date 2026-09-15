@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CoverUpload } from '@/components/ui/CoverUpload';
 import {
@@ -36,6 +36,11 @@ export function ContestCreateForm({ editId }: { editId?: string }) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [coverFile, setCoverFile] = useState<File | null>(null);
+  /**
+   * coverFile 을 마지막으로 업로드해서 받은 URL. 저장이 실패해 coverFile 을 그대로 둔 채
+   * 재시도하면, 이 캐시가 같은 파일임을 알아채 재업로드(=서버에 고아 파일 추가)를 건너뛴다.
+   */
+  const uploadedCoverRef = useRef<{ file: File; url: string } | null>(null);
   /**
    * 지금 등록된 대표 사진 URL. CoverUpload 가 기존 파일을 표시하는 방법이 없어(새 파일 선택 전용)
    * 화면에 보여주지는 못하지만, 새 파일을 고르지 않았을 때 저장 시 그대로 돌려보내야
@@ -119,7 +124,15 @@ export function ContestCreateForm({ editId }: { editId?: string }) {
     setSubmitError('');
     try {
       // 새 파일을 골랐을 때만 올려서 실어 보낸다. 안 골랐으면(수정 화면) 기존 URL을 그대로 유지한다.
-      const coverImageUrl = coverFile ? await uploadContestImage(coverFile) : existingCoverImageUrl;
+      // 이미 이 파일로 업로드해둔 URL이 있으면(직전 저장 실패 후 재시도) 재업로드하지 않고 재사용한다.
+      let coverImageUrl = existingCoverImageUrl;
+      if (coverFile) {
+        coverImageUrl =
+          uploadedCoverRef.current?.file === coverFile
+            ? uploadedCoverRef.current.url
+            : await uploadContestImage(coverFile);
+        uploadedCoverRef.current = { file: coverFile, url: coverImageUrl };
+      }
       const payload = {
         title,
         format,

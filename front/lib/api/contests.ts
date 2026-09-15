@@ -285,6 +285,9 @@ export interface ContestFormPayload {
   description: string;
 }
 
+/** mock 모드에서 직전에 만든 blob URL. 같은 세션에서 다시 올릴 때 revoke 해서 안 쌓이게 한다 */
+let lastMockCoverBlobUrl: string | undefined;
+
 /**
  * POST /api/v1/contests/image — 대회 대표 이미지 업로드.
  *
@@ -294,7 +297,11 @@ export interface ContestFormPayload {
  * jpg·png 만 받는다. 초과하거나 형식이 다르면 서버가 400-1 과 함께 사유를 msg 로 준다.
  */
 export async function uploadContestImage(file: File): Promise<string> {
-  if (USE_MOCK) return mockResponse(URL.createObjectURL(file));
+  if (USE_MOCK) {
+    if (lastMockCoverBlobUrl) URL.revokeObjectURL(lastMockCoverBlobUrl);
+    lastMockCoverBlobUrl = URL.createObjectURL(file);
+    return mockResponse(lastMockCoverBlobUrl);
+  }
 
   const form = new FormData();
   form.append('file', file);
