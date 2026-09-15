@@ -167,6 +167,7 @@ export function PartyCreateForm({ editId, contestId }: { editId?: string; contes
           setTopicType('CONTEST');
           setContestFormat(contest.format);
           setPickedContest(contest);
+          setContestLinkUrl('');
         }
       } catch (cause) {
         if (!alive) return;
@@ -410,6 +411,8 @@ export function PartyCreateForm({ editId, contestId }: { editId?: string; contes
                   onChange={(event) => {
                     setContestKeyword(event.target.value);
                     setErrors((prev) => ({ ...prev, contestName: '' }));
+                    // 대회를 못 불러와도 힌트가 안내하는 수동 입력으로 계속 진행할 수 있어야 한다
+                    setLoadError('');
                   }}
                 />
               </div>
@@ -422,6 +425,10 @@ export function PartyCreateForm({ editId, contestId }: { editId?: string; contes
                       className="picker-item"
                       onClick={() => {
                         setPickedContest(contest);
+                        // 대회를 고르면 그 전에 미등록 대회용으로 직접 타이핑해둔 링크는 더 이상
+                        // 이 대회와 무관하다 - 안 지우면 이 대회가 archived 라 링크가 없을 때
+                        // submit() 의 폴백 체인이 그 상관없는 값을 그대로 붙여 보낸다
+                        setContestLinkUrl('');
                         setLoadError('');
                       }}
                     >
@@ -453,6 +460,7 @@ export function PartyCreateForm({ editId, contestId }: { editId?: string; contes
               onChange={(event) => {
                 setContestLinkUrl(event.target.value);
                 setErrors((prev) => ({ ...prev, contestLinkUrl: '' }));
+                setLoadError('');
               }}
             />
           </FormGroup>
