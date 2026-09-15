@@ -15,6 +15,7 @@ import { RadioChipGroup } from '@/components/ui/RadioChipGroup';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { CoverUpload } from '@/components/ui/CoverUpload';
 import {
+  ApiError,
   createParty,
   fetchContest,
   fetchContests,
@@ -52,7 +53,7 @@ interface PositionRow {
   filledCount?: number;
 }
 
-export function PartyCreateForm({ editId }: { editId?: string }) {
+export function PartyCreateForm({ editId, contestId }: { editId?: string; contestId?: string }) {
   const router = useRouter();
   const { confirm, dialog } = useConfirm();
   // 수정으로 들어왔으면 되돌아간다 - push 하면 상세에서 뒤로가기를 눌렀을 때 수정 폼이 다시 나온다
@@ -79,7 +80,9 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
   /** date input min 힌트·검증에 같이 쓴다. 마감일 기본값과 같은 이유로 마운트 후에만 채운다 */
   const [todayStr, setTodayStr] = useState('');
   /** 수정 진입 시 기존 값을 읽어오는 동안. 다 읽기 전에 저장하면 빈 값으로 덮인다 */
-  const [loading, setLoading] = useState(Boolean(editId));
+  const [loading, setLoading] = useState(Boolean(editId) || Boolean(contestId));
+  /** 기존 값을 못 읽어왔을 때. 빈 폼으로 덮어쓰지 못하게 저장 버튼을 계속 막아 둔다 */
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- new Date() 를 렌더 중에 쓰면 서버·클라이언트
@@ -96,6 +99,7 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
   const [contestKeyword, setContestKeyword] = useState('');
   const [pickedContest, setPickedContest] = useState<Contest | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   /** 검색 결과를 요청한 키워드와 함께 보관해, 입력이 바뀌면 자동으로 무효화되게 한다 */
   const [search, setSearch] = useState<{ keyword: string; results: Contest[] }>({
     keyword: '',
@@ -103,53 +107,77 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
   });
 
   const trimmedKeyword = contestKeyword.trim();
-  const pickerOpen = topicType === 'CONTEST' && !pickedContest;
+  // 로딩 중(특히 contestId 로 대회를 불러오는 동안)엔 검색 결과를 숨겨서, 그 사이 사용자가
+  // 다른 대회를 골라도 뒤늦게 도착한 fetchContest 응답이 그 선택을 조용히 덮어쓰지 않게 한다
+  const pickerOpen = topicType === 'CONTEST' && !pickedContest && !loading;
   const contestResults = pickerOpen && search.keyword === trimmedKeyword ? search.results : [];
 
   /**
-   * 수정 진입이면 기존 파티를 읽어 폼을 채운다.
+   * 수정(editId) 또는 대회 연동 생성(contestId) 진입이면 초기값을 읽어 폼을 채운다.
+   * 두 경로가 각자 effect 를 따로 두면 로딩/에러 처리 뼈대가 그대로 복붙돼 한쪽만 고치고
+   * 다른 쪽을 놓치기 쉬워서, 하나의 effect 로 합쳐 그 위험을 없앤다.
    *
    * 서버 PartyDto 에는 대회 형식(contestFormat)이 없어 공모전으로 두고 시작한다 -
    * 목록 DTO 에만 있는 값이라 상세에서는 알 수 없다.
    */
   useEffect(() => {
-    if (!editId) return;
+    if (!editId && !contestId) return;
     let alive = true;
 
     (async () => {
+      // editId/contestId 가 바뀔 때마다(언마운트 없이) 다시 로딩 상태로 돌아가야 한다 - 동기 호출이지만
+      // async 함수 안이라 useEffect 본문에서 직접 부르는 게 아니라서 set-state-in-effect 에 안 걸린다
+      setLoading(true);
+      setLoadError('');
       try {
-        const party = await fetchParty(editId);
-        // 연결된 대회 카드 조회가 실패해도 파티 수정은 계속할 수 있어야 한다.
-        const contest = party.contestId
-          ? await fetchContest(party.contestId).catch(() => null)
-          : null;
-        if (!alive) return;
+        if (editId) {
+          const party = await fetchParty(editId);
+          // 연결된 대회 카드 조회가 실패해도 파티 수정은 계속할 수 있어야 한다.
+          const contest = party.contestId
+            ? await fetchContest(party.contestId).catch(() => null)
+            : null;
+          if (!alive) return;
 
-        setTopicType(party.topicType);
-        setPartyName(party.partyName ?? '');
-        setTitle(party.title);
-        if (party.title.length > TITLE_MAX) {
-          setErrors((prev) => ({
-            ...prev,
-            title: `모집글 제목은 ${TITLE_MAX}자까지 입력할 수 있어요. (현재 ${party.title.length}자)`,
-          }));
+          setTopicType(party.topicType);
+          setPartyName(party.partyName ?? '');
+          setTitle(party.title);
+          if (party.title.length > TITLE_MAX) {
+            setErrors((prev) => ({
+              ...prev,
+              title: `모집글 제목은 ${TITLE_MAX}자까지 입력할 수 있어요. (현재 ${party.title.length}자)`,
+            }));
+          }
+          setDescription(party.description);
+          setRepositoryUrl(party.githubRepoUrl ?? '');
+          setContestLinkUrl(party.contestLinkUrl ?? '');
+          setPickedContest(contest);
+          setContestKeyword(contest ? '' : (party.contestName ?? ''));
+          setPositions(
+            party.positions.map((position, index) => ({
+              key: `p${index}`,
+              positionId: position.id,
+              type: position.type,
+              capacity: String(position.capacity),
+              filledCount: position.filledCount,
+            })),
+          );
+          setSubCategory(party.subCategory ?? '기타');
+          setDeadline(party.deadline ? party.deadline.slice(0, 10) : '');
+        } else if (contestId) {
+          const contest = await fetchContest(contestId);
+          if (!alive) return;
+          setTopicType('CONTEST');
+          setContestFormat(contest.format);
+          setPickedContest(contest);
+          setContestLinkUrl('');
         }
-        setDescription(party.description);
-        setRepositoryUrl(party.githubRepoUrl ?? '');
-        setContestLinkUrl(party.contestLinkUrl ?? '');
-        setPickedContest(contest);
-        setContestKeyword(contest ? '' : (party.contestName ?? ''));
-        setPositions(
-          party.positions.map((position, index) => ({
-            key: `p${index}`,
-            positionId: position.id,
-            type: position.type,
-            capacity: String(position.capacity),
-            filledCount: position.filledCount,
-          })),
+      } catch (cause) {
+        if (!alive) return;
+        setLoadError(
+          cause instanceof ApiError
+            ? cause.message
+            : '정보를 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.',
         );
-        setSubCategory(party.subCategory ?? '기타');
-        setDeadline(party.deadline ? party.deadline.slice(0, 10) : '');
       } finally {
         if (alive) setLoading(false);
       }
@@ -158,7 +186,7 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
     return () => {
       alive = false;
     };
-  }, [editId]);
+  }, [editId, contestId]);
 
   /**
    * 대회 목록을 API 에서 불러온다.
@@ -266,6 +294,7 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
       return;
     }
     setSubmitting(true);
+    setSubmitError('');
     const payload = {
       subCategory,
       deadline: `${deadline}T23:59:59`,
@@ -274,7 +303,11 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
       contestFormat: topicType === 'CONTEST' ? contestFormat : undefined,
       contestId: pickedContest?.id,
       contestName: pickedContest?.title ?? (topicType === 'CONTEST' ? contestKeyword : undefined),
-      contestLinkUrl: pickedContest?.linkUrl ?? (contestLinkUrl || undefined),
+      // 게시글이 없는(archived) 대회는 linkUrl 이 실제 주소가 아니라 표시용 대체값('#')이라
+      // 그대로 보내면 백엔드 @ValidHttpUrl 에 걸려 400이 난다. 그런 경우는 contestId 로만
+      // 연동하고 linkUrl 은 생략한다 - 수동 입력값이 있으면 그걸 대신 쓴다.
+      contestLinkUrl:
+        (pickedContest && httpUrlOrNull(pickedContest.linkUrl)) || (contestLinkUrl || undefined),
       title,
       description,
       coverFileName: coverFileName ?? undefined,
@@ -296,6 +329,12 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
         // 새로 만든 파티로 가는 건 앞으로 가는 이동이라 히스토리에 쌓는 게 맞다
         router.push(`/party/${result.id}`);
       }
+    } catch (cause) {
+      setSubmitError(
+        cause instanceof ApiError
+          ? cause.message
+          : '저장하지 못했어요. 잠시 후 다시 시도해 주세요.',
+      );
     } finally {
       setSubmitting(false);
     }
@@ -304,6 +343,7 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
   return (
     <form style={{ marginTop: '2rem' }} onSubmit={(event) => event.preventDefault()}>
       {dialog}
+      {loadError ? <p className="form-error" role="alert">{loadError}</p> : null}
       <FormGroup
         label="주제 유형"
         hint="'대회'를 선택하면 등록된 대회를 검색해 연결할 수 있어요. 나머지 유형은 제목을 자유롭게 입력합니다."
@@ -311,9 +351,12 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
         <RadioChipGroup
           options={TOPIC_TYPES.map((type) => TOPIC_TYPE_LABELS[type])}
           value={TOPIC_TYPE_LABELS[topicType]}
-          onChange={(label) =>
-            setTopicType(TOPIC_TYPES.find((type) => TOPIC_TYPE_LABELS[type] === label) ?? 'ETC')
-          }
+          disabled={loading}
+          onChange={(label) => {
+            setTopicType(TOPIC_TYPES.find((type) => TOPIC_TYPE_LABELS[type] === label) ?? 'ETC');
+            // CONTEST 를 벗어나면 대회 프리필 실패는 더 이상 의미가 없다 - 제출을 계속 막아 두면 안 된다
+            setLoadError('');
+          }}
         />
       </FormGroup>
 
@@ -323,6 +366,7 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
             <RadioChipGroup
               options={CONTEST_FORMATS.map((format) => CONTEST_FORMAT_LABELS[format])}
               value={CONTEST_FORMAT_LABELS[contestFormat]}
+              disabled={loading}
               onChange={(label) =>
                 setContestFormat(
                   CONTEST_FORMATS.find((format) => CONTEST_FORMAT_LABELS[format] === label) ??
@@ -352,6 +396,7 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
                 onClick={() => {
                   setPickedContest(null);
                   setContestKeyword('');
+                  setLoadError('');
                 }}
               >
                 연결 해제
@@ -361,12 +406,15 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
             <div className="picker">
               <div className="contest-link-field">
                 <TextField
-                  placeholder="대회명으로 검색 (예: 프로그래머스 오락실)"
+                  placeholder={loading ? '대회 정보를 불러오는 중…' : '대회명으로 검색 (예: 프로그래머스 오락실)'}
                   autoComplete="off"
+                  disabled={loading}
                   value={contestKeyword}
                   onChange={(event) => {
                     setContestKeyword(event.target.value);
                     setErrors((prev) => ({ ...prev, contestName: '' }));
+                    // 대회를 못 불러와도 힌트가 안내하는 수동 입력으로 계속 진행할 수 있어야 한다
+                    setLoadError('');
                   }}
                 />
               </div>
@@ -377,7 +425,14 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
                       key={contest.id}
                       type="button"
                       className="picker-item"
-                      onClick={() => setPickedContest(contest)}
+                      onClick={() => {
+                        setPickedContest(contest);
+                        // 대회를 고르면 그 전에 미등록 대회용으로 직접 타이핑해둔 링크는 더 이상
+                        // 이 대회와 무관하다 - 안 지우면 이 대회가 archived 라 링크가 없을 때
+                        // submit() 의 폴백 체인이 그 상관없는 값을 그대로 붙여 보낸다
+                        setContestLinkUrl('');
+                        setLoadError('');
+                      }}
                     >
                       <span className="picker-poster">{contest.tag}</span>
                       <span className="picker-meta">
@@ -407,6 +462,7 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
               onChange={(event) => {
                 setContestLinkUrl(event.target.value);
                 setErrors((prev) => ({ ...prev, contestLinkUrl: '' }));
+                setLoadError('');
               }}
             />
           </FormGroup>
@@ -577,12 +633,13 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
         />
       </FormGroup>
 
+      {submitError ? <p className="form-error" role="alert">{submitError}</p> : null}
       <FormActions>
         <button
           type="button"
           className="btn btn-primary"
           onClick={submit}
-          disabled={submitting || loading}
+          disabled={submitting || loading || Boolean(loadError)}
         >
           {loading ? '불러오는 중…' : submitting ? '등록 중…' : editId ? '수정 저장' : '모집글 등록'}
         </button>
