@@ -1,0 +1,316 @@
+'use client';
+
+import { useState } from 'react';
+import { Icon } from '@/components/icons/Icon';
+import { useConfirm } from '@/components/ui/ConfirmDialog';
+import { CoverUpload } from '@/components/ui/CoverUpload';
+import {
+  FormGroup,
+  FormRow,
+  SelectField,
+  TextAreaField,
+  TextField,
+} from '@/components/ui/Field';
+import { POSITION_LABELS, POSITION_TYPES } from '@/lib/constants';
+import { updateMyProfile, uploadProfileImage } from '@/lib/api';
+import { CURRENT_USER_EVENT } from '@/lib/hooks/useCurrentUser';
+import { SkillField } from './SkillField';
+import type {
+  CareerItem,
+  PositionType,
+  ProfileLink,
+  UserProfile,
+} from '@/lib/types';
+
+interface ProfileEditPanelProps {
+  profile: UserProfile;
+  onCancel: () => void;
+  onSaved: (profile: UserProfile) => void;
+}
+
+/** 마이페이지 프로필 수정 패널 (경력 · 링크 인라인 에디터 포함) */
+export function ProfileEditPanel({ profile, onCancel, onSaved }: ProfileEditPanelProps) {
+  const { confirm, dialog } = useConfirm();
+  // 표시명(profile.name)이 아니라 실제 저장된 닉네임으로 시작한다.
+  // 표시명에는 닉네임이 없을 때 쓰는 대체 문구가 들어 있어, 그대로 저장하면 그게 닉네임이 된다.
+  const [nickname, setNickname] = useState(profile.nickname ?? '');
+  const [realName, setRealName] = useState(profile.realName ?? '');
+  const [position, setPosition] = useState(profile.position);
+  const [bio, setBio] = useState(profile.bio);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [skills, setSkills] = useState<string[]>(profile.skills);
+  const [careers, setCareers] = useState<CareerItem[]>(profile.careers);
+  const [links, setLinks] = useState<ProfileLink[]>(profile.links);
+  const [saving, setSaving] = useState(false);
+
+  const patchCareer = (id: string, patch: Partial<CareerItem>) =>
+    setCareers((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+
+  const save = async () => {
+    const trimmedNickname = nickname.trim();
+    // 서버가 빈 닉네임을 400-1 로 거절한다. 이미 정해둔 닉네임을 지우려는 것이라면 여기서 막는다
+    if (!trimmedNickname && profile.nickname) {
+      setSaveError('닉네임은 비울 수 없어요.');
+      return;
+    }
+
+    setSaving(true);
+    setSaveError(null);
+    try {
+      // 새 파일을 골랐을 때만 올려서 실어 보낸다.
+      // PATCH 는 보낸 항목만 바꾸므로(ARC-120) 안 보내면 지금 이미지가 그대로 남는다.
+      const profileImageUrl = avatarFile ? await uploadProfileImage(avatarFile) : undefined;
+
+      const updated = await updateMyProfile({
+        // 아직 닉네임이 없는 회원이 칸을 비워둔 채 저장하면 키를 빼서 그대로 둔다
+        nickname: trimmedNickname || undefined,
+        name: realName.trim() || undefined,
+        position,
+        bio,
+        profileImageUrl,
+        skills,
+        careers,
+        links,
+      });
+      // 헤더 아바타 등 다른 useCurrentUser 인스턴스가 최신 프로필을 다시 읽도록 알린다
+      window.dispatchEvent(new Event(CURRENT_USER_EVENT));
+      onSaved(updated);
+    } catch (error) {
+      // 서버가 형식·크기 위반을 msg 로 알려준다. 화면 문구를 따로 들고 있으면 서버와 어긋난다.
+      setSaveError(error instanceof Error ? error.message : '저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="block profile-edit-panel">
+      {dialog}
+      <h3 className="block-title">프로필 수정</h3>
+      <p className="form-hint" style={{ marginTop: 0, marginBottom: '1.125rem' }}>
+        닉네임·대표 포지션·소개는 파티 지원 시 그대로 노출됩니다. 성취는 성취 등록 화면에서 관리해요.
+      </p>
+
+      <FormGroup label="프로필 사진">
+        <CoverUpload
+          compact
+          title="사진 업로드"
+          sub="JPG · PNG · 5MB 이하"
+          onFileChange={setAvatarFile}
+          hint={
+            <>
+              프로필·지원 카드에 함께 노출돼요. <b>1장만</b> 등록할 수 있고, 없으면 기존처럼 이니셜
+              아바타가 표시됩니다.
+            </>
+          }
+        />
+      </FormGroup>
+
+      <FormGroup label="이름" htmlFor="editRealName">
+        <TextField
+          id="editRealName"
+          placeholder="실명을 입력해 주세요"
+          value={realName}
+          onChange={(event) => setRealName(event.target.value)}
+        />
+      </FormGroup>
+
+      <FormRow>
+        <FormGroup label="닉네임" htmlFor="editNickname">
+          <TextField
+            id="editNickname"
+            placeholder={profile.nickname ? undefined : '닉네임을 정해 주세요'}
+            value={nickname}
+            onChange={(event) => {
+              setNickname(event.target.value);
+              setSaveError(null);
+            }}
+          />
+        </FormGroup>
+        <FormGroup label="대표 포지션" htmlFor="editPosition">
+          <SelectField
+            id="editPosition"
+            value={position}
+            onChange={(event) => setPosition(event.target.value as PositionType)}
+          >
+            {POSITION_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {POSITION_LABELS[type]}
+              </option>
+            ))}
+          </SelectField>
+        </FormGroup>
+      </FormRow>
+
+      <FormGroup label="한 줄 소개" htmlFor="editBio">
+        <TextAreaField
+          id="editBio"
+          style={{ minHeight: '5rem' }}
+          value={bio}
+          onChange={(event) => setBio(event.target.value)}
+        />
+      </FormGroup>
+
+      <FormGroup label="스킬" hint="목록에서 고르거나 직접 입력하고 Enter 를 누르세요.">
+        <SkillField skills={skills} onChange={setSkills} />
+      </FormGroup>
+
+      <EditorBlock
+        title="경력"
+        hint="역할을 비우면 저장되지 않아요. 종료일을 비우면 재직중으로 표시됩니다."
+        addLabel="경력 추가"
+        onAdd={() =>
+          setCareers((prev) => [
+            ...prev,
+            {
+              id: `career-${Date.now()}`,
+              period: '',
+              title: '',
+              org: '',
+              description: '',
+              startDate: '',
+              endDate: '',
+            },
+          ])
+        }
+      >
+        {careers.map((career) => (
+          <div key={career.id} className="editor-row">
+            <div className="editor-row-main cols-2">
+              <TextField
+                placeholder="회사"
+                value={career.org}
+                onChange={(event) => patchCareer(career.id, { org: event.target.value })}
+              />
+              <TextField
+                placeholder="역할 (예: 백엔드 엔지니어)"
+                value={career.title}
+                onChange={(event) => patchCareer(career.id, { title: event.target.value })}
+              />
+              <TextField
+                type="date"
+                aria-label="시작일"
+                value={career.startDate ?? ''}
+                onChange={(event) => patchCareer(career.id, { startDate: event.target.value })}
+              />
+              <TextField
+                type="date"
+                aria-label="종료일 (비우면 재직중)"
+                value={career.endDate ?? ''}
+                onChange={(event) => patchCareer(career.id, { endDate: event.target.value })}
+              />
+              <TextField
+                className="span-all"
+                placeholder="한 줄 설명 (선택)"
+                value={career.description}
+                onChange={(event) => patchCareer(career.id, { description: event.target.value })}
+              />
+            </div>
+            <button
+              type="button"
+              className="editor-del"
+              aria-label="경력 삭제"
+              onClick={async () => {
+                const ok = await confirm({ title: '경력을 삭제할까요?' });
+                if (ok) setCareers((prev) => prev.filter((item) => item.id !== career.id));
+              }}
+            >
+              <Icon name="i-x" />
+            </button>
+          </div>
+        ))}
+      </EditorBlock>
+
+      <EditorBlock
+        title="기타 주소"
+        hint="어디 주소인지(GitHub · Blog · 포트폴리오 등)와 링크를 함께 적어주세요."
+        addLabel="링크 추가"
+        onAdd={() =>
+          setLinks((prev) => [...prev, { id: `link-${Date.now()}`, label: '', url: '' }])
+        }
+      >
+        {links.map((link) => (
+          <div key={link.id} className="editor-row">
+            <TextField
+              placeholder="이름 (예: GitHub)"
+              value={link.label}
+              onChange={(event) =>
+                setLinks((prev) =>
+                  prev.map((item) =>
+                    item.id === link.id ? { ...item, label: event.target.value } : item,
+                  ),
+                )
+              }
+            />
+            <TextField
+              placeholder="주소"
+              value={link.url}
+              onChange={(event) =>
+                setLinks((prev) =>
+                  prev.map((item) =>
+                    item.id === link.id ? { ...item, url: event.target.value } : item,
+                  ),
+                )
+              }
+            />
+            <button
+              type="button"
+              className="editor-del"
+              aria-label="링크 삭제"
+              onClick={async () => {
+                const ok = await confirm({ title: '링크를 삭제할까요?' });
+                if (ok) setLinks((prev) => prev.filter((item) => item.id !== link.id));
+              }}
+            >
+              <Icon name="i-x" />
+            </button>
+          </div>
+        ))}
+      </EditorBlock>
+
+      {saveError ? (
+        <p className="form-hint" role="alert">
+          {saveError}
+        </p>
+      ) : null}
+
+      <div className="profile-edit-foot">
+        <button type="button" className="btn btn-ghost" onClick={onCancel}>
+          취소
+        </button>
+        <button type="button" className="btn btn-primary" onClick={save} disabled={saving}>
+          {saving ? '저장 중…' : '저장하기'}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function EditorBlock({
+  title,
+  hint,
+  addLabel,
+  onAdd,
+  children,
+}: {
+  title: string;
+  hint: string;
+  addLabel: string;
+  onAdd: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="editor-block">
+      <div className="editor-head">
+        <h4>{title}</h4>
+        <p className="form-hint">{hint}</p>
+      </div>
+      <div>{children}</div>
+      <button type="button" className="editor-add" onClick={onAdd}>
+        <Icon name="i-plus" />
+        {addLabel}
+      </button>
+    </div>
+  );
+}

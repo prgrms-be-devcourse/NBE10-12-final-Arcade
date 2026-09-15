@@ -1,0 +1,23 @@
+.terraform/
+
+# 의존성 잠금 파일은 재현성을 위해 추적한다.
+!.terraform.lock.hcl
+
+# 상태 파일. 워크스페이스를 쓰면 terraform.tfstate.d/ 아래에 쌓인다.
+*.tfstate
+*.tfstate.*
+terraform.tfstate.d/
+
+# 실제 값. 계정 ID·IP 가 들어간다. .example 만 커밋한다.
+*.tfvars
+*.tfvars.json
+
+*.tfplan
+crash.log
+crash.*.log
+
+# 로컬에서만 덮어쓰는 구성.
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json

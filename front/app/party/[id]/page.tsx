@@ -1,0 +1,151 @@
+import Link from 'next/link';
+import { Icon } from '@/components/icons/Icon';
+import { PartyPositions } from '@/components/party/PartyPositions';
+import { DetailActions } from '@/components/ui/DetailActions';
+import { LeaderTools } from '@/components/party/LeaderTools';
+import { SendMessageButton } from '@/components/message/SendMessageButton';
+import { Block, DetailGrid, DetailLayout, SideCard } from '@/components/ui/Block';
+import { LeaderRow } from '@/components/ui/Avatar';
+import { Tag, TagRow } from '@/components/ui/Tag';
+import { fetchContest, fetchParty } from '@/lib/api';
+import { httpUrlOrNull } from '@/lib/externalUrl';
+import { MOCK_CURRENT_USER_ID } from '@/lib/mock';
+import {
+  CONTEST_FORMAT_LABELS,
+  PARTY_STATUS_LABELS,
+  TOPIC_TYPE_LABELS,
+} from '@/lib/constants';
+
+export default async function PartyDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const party = await fetchParty(id);
+
+  // 연동 대회의 원본 페이지 주소.
+  // 크루온에 등록된 대회는 링크가 CONTEST 쪽에 있어 한 번 더 읽고,
+  // 미등록 외부 대회는 파티에 자유 입력된 링크를 그대로 쓴다 (기획서 3.5).
+  const contestLinkUrl = httpUrlOrNull(
+    party.contestId
+      ? await fetchContest(party.contestId)
+          .then((contest) => contest.linkUrl)
+          .catch(() => undefined)
+      : party.contestLinkUrl,
+  );
+
+  // 매칭 전 문의는 팀원 목록의 쪽지 아이콘으로, 매칭 후 협업 대화는 팀 스페이스의 채팅이 담당한다
+
+  return (
+    <DetailLayout backHref="/party">
+        <DetailGrid
+          main={
+            <>
+              <h1 className="detail-title">{party.title}</h1>
+              <div className="detail-summary-row">
+                <div className="pboard-meta">
+                  <Icon name="i-users" />
+                  지원자 {party.applicants}명 · 조회 {party.viewCount.toLocaleString()}
+                </div>
+                <div className="detail-summary-actions">
+                  <DetailActions
+                    target="party"
+                    id={party.id}
+                    likeCount={party.likeCount}
+                    likedByMe={party.likedByMe}
+                    bookmarkedByMe={party.bookmarkedByMe}
+                  />
+                </div>
+              </div>
+
+              <Block title="파티 소개">
+                <p className="detail-desc">{party.description}</p>
+              </Block>
+
+              <Block title="모집 포지션">
+                <PartyPositions party={party} />
+              </Block>
+
+              <Block title="현재 팀원">
+                {party.members.length === 0 ? <p className="empty-state">아직 확정된 팀원이 없습니다.</p> : <div className="member-list">
+                  {party.members.map((member) => (
+                    <div key={member.id} className="member-row">
+                      <LeaderRow user={member} href={`/profile/${member.id}`} />
+                      <span className="member-row-right">
+                        {member.id === party.leader.id ? <Tag accent>파티장</Tag> : <Tag>팀원</Tag>}
+                        {/* 본인에게는 쪽지를 보낼 수 없으므로 아이콘을 숨긴다 */}
+                        {member.id === MOCK_CURRENT_USER_ID ? null : (
+                          <SendMessageButton recipient={member} variant="icon" />
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>}
+              </Block>
+            </>
+          }
+          side={
+            <>
+              <SideCard title="태그">
+                <TagRow>
+                  <Tag>{TOPIC_TYPE_LABELS[party.topicType]}</Tag>
+                  {party.contestFormat ? <Tag>{CONTEST_FORMAT_LABELS[party.contestFormat]}</Tag> : null}
+                  <Tag>{party.subCategory}</Tag>
+                  <Tag accent={party.status !== 'RECRUITING'}>{PARTY_STATUS_LABELS[party.status]}</Tag>
+                </TagRow>
+              </SideCard>
+              {party.contestName ? (
+                <SideCard title="연동 대회">
+                  <div className="contest-link-card">
+                    <div>
+                      <h4>{party.contestName}</h4>
+                      <p className="clc-sub">접수 마감 {party.deadline}</p>
+                    </div>
+                    {contestLinkUrl ? (
+                      <a className="card-link" href={contestLinkUrl} target="_blank" rel="noopener noreferrer">
+                        대회 공고 보기 ↗
+                      </a>
+                    ) : null}
+                  </div>
+                </SideCard>
+              ) : null}
+              <SideCard title="파티장">
+                <div className="party-leader-head">
+                  <LeaderRow
+                    user={party.leader}
+                    href={`/profile/${party.leader.id}`}
+                    role="백엔드 개발자 · 자동기록 5건"
+                    card
+                  />
+                  {party.leader.id === MOCK_CURRENT_USER_ID ? null : (
+                    <SendMessageButton recipient={party.leader} variant="icon" />
+                  )}
+                </div>
+                <p className="leader-stat-line">완료 파티 3 · 수상 2 · 자동기록 성취 5</p>
+              </SideCard>
+
+              {party.status === 'RECRUITING' ? (
+                <>
+                  <LeaderTools party={party} />
+                </>
+              ) : party.status === 'IN_PROGRESS' ? (
+                <SideCard title="파티 진행 중">
+                  <p className="apply-note">
+                    모집이 완료되어 팀 공간에서 GitHub 저장소와 Pull Request 진행 기록을 관리할 수 있어요.
+                  </p>
+                  <Link
+                    className="btn btn-primary"
+                    style={{ display: 'block', marginTop: '0.875rem', textAlign: 'center' }}
+                    href={`/party/${party.id}/team`}
+                  >
+                    팀 공간으로 이동
+                  </Link>
+                </SideCard>
+              ) : (
+                <SideCard title="완료된 파티">
+                  <p className="apply-note">모집과 팀 활동이 모두 종료된 파티입니다.</p>
+                </SideCard>
+              )}
+            </>
+          }
+        />
+    </DetailLayout>
+  );
+}

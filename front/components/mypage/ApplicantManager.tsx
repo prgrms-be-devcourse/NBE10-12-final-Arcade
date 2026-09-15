@@ -1,0 +1,204 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import Link from 'next/link';
+import { Avatar } from '@/components/ui/Avatar';
+import { SendMessageButton } from '@/components/message/SendMessageButton';
+import { FormGroup, SelectField } from '@/components/ui/Field';
+import { ChipRow, SkillChip } from '@/components/ui/Tag';
+import { cancelApplicantApproval, decideApplicant } from '@/lib/api';
+import { POSITION_LABELS, POSITION_TYPES } from '@/lib/constants';
+import type { Applicant, ApplicantStatus, PositionType } from '@/lib/types';
+
+/** 서버는 상태로 거르지 않고 다 내려준다 — 대기 · 승인 · 거절을 화면에서 나눠 본다 */
+const STATUS_FILTERS = ['전체', 'pending', 'accepted', 'rejected'] as const;
+const STATUS_LABELS: Record<(typeof STATUS_FILTERS)[number], string> = {
+  전체: '전체',
+  pending: '승인 대기',
+  accepted: '승인됨',
+  rejected: '거절됨',
+};
+
+interface ApplicantManagerProps {
+  applicants: Applicant[];
+  parties: { id: string; title: string }[];
+}
+
+/** 마이페이지 관리 탭 — 파티/파트 필터 + 지원자 승인·거절 */
+export function ApplicantManager({ applicants: initial, parties }: ApplicantManagerProps) {
+  const [applicants, setApplicants] = useState(initial);
+  const [partyId, setPartyId] = useState('전체');
+  const [position, setPosition] = useState<PositionType | '전체'>('전체');
+  const [status, setStatus] = useState<ApplicantStatus | '전체'>('pending');
+
+  const visible = useMemo(
+    () =>
+      applicants.filter(
+        (applicant) =>
+          (status === '전체' || applicant.status === status) &&
+          (partyId === '전체' || applicant.partyId === partyId) &&
+          (position === '전체' || applicant.position === position),
+      ),
+    [applicants, partyId, position, status],
+  );
+
+  /** 파티 + 포지션 단위로 묶어 보여준다 */
+  const groups = useMemo(() => {
+    const map = new Map<string, Applicant[]>();
+    visible.forEach((applicant) => {
+      const key = `${applicant.partyName} · ${POSITION_LABELS[applicant.position]}`;
+      map.set(key, [...(map.get(key) ?? []), applicant]);
+    });
+    return Array.from(map.entries());
+  }, [visible]);
+
+  /** 낙관적으로 상태를 바꾸고, 실패하면 되돌린다 */
+  const move = async (id: string, next: ApplicantStatus, call: (partyId?: string) => Promise<void>) => {
+    const previous = applicants;
+    const target = applicants.find((applicant) => applicant.id === id);
+    setApplicants((prev) =>
+      prev.map((applicant) => (applicant.id === id ? { ...applicant, status: next } : applicant)),
+    );
+    try {
+      await call(target?.partyId);
+    } catch {
+      setApplicants(previous);
+    }
+  };
+
+  // 서버 승인/거절 경로가 파티에 종속돼 있어 partyId 를 함께 넘긴다
+  const decide = (id: string, next: ApplicantStatus) =>
+    move(id, next, (party) => decideApplicant(id, next, party));
+
+  /** 승인 취소는 대기중이 아니라 거절로 되돌아간다 (서버 PartyMember.cancelApproval) */
+  const cancelApproval = (id: string) =>
+    move(id, 'rejected', (party) => cancelApplicantApproval(id, party));
+
+  return (
+    <>
+      <div className="mgmt-filter-row">
+        <FormGroup label="파티" htmlFor="mgmtPartySelect">
+          <SelectField
+            id="mgmtPartySelect"
+            value={partyId}
+            onChange={(event) => setPartyId(event.target.value)}
+          >
+            <option value="전체">전체 파티</option>
+            {parties.map((party) => (
+              <option key={party.id} value={party.id}>
+                {party.title}
+              </option>
+            ))}
+          </SelectField>
+        </FormGroup>
+        <FormGroup label="파트" htmlFor="mgmtPositionSelect">
+          <SelectField
+            id="mgmtPositionSelect"
+            value={position}
+            onChange={(event) => setPosition(event.target.value as PositionType | '전체')}
+          >
+            <option value="전체">전체 파트</option>
+            {POSITION_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {POSITION_LABELS[type]}
+              </option>
+            ))}
+          </SelectField>
+        </FormGroup>
+        <FormGroup label="상태" htmlFor="mgmtStatusSelect">
+          <SelectField
+            id="mgmtStatusSelect"
+            value={status}
+            onChange={(event) => setStatus(event.target.value as ApplicantStatus | '전체')}
+          >
+            {STATUS_FILTERS.map((value) => (
+              <option key={value} value={value}>
+                {STATUS_LABELS[value]}
+              </option>
+            ))}
+          </SelectField>
+        </FormGroup>
+      </div>
+
+      <p className="mgmt-result-line">
+        {visible.length > 0 ? (
+          <>
+            선택한 조건의 지원자 <b>{visible.length}명</b>을 보고 있어요.
+          </>
+        ) : (
+          '선택한 조건에 해당하는 지원자가 없어요.'
+        )}
+      </p>
+
+      <div style={{ marginTop: '1.5rem' }}>
+        {groups.map(([label, groupApplicants]) => (
+          <div key={label} className="position-group">
+            <div className="position-group-head">
+              <h4>{label}</h4>
+              <span className="frac">지원자 {groupApplicants.length}명</span>
+            </div>
+            <div className="applicant-card-grid">
+              {groupApplicants.map((applicant) => (
+                <article key={applicant.id} className="applicant-card">
+                  <Avatar initial={applicant.user.initial} avatarUrl={applicant.user.avatarUrl} size="small" />
+                  <div className="applicant-card-body">
+                    <div className="applicant-card-top">
+                      <h4>{applicant.user.name}</h4>
+                    </div>
+                    <p className="applicant-role">선호 포지션 · {applicant.user.role}</p>
+                    <p className="applicant-activity">{applicant.achievements.join(' · ')}</p>
+                    <p className="applicant-word">
+                      <span className="wlabel">파티장에게 한마디</span>“{applicant.message}”
+                    </p>
+                    <ChipRow>
+                      {applicant.skills.map((skill) => (
+                        <SkillChip key={skill}>{skill}</SkillChip>
+                      ))}
+                    </ChipRow>
+                    <div className="applicant-card-actions">
+                      {applicant.status === 'pending' ? (
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            style={{ padding: '0.5rem 0.875rem' }}
+                            onClick={() => decide(applicant.id, 'rejected')}
+                          >
+                            거절
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            style={{ padding: '0.5rem 0.875rem' }}
+                            onClick={() => decide(applicant.id, 'accepted')}
+                          >
+                            승인
+                          </button>
+                        </>
+                      ) : null}
+                      {applicant.status === 'accepted' ? (
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          style={{ padding: '0.5rem 0.875rem' }}
+                          onClick={() => cancelApproval(applicant.id)}
+                        >
+                          승인 취소
+                        </button>
+                      ) : null}
+                      <SendMessageButton recipient={applicant.user} variant="icon" />
+                      <Link className="card-link" href={`/profile/${applicant.user.id}`}>
+                        자세히 보기 →
+                      </Link>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      {groups.length === 0 ? <p className="notif-empty">조건에 맞는 지원자가 없어요.</p> : null}
+    </>
+  );
+}

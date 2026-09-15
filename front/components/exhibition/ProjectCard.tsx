@@ -1,0 +1,59 @@
+import Link from 'next/link';
+import { Icon } from '@/components/icons/Icon';
+import { LeaderRow } from '@/components/ui/Avatar';
+import { ChipRow, SkillChip } from '@/components/ui/Tag';
+import type { ExhibitionProject } from '@/lib/types';
+
+interface ProjectCardProps {
+  project: ExhibitionProject;
+  /** 홈 인기 전시회 섹션에서 순위 배지를 표시 */
+  rank?: number;
+  showLeader?: boolean;
+}
+
+/** 전시관 프로젝트 카드 */
+export function ProjectCard({ project, rank, showLeader = true }: ProjectCardProps) {
+  // 전시 대상은 게시된 PROJECT 뿐이라 상세는 항상 파티 전시(GET /parties/{partyId}/showcase)로 간다.
+  const href = `/exhibition/${project.sourcePartyId}`;
+
+  return (
+    <article className="project-card">
+      <Link
+        href={href}
+        className={project.coverImageUrl ? 'project-thumb has-cover' : 'project-thumb'}
+        style={
+          project.coverImageUrl ? { backgroundImage: `url(${project.coverImageUrl})` } : undefined
+        }
+      >
+        {rank ? <span className="exh-rank">{rank}</span> : null}
+        <span className="exh-metrics">
+          <span className="exh-views">
+            <Icon name="i-eye" />
+            {project.viewCount.toLocaleString()}
+          </span>
+          <span className="exh-like">
+            <Icon name="i-heart" />
+            {project.likeCount}
+          </span>
+        </span>
+      </Link>
+      <div className="project-body">
+        <h5>
+          <Link href={href}>{project.title}</Link>
+        </h5>
+        <p className="sub">{project.summary}</p>
+        <ChipRow>
+          {project.skills.map((skill) => (
+            <SkillChip key={skill}>{skill}</SkillChip>
+          ))}
+        </ChipRow>
+        {showLeader && project.leader ? (
+          <LeaderRow
+            user={project.leader}
+            href={project.leader.id ? `/profile/${project.leader.id}` : undefined}
+          />
+        ) : null}
+      </div>
+    </article>
+  );
+}

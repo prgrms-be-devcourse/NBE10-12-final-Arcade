@@ -1,0 +1,29 @@
+{$SITE_ADDR::80} {
+	# 백엔드가 맡는 경로. /api 접두사를 벗기지 않는다 — 백엔드가 /api/v1 을 기대한다.
+	@backend {
+		path /api/*
+		path /login/*
+		path /oauth2/*
+	}
+	handle @backend {
+		reverse_proxy backend:8080
+	}
+
+	# 나머지는 전부 Next.js 로.
+	handle {
+		reverse_proxy frontend:3000
+	}
+}
+
+# 모니터링 진입점. 보안그룹에서 관리자 IP 에만 열어 둔 포트다.
+:8081 {
+	@prometheus path /prometheus /prometheus/*
+	handle @prometheus {
+		reverse_proxy prometheus:9090
+	}
+
+	# 나머지는 Grafana. 서브경로가 아니라 루트로 서빙되므로 설정이 필요 없다.
+	handle {
+		reverse_proxy grafana:3000
+	}
+}

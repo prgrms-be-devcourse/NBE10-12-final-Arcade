@@ -1,0 +1,966 @@
+package com.back.domain.party.party.controller;
+
+import com.back.domain.contest.contest.dtos.ContestResponseDto;
+import com.back.domain.contest.contest.entity.ContestFormat;
+import com.back.domain.contest.contest.entity.ContestTag;
+import com.back.domain.contest.contest.service.ContestService;
+import com.back.domain.member.member.entity.Member;
+import com.back.domain.member.member.repository.MemberRepository;
+import com.back.domain.party.application.entity.PartyMember;
+import com.back.domain.party.application.repository.PartyMemberRepository;
+import com.back.domain.party.party.entity.Party;
+import com.back.domain.party.party.entity.PartyTag;
+import com.back.domain.party.party.entity.TopicType;
+import com.back.domain.party.party.repository.PartyRepository;
+import com.back.domain.party.position.entity.Position;
+import jakarta.servlet.http.Cookie;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithUserDetails;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.transaction.annotation.Transactional;
+import com.back.domain.member.member.entity.PositionType;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.assertj.core.api.Assertions.assertThat;
+
+@ActiveProfiles("test")
+@SpringBootTest
+@AutoConfigureMockMvc
+@Transactional
+public class ApiV1PartyControllerTest {
+
+    @Autowired
+    private MockMvc mvc;
+
+    @Autowired
+    private MemberRepository memberRepository;
+
+    @Autowired
+    private PartyRepository partyRepository;
+
+    @Autowired
+    private ContestService contestService;
+
+    @Autowired
+    private PartyMemberRepository partyMemberRepository;
+
+    private final String deadline = LocalDateTime.now().plusDays(7).toString();
+
+    private long writeContest(String title) {
+        Member admin = memberRepository.findByEmail("admin").orElseThrow();
+
+        ContestResponseDto contest = contestService.write(
+                admin,
+                title,
+                ContestFormat.HACKATHON,
+                ContestTag.AI,
+                LocalDate.of(2026, 9, 1),
+                LocalDate.of(2026, 9, 30),
+                "설명",
+                "https://example.com/contest",
+                null
+        );
+
+        return contest.id();
+    }
+
+    private String createPartyWithContestRequestJson(long targetContestId) {
+        return """
+            {
+                "partyName": "오락실 팀",
+                "title": "오락실 공모전 팀원 모집",
+                "description": "테스트용 파티 설명입니다",
+                "targetContestId": %d,
+                "topicType": "CONTEST",
+                "partyTag": "WEB",
+                "deadline": "%s",
+                "positions": [
+                    { "name": "BACK", "capacity": 2 }
+                ]
+            }
+            """.formatted(targetContestId, deadline);
+    }
+
+    private String createPartyWithExternalContestRequestJson(String contestLinkUrl) {
+        return """
+            {
+                "partyName": "오락실 팀",
+                "title": "오락실 공모전 팀원 모집",
+                "description": "테스트용 파티 설명입니다",
+                "contestTitle": "미등록 외부 대회",
+                "contestLinkUrl": "%s",
+                "topicType": "CONTEST",
+                "partyTag": "WEB",
+                "deadline": "%s",
+                "positions": [
+                    { "name": "BACK", "capacity": 2 }
+                ]
+            }
+            """.formatted(contestLinkUrl, deadline);
+    }
+
+    private String createPartyRequestJson(int backCapacity) {
+        return """
+            {
+                "partyName": "오락실 팀",
+                "title": "오락실 공모전 팀원 모집",
+                "description": "테스트용 파티 설명입니다",
+                "topicType": "PROJECT",
+                "partyTag": "WEB",
+                "deadline": "%s",
+                "positions": [
+                    { "name": "BACK", "capacity": %d }
+                ]
+            }
+            """.formatted(deadline, backCapacity);
+    }
+
+    @Test
+    @DisplayName("파티 생성: 201-1과 생성된 파티를 반환한다")
+    @WithUserDetails("user1@test.com")
+    void createParty() throws Exception {
+        ResultActions resultActions = mvc.perform(post("/api/v1/parties")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(createPartyRequestJson(2)));
+
+        resultActions.andExpect(status().isCreated())
+            .andExpect(jsonPath("$.resultCode").value("201-1"))
+            .andExpect(jsonPath("$.msg").value("파티 생성 성공"))
+            .andExpect(jsonPath("$.data.id").isNumber())
+            .andExpect(jsonPath("$.data.partyName").value("오락실 팀"))
+            .andExpect(jsonPath("$.data.status").value("RECRUITING"))
+            .andExpect(jsonPath("$.data.positions[0].type").value("BACK"))
+            .andExpect(jsonPath("$.data.positions[0].capacity").value(2));
+    }
+
+    @Test
+    @DisplayName("파티 생성: 포지션 정원이 0 이하면 400-4이다")
+    @WithUserDetails("user1@test.com")
+    void createPartyWithInvalidCapacity() throws Exception {
+        ResultActions resultActions = mvc.perform(post("/api/v1/parties")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(createPartyRequestJson(0)));
+
+        resultActions.andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.resultCode").value("400-4"));
+    }
+
+    @Test
+    @DisplayName("파티 생성: 같은 포지션을 중복해서 추가하면 400-4이다")
+    @WithUserDetails("user1@test.com")
+    void createPartyWithDuplicatePositionType() throws Exception {
+        String body = """
+            {
+                "partyName": "오락실 팀",
+                "title": "오락실 공모전 팀원 모집",
+                "description": "테스트용 파티 설명입니다",
+                "topicType": "PROJECT",
+                "partyTag": "WEB",
+                "deadline": "%s",
+                "positions": [
+                    { "name": "BACK", "capacity": 1 },
+                    { "name": "BACK", "capacity": 1 }
+                ]
+            }
+            """.formatted(deadline);
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/parties")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body));
+
+        resultActions.andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.resultCode").value("400-4"));
+    }
+
+    @Test
+    @DisplayName("파티 생성: 포지션 정원 합이 10명을 넘으면 400-4이다")
+    @WithUserDetails("user1@test.com")
+    void createPartyWithTotalCapacityOverLimit() throws Exception {
+        String body = """
+            {
+                "partyName": "오락실 팀",
+                "title": "오락실 공모전 팀원 모집",
+                "description": "테스트용 파티 설명입니다",
+                "topicType": "PROJECT",
+                "partyTag": "WEB",
+                "deadline": "%s",
+                "positions": [
+                    { "name": "BACK", "capacity": 6 },
+                    { "name": "FRONT", "capacity": 5 }
+                ]
+            }
+            """.formatted(deadline);
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/parties")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body));
+
+        resultActions.andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.resultCode").value("400-4"));
+    }
+
+    @Test
+    @DisplayName("파티 생성: 정원 합이 int 범위를 넘겨도 총원 초과로 막힌다")
+    @WithUserDetails("user1@test.com")
+    void createPartyWithOverflowingCapacitySum() throws Exception {
+        String body = """
+            {
+                "partyName": "오락실 팀",
+                "title": "오락실 공모전 팀원 모집",
+                "description": "테스트용 파티 설명입니다",
+                "topicType": "PROJECT",
+                "partyTag": "WEB",
+                "deadline": "%s",
+                "positions": [
+                    { "name": "BACK", "capacity": 1500000000 },
+                    { "name": "FRONT", "capacity": 1500000000 }
+                ]
+            }
+            """.formatted(deadline);
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/parties")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body));
+
+        resultActions.andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.resultCode").value("400-4"));
+    }
+
+    @Test
+    @DisplayName("파티 생성: 유효한 targetContestId로 대회와 연결되고 응답에 targetContest가 포함된다")
+    @WithUserDetails("user1@test.com")
+    void createPartyLinkedToContest() throws Exception {
+        long contestId = writeContest("오락실 해커톤");
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/parties")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(createPartyWithContestRequestJson(contestId)));
+
+        resultActions.andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.targetContest.id").value(contestId))
+            .andExpect(jsonPath("$.data.targetContest.title").value("오락실 해커톤"));
+    }
+
+    @Test
+    @DisplayName("파티 생성: 존재하지 않는 targetContestId면 404-1이다")
+    @WithUserDetails("user1@test.com")
+    void createPartyWithNonExistentContest() throws Exception {
+        ResultActions resultActions = mvc.perform(post("/api/v1/parties")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(createPartyWithContestRequestJson(999999)));
+
+        resultActions.andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.resultCode").value("404-1"));
+    }
+
+    @Test
+    @DisplayName("파티 생성: contestLinkUrl에 scheme이 없으면 400-1이다")
+    @WithUserDetails("user1@test.com")
+    void createPartyWithSchemelessContestLinkUrl() throws Exception {
+        ResultActions resultActions = mvc.perform(post("/api/v1/parties")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(createPartyWithExternalContestRequestJson("www.example.com")));
+
+        resultActions.andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.resultCode").value("400-1"));
+    }
+
+    @Test
+    @DisplayName("파티 생성: contestLinkUrl이 상대 경로면 400-1이다")
+    @WithUserDetails("user1@test.com")
+    void createPartyWithRelativeContestLinkUrl() throws Exception {
+        ResultActions resultActions = mvc.perform(post("/api/v1/parties")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(createPartyWithExternalContestRequestJson("/relative/path")));
+
+        resultActions.andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.resultCode").value("400-1"));
+    }
+
+    @Test
+    @DisplayName("파티 생성: contestLinkUrl이 유효한 https 주소면 정상 생성된다")
+    @WithUserDetails("user1@test.com")
+    void createPartyWithValidContestLinkUrl() throws Exception {
+        ResultActions resultActions = mvc.perform(post("/api/v1/parties")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(createPartyWithExternalContestRequestJson("https://example.com/contest")));
+
+        resultActions.andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.contestLinkUrl").value("https://example.com/contest"));
+    }
+
+    @Test
+    @DisplayName("파티 생성: contestLinkUrl을 생략해도(외부 대회 미기재) 정상 생성된다")
+    @WithUserDetails("user1@test.com")
+    void createPartyWithoutContestLinkUrl() throws Exception {
+        String body = """
+            {
+                "partyName": "오락실 팀",
+                "title": "오락실 공모전 팀원 모집",
+                "description": "테스트용 파티 설명입니다",
+                "contestTitle": "미등록 외부 대회",
+                "topicType": "CONTEST",
+                "partyTag": "WEB",
+                "deadline": "%s",
+                "positions": [
+                    { "name": "BACK", "capacity": 2 }
+                ]
+            }
+            """.formatted(deadline);
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/parties")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body));
+
+        resultActions.andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("파티 생성: 포지션 목록이 비어있으면 400-1이다")
+    @WithUserDetails("user1@test.com")
+    void createPartyWithoutPositions() throws Exception {
+        String body = """
+            {
+                "partyName": "오락실 팀",
+                "title": "오락실 공모전 팀원 모집",
+                "topicType": "PROJECT",
+                "partyTag": "WEB",
+                "deadline": "%s",
+                "positions": []
+            }
+            """.formatted(deadline);
+
+        ResultActions resultActions = mvc.perform(post("/api/v1/parties")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body));
+
+        resultActions.andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.resultCode").value("400-1"));
+    }
+    private Party savePartyOwnedBy(String ownerEmail, int capacity) {
+        Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
+
+        Party party = new Party(
+                owner,
+                "오락실 팀",
+                "오락실 공모전 팀원 모집",
+                "설명",
+                null,
+                null,
+                null,
+                TopicType.PROJECT,
+                PartyTag.WEB,
+                null,
+                LocalDateTime.now().plusDays(7)
+        );
+        party.addPosition(new Position(PositionType.BACK, capacity));
+
+        return partyRepository.save(party);
+    }
+
+    @Test
+    @DisplayName("파티 수정: 파티장이 아니면 403-1이다")
+    @WithUserDetails("user1@test.com")
+    void updatePartyByNonOwner() throws Exception {
+        Party party = savePartyOwnedBy("user2@test.com", 2);
+
+        String updateBody = """
+            {
+                "partyName": "수정된 이름",
+                "title": "수정된 제목",
+                "topicType": "PROJECT",
+                "partyTag": "WEB",
+                "deadline": "%s"
+            }
+            """.formatted(deadline);
+
+        ResultActions resultActions = mvc.perform(patch("/api/v1/parties/" + party.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(updateBody));
+
+        resultActions.andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.resultCode").value("403-1"));
+    }
+
+    @Test
+    @DisplayName("파티 수정: 존재하지 않는 targetContestId로 수정하면 404-1이다")
+    @WithUserDetails("user1@test.com")
+    void updatePartyWithNonExistentContest() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 2);
+
+        String updateBody = """
+            {
+                "partyName": "수정된 이름",
+                "title": "수정된 제목",
+                "targetContestId": 999999,
+                "topicType": "CONTEST",
+                "partyTag": "WEB",
+                "deadline": "%s"
+            }
+            """.formatted(deadline);
+
+        ResultActions resultActions = mvc.perform(patch("/api/v1/parties/" + party.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(updateBody));
+
+        resultActions.andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.resultCode").value("404-1"));
+    }
+
+    @Test
+    @DisplayName("파티 수정: 정원을 승인 인원보다 작게 줄이면 400-4이다")
+    @WithUserDetails("user1@test.com")
+    void updatePartyWithCapacityBelowFilledCount() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 3);
+        Position position = party.getPositions().get(0);
+        position.fillOneSeat();
+        position.fillOneSeat();
+        partyRepository.save(party); // filledCount == 2
+
+        String updateBody = """
+            {
+                "partyName": "수정된 이름",
+                "title": "수정된 제목",
+                "topicType": "PROJECT",
+                "partyTag": "WEB",
+                "deadline": "%s",
+                "positions": [
+                    { "positionId": %d, "capacity": 1 }
+                ]
+            }
+            """.formatted(deadline, position.getId());
+
+        ResultActions resultActions = mvc.perform(patch("/api/v1/parties/" + party.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(updateBody));
+
+        resultActions.andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-4"));
+    }
+
+    @Test
+    @DisplayName("파티 수정: 정원을 0 이하로 바꾸면 400-4이다")
+    @WithUserDetails("user1@test.com")
+    void updatePartyWithNonPositiveCapacity() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 2);
+        Position position = party.getPositions().get(0);
+
+        String updateBody = """
+        {
+            "partyName": "수정된 이름",
+            "title": "수정된 제목",
+            "topicType": "PROJECT",
+            "partyTag": "WEB",
+            "deadline": "%s",
+            "positions": [
+                { "positionId": %d, "capacity": 0 }
+            ]
+        }
+        """.formatted(deadline, position.getId());
+
+        ResultActions resultActions = mvc.perform(patch("/api/v1/parties/" + party.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(updateBody));
+
+        resultActions.andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-4"));
+    }
+
+    @Test
+    @DisplayName("파티 수정: 수정 대상이 아닌 포지션까지 합쳐 정원이 10명을 넘으면 400-4이다")
+    @WithUserDetails("user1@test.com")
+    void updatePartyWithTotalCapacityOverLimit() throws Exception {
+        Member owner = memberRepository.findByEmail("user1@test.com").orElseThrow();
+        Party party = new Party(
+                owner, "오락실 팀", "오락실 공모전 팀원 모집", "설명",
+                null, null, null,
+                TopicType.PROJECT, PartyTag.WEB, null,
+                LocalDateTime.now().plusDays(7)
+        );
+        party.addPosition(new Position(PositionType.BACK, 6));
+        party.addPosition(new Position(PositionType.FRONT, 2));
+        party = partyRepository.save(party);
+
+        // BACK(수정 대상 X, 6명) + FRONT(5명으로 수정) = 11명으로 총원 상한 초과
+        Position frontPosition = party.getPositions().stream()
+                .filter(p -> p.getType() == PositionType.FRONT)
+                .findFirst().orElseThrow();
+
+        String updateBody = """
+            {
+                "partyName": "수정된 이름",
+                "title": "수정된 제목",
+                "topicType": "PROJECT",
+                "partyTag": "WEB",
+                "deadline": "%s",
+                "positions": [
+                    { "positionId": %d, "capacity": 5 }
+                ]
+            }
+            """.formatted(deadline, frontPosition.getId());
+
+        ResultActions resultActions = mvc.perform(patch("/api/v1/parties/" + party.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(updateBody));
+
+        resultActions.andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-4"));
+    }
+
+    @Test
+    @DisplayName("파티 수정: 같은 포지션을 중복해서 보내면 500이 아니라 400-4이다")
+    @WithUserDetails("user1@test.com")
+    void updatePartyWithDuplicatePositionId() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 2);
+        Position position = party.getPositions().get(0);
+
+        String updateBody = """
+            {
+                "partyName": "수정된 이름",
+                "title": "수정된 제목",
+                "topicType": "PROJECT",
+                "partyTag": "WEB",
+                "deadline": "%s",
+                "positions": [
+                    { "positionId": %d, "capacity": 3 },
+                    { "positionId": %d, "capacity": 5 }
+                ]
+            }
+            """.formatted(deadline, position.getId(), position.getId());
+
+        ResultActions resultActions = mvc.perform(patch("/api/v1/parties/" + party.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(updateBody));
+
+        resultActions.andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.resultCode").value("400-4"));
+    }
+
+    @Test
+    @DisplayName("파티 삭제: 모집 중인 파티는 정상 삭제된다")
+    @WithUserDetails("user1@test.com")
+    void deleteRecruitingParty() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 2);
+
+        ResultActions resultActions = mvc.perform(delete("/api/v1/parties/" + party.getId()));
+
+        resultActions.andExpect(status().isNoContent())
+                .andExpect(jsonPath("$.resultCode").value("204-1"));
+    }
+
+    @Test
+    @DisplayName("파티 삭제: 파티장이 아니면 403-1이다")
+    @WithUserDetails("user1@test.com")
+    void deletePartyByNonOwner() throws Exception {
+        Party party = savePartyOwnedBy("user2@test.com", 2);
+
+        ResultActions resultActions = mvc.perform(delete("/api/v1/parties/" + party.getId()));
+
+        resultActions.andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.resultCode").value("403-1"));
+    }
+
+    @Test
+    @DisplayName("파티 삭제: 승인된 파티원이 있으면 409-3이다")
+    @WithUserDetails("user1@test.com")
+    void deleteBlockedWhenApprovedMemberExists() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 2);
+        saveApprovedMember(party, "user2@test.com");
+
+        ResultActions resultActions = mvc.perform(delete("/api/v1/parties/" + party.getId()));
+
+        resultActions.andExpect(status().isConflict())
+                .andExpect(jsonPath("$.resultCode").value("409-3"))
+                .andExpect(jsonPath("$.msg").value("승인된 파티원이 있는 파티는 삭제할 수 없습니다. 먼저 승인을 취소해주세요."));
+    }
+
+    @Test
+    @DisplayName("파티 삭제: 승인을 전부 취소하면 삭제할 수 있다")
+    @WithUserDetails("user1@test.com")
+    void deleteSucceedsAfterCancellingAllApprovals() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 2);
+        PartyMember approved = saveApprovedMember(party, "user2@test.com");
+
+        mvc.perform(post(
+                "/api/v1/parties/" + party.getId() + "/applications/" + approved.getId() + "/cancel-approval"
+        )).andExpect(status().isOk());
+
+        ResultActions resultActions = mvc.perform(delete("/api/v1/parties/" + party.getId()));
+
+        resultActions.andExpect(status().isNoContent())
+                .andExpect(jsonPath("$.resultCode").value("204-1"));
+    }
+
+    @Test
+    @DisplayName("파티 삭제: PENDING 지원 기록만 있으면 승인자 체크에 걸리지 않고 삭제된다")
+    @WithUserDetails("user1@test.com")
+    void deleteSucceedsWithOnlyPendingApplications() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 2);
+
+        Member applicant = memberRepository.findByEmail("user2@test.com").orElseThrow();
+        Position position = party.getPositions().get(0);
+        partyMemberRepository.save(new PartyMember(party, applicant, position, "잘 하겠습니다"));
+
+        ResultActions resultActions = mvc.perform(delete("/api/v1/parties/" + party.getId()));
+
+        resultActions.andExpect(status().isNoContent())
+                .andExpect(jsonPath("$.resultCode").value("204-1"));
+    }
+
+    private Party savePartyOwnedBy(
+            String ownerEmail,
+            String partyName,
+            PositionType positionType,
+            int capacity,
+            PartyTag partyTag,
+            LocalDateTime deadlineAt
+    ) {
+        Member owner = memberRepository.findByEmail(ownerEmail).orElseThrow();
+
+        Party party = new Party(
+                owner,
+                partyName,
+                partyName + " 모집",
+                "설명",
+                null,
+                null,
+                null,
+                TopicType.PROJECT,
+                partyTag,
+                null,
+                deadlineAt
+        );
+        party.addPosition(new Position(positionType, capacity));
+
+        return partyRepository.save(party);
+    }
+
+    private PartyMember saveApprovedMember(Party party, String applicantEmail) {
+        Member applicant = memberRepository.findByEmail(applicantEmail).orElseThrow();
+        Position position = party.getPositions().get(0);
+
+        PartyMember partyMember = new PartyMember(party, applicant, position, "잘 하겠습니다");
+        partyMember.approve();
+        position.fillOneSeat();
+
+        return partyMemberRepository.save(partyMember);
+    }
+
+    @Test
+    @DisplayName("파티 목록 조회: 키워드로 파티명을 검색한다")
+    @WithUserDetails("user1@test.com")
+    void listPartiesByKeyword() throws Exception {
+        savePartyOwnedBy("user1@test.com", "스프링 백엔드 스터디", PositionType.BACK, 2, PartyTag.WEB, LocalDateTime.now().plusDays(3));
+        savePartyOwnedBy("user1@test.com", "리액트 프론트 스터디", PositionType.FRONT, 2, PartyTag.WEB, LocalDateTime.now().plusDays(3));
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties")
+                .param("keyword", "스프링"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.resultCode").value("200-1"))
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].partyName").value("스프링 백엔드 스터디"));
+    }
+
+    @Test
+    @DisplayName("파티 목록 조회: 포지션으로 필터링한다")
+    @WithUserDetails("user1@test.com")
+    void listPartiesByPosition() throws Exception {
+        savePartyOwnedBy("user1@test.com", "백엔드 파티", PositionType.BACK, 2, PartyTag.WEB, LocalDateTime.now().plusDays(3));
+        savePartyOwnedBy("user1@test.com", "프론트 파티", PositionType.FRONT, 2, PartyTag.WEB, LocalDateTime.now().plusDays(3));
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties")
+                .param("position", "FRONT"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].partyName").value("프론트 파티"));
+    }
+
+    @Test
+    @DisplayName("파티 목록 조회: 분야(partyTag)로 필터링한다")
+    @WithUserDetails("user1@test.com")
+    void listPartiesByPartyTag() throws Exception {
+        savePartyOwnedBy("user1@test.com", "웹 파티", PositionType.BACK, 2, PartyTag.WEB, LocalDateTime.now().plusDays(3));
+        savePartyOwnedBy("user1@test.com", "게임 파티", PositionType.BACK, 2, PartyTag.GAME, LocalDateTime.now().plusDays(3));
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties")
+                .param("partyTag", "GAME"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].partyName").value("게임 파티"));
+    }
+
+    @Test
+    @DisplayName("파티 목록 조회: 기본 정렬(마감임박순)은 deadline 오름차순이다")
+    @WithUserDetails("user1@test.com")
+    void listPartiesSortedByDeadline() throws Exception {
+        savePartyOwnedBy("user1@test.com", "늦게 마감", PositionType.BACK, 2, PartyTag.WEB, LocalDateTime.now().plusDays(10));
+        savePartyOwnedBy("user1@test.com", "빨리 마감", PositionType.BACK, 2, PartyTag.WEB, LocalDateTime.now().plusDays(1));
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties")
+                .param("sort", "DEADLINE"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].partyName").value("빨리 마감"))
+                .andExpect(jsonPath("$.data.content[1].partyName").value("늦게 마감"));
+    }
+
+    @Test
+    @DisplayName("파티 목록 조회: 빈자리순 정렬은 남은 정원 합이 큰 순이다")
+    @WithUserDetails("user1@test.com")
+    void listPartiesSortedByVacancy() throws Exception {
+        // 정원 5에 1명 승인 -> 빈자리 4
+        Party fewVacancy = savePartyOwnedBy("user1@test.com", "빈자리 적음", PositionType.BACK, 5, PartyTag.WEB, LocalDateTime.now().plusDays(3));
+        fewVacancy.getPositions().get(0).fillOneSeat();
+        partyRepository.save(fewVacancy);
+
+        // 정원 5에 0명 승인 -> 빈자리 5
+        savePartyOwnedBy("user1@test.com", "빈자리 많음", PositionType.BACK, 5, PartyTag.WEB, LocalDateTime.now().plusDays(3));
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties")
+                .param("sort", "VACANCY"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].partyName").value("빈자리 많음"))
+                .andExpect(jsonPath("$.data.content[1].partyName").value("빈자리 적음"));
+    }
+
+    @Test
+    @DisplayName("파티 상세 조회: 200과 D-day를 포함한 파티 정보를 반환한다")
+    @WithUserDetails("user1@test.com")
+    void getPartyDetail() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 2);
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/" + party.getId()));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.resultCode").value("200-1"))
+                .andExpect(jsonPath("$.data.id").value(party.getId()))
+                .andExpect(jsonPath("$.data.ownerName").isNotEmpty())
+                .andExpect(jsonPath("$.data.dDay").isNumber())
+                .andExpect(jsonPath("$.data.applicantCount").value(0))
+                .andExpect(jsonPath("$.data.positions[0].type").value("BACK"));
+    }
+
+    @Test
+    @DisplayName("파티 상세 조회: 내가 좋아요·북마크한 파티는 likedByMe·bookmarkedByMe가 true다")
+    @WithUserDetails("user1@test.com")
+    void getPartyDetailReflectsMyInteractions() throws Exception {
+        Party party = savePartyOwnedBy("user2@test.com", 2);
+
+        mvc.perform(post("/api/v1/parties/" + party.getId() + "/likes")).andExpect(status().isCreated());
+        mvc.perform(post("/api/v1/parties/" + party.getId() + "/bookmarks")).andExpect(status().isCreated());
+
+        mvc.perform(get("/api/v1/parties/" + party.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.likedByMe").value(true))
+                .andExpect(jsonPath("$.data.bookmarkedByMe").value(true));
+    }
+
+    @Test
+    @DisplayName("파티 상세 조회: 비로그인이면 likedByMe·bookmarkedByMe가 false다")
+    void getPartyDetailWithoutLoginShowsFalseInteractions() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 2);
+
+        mvc.perform(get("/api/v1/parties/" + party.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.likedByMe").value(false))
+                .andExpect(jsonPath("$.data.bookmarkedByMe").value(false));
+    }
+
+    @Test
+    @DisplayName("파티 상세 조회: 대회 연결 파티는 contestFormat, 지원자 있으면 applicantCount를 반환한다")
+    @WithUserDetails("user1@test.com")
+    void getPartyDetailIncludesContestFormatAndApplicantCount() throws Exception {
+        long contestId = writeContest("오락실 해커톤");
+
+        mvc.perform(post("/api/v1/parties")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(createPartyWithContestRequestJson(contestId)));
+        Party party = partyRepository.findAll().stream()
+                .filter(p -> "오락실 팀".equals(p.getPartyName()))
+                .findFirst().orElseThrow();
+
+        Member applicant = memberRepository.findByEmail("user2@test.com").orElseThrow();
+        partyMemberRepository.save(new PartyMember(party, applicant, party.getPositions().get(0), "잘 하겠습니다"));
+
+        mvc.perform(get("/api/v1/parties/" + party.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.contestFormat").value("HACKATHON"))
+                .andExpect(jsonPath("$.data.applicantCount").value(1));
+    }
+
+    @Test
+    @DisplayName("파티 상세 조회: 조회 쿠키가 없으면 viewCount가 증가한다")
+    @WithUserDetails("user1@test.com")
+    void getPartyDetailIncreasesViewCount() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 2);
+
+        mvc.perform(get("/api/v1/parties/" + party.getId()))
+                .andExpect(jsonPath("$.data.viewCount").value(1));
+
+        mvc.perform(get("/api/v1/parties/" + party.getId()))
+                .andExpect(jsonPath("$.data.viewCount").value(2));
+    }
+
+    @Test
+    @DisplayName("파티 상세 조회: 조회 쿠키를 가진 방문자가 다시 조회하면 viewCount가 증가하지 않는다")
+    @WithUserDetails("user1@test.com")
+    void getPartyDetailWithViewCookieDoesNotIncreaseViewCount() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 2);
+
+        ResultActions first = mvc.perform(get("/api/v1/parties/" + party.getId()));
+        first.andExpect(jsonPath("$.data.viewCount").value(1));
+
+        Cookie viewCookie = first.andReturn().getResponse().getCookie("party_viewed_" + party.getId());
+        assertThat(viewCookie).isNotNull();
+        assertThat(viewCookie.getPath()).isEqualTo("/api/v1/parties");
+
+        mvc.perform(get("/api/v1/parties/" + party.getId()).cookie(viewCookie))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.viewCount").value(1));
+    }
+
+    @Test
+    @DisplayName("파티 상세 조회: 존재하지 않는 파티는 404-1이다")
+    @WithUserDetails("user1@test.com")
+    void getPartyDetailNotFound() throws Exception {
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/999999"));
+
+        resultActions.andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.resultCode").value("404-1"));
+    }
+
+    @Test
+    @DisplayName("파티 생성: 파티장은 아직 PartyMember 로 들어가지 않는다 (모집 마감 시 합류)")
+    @WithUserDetails("user1@test.com")
+    void ownerIsNotPartyMemberOnCreate() throws Exception {
+        mvc.perform(post("/api/v1/parties")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(partyCreateBody()))
+                .andExpect(status().isCreated());
+
+        Member owner = memberRepository.findByEmail("user1@test.com").orElseThrow();
+        Party party = partyRepository.findAll().getLast();
+        assertThat(partyMemberRepository.findByPartyAndMember(party, owner)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("파티 생성: 파티장은 모집 정원을 차지하지 않는다")
+    @WithUserDetails("user1@test.com")
+    void ownerDoesNotFillASeat() throws Exception {
+        mvc.perform(post("/api/v1/parties")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(partyCreateBody()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.positions[0].filledCount").value(0));
+    }
+
+    @Test
+    @DisplayName("파티 생성: 프로필에 대표 포지션이 없어도 파티를 만들 수 있다")
+    @WithUserDetails("user2@test.com")
+    void allowsOwnerWithoutPosition() throws Exception {
+        mvc.perform(post("/api/v1/parties")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(partyCreateBody()))
+                .andExpect(status().isCreated());
+    }
+
+    private String partyCreateBody() {
+        return """
+                {
+                  "partyName": "테스트파티",
+                  "title": "백엔드 모집",
+                  "description": "설명",
+                  "topicType": "STUDY",
+                  "partyTag": "WEB",
+                  "deadline": "%s",
+                  "positions": [{ "name": "BACK", "capacity": 2 }]
+                }
+                """.formatted(deadline);
+    }
+
+    @Test
+    @DisplayName("인기 파티 TOP3: 로그인하지 않아도 조회할 수 있다")
+    void top3WithoutLogin() throws Exception {
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/top3"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.resultCode").value("200-1"))
+                .andExpect(jsonPath("$.msg").value("인기 파티 TOP3 조회 성공"));
+    }
+
+    @Test
+    @DisplayName("인기 파티 TOP3: 지원자 수는 세지 않아 null 로 내려간다 - 0(지원자 없음)과 구분된다")
+    void top3DoesNotCountApplicants() throws Exception {
+        Party party = savePartyOwnedBy("user1@test.com", 2);
+        partyRepository.increaseLikeCount(party.getId());
+
+        mvc.perform(get("/api/v1/parties/top3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[?(@.id == " + party.getId() + ")].applicantCount")
+                        .value(org.hamcrest.Matchers.contains(org.hamcrest.Matchers.nullValue())));
+    }
+
+    @Test
+    @DisplayName("인기 파티 TOP3: 좋아요 수 내림차순으로 정렬된다")
+    void top3OrderedByLikeCountDesc() throws Exception {
+        Party lowLikeParty = savePartyOwnedBy("user1@test.com", 2);
+        Party highLikeParty = savePartyOwnedBy("user1@test.com", 2);
+
+        partyRepository.increaseLikeCount(highLikeParty.getId());
+        partyRepository.increaseLikeCount(highLikeParty.getId());
+        partyRepository.increaseLikeCount(lowLikeParty.getId());
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/top3"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].id").value(highLikeParty.getId()));
+    }
+
+    @Test
+    @DisplayName("인기 파티 TOP3: 모집 중(RECRUITING)이 아닌 파티는 제외된다")
+    void top3ExcludesNonRecruitingParty() throws Exception {
+        Party completedParty = savePartyOwnedBy("user1@test.com", 2);
+        completedParty.closeRecruiting();
+        completedParty.complete();
+        partyRepository.increaseLikeCount(completedParty.getId());
+        partyRepository.increaseLikeCount(completedParty.getId());
+        partyRepository.increaseLikeCount(completedParty.getId());
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/top3"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[?(@.id == " + completedParty.getId() + ")]").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("인기 파티 TOP3: 최대 3개까지만 반환한다")
+    void top3ReturnsAtMostThree() throws Exception {
+        for (int i = 0; i < 5; i++) {
+            savePartyOwnedBy("user1@test.com", 2);
+        }
+
+        ResultActions resultActions = mvc.perform(get("/api/v1/parties/top3"));
+
+        resultActions.andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(3));
+    }
+}

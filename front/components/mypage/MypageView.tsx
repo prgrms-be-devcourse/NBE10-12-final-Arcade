@@ -1,0 +1,333 @@
+'use client';
+
+import { useState } from 'react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { AchievementTimeline } from './AchievementTimeline';
+import { BookmarkList } from './BookmarkList';
+import { ApplicantManager } from './ApplicantManager';
+import { HeroStats } from './HeroStats';
+import { MessageBox } from './MessageBox';
+import { MypageTabs } from './MypageTabs';
+import { ProfileCard } from './ProfileCard';
+import { PasswordChangeModal } from './PasswordChangeModal';
+import { ProfileEditPanel } from './ProfileEditPanel';
+import { TodoTable } from './TodoTable';
+import { Block, DetailGrid, SideCard } from '@/components/ui/Block';
+import { LinkButton } from '@/components/ui/Button';
+import { StatusPill, Tag } from '@/components/ui/Tag';
+import { socialLogin } from '@/lib/api';
+import { isMypageTabKey, type MypageTabKey } from '@/lib/mypageTabs';
+import { PARTY_STATUS_LABELS, POSITION_LABELS, TOPIC_TYPE_LABELS } from '@/lib/constants';
+import type {
+  Applicant,
+  BookmarkItem,
+  DirectMessage,
+  MyParty,
+  TodoItem,
+  UserProfile,
+} from '@/lib/types';
+
+interface MypageViewProps {
+  profile: UserProfile;
+  todos: TodoItem[];
+  /** 개인 TODO 전체 페이지 수 (서버 페이지네이션) */
+  todoTotalPages: number;
+  applicants: Applicant[];
+  myApplications: Applicant[];
+  messages: DirectMessage[];
+  /** 쪽지함 전체 페이지 수 (서버 페이지네이션) */
+  messageTotalPages: number;
+  bookmarks: BookmarkItem[];
+  myParties: { id: string; title: string }[];
+  /** 참여 파티 히스토리 (GET /members/me/parties). 전시 게시 여부까지 실려 온다 */
+  partyHistory: MyParty[];
+}
+
+export function MypageView({
+  profile: initialProfile,
+  todos,
+  todoTotalPages,
+  applicants,
+  myApplications,
+  messages,
+  messageTotalPages,
+  bookmarks,
+  myParties,
+  partyHistory,
+}: MypageViewProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [profile, setProfile] = useState(initialProfile);
+  const [editing, setEditing] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  // URL 이 단일 진실원. 알림 클릭 · 새로고침 · 공유 링크 모두 같은 경로로 활성 탭이 정해진다.
+  const rawTab = searchParams.get('tab') ?? undefined;
+  const activeTab: MypageTabKey = isMypageTabKey(rawTab) ? rawTab : 'identity';
+
+  const changeTab = (key: MypageTabKey) => {
+    router.replace(`/mypage?tab=${key}`, { scroll: false });
+  };
+
+  /** 로그인 화면의 GitHub 버튼과 같은 OAuth 진입점을 쓰고, 인증 뒤에는 마이페이지로 돌아온다. */
+  const connectGithub = () => {
+    void socialLogin('github', `${window.location.origin}/mypage`);
+  };
+
+  return (
+    <main>
+      <div className="mypage-wrap container">
+        {editing ? (
+          <ProfileEditPanel
+            profile={profile}
+            onCancel={() => setEditing(false)}
+            onSaved={(updated) => {
+              setProfile(updated);
+              setEditing(false);
+            }}
+          />
+        ) : (
+          <>
+            <ProfileCard
+              profile={profile}
+              onEdit={() => setEditing(true)}
+              onChangePassword={() => setPasswordOpen(true)}
+              onConnectGithub={profile.githubLinked ? undefined : connectGithub}
+            />
+
+            <HeroStats streakDays={profile.streakDays} activityHeatmap={profile.activityHeatmap} />
+
+            <MypageTabs active={activeTab} onChange={changeTab} />
+
+            {activeTab === 'identity' ? (
+              <IdentityTab profile={profile} partyHistory={partyHistory} />
+            ) : null}
+
+            {activeTab === 'todo' ? (
+              <div className="mypage-tab-panel">
+                <DetailGrid main={<TodoTable todos={todos} totalPages={todoTotalPages} />} />
+              </div>
+            ) : null}
+
+            {activeTab === 'manage' ? (
+              <div className="mypage-tab-panel">
+                <DetailGrid
+                  main={
+                    <>
+                      <Block title="내 지원" reveal>
+                        {myApplications.map((application) => (
+                          <div key={application.id} className="applicant-row">
+                            <div>
+                              <p style={{ fontWeight: 800, fontSize: '.92rem' }}>
+                                {application.partyName}
+                              </p>
+                              <p className="applicant-sub">
+                                {POSITION_LABELS[application.position]} 지원 · 성취 프로필 전체
+                                첨부됨
+                              </p>
+                            </div>
+                            <StatusPill tone="pending">승인 대기</StatusPill>
+                          </div>
+                        ))}
+                        {myApplications.length === 0 ? (
+                          <p className="notif-empty">아직 지원한 파티가 없어요.</p>
+                        ) : null}
+                      </Block>
+
+                      <Block
+                        title="파티 관리"
+                        description="내가 파티장인 파티의 지원자를 확인하고 승인·거절하세요."
+                        reveal
+                      >
+                        <ApplicantManager applicants={applicants} parties={myParties} />
+                      </Block>
+                    </>
+                  }
+                />
+              </div>
+            ) : null}
+
+            {activeTab === 'messages' ? (
+              <div className="mypage-tab-panel">
+                <DetailGrid
+                  main={
+                    <Block title="쪽지함" reveal>
+                      <MessageBox messages={messages} totalPages={messageTotalPages} />
+                    </Block>
+                  }
+                />
+              </div>
+            ) : null}
+
+            {activeTab === 'bookmarks' ? (
+              <div className="mypage-tab-panel">
+                <DetailGrid
+                  main={
+                    <Block
+                      title="북마크"
+                      description="북마크한 파티 · 대회 · 전시를 한 목록에서 볼 수 있어요."
+                      reveal
+                    >
+                      <BookmarkList bookmarks={bookmarks} />
+                    </Block>
+                  }
+                />
+              </div>
+            ) : null}
+
+          </>
+        )}
+
+        {passwordOpen ? (
+          <PasswordChangeModal
+            onClose={() => setPasswordOpen(false)}
+          />
+        ) : null}
+
+      </div>
+    </main>
+  );
+}
+
+/** 프로필(정체성) 탭 */
+function IdentityTab({
+  profile,
+  partyHistory,
+}: {
+  profile: UserProfile;
+  partyHistory: MyParty[];
+}) {
+  return (
+    <div className="mypage-tab-panel">
+      <DetailGrid
+        main={
+          <>
+            <Block title="참여 파티 히스토리" reveal>
+              {partyHistory.length > 0 ? (
+                <div className="history-panel">
+                  {partyHistory.map((party) => (
+                    <div key={party.id} className="timeline-item">
+                      <p className="role-line">
+                        {party.name}
+                        {party.position ? ` · ${POSITION_LABELS[party.position]}` : ''}
+                      </p>
+                      <p className="period">
+                        <Tag>{TOPIC_TYPE_LABELS[party.topicType]}</Tag>{' '}
+                        <Tag>{PARTY_STATUS_LABELS[party.status]}</Tag>{' '}
+                        {/* 파티장은 지원 절차가 없어 포지션이 없다 - 대신 역할을 보여준다 */}
+                        <Tag>{party.role === 'OWNER' ? '파티장' : '파티원'}</Tag> {party.period}
+                      </p>
+                      <p className="desc">
+                        <Link className="card-link" href={`/party/${party.id}/team`}>
+                          팀 페이지 보기 →
+                        </Link>
+                        {/* 전시가 게시된 파티만 연결한다 - 아니면 빈 초안이 열린다(기획서 2.11) */}
+                        {party.exhibited ? (
+                          <>
+                            {' · '}
+                            <Link className="card-link" href={`/exhibition/${party.id}`}>
+                              전시 페이지 보기 →
+                            </Link>
+                          </>
+                        ) : null}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="notif-empty">
+                  아직 참여한 파티가 없어요. 파티가 확정되면 여기에 기록이 쌓입니다.
+                </p>
+              )}
+            </Block>
+
+            <Block title="성취 리스트" reveal>
+              <div className="block-head-row">
+                <p className="block-head-note">
+                  직접 등록한 성취와 파티 활동으로 자동 기록된 성취가 함께 쌓여요.
+                </p>
+                <LinkButton href="/goals/create" variant="ghost">
+                  성취 등록
+                </LinkButton>
+              </div>
+              <AchievementTimeline achievements={profile.achievements} />
+            </Block>
+
+            <Block title="스킬 · 경력" reveal>
+              <div className="history-cols">
+                <div className="history-panel">
+                  <h4>경력</h4>
+                  {profile.careers.map((career) => (
+                    <div key={career.id} className="timeline-item">
+                      <p className="role-line">
+                        {career.org} · {career.title}
+                      </p>
+                      <p className="period">{career.period}</p>
+                      <p className="desc">{career.description}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="history-panel">
+                  <h4>스킬</h4>
+                  <div className="skill-groups" style={{ marginTop: 0 }}>
+                    <div>
+                      <p className="skill-group-label">보유 스킬</p>
+                      <div className="chip-row">
+                        {profile.skills.map((skill) => (
+                          <span key={skill} className="skill-chip">
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Block>
+          </>
+        }
+        side={
+          <>
+            <SideCard title="활동 스코어">
+              <div className="stat-list">
+                <div className="stat-row">
+                  <span className="label">완료한 파티</span>
+                  <span className="value">{profile.stats.completedParties}</span>
+                </div>
+                <div className="stat-row">
+                  <span className="label">수상 이력</span>
+                  <span className="value">{profile.stats.awards}</span>
+                </div>
+                <div className="stat-row">
+                  <span className="label">자동기록 성취</span>
+                  <span className="value">{profile.stats.exhibitions}</span>
+                </div>
+              </div>
+            </SideCard>
+
+            <SideCard title="기타 주소">
+              {profile.links.map((link) => (
+                <a
+                  key={link.id}
+                  className="link-row"
+                  href={link.url.startsWith('http') ? link.url : `https://${link.url}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <span className="txt">
+                    <span className="k">{link.label}</span>
+                    <br />
+                    <span className="v">{link.url}</span>
+                  </span>
+                </a>
+              ))}
+              <p className="form-hint" style={{ marginTop: '0.625rem' }}>
+                주소 추가·수정은 상단 <b>수정하기</b>에서 관리해요.
+              </p>
+            </SideCard>
+          </>
+        }
+      />
+    </div>
+  );
+}

@@ -1,0 +1,218 @@
+# 애플리케이션 스택
+
+name: ${COMPOSE_PROJECT_NAME:-arcade-local}
+
+services:
+  redis:
+    image: redis:7.4.11-alpine
+    restart: unless-stopped
+    # 리프레시 토큰은 AOF로 보존하고 메모리 부족 시 삭제 대신 쓰기를 거부한다.
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--maxmemory",
+        "${REDIS_MAXMEMORY:-192mb}",
+        "--maxmemory-policy",
+        "noeviction",
+        "--requirepass",
+        "${SPRING_DATA_REDIS_PASSWORD:?SPRING_DATA_REDIS_PASSWORD is required}",
+      ]
+    # AOF 재작성 여유를 위해 maxmemory보다 높게 둔다.
+    mem_limit: ${REDIS_MEM_LIMIT:-256m}
+    environment:
+      REDIS_PASSWORD: ${SPRING_DATA_REDIS_PASSWORD:?SPRING_DATA_REDIS_PASSWORD is required}
+    ports:
+      - "${PUBLISH_HOST:-127.0.0.1}:${REDIS_HOST_PORT:-6379}:6379"
+    volumes:
+      # 프로젝트의 ignore된 data 디렉터리에 AOF를 보존한다.
+      - ${DATA_PATH:-./data}/redis:/data
+    healthcheck:
+      test: ["CMD-SHELL", 'redis-cli -a "$$REDIS_PASSWORD" ping | grep -q PONG']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # backend는 application-compose.yaml의 환경변수로 연결한다.
+  postgres:
+    image: postgres:16.15-alpine
+    restart: unless-stopped
+    # shared_buffers 증가 여유를 포함한다.
+    mem_limit: ${POSTGRES_MEM_LIMIT:-384m}
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      # 로컬 전용. 초기화 속도만 빠르게 한다.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "${PUBLISH_HOST:-127.0.0.1}:${POSTGRES_HOST_PORT:-5432}:5432"
+    volumes:
+      - ${DATA_PATH:-./data}/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    # JVM 힙 밖의 네이티브 메모리 여유를 포함한다.
+    mem_limit: ${BACKEND_MEM_LIMIT:-1g}
+    image: ${BACKEND_IMAGE:-arcade-backend:local}
+    build:
+      context: ./back
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:?SPRING_PROFILES_ACTIVE is required}
+      TZ: ${TZ:-Asia/Seoul}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError}
+      MANAGEMENT_METRICS_TAGS_APPLICATION: ${MANAGEMENT_METRICS_TAGS_APPLICATION:-back}
+      MANAGEMENT_METRICS_TAGS_ENVIRONMENT: ${MANAGEMENT_METRICS_TAGS_ENVIRONMENT:-local}
+      MANAGEMENT_METRICS_TAGS_SERVER: ${MANAGEMENT_METRICS_TAGS_SERVER:-arcade-local}
+
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:?SPRING_DATASOURCE_URL is required}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:?SPRING_DATASOURCE_USERNAME is required}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:?SPRING_DATASOURCE_PASSWORD is required}
+      SPRING_DATASOURCE_DRIVERCLASSNAME: ${SPRING_DATASOURCE_DRIVERCLASSNAME:-org.postgresql.Driver}
+      SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE: ${SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE:-10}
+      SPRING_DATASOURCE_HIKARI_CONNECTIONTIMEOUT: ${SPRING_DATASOURCE_HIKARI_CONNECTIONTIMEOUT:-30000}
+      SPRING_DATA_REDIS_HOST: ${SPRING_DATA_REDIS_HOST:-redis}
+      SPRING_DATA_REDIS_PORT: ${SPRING_DATA_REDIS_PORT:-6379}
+      SPRING_DATA_REDIS_PASSWORD: ${SPRING_DATA_REDIS_PASSWORD:?SPRING_DATA_REDIS_PASSWORD is required}
+
+      SPRING__SECURITY__OAUTH2__CLIENT__REGISTRATION__GITHUB__CLIENT_ID: ${SPRING__SECURITY__OAUTH2__CLIENT__REGISTRATION__GITHUB__CLIENT_ID:?GitHub OAuth client ID is required}
+      SPRING__SECURITY__OAUTH2__CLIENT__REGISTRATION__GITHUB__CLIENT_SECRET: ${SPRING__SECURITY__OAUTH2__CLIENT__REGISTRATION__GITHUB__CLIENT_SECRET:?GitHub OAuth client secret is required}
+      CUSTOM__JWT__SECRET_KEY: ${CUSTOM__JWT__SECRET_KEY:?JWT secret key is required}
+      CUSTOM__ADMIN_ACCOUNT__EMAIL: ${CUSTOM__ADMIN_ACCOUNT__EMAIL:?Admin email is required}
+      CUSTOM__ADMIN_ACCOUNT__PASSWORD: ${CUSTOM__ADMIN_ACCOUNT__PASSWORD:?Admin password is required}
+      CUSTOM__ADMIN_ACCOUNT__NICKNAME: ${CUSTOM__ADMIN_ACCOUNT__NICKNAME:?Admin nickname is required}
+      CUSTOM__FRONTEND__BASE_URL: ${PUBLIC_ORIGIN:?PUBLIC_ORIGIN is required}
+      CUSTOM__CORS__ALLOWED_ORIGINS: ${PUBLIC_ORIGIN:?PUBLIC_ORIGIN is required}
+      CUSTOM__ACCESS_TOKEN__EXPIRATION_SECONDS: ${CUSTOM__ACCESS_TOKEN__EXPIRATION_SECONDS:-900}
+
+      CUSTOM__PASSWORD__MIN_LENGTH: ${CUSTOM__PASSWORD__MIN_LENGTH:-8}
+      CUSTOM__PASSWORD__MAX_LENGTH: ${CUSTOM__PASSWORD__MAX_LENGTH:-64}
+      CUSTOM__PASSWORD__REQUIRE_LETTER: ${CUSTOM__PASSWORD__REQUIRE_LETTER:-true}
+      CUSTOM__PASSWORD__REQUIRE_NUMBER: ${CUSTOM__PASSWORD__REQUIRE_NUMBER:-true}
+      CUSTOM__PASSWORD__REQUIRE_SPECIAL_CHARACTER: ${CUSTOM__PASSWORD__REQUIRE_SPECIAL_CHARACTER:-true}
+      CUSTOM__PASSWORD__ALLOW_WHITESPACE: ${CUSTOM__PASSWORD__ALLOW_WHITESPACE:-false}
+      CUSTOM__PASSWORD_RESET__EXPIRATION_SECONDS: ${CUSTOM__PASSWORD_RESET__EXPIRATION_SECONDS:-1800}
+      CUSTOM__RATE_LIMIT__PASSWORD_RESET_REQUEST__EMAIL_MAX_REQUESTS: ${CUSTOM__RATE_LIMIT__PASSWORD_RESET_REQUEST__EMAIL_MAX_REQUESTS:-3}
+      CUSTOM__RATE_LIMIT__PASSWORD_RESET_REQUEST__IP_MAX_REQUESTS: ${CUSTOM__RATE_LIMIT__PASSWORD_RESET_REQUEST__IP_MAX_REQUESTS:-10}
+      CUSTOM__RATE_LIMIT__PASSWORD_RESET_REQUEST__WINDOW_SECONDS: ${CUSTOM__RATE_LIMIT__PASSWORD_RESET_REQUEST__WINDOW_SECONDS:-3600}
+      CUSTOM__SESSION__ACCESS_TOKEN_INVALIDATION: ${CUSTOM__SESSION__ACCESS_TOKEN_INVALIDATION:-refresh-token-only}
+
+      # Gemini 큐레이션을 쓰지 않으면 enabled=false로 두고 API key를 비운다.
+      CUSTOM__CURATION__ENABLED: ${CUSTOM__CURATION__ENABLED:-false}
+      CUSTOM__CURATION__MODEL: ${CUSTOM__CURATION__MODEL:-gemini-3.5-flash-lite}
+      CUSTOM__CURATION__BATCH_CRON: "${CUSTOM__CURATION__BATCH_CRON:-0 5 10 * * *}"
+      CUSTOM__CURATION__CANDIDATE_LIMIT: ${CUSTOM__CURATION__CANDIDATE_LIMIT:-15}
+      CUSTOM__CURATION__GEMINI__API_KEY: ${CUSTOM__CURATION__GEMINI__API_KEY:-}
+
+      CUSTOM__DEV_TOOLS__ENABLED: ${CUSTOM__DEV_TOOLS__ENABLED:-false}
+
+      CUSTOM__GITHUB__APP__ID: ${CUSTOM__GITHUB__APP__ID:-}
+      CUSTOM__GITHUB__APP__SLUG: ${CUSTOM__GITHUB__APP__SLUG:-}
+      CUSTOM__GITHUB__APP__PRIVATE_KEY: ${CUSTOM__GITHUB__APP__PRIVATE_KEY:-}
+      # GitHub App 사용자 인증은 OAuth App 로그인과 별개이며 선택 사항
+      CUSTOM__GITHUB__APP__CLIENT_ID: ${CUSTOM__GITHUB__APP__CLIENT_ID:-}
+      CUSTOM__GITHUB__APP__CLIENT_SECRET: ${CUSTOM__GITHUB__APP__CLIENT_SECRET:-}
+      CUSTOM__GITHUB__APP__USER_AUTHORIZATION_CALLBACK_URL: ${CUSTOM__GITHUB__APP__USER_AUTHORIZATION_CALLBACK_URL:-}
+      CUSTOM__GITHUB__APP__TOKEN_ENCRYPTION_KEY: ${CUSTOM__GITHUB__APP__TOKEN_ENCRYPTION_KEY:-}
+      CUSTOM__GITHUB__WEBHOOK__SECRET: ${CUSTOM__GITHUB__WEBHOOK__SECRET:-}
+
+      # 비밀번호 재설정 등 트랜잭션 메일 발송. enabled=false면 No-op 발송기를 사용한다.
+      CUSTOM__MAIL__ENABLED: ${CUSTOM__MAIL__ENABLED:-false}
+      CUSTOM__MAIL__FROM: ${CUSTOM__MAIL__FROM:-Arcade <onboarding@resend.dev>}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+
+      # prod는 인스턴스 역할을 사용하는 S3 저장소로 설정한다.
+      CUSTOM__STORAGE__TYPE: ${CUSTOM__STORAGE__TYPE:-local}
+      CUSTOM__STORAGE__LOCAL__PATH: ${CUSTOM__STORAGE__LOCAL__PATH:-.uploads}
+      # endpoint와 정적 자격증명은 dev·test의 MinIO에서만 사용한다.
+      CUSTOM__STORAGE__S3__ENDPOINT: ${CUSTOM__STORAGE__S3__ENDPOINT:-}
+      CUSTOM__STORAGE__S3__REGION: ${CUSTOM__STORAGE__S3__REGION:-ap-northeast-2}
+      CUSTOM__STORAGE__S3__BUCKET: ${CUSTOM__STORAGE__S3__BUCKET:-}
+      CUSTOM__STORAGE__S3__ACCESS_KEY: ${CUSTOM__STORAGE__S3__ACCESS_KEY:-}
+      CUSTOM__STORAGE__S3__SECRET_KEY: ${CUSTOM__STORAGE__S3__SECRET_KEY:-}
+      CUSTOM__STORAGE__S3__PUBLIC_URL_PREFIX: ${CUSTOM__STORAGE__S3__PUBLIC_URL_PREFIX:-}
+      # path-style은 MinIO에서만 사용한다.
+      CUSTOM__STORAGE__S3__PATH_STYLE_ACCESS: ${CUSTOM__STORAGE__S3__PATH_STYLE_ACCESS:-false}
+
+      LOGGING_LEVEL_COM_BACK: ${LOGGING_LEVEL_COM_BACK:-INFO}
+      LOGGING_LEVEL_ORG_HIBERNATE_ORM_JDBC_BIND: ${LOGGING_LEVEL_ORG_HIBERNATE_ORM_JDBC_BIND:-OFF}
+      LOGGING_LEVEL_ORG_HIBERNATE_ORM_JDBC_EXTRACT: ${LOGGING_LEVEL_ORG_HIBERNATE_ORM_JDBC_EXTRACT:-OFF}
+      LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_TRANSACTION_INTERCEPTOR: ${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_TRANSACTION_INTERCEPTOR:-INFO}
+    stop_grace_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    mem_limit: ${FRONTEND_MEM_LIMIT:-256m}
+    image: ${FRONTEND_IMAGE:-arcade-frontend:local}
+    build:
+      context: ./front
+      args:
+        NEXT_PUBLIC_USE_MOCK: ${NEXT_PUBLIC_USE_MOCK:-false}
+    restart: unless-stopped
+    environment:
+      # 컨테이너 내부 SSR 전용 런타임 주소
+      API_BASE_URL_INTERNAL: ${API_BASE_URL_INTERNAL:-http://backend:8080/api/v1}
+    ports:
+      - "${PUBLISH_HOST:-127.0.0.1}:${FRONTEND_HOST_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # 로컬 진입점
+  caddy:
+    profiles: ["local"]
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    mem_limit: ${CADDY_MEM_LIMIT:-64m}
+    environment:
+      # 빈 값은 Caddy 전역 옵션으로 오인되므로 기본값을 둔다.
+      SITE_ADDR: ${SITE_ADDR:-:80}
+    ports:
+      - "${PUBLISH_HOST:-127.0.0.1}:${HTTP_PORT:-80}:80"
+    volumes:
+      # 모니터링 포함 여부에 따라 Caddyfile을 고른다.
+      - ${CADDYFILE:-./infra/caddy/Caddyfile}:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+
+  # 배포용 진입점.
+  nginx:
+    profiles: ["prod"]
+    image: nginx:1.29-alpine
+    # 요청 제한 공유 메모리 40MiB보다 여유 있게 둔다.
+    mem_limit: ${NGINX_MEM_LIMIT:-128m}
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./infra/nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      # certbot webroot.
+      - ${CERTBOT_WEBROOT:-./data/certbot/www}:/var/www/certbot:ro
+      # 갱신된 심볼릭 링크가 archive까지 보도록 conf 전체를 마운트한다.
+      - ${CERTBOT_CONF:-./data/certbot/conf}:/etc/letsencrypt:ro
+      - ${METRICS_HTPASSWD:-./data/nginx/metrics.htpasswd}:/etc/nginx/metrics.htpasswd:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+
+volumes:
+  caddy-data:
+  caddy-config:

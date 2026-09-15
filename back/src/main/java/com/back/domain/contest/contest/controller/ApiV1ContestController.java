@@ -1,0 +1,252 @@
+package com.back.domain.contest.contest.controller;
+
+import com.back.domain.contest.contest.dtos.ContestImageDto;
+import com.back.domain.contest.contest.dtos.ContestResponseDto;
+import com.back.domain.contest.contest.entity.ContestFormat;
+import com.back.domain.contest.contest.entity.ContestSortOption;
+import com.back.domain.contest.contest.entity.ContestTag;
+import com.back.domain.contest.contest.service.ContestService;
+import com.back.domain.interaction.bookmark.service.BookmarkInteractionPort;
+import com.back.domain.interaction.like.entity.TargetType;
+import com.back.domain.interaction.like.service.LikeInteractionPort;
+import com.back.domain.member.member.entity.Member;
+import com.back.domain.party.party.repository.PartyContestLookupPort;
+import com.back.global.exception.ServiceException;
+import com.back.global.rq.Rq;
+import com.back.global.rsData.RsData;
+import com.back.global.validation.ValidHttpUrl;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+import com.back.domain.party.party.repository.PartyContestLookupPort.TeamCount;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/v1/contests")
+@RequiredArgsConstructor
+@Tag(name = "ApiV1ContestController", description = "대회 글 컨트롤러")
+public class ApiV1ContestController {
+    private final ContestService contestService;
+    private final LikeInteractionPort likeInteractionPort;
+    private final BookmarkInteractionPort bookmarkInteractionPort;
+    private final Rq rq;
+    private final PartyContestLookupPort partyContestLookupPort;
+
+    public record ContestWriteReqBody(
+            @NotBlank
+            @Size(min =5, max= 25)
+            String title,
+            @NotNull
+            ContestFormat format,
+            @NotNull
+            ContestTag contestTag,
+            @NotNull
+            LocalDate applicationPeriodStart,
+            @NotNull
+            LocalDate applicationPeriodEnd,
+            @Size(min = 10, max = 20000)
+            String description,
+            String imageUrl,
+            @NotBlank
+            @ValidHttpUrl
+            String linkUrl
+    ) { }
+
+    @PostMapping
+    @Operation(summary = "대회글 작성")
+    public RsData<ContestResponseDto> write(
+            @RequestBody @Valid ContestWriteReqBody reqBody
+    ){
+        Member actor = rq.getActorFromDb();
+        checkPeriod(reqBody.applicationPeriodStart(), reqBody.applicationPeriodEnd());
+
+        ContestResponseDto contestResponseDto = contestService.write(
+                actor,
+                reqBody.title(),
+                reqBody.format(),
+                reqBody.contestTag(),
+                reqBody.applicationPeriodStart(),
+                reqBody.applicationPeriodEnd(),
+                reqBody.description(),
+                reqBody.linkUrl(),
+                reqBody.imageUrl()
+        );
+
+        return new RsData<>(
+                "201-1",
+                "공모전 등록 성공",
+                contestResponseDto
+        );
+    }
+
+    @PostMapping(value = "/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(
+            summary = "대회 대표 이미지 업로드",
+            description = """
+                    이미지를 저장하고 그 URL 을 돌려준다. 대회 글에 반영되지는 않으니,
+                    화면은 받은 imageUrl 을 등록(POST /contests) 또는 수정(PATCH /contests/{contest-id})
+                    요청의 같은 이름 필드에 실어 보내야 한다.
+
+                    jpg, png 만 받고 custom.storage.max-file-size 까지다.
+
+                    예외
+                    - 400-1 : 파일이 비었거나, 허용하지 않는 형식이거나, 용량 초과
+                    - 401-1 : 미로그인
+                    """
+    )
+    public RsData<ContestImageDto> uploadImage(
+            @RequestPart("file") MultipartFile file
+    ) {
+        return new RsData<>(
+                "201-1",
+                "대회 이미지 업로드 성공",
+                new ContestImageDto(contestService.uploadCoverImage(file))
+        );
+    }
+
+    public record ContestModifyReqBody(
+            @NotBlank
+            @Size(min = 5, max = 25)
+            String title,
+            @Size(max = 20000)
+            String description,
+            @NotNull
+            LocalDate applicationPeriodStart,
+            @NotNull
+            LocalDate applicationPeriodEnd,
+            @NotBlank
+            @ValidHttpUrl
+            String linkUrl,
+            String imageUrl
+    ) { }
+
+    @PatchMapping("/{contest-id}")
+    @Operation(summary = "대회글 수정")
+    public RsData<ContestResponseDto> modify(
+            @PathVariable("contest-id") long contestId,
+            @RequestBody @Valid ContestModifyReqBody reqBody
+    ) {
+        checkPeriod(reqBody.applicationPeriodStart(), reqBody.applicationPeriodEnd());
+
+        ContestResponseDto contestResponseDto = contestService.modify(
+                contestId,
+                reqBody.title(),
+                reqBody.description(),
+                reqBody.applicationPeriodStart(),
+                reqBody.applicationPeriodEnd(),
+                reqBody.linkUrl(),
+                reqBody.imageUrl()
+        );
+
+        return new RsData<>(
+                "200-1",
+                "대회 수정 성공",
+                contestResponseDto
+        );
+    }
+
+    @GetMapping
+    @Operation(summary = "대회 목록 조회")
+    public RsData<Page<ContestResponseDto>> list(
+            @RequestParam(required = false) ContestFormat format,
+            @RequestParam(required = false) ContestTag contestTag,
+            @RequestParam(defaultValue = "LATEST") ContestSortOption sort,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        Page<ContestResponseDto> contests = contestService.list(
+                format,
+                contestTag,
+                sort,
+                PageRequest.of(page, size)
+        );
+
+        Member actor = rq.getActorFromDb();
+        List<Long> contestIds = contests.getContent().stream().map(ContestResponseDto::id).toList();
+        Set<Long> bookmarkedContestIds = bookmarkInteractionPort.findBookmarkedTargetIds(actor, TargetType.CONTEST, contestIds);
+        Set<Long> likedContestIds = likeInteractionPort.findLikedTargetIds(actor, TargetType.CONTEST, contestIds);
+        Map<Long,Long> teamCounts = contestIds.isEmpty()
+                ? Map.of()
+                : partyContestLookupPort
+                        .countGroupedByTargetContestIdIn(contestIds)
+                        .stream()
+                        .collect(Collectors.toMap(TeamCount::getContestId, TeamCount::getCount));
+
+        contests = contests.map(contest -> contest
+                .withRelatedParties(teamCounts.getOrDefault(contest.id(), 0L).intValue(), List.of())
+                .withMyInteractions(
+                        bookmarkedContestIds.contains(contest.id()),
+                        likedContestIds.contains(contest.id())
+                ));
+
+        return new RsData<>(
+                "200-1",
+                "대회 목록 조회 성공",
+                contests
+        );
+    }
+
+    private static final String VIEW_COOKIE_PATH = "/api/v1/contests";
+
+    @GetMapping("/{contest-id}")
+    @Operation(summary = "대회 상세 조회")
+    public RsData<ContestResponseDto> getDetail(@PathVariable("contest-id") long contestId) {
+        String viewCookieName = "contest_viewed_" + contestId;
+        boolean alreadyViewed = rq.hasViewCookie(viewCookieName);
+
+        ContestResponseDto contestResponseDto = contestService
+                .getDetail(contestId, !alreadyViewed, rq.getActorFromDb())
+                .orElseThrow();
+
+        if (!alreadyViewed) {
+            rq.setViewCookie(viewCookieName, VIEW_COOKIE_PATH);
+        }
+
+        return new RsData<>(
+                "200-1",
+                "대회 상세 조회 성공",
+                contestResponseDto
+        );
+    }
+
+    @DeleteMapping("/{contest-id}")
+    @Operation(summary = "대회글 삭제")
+    public RsData<Void> delete(@PathVariable("contest-id") long contestId) {
+        contestService.deleteContestAndInteractions(contestId);
+
+        return new RsData<>(
+                "204-1",
+                "대회 게시글 삭제 성공"
+        );
+    }
+
+    private void checkPeriod(LocalDate start, LocalDate end) {
+        if (start.isAfter(end)) {
+            throw new ServiceException("400-3", "모집 시작일은 종료일보다 이후일 수 없습니다.");
+        }
+    }
+
+}

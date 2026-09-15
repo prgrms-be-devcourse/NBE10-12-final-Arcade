@@ -1,0 +1,18 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:db_test;MODE=PostgreSQL
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+custom:
+  cookie:
+    secure: false
+    same-site: Strict
+  cors:
+    allowed-origins: http://localhost:3000
+  notification:
+    redis-pubsub:
+      enabled: false
+  storage:
+    local:
+      path: build/test-uploads

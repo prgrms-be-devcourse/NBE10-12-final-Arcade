@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#12243a"/><stop offset="1" stop-color="#0a0a13"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="300" fill="url(#g)"/>
+  <g stroke="#31e9d2" stroke-width="2" fill="none" opacity=".75">
+    <rect x="42" y="70" width="120" height="72"/>
+    <rect x="42" y="158" width="120" height="72"/>
+    <path d="M172 106h56l-14-14M228 106l-14 14"/>
+    <rect x="238" y="96" width="120" height="108"/>
+    <path d="M258 168l24-28 22 20 26-38"/>
+  </g>
+  <text x="42" y="52" fill="#7bf7e8" font-family="monospace" font-size="17" letter-spacing="2">SETTLEMENT API</text>
+</svg>

@@ -1,0 +1,178 @@
+# 배포용 리버스 프록시이며 로컬에서는 Caddy
+
+events {}
+
+worker_shutdown_timeout 15s;
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+    sendfile      on;
+    server_tokens off;
+
+    # 배포 스크립트가 ACTIVE_* 표시가 있는 대상을 실제 컨테이너 이름으로 바꾼다.
+    # 전환 전 실패하거나 재부팅해도 기본 Docker DNS 이름으로 기동할 수 있다.
+    resolver 127.0.0.11 valid=10s ipv6=off;
+
+    map $http_upgrade $connection_upgrade {
+        default upgrade;
+        ''      close;
+    }
+
+    # 정적 자산을 제외하고 경로별 요청률을 제한
+    limit_req_zone  $binary_remote_addr zone=login:10m rate=10r/m;
+    limit_req_zone  $binary_remote_addr zone=api:10m   rate=10r/s;
+    limit_req_zone  $binary_remote_addr zone=metrics:10m rate=20r/s;
+    limit_conn_zone $binary_remote_addr zone=conn:10m;
+    limit_req_status    429;
+    limit_req_log_level warn;
+
+    client_header_timeout 10s;
+    client_body_timeout   10s;
+    send_timeout          10s;
+    client_max_body_size  20m;
+
+    # Next.js의 긴 RSC 헤더를 수용
+    proxy_buffer_size       16k;
+    proxy_buffers         8 16k;
+    proxy_busy_buffers_size 32k;
+
+    proxy_set_header Host              $host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade    $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+
+    # TLS 공통
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets off;
+
+    ssl_certificate     /etc/letsencrypt/live/__APP_DOMAIN__/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/__APP_DOMAIN__/privkey.pem;
+
+    # Docker 내부 exporter만 기본 연결·요청 지표를 조회한다.
+    server {
+        listen 8080;
+        server_name _;
+
+        location = /stub_status {
+            stub_status;
+            access_log off;
+        }
+
+        location / {
+            return 404;
+        }
+    }
+
+    # Next.js SSR이 외부 TLS·rate limit 없이 활성 backend만 사용한다.
+    server {
+        listen 8081;
+        server_name _;
+
+        location /api/ {
+            set $backend_upstream backend:8080; # ACTIVE_BACKEND
+            proxy_pass http://$backend_upstream;
+        }
+
+        location / {
+            return 404;
+        }
+    }
+
+    # 80은 ACME HTTP-01만 제공하고 나머지는 HTTPS로 보낸다.
+    server {
+        listen 80 default_server;
+        server_name _;
+
+        location /.well-known/acme-challenge/ {
+            root /var/www/certbot;
+        }
+
+        location / {
+            return 301 https://$host$request_uri;
+        }
+    }
+
+    # 443 앱
+    server {
+        listen 443 ssl;
+        http2 on;
+        server_name __APP_DOMAIN__;
+
+        location ~ ^/(login|oauth2)/ {
+            limit_req zone=login burst=5;
+            set $backend_upstream backend:8080; # ACTIVE_BACKEND
+            proxy_pass http://$backend_upstream;
+        }
+
+        # 30초 heartbeat 두 번과 전송 지연을 허용하되 끊어진 연결은 오래 유지하지 않는다.
+        location ~ ^/api/v1/(?:notifications/subscribe|parties/[0-9]+/pull-requests/(?:stream|grouped-by-member/stream|members/(?:me|[0-9]+)/stream))$ {
+            limit_req zone=api burst=20 nodelay;
+            proxy_http_version 1.1;
+            proxy_buffering off;
+            proxy_cache off;
+            proxy_read_timeout 75s;
+            proxy_set_header Connection "";
+            set $backend_upstream backend:8080; # ACTIVE_BACKEND
+            proxy_pass http://$backend_upstream;
+        }
+
+        location /api/ {
+            limit_req zone=api burst=20 nodelay;
+            set $backend_upstream backend:8080; # ACTIVE_BACKEND
+            proxy_pass http://$backend_upstream;
+        }
+
+        # local 저장소를 쓰는 환경의 파일도 동일 출처로 제공한다.
+        # S3가 반환한 절대 URL에는 적용되지 않는다.
+        location /uploads/ {
+            set $backend_upstream backend:8080; # ACTIVE_BACKEND
+            proxy_pass http://$backend_upstream;
+        }
+
+        # 정적 자산은 요청률 제한에서 제외한다.
+        location /_next/static/ {
+            set $frontend_upstream frontend:3000; # ACTIVE_FRONTEND
+            proxy_pass http://$frontend_upstream;
+        }
+
+        location / {
+            limit_conn conn 20;
+            set $frontend_upstream frontend:3000; # ACTIVE_FRONTEND
+            proxy_pass http://$frontend_upstream;
+        }
+    }
+
+    # 443 운영 지표
+    server {
+        listen 443 ssl;
+        http2 on;
+        server_name __METRICS_DOMAIN__;
+
+        auth_basic           "metrics";
+        auth_basic_user_file /etc/nginx/metrics.htpasswd;
+
+        # Grafana 패널의 순간 fan-out만 burst로 허용한다.
+        limit_req  zone=metrics burst=100 nodelay;
+        limit_conn conn 20;
+
+        location / {
+            set $prom_upstream prometheus:9090;
+            proxy_pass http://$prom_upstream;
+        }
+    }
+
+    # 알 수 없는 호스트명은 응답 없이 연결을 닫는다.
+    server {
+        listen 443 ssl default_server;
+        http2 on;
+        server_name _;
+        return 444;
+    }
+}

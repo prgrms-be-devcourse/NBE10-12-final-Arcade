@@ -1,0 +1,194 @@
+import type { ChecklistItem, TodoItem } from '@/lib/types';
+import type { PartyGithubConnection, PartyPullRequest } from '@/lib/api/partyGithub';
+
+/** 데모용 GitHub 연결 상태 — 실제 값은 GET /parties/{id}/github-connection 에서 온다 */
+export const MOCK_PARTY_GITHUB_CONNECTION: PartyGithubConnection = {
+  status: 'ACTIVE',
+  repositoryFullName: 'crewon-team/paybridge',
+  lastErrorCode: null,
+  lastError: null,
+};
+
+/** 데모용 PR 목록 — 실제 값은 웹훅으로 쌓이고 GET /parties/{id}/pull-requests 로 온다 */
+export const MOCK_PARTY_PULL_REQUESTS: PartyPullRequest[] = [
+  {
+    id: 'pr-1',
+    number: 42,
+    title: '정산 배치 실패 알림 슬랙 연동',
+    htmlUrl: 'https://github.com/crewon-team/paybridge/pull/42',
+    state: 'closed',
+    authorLogin: 'haneul-dev',
+    draft: false,
+    merged: true,
+    baseBranch: 'develop',
+    headBranch: 'feat/slack-alert',
+    openedAt: '2026-08-28T10:12:00Z',
+    closedAt: '2026-08-29T02:31:00Z',
+    mergedAt: '2026-08-29T02:31:00Z',
+    updatedAt: '2026-08-29T02:31:00Z',
+  },
+  {
+    id: 'pr-2',
+    number: 43,
+    title: '대시보드 API 응답 캐싱',
+    htmlUrl: 'https://github.com/crewon-team/paybridge/pull/43',
+    state: 'open',
+    authorLogin: 'somin-fe',
+    draft: true,
+    merged: false,
+    baseBranch: 'develop',
+    headBranch: 'feat/dashboard-cache',
+    openedAt: '2026-08-31T08:05:00Z',
+    closedAt: null,
+    mergedAt: null,
+    updatedAt: '2026-09-01T01:20:00Z',
+  },
+];
+
+/**
+ * 개인 TODO — 실체는 성취(Goal)의 CHECKLIST 타입이다 (기획서 2.5).
+ * 화면 문구만 '개인 TODO'로 유지한다.
+ */
+export const MOCK_TODOS: TodoItem[] = [
+  {
+    id: 'todo-1',
+    title: '정보처리기사 실기 준비',
+    category: '학습',
+    createdAt: '2026.07.28',
+    status: 'IN_PROGRESS',
+    totalCount: 4,
+    doneCount: 2,
+  },
+  {
+    id: 'todo-2',
+    title: '포트폴리오 리뉴얼',
+    category: '사이드',
+    createdAt: '2026.07.12',
+    status: 'IN_PROGRESS',
+    totalCount: 5,
+    doneCount: 3,
+  },
+  {
+    id: 'todo-3',
+    title: '이직 준비 체크리스트',
+    category: '커리어',
+    createdAt: '2026.06.20',
+    status: 'ACHIEVED',
+    totalCount: 6,
+    doneCount: 6,
+  },
+  {
+    id: 'todo-4',
+    title: '알고리즘 300제',
+    category: '학습',
+    createdAt: '2026.05.02',
+    status: 'WANT',
+    totalCount: 3,
+    doneCount: 0,
+  },
+  {
+    id: 'todo-5',
+    title: '오픈소스 기여 5건',
+    category: '커리어',
+    createdAt: '2026.04.11',
+    status: 'HOLD',
+    totalCount: 5,
+    doneCount: 1,
+  },
+  {
+    id: 'todo-6',
+    title: 'AWS SAA 취득',
+    category: '자격증',
+    createdAt: '2026.03.19',
+    status: 'WANT',
+    totalCount: 4,
+    doneCount: 0,
+  },
+];
+
+export const MOCK_SOLO_SPACES: Record<
+  string,
+  { id: string; title: string; type: string; createdAt: string; memo: string; checklist: ChecklistItem[] }
+> = {
+  'todo-1': {
+    id: 'todo-1',
+    title: '정보처리기사 실기 준비',
+    type: '학습',
+    createdAt: '2026.07.28',
+    memo: '실기 시험 2026.10.18. 실무 알고리즘 파트가 약해서 매주 토요일 2시간씩 기출 위주로 정리하기. 정리한 내용은 블로그에 옮겨 적을 것.',
+    checklist: [
+      { id: 's1-1', content: '2024년 기출 3회분 풀이', state: 'done' },
+      { id: 's1-2', content: 'SQL 파트 요약 정리', state: 'done' },
+      { id: 's1-3', content: '실무 알고리즘 오답노트', state: 'open' },
+      { id: 's1-4', content: '모의고사 2회 응시', state: 'open' },
+    ],
+  },
+  'todo-2': {
+    id: 'todo-2',
+    title: '포트폴리오 리뉴얼',
+    type: '사이드',
+    createdAt: '2026.07.12',
+    memo: '전시관에 올린 프로젝트 3건을 기준으로 케이스 스터디 형식으로 다시 쓰기. 정산 자동화 API는 아키텍처 다이어그램 필수.',
+    checklist: [
+      { id: 's2-1', content: '정산 자동화 API 케이스 스터디 작성', state: 'done' },
+      { id: 's2-2', content: '친환경 리포트 회고 정리', state: 'done' },
+      { id: 's2-3', content: '아키텍처 다이어그램 3종 제작', state: 'done' },
+      { id: 's2-4', content: '도메인 연결 및 배포', state: 'open' },
+      { id: 's2-5', content: '지인 피드백 2명 반영', state: 'open' },
+    ],
+  },
+  'todo-3': {
+    id: 'todo-3',
+    title: '이직 준비 체크리스트',
+    type: '커리어',
+    createdAt: '2026.06.20',
+    memo: '6월 안에 서류까지 마무리하는 것이 목표. 완료했음.',
+    checklist: [
+      { id: 's3-1', content: '이력서 최신화', state: 'done' },
+      { id: 's3-2', content: '경력기술서 작성', state: 'done' },
+      { id: 's3-3', content: '기술 면접 예상질문 정리', state: 'done' },
+      { id: 's3-4', content: '레퍼런스 체크 요청', state: 'done' },
+      { id: 's3-5', content: '희망 회사 5곳 리스트업', state: 'done' },
+      { id: 's3-6', content: '서류 제출', state: 'done' },
+    ],
+  },
+  'todo-4': {
+    id: 'todo-4',
+    title: '알고리즘 300제',
+    type: '학습',
+    createdAt: '2026.05.02',
+    memo: '하루 3문제씩. 아직 시작 전.',
+    checklist: [
+      { id: 's4-1', content: '그래프 100제', state: 'open' },
+      { id: 's4-2', content: 'DP 100제', state: 'open' },
+      { id: 's4-3', content: '문자열 100제', state: 'open' },
+    ],
+  },
+  'todo-5': {
+    id: 'todo-5',
+    title: '오픈소스 기여 5건',
+    type: '커리어',
+    createdAt: '2026.04.11',
+    memo: '파티 일정과 겹쳐 잠시 보류. 9월 이후 재개 예정.',
+    checklist: [
+      { id: 's5-1', content: '기여할 저장소 3곳 조사', state: 'done' },
+      { id: 's5-2', content: 'good first issue 1건 해결', state: 'open' },
+      { id: 's5-3', content: '문서 개선 PR 1건', state: 'open' },
+      { id: 's5-4', content: '버그 픽스 PR 1건', state: 'open' },
+      { id: 's5-5', content: '기능 추가 PR 1건', state: 'open' },
+    ],
+  },
+  'todo-6': {
+    id: 'todo-6',
+    title: 'AWS SAA 취득',
+    type: '자격증',
+    createdAt: '2026.03.19',
+    memo: '인프라 설계를 제대로 이해하기 위해 준비할 예정.',
+    checklist: [
+      { id: 's6-1', content: '강의 완주', state: 'open' },
+      { id: 's6-2', content: '핸즈온 실습 10개', state: 'open' },
+      { id: 's6-3', content: '덤프 문제 2회독', state: 'open' },
+      { id: 's6-4', content: '시험 응시', state: 'open' },
+    ],
+  },
+};

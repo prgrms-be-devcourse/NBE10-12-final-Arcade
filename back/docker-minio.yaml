@@ -1,0 +1,35 @@
+# 파일 저장소. custom.storage.type=s3 로 개발할 때만 띄운다.
+# docker compose -f docker-minio.yaml up -d
+services:
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: arcade
+      MINIO_ROOT_PASSWORD: arcade123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  # 버킷을 만들고 익명 읽기를 허용한 뒤 종료된다.
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 arcade arcade123 &&
+      mc mb --ignore-existing local/arcade &&
+      mc anonymous set download local/arcade
+      "
+
+volumes:
+  minio-data:

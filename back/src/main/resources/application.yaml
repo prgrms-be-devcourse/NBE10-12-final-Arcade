@@ -1,0 +1,137 @@
+server:
+  shutdown: graceful
+  forward-headers-strategy: native
+spring:
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  config:
+    import: optional:file:.env[.properties]
+  application:
+    name: back
+  profiles:
+    default: dev
+    group:
+      local: compose
+      prod: compose
+  docker:
+    compose:
+      enabled: false
+  output:
+    ansi:
+      enabled: always
+  datasource:
+    hikari:
+      auto-commit: false
+  jpa:
+    open-in-view: false
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: ${SPRING__SECURITY__OAUTH2__CLIENT__REGISTRATION__GITHUB__CLIENT_ID}
+            client-secret: ${SPRING__SECURITY__OAUTH2__CLIENT__REGISTRATION__GITHUB__CLIENT_SECRET}
+            client-name: Github
+            scope: read:user, user:email
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/{action}/oauth2/code/{registrationId}"
+        provider:
+          github:
+            authorization-uri: https://github.com/login/oauth/authorize
+            user-name-attribute: id
+springdoc:
+  default-produces-media-type: application/json;charset=UTF-8
+management:
+  metrics:
+    tags:
+      application: ${MANAGEMENT_METRICS_TAGS_APPLICATION:${spring.application.name}}
+      environment: ${MANAGEMENT_METRICS_TAGS_ENVIRONMENT:local}
+      server: ${MANAGEMENT_METRICS_TAGS_SERVER:local}
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+custom:
+  frontend:
+    base-url: ${CUSTOM__FRONTEND__BASE_URL:/}
+  jwt:
+    secretKey: ${CUSTOM__JWT__SECRET_KEY:abcdefghijklmnopqrstuvwxyz1234567890abcdefghijklmnopqrstuvwxyz1234567890abcdefghijklmnopqrstuvwxyz1234567890}
+  accessToken:
+    expirationSeconds: ${CUSTOM__ACCESS_TOKEN__EXPIRATION_SECONDS:900}
+  password:
+    min-length: ${CUSTOM__PASSWORD__MIN_LENGTH:8}
+    max-length: ${CUSTOM__PASSWORD__MAX_LENGTH:64}
+    require-letter: ${CUSTOM__PASSWORD__REQUIRE_LETTER:true}
+    require-number: ${CUSTOM__PASSWORD__REQUIRE_NUMBER:true}
+    require-special-character: ${CUSTOM__PASSWORD__REQUIRE_SPECIAL_CHARACTER:true}
+    allow-whitespace: ${CUSTOM__PASSWORD__ALLOW_WHITESPACE:false}
+  password-reset:
+    expiration-seconds: ${CUSTOM__PASSWORD_RESET__EXPIRATION_SECONDS:1800}
+  rate-limit:
+    password-reset-request:
+      email-max-requests: ${CUSTOM__RATE_LIMIT__PASSWORD_RESET_REQUEST__EMAIL_MAX_REQUESTS:3}
+      ip-max-requests: ${CUSTOM__RATE_LIMIT__PASSWORD_RESET_REQUEST__IP_MAX_REQUESTS:10}
+      window-seconds: ${CUSTOM__RATE_LIMIT__PASSWORD_RESET_REQUEST__WINDOW_SECONDS:3600}
+  session:
+    # 최소안: 비밀번호 변경 후 refresh token만 폐기하고 access token은 최대 15분까지 유지한다.
+    access-token-invalidation: ${CUSTOM__SESSION__ACCESS_TOKEN_INVALIDATION:refresh-token-only}
+  mail:
+    # 로컬 테스트에서 Resend를 사용하려면 true와 RESEND_API_KEY를 함께 설정한다.
+    enabled: ${CUSTOM__MAIL__ENABLED:false}
+    from: ${CUSTOM__MAIL__FROM:Arcade <onboarding@resend.dev>}
+    resend:
+      api-key: ${RESEND_API_KEY:}
+  github:
+    app:
+      id: ${CUSTOM__GITHUB__APP__ID:}
+      slug: ${CUSTOM__GITHUB__APP__SLUG:}
+      privateKey: ${CUSTOM__GITHUB__APP__PRIVATE_KEY:}
+      clientId: ${CUSTOM__GITHUB__APP__CLIENT_ID:}
+      clientSecret: ${CUSTOM__GITHUB__APP__CLIENT_SECRET:}
+      userAuthorizationCallbackUrl: ${CUSTOM__GITHUB__APP__USER_AUTHORIZATION_CALLBACK_URL:}
+      tokenEncryptionKey: ${CUSTOM__GITHUB__APP__TOKEN_ENCRYPTION_KEY:}
+    webhook:
+      secret: ${CUSTOM__GITHUB__WEBHOOK__SECRET:}
+  curation:
+    enabled: ${CUSTOM__CURATION__ENABLED:false}
+    model: ${CUSTOM__CURATION__MODEL:gemini-3.5-flash-lite}
+    batch-cron: ${CUSTOM__CURATION__BATCH_CRON:0 5 10 * * *}
+    candidate-limit: ${CUSTOM__CURATION__CANDIDATE_LIMIT:15}
+    gemini:
+      api-key: ${CUSTOM__CURATION__GEMINI__API_KEY:}
+  storage:
+    # local = 서버 디스크. MinIO 없이 개발할 때 쓴다. s3 = S3/MinIO.
+    type: ${CUSTOM__STORAGE__TYPE:local}
+    max-file-size: 5MB
+    local:
+      path: ${CUSTOM__STORAGE__LOCAL__PATH:.uploads}
+      url-prefix: /uploads
+    s3:
+      endpoint: ${CUSTOM__STORAGE__S3__ENDPOINT:http://localhost:9000}
+      region: ${CUSTOM__STORAGE__S3__REGION:us-east-1}
+      bucket: ${CUSTOM__STORAGE__S3__BUCKET:arcade}
+      access-key: ${CUSTOM__STORAGE__S3__ACCESS_KEY:arcade}
+      secret-key: ${CUSTOM__STORAGE__S3__SECRET_KEY:arcade123}
+      public-url-prefix: ${CUSTOM__STORAGE__S3__PUBLIC_URL_PREFIX:}
+      path-style-access: ${CUSTOM__STORAGE__S3__PATH_STYLE_ACCESS:true}
+  admin-account:
+    email: ${CUSTOM__ADMIN_ACCOUNT__EMAIL:admin@test.com}
+    password: ${CUSTOM__ADMIN_ACCOUNT__PASSWORD:1234}
+    nickname: ${CUSTOM__ADMIN_ACCOUNT__NICKNAME:관리자}
+  notProdMembers:
+    - username: KAKAO__4707664779
+      apiKey: kakao__1
+      nickname: 장희성
+      profileImgUrl: http://img1.kakaocdn.net/thumb/R640x640.q70/?fname=http://t1.kakaocdn.net/account_images/default_profile.jpeg
+    - username: GOOGLE__103240209825008011930
+      apiKey: google__1
+      nickname: 몰입코딩(개발자 희성)
+      profileImgUrl: https://lh3.googleusercontent.com/a/ACg8ocKClYFeK9VXN6ROFvx-ddTpt0ep30M3TZwaKk1esQrbEtzuqoC2=s96-c
+    - username: NAVER__zHNGxuWh88o7a2XxKF2hy76PORvCx87TKtpVS_IHl6k
+      apiKey: naver__1
+      nickname: 희성
+      profileImgUrl: https://phinf.pstatic.net/contact/profile/blog/22/6/jangka44.jpg

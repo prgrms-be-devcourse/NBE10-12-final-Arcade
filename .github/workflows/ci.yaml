@@ -1,0 +1,292 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "back/**"
+      - "front/**"
+      - "infra/**"
+      - "docker-compose*.yml"
+      - ".github/scripts/**"
+      - ".github/workflows/ci.yaml"
+      - ".github/workflows/infra-cd.yaml"
+  push:
+    branches: [main, develop]
+    paths:
+      - "back/**"
+      - "front/**"
+      - "infra/**"
+      - "docker-compose*.yml"
+      - ".github/scripts/**"
+      - ".github/workflows/ci.yaml"
+      - ".github/workflows/infra-cd.yaml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  pull-requests: read
+  contents: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'back/**'
+            frontend:
+              - 'front/**'
+
+  backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-24.04
+    permissions: { pull-requests: write, contents: read, issues: write }
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: back
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          java-version: "25"
+          distribution: temurin
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          validate-wrappers: true
+
+      - name: jacoco coverage
+        run: ./gradlew check
+
+      - name: Comment coverage table
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execFileSync } = require('child_process');
+
+            const MARKER = '<!-- backend-coverage-table -->';
+            const table = execFileSync('python3', [
+              '.github/scripts/coverage_table.py',
+              'back/build/reports/jacoco/test/jacocoTestReport.xml',
+            ]).toString();
+
+            const sha = context.payload.pull_request.head.sha;
+            const repo = `${context.repo.owner}/${context.repo.repo}`;
+            const when = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+
+            const body = `${MARKER}\n## 📊 백엔드 커버리지\n\n${table}\n`
+              + `\n> 라인 80% · 브랜치 70% 기준. 낮은 패키지가 위에 옵니다.\n`
+              + `>\n`
+              + `> 기준 커밋 [\`${sha.slice(0, 7)}\`](https://github.com/${repo}/commit/${sha})`
+              + ` · [실행 로그](https://github.com/${repo}/actions/runs/${context.runId})`
+              + ` · ${when} 갱신`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(
+              c => c.user.type === 'Bot' && c.body.includes(MARKER)
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Upload test report
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: backend-test-report
+          path: back/build/reports/tests/test/
+          retention-days: 1
+
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: front
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up pnpm
+        uses: pnpm/setup@v2
+        with:
+          version: "11"
+          runtime: node@22
+          cache: true
+          cache-dependency-path: front/pnpm-lock.yaml
+          package-json-file: front/package.json
+          install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: front
+
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: front/.next/cache
+          key: next-${{ hashFiles('front/pnpm-lock.yaml') }}-${{ hashFiles('front/**/*.[jt]s', 'front/**/*.[jt]sx') }}
+          restore-keys: |
+            next-${{ hashFiles('front/pnpm-lock.yaml') }}-
+            next-
+
+      - name: Lint
+        run: pnpm exec eslint .
+
+      - name: Type check
+        run: |
+          pnpm exec next typegen
+          pnpm exec tsc --noEmit
+
+      - name: Build
+        run: pnpm build
+
+  # 이미지는 main·develop 이 갱신될 때만 만든다. PR 에서는 안 만든다.
+  # 테스트가 실패하면 건너뛴다 — needs 만으로는 "건너뜀"과 "실패"가 안 갈린다.
+  build-backend:
+    needs: [changes, backend]
+    if: >
+      !cancelled() && !failure()
+      && github.event_name == 'push'
+      && needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 태그와 저장소 이름
+        id: meta
+        run: |
+          sha=$(git rev-parse --short HEAD)
+          repo="ghcr.io/$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
+          {
+            echo "sha=$sha"
+            echo "repo=$repo"
+            echo "tags<<EOF"
+            echo "$repo/backend:$sha"
+            [ "$GITHUB_REF_NAME" = "develop" ] && echo "$repo/backend:latest"
+            [ "$GITHUB_REF_NAME" = "main" ] && echo "$repo/backend:prod"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v4.3.0
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 백엔드 이미지
+        uses: docker/build-push-action@v7.3.0
+        with:
+          context: ./back
+          # 서버가 amd64 다. 빼면 러너 아키텍처로 만들어져 서버에서
+          # exec format error 로 죽는다 — 빌드는 성공해서 배포해 봐야 드러난다.
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            APP_VERSION=${{ steps.meta.outputs.sha }}
+          cache-from: type=gha,scope=backend
+          # mode=max 여야 한다. 기본(min)은 최종 이미지에 들어간 레이어만 담는데
+          # Gradle 컴파일이 중간 스테이지에 있고 결과물만 COPY --from 으로 온다.
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: 만든 태그
+        run: |
+          echo "${{ steps.meta.outputs.tags }}"
+
+  build-frontend:
+    needs: [changes, frontend]
+    if: >
+      !cancelled() && !failure()
+      && github.event_name == 'push'
+      && needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 태그와 저장소 이름
+        id: meta
+        run: |
+          sha=$(git rev-parse --short HEAD)
+          repo="ghcr.io/$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
+          {
+            echo "sha=$sha"
+            echo "repo=$repo"
+            echo "tags<<EOF"
+            echo "$repo/frontend:$sha"
+            [ "$GITHUB_REF_NAME" = "develop" ] && echo "$repo/frontend:latest"
+            [ "$GITHUB_REF_NAME" = "main" ] && echo "$repo/frontend:prod"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v4.3.0
+
+      - uses: docker/login-action@v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 프론트 이미지
+        uses: docker/build-push-action@v7.3.0
+        with:
+          context: ./front
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          # 빌드 인자는 docker history 에 남고, 패키지가 public 이라
+          # 로그인 없이 보인다. 시크릿 성격의 인자를 여기 넣지 않는다.
+          build-args: |
+            NEXT_PUBLIC_USE_MOCK=false
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+      - name: 만든 태그
+        run: |
+          echo "${{ steps.meta.outputs.tags }}"

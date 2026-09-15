@@ -1,0 +1,258 @@
+name: PR Agent
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main, develop]
+    paths-ignore:
+      - "**/*.md"
+      - "**/*.png"
+      - "**/*.jpg"
+      - "**/*.jpeg"
+      - "**/*.svg"
+      - "**/*.ico"
+      - "**/*.pdf"
+      - "docs/**"
+      - ".github/**"
+      - ".githooks/**"
+  # PR에 아래 명령을 달면 다시 검사한다. paths-ignore는 적용되지 않는다.
+  #   /review          인라인 코멘트
+  #   /review inline   인라인 코멘트
+  #   /review report   보고서 갱신 (모델 호출 없음)
+  issue_comment:
+    types: [created]
+
+jobs:
+  context:
+    if: >-
+      (github.event_name == 'pull_request'
+        && github.event.sender.type != 'Bot'
+        && github.event.pull_request.head.repo.full_name == github.repository
+        && (github.event.pull_request.draft == true || github.event.action != 'synchronize'))
+        || (github.event_name == 'issue_comment'
+        && github.event.issue.pull_request
+        && github.event.comment.user.type != 'Bot'
+        && startsWith(github.event.comment.body, '/review')
+        && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      run: ${{ steps.pr.outputs.run }}
+      number: ${{ steps.pr.outputs.number }}
+      base_sha: ${{ steps.pr.outputs.base_sha }}
+      head_sha: ${{ steps.pr.outputs.head_sha }}
+      mode: ${{ steps.pr.outputs.mode }}
+      same_repo: ${{ steps.pr.outputs.same_repo }}
+    steps:
+      - name: Resolve PR
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          MODE="inline"
+          if [ "$EVENT_NAME" = "issue_comment" ]; then
+            case "$(printf '%s' "$COMMENT_BODY" | tr -d '\r' | sed -e 's/[[:space:]]*$//')" in
+              "/review" | "/review inline") ;;
+              "/review report") MODE="report" ;;
+              *)
+                echo "run=false" >> "$GITHUB_OUTPUT"
+                echo "인식하지 못한 명령입니다. /review, /review report, /review inline 중 하나여야 합니다."
+                exit 0
+                ;;
+            esac
+          elif [ "$EVENT_ACTION" = "ready_for_review" ]; then
+            MODE="report"
+          fi
+
+          gh pr view "$NUMBER" --repo "$REPO" \
+            --json number,baseRefOid,headRefOid,isDraft,headRepository > pr.json
+
+          {
+            echo "run=true"
+            echo "number=$(jq -r .number pr.json)"
+            echo "base_sha=$(jq -r .baseRefOid pr.json)"
+            echo "head_sha=$(jq -r .headRefOid pr.json)"
+            echo "mode=$MODE"
+            echo "same_repo=$(jq -r --arg r "$REPO" '.headRepository.nameWithOwner == $r' pr.json)"
+          } >> "$GITHUB_OUTPUT"
+
+  review:
+    needs: context
+    if: needs.context.outputs.run == 'true' && needs.context.outputs.same_repo == 'true'
+    timeout-minutes: 6
+    concurrency:
+      group: ${{ github.workflow }}-${{ needs.context.outputs.number }}
+      cancel-in-progress: true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Mark running
+        id: status
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ needs.context.outputs.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TAG='<!-- ai-code-review-status -->'
+          BODY=$(printf '%s\n🔄 리뷰 중입니다 · [실행 보기](%s)' "$TAG" "$RUN_URL")
+          ID=$(gh api "repos/$REPO/issues/$NUMBER/comments" --paginate \
+                 --jq ".[] | select(.user.type == \"Bot\") | select(.body | contains(\"$TAG\")) | .id" | head -1)
+          if [ -n "$ID" ]; then
+            gh api --method PATCH "repos/$REPO/issues/comments/$ID" -f body="$BODY" > /dev/null
+          else
+            ID=$(gh api --method POST "repos/$REPO/issues/$NUMBER/comments" -f body="$BODY" --jq .id)
+          fi
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        if: needs.context.outputs.mode == 'inline'
+        uses: actions/checkout@v5
+        with:
+          # PR이 바꾼 스크립트를 실행하지 않고 기준 브랜치의 검증된 스크립트를 사용한다.
+          ref: ${{ needs.context.outputs.base_sha }}
+          fetch-depth: 0
+
+      - name: Get Filtered Diff
+        if: needs.context.outputs.mode == 'inline'
+        env:
+          BASE_SHA: ${{ needs.context.outputs.base_sha }}
+          HEAD_SHA: ${{ needs.context.outputs.head_sha }}
+        run: |
+          git fetch --no-tags origin "$HEAD_SHA"
+          git diff "$BASE_SHA...$HEAD_SHA" -- . \
+            ':(exclude)*.lock' \
+            ':(exclude)package-lock.json' \
+            ':(exclude)yarn.lock' \
+            ':(exclude)pnpm-lock.yaml' \
+            ':(exclude)*.png' \
+            ':(exclude)*.jpg' \
+            ':(exclude)*.jpeg' \
+            ':(exclude)*.svg' \
+            ':(exclude)*.ico' \
+            ':(exclude)*.pdf' \
+            ':(exclude)back/build/*' \
+            ':(exclude)back/target/*' \
+            ':(exclude)back/.gradle/*' \
+            ':(exclude)back/out/*' \
+            ':(exclude)back/.idea/*' \
+            ':(exclude)back/gradle/*' \
+            ':(exclude)back/gradlew' \
+            ':(exclude)back/gradlew.bat' \
+            ':(exclude)back/node_modules/*' \
+            ':(exclude)front/node_modules/*' \
+            ':(exclude)front/.pnpm-store/*' \
+            ':(exclude)front/dist/*' \
+            ':(exclude)front/build/*' \
+            ':(exclude)front/.next/*' \
+            ':(exclude)front/.turbo/*' \
+            ':(exclude)front/public/*' \
+            ':(exclude)node_modules/*' \
+            ':(exclude).pnpm-store/*' \
+            ':(exclude)docs/**' \
+            > diff.txt
+          git diff --name-only "$BASE_SHA...$HEAD_SHA" -- . \
+            ':(exclude)*.lock' \
+            ':(exclude)package-lock.json' \
+            ':(exclude)yarn.lock' \
+            ':(exclude)pnpm-lock.yaml' \
+            ':(exclude)*.png' \
+            ':(exclude)*.jpg' \
+            ':(exclude)*.jpeg' \
+            ':(exclude)*.svg' \
+            ':(exclude)*.ico' \
+            ':(exclude)*.pdf' \
+            ':(exclude)back/build/*' \
+            ':(exclude)back/target/*' \
+            ':(exclude)back/.gradle/*' \
+            ':(exclude)back/out/*' \
+            ':(exclude)back/.idea/*' \
+            ':(exclude)back/gradle/*' \
+            ':(exclude)back/gradlew' \
+            ':(exclude)back/gradlew.bat' \
+            ':(exclude)back/node_modules/*' \
+            ':(exclude)front/node_modules/*' \
+            ':(exclude)front/.pnpm-store/*' \
+            ':(exclude)front/dist/*' \
+            ':(exclude)front/build/*' \
+            ':(exclude)front/.next/*' \
+            ':(exclude)front/.turbo/*' \
+            ':(exclude)front/public/*' \
+            ':(exclude)node_modules/*' \
+            ':(exclude).pnpm-store/*' \
+            ':(exclude)docs/**' \
+            > files.txt
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        if: needs.context.outputs.mode == 'inline'
+        run: python -m pip install google-genai==2.22.0
+
+      - name: Test review policy
+        if: needs.context.outputs.mode == 'inline'
+        run: python -m unittest discover -s .github/scripts -p 'test_*.py'
+
+      - name: Run Gemini Review
+        if: needs.context.outputs.mode == 'inline'
+        env:
+          MODEL_API_KEY: ${{ secrets.MODEL_API_KEY }}
+          # 1그룹 무작위 → 인접 모델 → 2그룹 무작위 순으로 최대 3회 시도한다.
+          MODEL_GROUP_1: ${{ vars.MODEL_GROUP_1 || 'gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash' }}
+          MODEL_GROUP_2: ${{ vars.MODEL_GROUP_2 || 'gemini-3.5-flash-lite' }}
+          MODEL_TIMEOUT_MS: ${{ vars.MODEL_TIMEOUT_MS || '75000' }}
+          MAX_INPUT_CHARS: ${{ vars.MODEL_MAX_INPUT_CHARS || '120000' }}
+          MAX_OUTPUT_TOKENS: ${{ vars.MODEL_MAX_OUTPUT_TOKENS || '8192' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ needs.context.outputs.number }}
+          REPO: ${{ github.repository }}
+          REVIEW_MODE: ${{ needs.context.outputs.mode }}
+          INCLUDE_FILE_CONTENTS: "false"
+        run: |
+          PR_TITLE=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json title --jq .title)
+          PR_BODY=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json body --jq .body)
+          export PR_TITLE PR_BODY
+          python .github/scripts/ai_review.py
+
+      - name: Checkout scripts
+        if: needs.context.outputs.mode == 'report'
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.context.outputs.base_sha }}
+          sparse-checkout: .github/scripts
+
+      - name: Render Report
+        if: needs.context.outputs.mode == 'report'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ needs.context.outputs.number }}
+          REPO: ${{ github.repository }}
+        run: python .github/scripts/pr_report.py
+
+      - name: Clear status
+        if: always() && steps.status.outputs.id != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ID: ${{ steps.status.outputs.id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            gh api --method DELETE "repos/$REPO/issues/comments/$ID"
+          else
+            TAG='<!-- ai-code-review-status -->'
+            BODY=$(printf '%s\n⚠️ 리뷰 실패 (${{ job.status }}) · [로그 보기](%s)' "$TAG" "$RUN_URL")
+            gh api --method PATCH "repos/$REPO/issues/comments/$ID" -f body="$BODY" > /dev/null
+          fi

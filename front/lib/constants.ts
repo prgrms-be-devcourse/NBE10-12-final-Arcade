@@ -1,0 +1,152 @@
+import type {
+  ContestFormat,
+  ContestTag,
+  GoalStatus,
+  GoalType,
+  PartyStatus,
+  PositionType,
+  TopicType,
+} from './types';
+
+/**
+ * 도메인 enum 의 화면 표기 문구와 선택지 목록.
+ *
+ * enum 값(영문)은 서버와 주고받는 값이고, 화면에는 항상 여기 라벨을 쓴다.
+ * 라벨이 바뀌어도 API 계약은 그대로 유지된다.
+ */
+
+/* ---------- 포지션 (기획서 2.1) ---------- */
+
+export const POSITION_TYPES: readonly PositionType[] = ['BACK', 'FRONT', 'UIUX', 'PM'];
+
+export const POSITION_LABELS: Record<PositionType, string> = {
+  BACK: '백엔드',
+  FRONT: '프론트엔드',
+  UIUX: 'UI/UX',
+  PM: '기획·PM',
+};
+
+export const positionLabel = (type: PositionType) => POSITION_LABELS[type];
+
+/**
+ * 서버가 준 포지션 문자열을 화면 타입으로 옮긴다.
+ * 모르는 값(신규 enum·레거시 데이터)은 BACK 으로 둔다 — POSITION_LABELS 조회가 undefined 로 깨지지 않도록.
+ */
+export function toPositionType(value: string | undefined | null): PositionType {
+  return POSITION_TYPES.includes(value as PositionType) ? (value as PositionType) : 'BACK';
+}
+
+/* ---------- 화면 설정 ---------- */
+
+/**
+ * 테마를 저장하는 localStorage 키.
+ *
+ * 이 값을 하이드레이션 전 인라인 스크립트(app/layout.tsx)가 읽어야 해서 여기 둔다 —
+ * 'use client' 모듈에 두면 서버 컴포넌트에서는 클라이언트 참조 프록시가 잡혀
+ * 스크립트에 undefined 가 박힌다(실제로 그랬다).
+ */
+export const THEME_STORAGE_KEY = 'crewon-theme';
+
+/* ---------- 목록 한 쪽 크기 ---------- */
+
+/**
+ * 서버에 그대로 넘기는 페이지 크기.
+ *
+ * 화면 컴포넌트가 아니라 여기 두는 이유는, 목록을 처음 읽는 쪽이 서버 컴포넌트라서다 —
+ * 'use client' 모듈에서 값을 import 하면 서버 쪽에서는 클라이언트 참조 프록시가 잡혀
+ * 숫자가 아닌 값이 쿼리에 실린다(size=[object Object] → 400-1).
+ */
+export const TODO_PAGE_SIZE = 5;
+export const MESSAGE_PAGE_SIZE = 20;
+
+/* ---------- 파티 주제 유형 (기획서 3.5) ---------- */
+
+export const TOPIC_TYPES: readonly TopicType[] = ['CONTEST', 'PROJECT', 'STUDY', 'ETC'];
+
+export const TOPIC_TYPE_LABELS: Record<TopicType, string> = {
+  CONTEST: '대회',
+  PROJECT: '프로젝트',
+  STUDY: '스터디',
+  ETC: '기타',
+};
+
+/* ---------- 대회 형식 · 분야 (기획서 2.4, 3.5) ---------- */
+
+export const CONTEST_FORMATS: readonly ContestFormat[] = ['COMPETITION', 'HACKATHON'];
+
+export const CONTEST_FORMAT_LABELS: Record<ContestFormat, string> = {
+  COMPETITION: '공모전',
+  HACKATHON: '해커톤',
+};
+
+export const CONTEST_TAGS: readonly ContestTag[] = [
+  '데이터',
+  '환경',
+  '핀테크',
+  'UX',
+  'AI',
+  '지역경제',
+  '기타',
+];
+
+/* ---------- 파티 상태 (기획서 2.1) ---------- */
+
+export const PARTY_STATUS_LABELS: Record<PartyStatus, string> = {
+  RECRUITING: '모집중',
+  IN_PROGRESS: '진행중',
+  COMPLETED: '완료',
+};
+
+/* ---------- 성취 (기획서 3.6) ---------- */
+
+export const GOAL_TYPES: readonly GoalType[] = ['PROJECT', 'CONTEST', 'CHECKLIST'];
+
+export const GOAL_TYPE_LABELS: Record<GoalType, string> = {
+  PROJECT: '프로젝트',
+  CONTEST: '수상·대회',
+  CHECKLIST: '체크리스트',
+};
+
+/**
+ * 개인 TODO 분류 (백엔드 TodoCategory).
+ * 목 데이터는 아직 한글 값을 그대로 쓰고 있어, 맵에 없으면 받은 값을 그대로 보여준다.
+ */
+export const TODO_CATEGORY_LABELS: Record<string, string> = {
+  STUDY: '학습',
+  SIDE: '사이드',
+  CAREER: '커리어',
+  CERTIFICATE: '자격증',
+  ETC: '기타',
+};
+
+export const todoCategoryLabel = (category: string) => TODO_CATEGORY_LABELS[category] ?? category;
+
+export const GOAL_STATUSES: readonly GoalStatus[] = ['WANT', 'IN_PROGRESS', 'HOLD', 'ACHIEVED'];
+
+export const GOAL_STATUS_LABELS: Record<GoalStatus, string> = {
+  WANT: '하고싶음',
+  IN_PROGRESS: '진행중',
+  HOLD: '보류',
+  ACHIEVED: '달성',
+};
+
+/** 상태 전이 규칙 — ACHIEVED 는 종료 상태 (기획서 3.6) */
+export const GOAL_STATUS_TRANSITIONS: Record<GoalStatus, readonly GoalStatus[]> = {
+  WANT: ['IN_PROGRESS', 'ACHIEVED'],
+  IN_PROGRESS: ['HOLD', 'ACHIEVED'],
+  HOLD: ['IN_PROGRESS', 'ACHIEVED'],
+  ACHIEVED: [],
+};
+
+export const GOAL_SOURCE_LABELS = {
+  PLATFORM_VERIFIED: '플랫폼 자동기록',
+  SELF_REPORTED: '자기신고',
+} as const;
+
+/* ---------- 파티 분야 ---------- */
+
+/**
+ * 기획서 3.5 는 PARTY 에 분야 필드를 두지 않지만,
+ * 목업의 게시판 필터를 유지하기 위해 잠정적으로 남겨둔 값이다. (팀 확인 후 정리 예정)
+ */
+export const PARTY_FIELDS = ['웹 개발', '게임 개발', '앱 개발', '기타'] as const;

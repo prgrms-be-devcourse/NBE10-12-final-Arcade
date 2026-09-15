@@ -1,0 +1,174 @@
+package com.back.domain.contest.contest.service;
+
+import com.back.domain.contest.contest.dtos.ContestResponseDto;
+import com.back.domain.contest.contest.entity.Contest;
+import com.back.domain.contest.contest.entity.ContestFormat;
+import com.back.domain.contest.contest.entity.ContestPost;
+import com.back.domain.contest.contest.entity.ContestSortOption;
+import com.back.domain.contest.contest.entity.ContestTag;
+import com.back.domain.contest.contest.repository.ContestPostRepository;
+import com.back.domain.contest.contest.repository.ContestRepository;
+import com.back.domain.interaction.bookmark.service.BookmarkInteractionPort;
+import com.back.domain.interaction.like.entity.TargetType;
+import com.back.domain.interaction.like.service.LikeInteractionPort;
+import com.back.domain.member.member.entity.Member;
+import com.back.domain.party.application.repository.PartyMemberRepository;
+import com.back.domain.party.party.dtos.PartyListItemDto;
+import com.back.domain.party.party.entity.Party;
+import com.back.domain.party.party.repository.PartyContestLookupPort;
+import com.back.domain.party.position.entity.PartyStatus;
+import com.back.domain.ranking.entity.FeaturedRanking;
+import com.back.domain.ranking.repository.FeaturedRankingRepository;
+import com.back.global.storage.FileStorage;
+import com.back.global.storage.ImageUploadValidator;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class ContestService {
+
+    private final ContestRepository contestRepository;
+    private final ContestPostRepository contestPostRepository;
+    private final LikeInteractionPort likeInteractionPort;
+    private final BookmarkInteractionPort bookmarkInteractionPort;
+    private final FeaturedRankingRepository featuredRankingRepository;
+    private final PartyContestLookupPort partyContestLookupPort;
+    private final PartyMemberRepository partyMemberRepository;
+    private final FileStorage fileStorage;
+    private final ImageUploadValidator imageUploadValidator;
+
+    private static final String COVER_IMAGE_DIRECTORY = "contest";
+
+    public long count() {
+        return contestRepository.count();
+    }
+
+    /** 저장만 하고 URL 을 돌려준다. 대회 글에 반영하는 건 등록/수정 요청의 몫이다. */
+    public String uploadCoverImage(MultipartFile file) {
+        imageUploadValidator.validate(file);
+
+        return fileStorage.upload(file, COVER_IMAGE_DIRECTORY);
+    }
+
+    @Transactional
+    public ContestResponseDto write(Member actor, String title, ContestFormat format, ContestTag contestTag, LocalDate applicationPeriodStart, LocalDate applicationPeriodEnd, String description, String linkUrl, String imageUrl)
+    {
+        Contest contest = new Contest(actor.getId(), title, format, contestTag, applicationPeriodStart, applicationPeriodEnd);
+        contestRepository.save(contest);
+        ContestPost contestPost = new ContestPost(contest, description, linkUrl, imageUrl);
+        contestPostRepository.save(contestPost);
+        return new ContestResponseDto(contest, contestPost);
+    }
+
+    public Page<ContestResponseDto> list(ContestFormat format, ContestTag contestTag, ContestSortOption sortOption, Pageable pageable) {
+        Pageable unsorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+        ContestSortOption effectiveSortOption = sortOption != null ? sortOption : ContestSortOption.LATEST;
+
+        Page<ContestPost> posts = switch (effectiveSortOption) {
+            case LATEST -> contestPostRepository.searchOrderByLatest(format, contestTag, unsorted);
+            case POPULAR -> contestPostRepository.searchOrderByPopular(format, contestTag, unsorted);
+            case DEADLINE -> contestPostRepository.searchOrderByDeadline(format, contestTag, unsorted);
+        };
+
+        return posts.map(contestPost -> new ContestResponseDto(contestPost.getContest(), contestPost));
+    }
+
+    public List<ContestResponseDto> getTop3() {
+        List<FeaturedRanking> rankings = featuredRankingRepository
+                .findAllByTargetTypeOrderByRankAsc(TargetType.CONTEST);
+
+        List<ContestPost> posts;
+        if (rankings.isEmpty()) {
+            posts = contestPostRepository.searchOrderByPopular(null, null, PageRequest.of(0, 3)).getContent();
+        } else {
+            List<Long> rankedContestIds = rankings.stream().map(FeaturedRanking::getTargetId).toList();
+            Map<Long, ContestPost> postByContestId = contestPostRepository.findAllByContestIdIn(rankedContestIds).stream()
+                    .collect(Collectors.toMap(cp -> cp.getContest().getId(), cp -> cp));
+
+            posts = rankedContestIds.stream()
+                    .map(postByContestId::get)
+                    .filter(Objects::nonNull)
+                    .toList();
+        }
+
+        return posts.stream().map(cp -> new ContestResponseDto(cp.getContest(), cp)).toList();
+    }
+
+    @Transactional
+    public Optional<ContestResponseDto> getDetail(long contestId, boolean countView, Member actor) {
+        return contestRepository.findById(contestId)
+                .map(contest -> {
+                    ContestPost contestPost = contestPostRepository.findByContest(contest).orElse(null);
+
+                    if (contestPost != null && countView) {
+                        contestPostRepository.increaseViewCount(contestId);
+                        contestPost = contestPostRepository.findByContest(contest).orElseThrow();
+                    }
+
+                    List<PartyListItemDto> relatedParties = findRelatedParties(contestId);
+
+                    boolean bookmarkedByMe = !bookmarkInteractionPort
+                            .findBookmarkedTargetIds(actor, TargetType.CONTEST, List.of(contestId)).isEmpty();
+                    boolean likedByMe = !likeInteractionPort
+                            .findLikedTargetIds(actor, TargetType.CONTEST, List.of(contestId)).isEmpty();
+
+                    return new ContestResponseDto(contest, contestPost)
+                            .withRelatedParties(relatedParties.size(), relatedParties)
+                            .withMyInteractions(bookmarkedByMe, likedByMe);
+                });
+    }
+
+    private List<PartyListItemDto> findRelatedParties(long contestId) {
+        List<Party> relatedPartyEntities = partyContestLookupPort
+                .findByTargetContestId(contestId, PartyStatus.RECRUITING, PartyStatus.IN_PROGRESS);
+        Map<Long, Long> applicantCounts = partyMemberRepository.countApplicantsByPartyIds(
+                relatedPartyEntities.stream().map(Party::getId).toList());
+
+        return relatedPartyEntities.stream()
+                .map(party -> new PartyListItemDto(party, applicantCounts.getOrDefault(party.getId(), 0L)))
+                .toList();
+    }
+
+    @Transactional
+    public ContestResponseDto modify(long contestId, String title, String description, LocalDate start, LocalDate end, String linkUrl, String imageUrl) {
+        Contest contest = contestRepository.findById(contestId).orElseThrow();
+        ContestPost contestPost = contestPostRepository.findByContest(contest).orElseThrow();
+        contest.modify(title,start, end);
+        contestPost.modify(description, linkUrl, imageUrl);
+        return new ContestResponseDto(contest, contestPost);
+    }
+    @Transactional
+    public void deletePost(long contestId) {
+        Contest contest = contestRepository.findById(contestId).orElseThrow();
+        contestPostRepository.findByContest(contest).ifPresent(contestPostRepository::delete);
+    }
+
+    @Transactional
+    public void deleteContestAndInteractions(long contestId) {
+        deletePost(contestId);
+        likeInteractionPort.deleteAllLikesForTarget(TargetType.CONTEST, contestId);
+        bookmarkInteractionPort.deleteAllBookmarksForTarget(TargetType.CONTEST, contestId);
+    }
+
+    //00시 기준으로 모집 기한이 지난 대회글(ContestPost) 스케줄러 조회 후 삭제
+    @Scheduled(cron = "0 0 0 * * *")
+    @Transactional
+    public void deleteExpiredPosts() {
+        contestPostRepository.deleteAllByContest_ApplicationPeriodEndBefore(LocalDate.now());
+    }
+}

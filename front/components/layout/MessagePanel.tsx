@@ -1,0 +1,169 @@
+'use client';
+
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Icon } from '@/components/icons/Icon';
+import { fetchMessages, markMessagesRead, openMessage as readMessage } from '@/lib/api';
+import { useRefreshOnVisible } from '@/lib/hooks/useRefreshOnVisible';
+import type { DirectMessage } from '@/lib/types';
+
+/** 네비게이션 우측 쪽지 드롭다운 */
+/** 드롭다운에 미리 보여줄 건수 */
+const PREVIEW_SIZE = 20;
+
+export function MessagePanel() {
+  const router = useRouter();
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [messages, setMessages] = useState<DirectMessage[]>([]);
+
+  /**
+   * 받은 쪽지 다시 읽기. 배경 갱신이 실패하면 화면에 있던 것을 그대로 둔다.
+   *
+   * 드롭다운은 미리보기라 첫 쪽만 받는다 — 전체 목록과 쪽 넘기기는 마이페이지 쪽지함이 맡는다.
+   */
+  const load = useCallback(() => {
+    fetchMessages({ size: PREVIEW_SIZE })
+      .then(({ items }) => setMessages(items))
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // 알림 패널과 같은 규칙 — 창을 다시 볼 때 읽고, 열어둔 동안은 건너뛴다
+  useRefreshOnVisible(
+    useCallback(() => {
+      if (!open) load();
+    }, [open, load]),
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (event: MouseEvent) => {
+      if (!wrapRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('click', onClick);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('click', onClick);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  const unread = messages.filter((message) => message.unread).length;
+
+  /**
+   * PATCH /members/me/messages — 서버에 '전체 읽음' 이 따로 없어서 안 읽은 것들의 id 를 모아 보낸다.
+   * 먼저 화면을 바꾸고, 실패하면 되돌린다.
+   */
+  const markAll = async () => {
+    const unreadIds = messages.filter((message) => message.unread).map((message) => message.id);
+    if (unreadIds.length === 0) return;
+
+    const previous = messages;
+    setMessages((prev) => prev.map((message) => ({ ...message, unread: false })));
+    try {
+      await markMessagesRead(unreadIds);
+    } catch {
+      setMessages(previous);
+    }
+  };
+
+  /** 한 건을 열 때는 단건 조회로 읽음 처리한다 — 서버가 수신자 조회 시점에 읽음으로 바꾼다 */
+  const openMessage = async (id: string) => {
+    setOpen(false);
+    router.push('/mypage?tab=messages');
+
+    // 이미 읽은 쪽지는 다시 보내지 않는다. 읽음 처리가 실패해도 이동은 그대로 둔다
+    if (!messages.find((message) => message.id === id)?.unread) return;
+
+    const previous = messages;
+    setMessages((prev) =>
+      prev.map((message) => (message.id === id ? { ...message, unread: false } : message)),
+    );
+    try {
+      await readMessage(id);
+    } catch {
+      setMessages(previous);
+    }
+  };
+
+  return (
+    <div className="msg-wrap" ref={wrapRef}>
+      <button
+        type="button"
+        className={open ? 'icon-btn is-open' : 'icon-btn'}
+        aria-label="쪽지함"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls="message-panel"
+        onClick={(event) => {
+          event.stopPropagation();
+          // 열 때 한 번 읽어둔다
+          if (!open) load();
+          setOpen((value) => !value);
+        }}
+      >
+        <Icon name="i-mail" />
+        {unread > 0 ? <span className="notif-badge">{unread > 9 ? '9+' : unread}</span> : null}
+      </button>
+
+      {open ? (
+        <div id="message-panel" className="notif-panel msg-panel" role="dialog" aria-label="쪽지함">
+          <div className="notif-panel-head">
+            <h4>도착한 쪽지</h4>
+            <div className="notif-panel-actions">
+              <button type="button" className="notif-action-btn" onClick={markAll}>
+                전체 읽음
+              </button>
+            </div>
+          </div>
+
+          <div className="notif-list">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className="msg-drop-item"
+                data-unread={message.unread ? 'true' : 'false'}
+                role="button"
+                tabIndex={0}
+                onClick={() => openMessage(message.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') openMessage(message.id);
+                }}
+              >
+                <span className="msg-drop-avatar">{message.initial}</span>
+                <div className="msg-drop-body">
+                  <div className="msg-drop-top">
+                    <span className="msg-drop-name">{message.from}</span>
+                    <span className="msg-drop-time">{message.time}</span>
+                  </div>
+                  <p className="msg-drop-text">{message.text}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          {messages.length === 0 ? <p className="notif-empty">새 쪽지가 없어요.</p> : null}
+
+          <div className="msg-panel-foot">
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => {
+                setOpen(false);
+                router.push('/mypage?tab=messages');
+              }}
+            >
+              쪽지함 전체보기
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}

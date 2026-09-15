@@ -1,0 +1,19 @@
+# Docker Compose가 주입해야 하는 백킹 서비스 설정이다.
+# local·prod 프로필 그룹이 이 프로필을 함께 활성화한다.
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVERCLASSNAME:org.postgresql.Driver}
+    hikari:
+      maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE:10}
+      connection-timeout: ${SPRING_DATASOURCE_HIKARI_CONNECTIONTIMEOUT:30000}
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:redis}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      password: ${SPRING_DATA_REDIS_PASSWORD}
+custom:
+  cors:
+    allowed-origins: ${CUSTOM__CORS__ALLOWED_ORIGINS}

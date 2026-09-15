@@ -1,0 +1,431 @@
+package com.back.domain.party.party.service;
+
+import com.back.domain.contest.contest.entity.Contest;
+import com.back.domain.contest.contest.repository.ContestLookupPort;
+import com.back.domain.interaction.bookmark.service.BookmarkInteractionPort;
+import com.back.domain.interaction.like.entity.TargetType;
+import com.back.domain.interaction.like.service.LikeInteractionPort;
+import com.back.domain.member.member.entity.Member;
+import com.back.domain.member.member.entity.PositionType;
+import com.back.domain.party.application.entity.PartyMemberStatus;
+import com.back.domain.party.application.repository.PartyMemberRepository;
+import com.back.domain.party.party.dtos.MemberPartyHistoryDto;
+import com.back.domain.party.party.dtos.PartyDto;
+import com.back.domain.party.party.dtos.PartyListItemDto;
+import com.back.domain.party.party.entity.Party;
+import com.back.domain.party.party.entity.PartySortOption;
+import com.back.domain.party.party.entity.PartyTag;
+import com.back.domain.party.party.entity.TopicType;
+import com.back.domain.party.party.event.PartySearchIndexRequestedEvent;
+import com.back.domain.party.party.repository.PartyRepository;
+import com.back.domain.party.position.entity.Position;
+import com.back.domain.party.showcase.repository.PartyShowcaseRepository;
+import com.back.domain.search.search.service.party.PartySearchKeywordPort;
+import com.back.domain.activity.activity.service.ActivityLogService;
+import com.back.global.exception.ServiceException;
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import static com.back.domain.party.party.entity.PartySortOption.DEADLINE;
+import static com.back.domain.party.party.entity.PartySortOption.VACANCY;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class PartyService {
+
+    private static final int TOTAL_CAPACITY_MAX = 10;
+
+    private final PartyRepository partyRepository;
+    private final LikeInteractionPort likeInteractionPort;
+    private final BookmarkInteractionPort bookmarkInteractionPort;
+    private final ContestLookupPort contestLookupPort;
+    private final PartySearchKeywordPort partySearchKeywordPort;
+    private final ApplicationEventPublisher eventPublisher;
+    private final PartyMemberRepository partyMemberRepository;
+    private final ActivityLogService activityLogService;
+    private final PartyShowcaseRepository partyShowcaseRepository;
+
+    public record PositionCreateSpec(
+            PositionType type,
+            int capacity
+    ) { }
+
+    @Transactional
+    public PartyDto create(
+            Member owner,
+            String partyName,
+            String title,
+            String description,
+            Long targetContestId,
+            String contestTitle,
+            String contestLinkUrl,
+            TopicType topicType,
+            PartyTag partyTag,
+            String githubRepoUrl,
+            LocalDateTime deadline,
+            List<PositionCreateSpec> positionSpecs
+    ) {
+        if (positionSpecs == null || positionSpecs.isEmpty()) {
+            throw new ServiceException("400-4", "포지션 정원은 1명 이상이어야 합니다.");
+        }
+
+        positionSpecs.forEach(spec -> {
+            if (spec.capacity() <= 0) {
+                throw new ServiceException("400-4", "포지션 정원은 1명 이상이어야 합니다.");
+            }
+        });
+
+        long distinctPositionTypes = positionSpecs.stream()
+                .map(PositionCreateSpec::type)
+                .distinct()
+                .count();
+        if (distinctPositionTypes != positionSpecs.size()) {
+            throw new ServiceException("400-4", "같은 포지션을 중복해서 추가할 수 없습니다.");
+        }
+
+        long totalCapacity = positionSpecs.stream()
+                .mapToLong(PositionCreateSpec::capacity)
+                .sum();
+        if (totalCapacity > TOTAL_CAPACITY_MAX) {
+            throw new ServiceException("400-4", "파티 총원은 " + TOTAL_CAPACITY_MAX + "명을 넘을 수 없습니다.");
+        }
+
+        Contest targetContest = targetContestId == null
+                ? null
+                : contestLookupPort.findContestById(targetContestId).orElseThrow();
+
+        if (isMissingContestInfo(topicType, targetContest, contestTitle)) {
+            throw new ServiceException("400-1", "등록된 대회가 없으면 대회명을 입력해야 합니다.");
+        }
+
+        Party party = new Party(
+                owner,
+                partyName,
+                title,
+                description,
+                targetContest,
+                contestTitle,
+                contestLinkUrl,
+                topicType,
+                partyTag,
+                githubRepoUrl,
+                deadline
+        );
+
+        positionSpecs.forEach(spec ->
+                party.addPosition(new Position(spec.type(), spec.capacity()))
+        );
+
+        Party savedParty = partyRepository.save(party);
+
+        activityLogService.record(owner);
+        eventPublisher.publishEvent(new PartySearchIndexRequestedEvent(savedParty.getId()));
+
+        return new PartyDto(savedParty);
+    }
+
+    public record PositionCapacityUpdateSpec(
+            long positionId,
+            int capacity
+    ) { }
+
+    @Transactional
+    public PartyDto update(
+            long partyId,
+            Member actor,
+            String partyName,
+            String title,
+            String description,
+            Long targetContestId,
+            String contestTitle,
+            String contestLinkUrl,
+            TopicType topicType,
+            PartyTag partyTag,
+            String githubRepoUrl,
+            LocalDateTime deadline,
+            List<PositionCapacityUpdateSpec> positionCapacityUpdates
+    ) {
+        Party party = findByIdOrThrow(partyId);
+
+        if (!party.isOwnedBy(actor)) {
+            throw new ServiceException("403-1", "본인이 만든 파티만 수정할 수 있습니다.");
+        }
+        party.checkModifiable();
+
+        Contest targetContest = targetContestId == null
+                ? null
+                : contestLookupPort.findContestById(targetContestId).orElseThrow();
+
+        if (isMissingContestInfo(topicType, targetContest, contestTitle)) {
+            throw new ServiceException("400-1", "등록된 대회가 없으면 대회명을 입력해야 합니다.");
+        }
+
+        String previousTitle = party.getTitle();
+
+        party.update(
+                partyName,
+                title,
+                description,
+                targetContest,
+                contestTitle,
+                contestLinkUrl,
+                topicType,
+                partyTag,
+                githubRepoUrl,
+                deadline
+        );
+
+        if (positionCapacityUpdates != null && !positionCapacityUpdates.isEmpty()) {
+            positionCapacityUpdates.forEach(spec -> {
+                if (spec.capacity() <= 0) {
+                    throw new ServiceException("400-4", "포지션 정원은 1명 이상이어야 합니다.");
+                }
+            });
+
+            long distinctPositionIds = positionCapacityUpdates.stream()
+                    .map(PositionCapacityUpdateSpec::positionId)
+                    .distinct()
+                    .count();
+            if (distinctPositionIds != positionCapacityUpdates.size()) {
+                throw new ServiceException("400-4", "같은 포지션을 중복해서 수정할 수 없습니다.");
+            }
+
+            Map<Long, Integer> newCapacityByPositionId = positionCapacityUpdates.stream()
+                    .collect(Collectors.toMap(PositionCapacityUpdateSpec::positionId, PositionCapacityUpdateSpec::capacity));
+
+            long totalCapacity = party.getPositions().stream()
+                    .mapToLong(position -> newCapacityByPositionId.getOrDefault(position.getId(), position.getCapacity()))
+                    .sum();
+            if (totalCapacity > TOTAL_CAPACITY_MAX) {
+                throw new ServiceException("400-4", "파티 총원은 " + TOTAL_CAPACITY_MAX + "명을 넘을 수 없습니다.");
+            }
+
+            positionCapacityUpdates.forEach(spec ->
+                    party.findPosition(spec.positionId()).changeCapacity(spec.capacity())
+            );
+        }
+
+        if (!previousTitle.equals(title)) {
+            eventPublisher.publishEvent(new PartySearchIndexRequestedEvent(partyId));
+        }
+
+        return new PartyDto(party);
+    }
+
+    /**
+     * 진행 중 파티의 GitHub App 설치 직전에 저장소 주소만 바꾼다.
+     * 모집글 전체 수정은 RECRUITING 상태에서만 가능하지만, 저장소 재연동은 진행 중에도 필요하다.
+     */
+    @Transactional
+    public PartyDto updateGithubRepository(long partyId, Member actor, String githubRepoUrl) {
+        Party party = findByIdOrThrow(partyId);
+
+        if (!party.isOwnedBy(actor)) {
+            throw new ServiceException("403-1", "파티장만 GitHub 저장소를 수정할 수 있습니다.");
+        }
+        if (party.getStatus() == com.back.domain.party.position.entity.PartyStatus.COMPLETED) {
+            throw new ServiceException("409-1", "완료된 파티의 GitHub 저장소는 수정할 수 없습니다.");
+        }
+
+        party.updateGithubRepoUrl(githubRepoUrl.trim());
+        return new PartyDto(party);
+    }
+
+    @Transactional
+    public void delete(long partyId, Member actor) {
+        Party party = findByIdOrThrow(partyId);
+
+        if (!party.isOwnedBy(actor)) {
+            throw new ServiceException("403-1", "본인이 만든 파티만 삭제할 수 있습니다.");
+        }
+        party.checkDeletable();
+
+        // 파티장을 제외한 다른 승인된 파티원이 없어야 삭제할 수 있다.
+        // 파티장은 이제 PartyMember 로 들어가지 않지만, ARC-97 시절 파티에는 그 행이 남아 있어 빼고 센다.
+        if (partyMemberRepository.existsByPartyAndStatusAndMemberNot(
+                party, PartyMemberStatus.APPROVED, party.getOwner())) {
+            throw new ServiceException("409-3", "승인된 파티원이 있는 파티는 삭제할 수 없습니다. 먼저 승인을 취소해주세요.");
+        }
+        removePartyRow(party);
+    }
+
+    // 신고·정책 위반 대응이 목적이라 소유자·상태(checkDeletable)·승인된 파티원 존재 여부를
+    // 전혀 따지지 않는다 - 일반 사용자 delete()와 달리 관리자는 어떤 상태의 파티든 강제로 지울 수 있어야 한다.
+    @Transactional
+    public void deleteAsAdmin(long partyId) {
+        Party party = partyRepository.findById(partyId).orElse(null);
+        if (party == null) return; // 이미 없으면 성공으로 간주(멱등)
+
+        cleanupBeforeRowDeletion(party);
+        removePartyRow(party);
+        cleanupPartyLikesAndBookmarks(partyId);
+    }
+
+    // 남은 지원 기록(PENDING/REJECTED/APPROVED)은 position 을 참조하므로
+    // 파티(와 position)보다 먼저 지워야 FK 제약에 걸리지 않는다.
+    private void removePartyRow(Party party) {
+        partyMemberRepository.deleteAllByParty(party);
+        partyMemberRepository.flush();
+
+        partyRepository.delete(party);
+    }
+
+    // 검색 인덱스, showcase(전시글)와 그에 딸린 좋아요/북마크를 파티 row 삭제 전에 정리한다.
+    // PartyShowcase.party는 FK가 필수(NOT NULL)라, showcase 자체를 먼저 지우지 않으면
+    // party row를 삭제할 때 FK 제약 위반이 날 수 있다.
+    private void cleanupBeforeRowDeletion(Party party) {
+        partySearchKeywordPort.deleteKeywordParty(party.getId());
+
+        partyShowcaseRepository.findByParty(party).ifPresent(showcase -> {
+            likeInteractionPort.deleteAllLikesForTarget(TargetType.PARTY_SHOWCASE, showcase.getId());
+            bookmarkInteractionPort.deleteAllBookmarksForTarget(TargetType.PARTY_SHOWCASE, showcase.getId());
+            partyShowcaseRepository.delete(showcase);
+        });
+    }
+
+    private void cleanupPartyLikesAndBookmarks(long partyId) {
+        likeInteractionPort.deleteAllLikesForTarget(TargetType.PARTY, partyId);
+        bookmarkInteractionPort.deleteAllBookmarksForTarget(TargetType.PARTY, partyId);
+    }
+
+    @Transactional
+    public void hide(long partyId) {
+        findByIdOrThrow(partyId).hide();
+    }
+
+    @Transactional
+    public void unhide(long partyId) {
+        findByIdOrThrow(partyId).unhide();
+    }
+
+    // 관리자 목록 - hidden 여부와 무관하게(또는 hidden 파라미터로 필터링해) 전부 조회
+    public Page<PartyListItemDto> getListForAdmin(String keyword, Boolean hidden, Pageable pageable) {
+        Page<Party> parties = partyRepository.searchForAdmin(keyword, hidden, pageable);
+
+        Map<Long, Long> applicantCounts = partyMemberRepository.countApplicantsByPartyIds(
+                parties.getContent().stream().map(Party::getId).toList());
+
+        return parties.map(party ->
+                new PartyListItemDto(party, applicantCounts.getOrDefault(party.getId(), 0L)));
+    }
+
+    private Party findByIdOrThrow(long partyId) {
+        return partyRepository.findById(partyId)
+                .orElseThrow(() -> new ServiceException("404-1", "존재하지 않는 파티입니다."));
+    }
+
+    private boolean isMissingContestInfo(TopicType topicType, Contest targetContest, String contestTitle) {
+        return topicType == TopicType.CONTEST
+                && targetContest == null
+                && (contestTitle == null || contestTitle.isBlank());
+    }
+
+    public Page<PartyListItemDto> getList(
+            String keyword,
+            PartyTag partyTag,
+            PositionType positionType,
+            PartySortOption sortOption,
+            Pageable pageable
+    ) {
+        Page<Party> parties = switch (sortOption) {
+            case DEADLINE -> partyRepository.search(
+                    keyword, partyTag, positionType,
+                    PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("deadline").ascending())
+            );
+            case POPULAR -> partyRepository.search(
+                    keyword, partyTag, positionType,
+                    PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("likeCount").descending())
+            );
+            // 빈자리 합산은 집계값이라 Sort로 표현이 안 되므로, 정렬이 쿼리 안에 이미 박혀있는
+            // searchOrderByVacancy를 쓰고 Pageable은 반드시 unsorted로 넘긴다
+            case VACANCY -> partyRepository.searchOrderByVacancy(
+                    keyword, partyTag, positionType,
+                    PageRequest.of(pageable.getPageNumber(), pageable.getPageSize())
+            );
+        };
+
+        Map<Long, Long> applicantCounts = partyMemberRepository.countApplicantsByPartyIds(
+                parties.getContent().stream().map(Party::getId).toList());
+
+        return parties.map(party ->
+                new PartyListItemDto(party, applicantCounts.getOrDefault(party.getId(), 0L)));
+    }
+
+    @Transactional
+    public PartyDto getDetail(long partyId, boolean countView, Member actor) {
+        Party party = findByIdOrThrow(partyId);
+        // 관리자가 숨긴 파티는 목록뿐 아니라 상세 직접 접근도 막는다 - 삭제된 것과 동일하게 404 처리.
+        if (party.isHidden()) {
+            throw new ServiceException("404-1", "존재하지 않는 파티입니다.");
+        }
+        if (countView) {
+            partyRepository.increaseViewCount(partyId);
+            party = findByIdOrThrow(partyId);
+        }
+        var myApplication = actor == null
+                ? Optional.<PartyMemberRepository.ApplicationSummary>empty()
+                : partyMemberRepository.findApplicationSummaryByPartyAndMember(party, actor)
+                        .stream()
+                        .findFirst();
+        PartyDto partyDto = new PartyDto(
+                party,
+                partyMemberRepository.countApplicantsByPartyId(partyId),
+                myApplication.map(PartyMemberRepository.ApplicationSummary::getStatus).orElse(null),
+                myApplication.map(PartyMemberRepository.ApplicationSummary::getPositionType).orElse(null)
+        );
+
+        boolean bookmarkedByMe = !bookmarkInteractionPort
+                .findBookmarkedTargetIds(actor, TargetType.PARTY, List.of(partyId)).isEmpty();
+        boolean likedByMe = !likeInteractionPort
+                .findLikedTargetIds(actor, TargetType.PARTY, List.of(partyId)).isEmpty();
+
+        return partyDto.withMyInteractions(bookmarkedByMe, likedByMe);
+    }
+
+    // delete()만 부르면 좋아요/북마크 삭제가 별도 트랜잭션으로 빠져 원자성이 깨질 수 있어서
+    @Transactional
+    public void deletePartyAndInteractions(long partyId, Member actor) {
+        Party party = partyRepository.findById(partyId).orElse(null);
+        if (party == null) return; // 파티가 없으면 무시
+
+        cleanupBeforeRowDeletion(party);
+        delete(partyId, actor);
+        cleanupPartyLikesAndBookmarks(partyId);
+    }
+
+    public List<PartyListItemDto> getTop3() {
+        return partyRepository.findTopByStatusOrderByLikeCountDesc(
+                com.back.domain.party.position.entity.PartyStatus.RECRUITING,
+                PageRequest.of(0, 3)
+        ).stream().map(PartyListItemDto::new).toList();
+    }
+
+    public MemberPartyHistoryDto getHistoryForAdmin(Member member) {
+        List<MemberPartyHistoryDto.OwnedPartyItem> ownedParties = partyRepository
+                .findByOwnerOrderByCreateDateDesc(member)
+                .stream()
+                .map(MemberPartyHistoryDto.OwnedPartyItem::new)
+                .toList();
+
+        List<MemberPartyHistoryDto.AppliedPartyItem> appliedParties = partyMemberRepository
+                .findAllByMemberOrderByCreateDateDesc(member)
+                .stream()
+                .map(MemberPartyHistoryDto.AppliedPartyItem::new)
+                .toList();
+
+        return new MemberPartyHistoryDto(ownedParties, appliedParties);
+    }
+}
