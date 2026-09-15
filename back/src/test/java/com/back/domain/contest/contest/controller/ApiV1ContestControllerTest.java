@@ -778,7 +778,7 @@ public class ApiV1ContestControllerTest {
 
     @Test
     @DisplayName("대회 이미지 업로드: 저장한 이미지의 URL을 반환한다")
-    @WithUserDetails("user1@test.com")
+    @WithUserDetails("admin")
     void uploadContestImage() throws Exception {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "cover.png", MediaType.IMAGE_PNG_VALUE, "fake-png".getBytes());
@@ -793,7 +793,7 @@ public class ApiV1ContestControllerTest {
 
     @Test
     @DisplayName("대회 이미지 업로드: 이미지가 아니면 400-1")
-    @WithUserDetails("user1@test.com")
+    @WithUserDetails("admin")
     void uploadContestImageWithWrongType() throws Exception {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "notice.pdf", MediaType.APPLICATION_PDF_VALUE, "not-an-image".getBytes());
@@ -805,7 +805,7 @@ public class ApiV1ContestControllerTest {
 
     @Test
     @DisplayName("대회 이미지 업로드: 화면이 막는 gif 는 서버도 막는다")
-    @WithUserDetails("user1@test.com")
+    @WithUserDetails("admin")
     void uploadContestImageWithGif() throws Exception {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "cover.gif", MediaType.IMAGE_GIF_VALUE, "fake-gif".getBytes());
@@ -817,7 +817,7 @@ public class ApiV1ContestControllerTest {
 
     @Test
     @DisplayName("대회 이미지 업로드: Content-Type 이 없어도 500 이 아니라 400-1")
-    @WithUserDetails("user1@test.com")
+    @WithUserDetails("admin")
     void uploadContestImageWithoutContentType() throws Exception {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "cover.png", null, "fake-png".getBytes());
@@ -829,7 +829,7 @@ public class ApiV1ContestControllerTest {
 
     @Test
     @DisplayName("대회 이미지 업로드: 빈 파일이면 400-1")
-    @WithUserDetails("user1@test.com")
+    @WithUserDetails("admin")
     void uploadEmptyContestImage() throws Exception {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "cover.png", MediaType.IMAGE_PNG_VALUE, new byte[0]);
@@ -847,5 +847,16 @@ public class ApiV1ContestControllerTest {
 
         mvc.perform(multipart("/api/v1/contests/image").file(file))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("대회 이미지 업로드: 대회 등록/수정/삭제와 마찬가지로 관리자만 가능하다 - 일반 회원은 403")
+    @WithUserDetails("user1@test.com")
+    void uploadContestImageWithoutAdmin() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "cover.png", MediaType.IMAGE_PNG_VALUE, "fake-png".getBytes());
+
+        mvc.perform(multipart("/api/v1/contests/image").file(file))
+                .andExpect(status().isForbidden());
     }
 }

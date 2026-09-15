@@ -120,8 +120,6 @@ public class ApiV1ContestController {
     public RsData<ContestImageDto> uploadImage(
             @RequestPart("file") MultipartFile file
     ) {
-        rq.getActorFromDb();
-
         return new RsData<>(
                 "201-1",
                 "대회 이미지 업로드 성공",
