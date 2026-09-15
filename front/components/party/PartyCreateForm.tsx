@@ -52,7 +52,7 @@ interface PositionRow {
   filledCount?: number;
 }
 
-export function PartyCreateForm({ editId }: { editId?: string }) {
+export function PartyCreateForm({ editId, contestId }: { editId?: string; contestId?: string }) {
   const router = useRouter();
   const { confirm, dialog } = useConfirm();
   // 수정으로 들어왔으면 되돌아간다 - push 하면 상세에서 뒤로가기를 눌렀을 때 수정 폼이 다시 나온다
@@ -79,7 +79,7 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
   /** date input min 힌트·검증에 같이 쓴다. 마감일 기본값과 같은 이유로 마운트 후에만 채운다 */
   const [todayStr, setTodayStr] = useState('');
   /** 수정 진입 시 기존 값을 읽어오는 동안. 다 읽기 전에 저장하면 빈 값으로 덮인다 */
-  const [loading, setLoading] = useState(Boolean(editId));
+  const [loading, setLoading] = useState(Boolean(editId) || Boolean(contestId));
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- new Date() 를 렌더 중에 쓰면 서버·클라이언트
@@ -159,6 +159,33 @@ export function PartyCreateForm({ editId }: { editId?: string }) {
       alive = false;
     };
   }, [editId]);
+
+  /**
+   * 공모전 상세의 "이 대회로 파티 만들기"로 들어온 경우, 그 대회를 미리 연결해 둔다.
+   * 수정(editId) 진입이면 그쪽 effect 가 이미 pickedContest 를 채우므로 건너뛴다.
+   */
+  useEffect(() => {
+    if (!contestId || editId) return;
+    let alive = true;
+
+    (async () => {
+      try {
+        const contest = await fetchContest(contestId);
+        if (!alive) return;
+        setTopicType('CONTEST');
+        setContestFormat(contest.format);
+        setPickedContest(contest);
+      } catch {
+        // 대회를 못 불러와도 파티 작성 자체는 계속할 수 있어야 한다 - 그냥 빈 폼으로 둔다
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [contestId, editId]);
 
   /**
    * 대회 목록을 API 에서 불러온다.

@@ -122,7 +122,11 @@ export function ContestDetailView({ id }: { id: string }) {
               </SideCard>
 
               <SideCard>
-                <Link className="btn btn-primary" style={{ width: '100%' }} href="/party/create">
+                <Link
+                  className="btn btn-primary"
+                  style={{ width: '100%' }}
+                  href={`/party/create?contestId=${contest.id}`}
+                >
                   이 대회로 파티 만들기
                 </Link>
                 {externalLinkUrl ? (
