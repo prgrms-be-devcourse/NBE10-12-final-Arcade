@@ -105,7 +105,7 @@ export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) 
 
   return (
     <>
-      <section className="reco-row" data-reveal>
+      <section className="reco-row" data-reveal suppressHydrationWarning>
         <div className="reco-head">
           <span className="reco-tag">FOR YOU</span>
           <p className="reco-desc">성취 키워드 &quot;{keywords}&quot;와 잘 맞는 파티예요.</p>
