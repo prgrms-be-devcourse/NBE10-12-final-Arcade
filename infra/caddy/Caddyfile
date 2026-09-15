@@ -6,6 +6,8 @@
 		path /api/*
 		path /login/*
 		path /oauth2/*
+		# local storage (custom.storage.type=local) 가 반환하는 /uploads/{key} 를 백엔드가 서빙
+		path /uploads/*
 	}
 	handle @backend {
 		reverse_proxy backend:8080
