@@ -7,9 +7,9 @@ import { fetchMyProfileOrNull, fetchParty } from '@/lib/api';
 export default async function PartyCreatePage({
   searchParams,
 }: {
-  searchParams: Promise<{ edit?: string | string[] }>;
+  searchParams: Promise<{ edit?: string | string[]; contestId?: string }>;
 }) {
-  const { edit: rawEdit } = await searchParams;
+  const { edit: rawEdit, contestId } = await searchParams;
   // ?edit=1&edit=2 처럼 중복 쿼리로 들어오면 배열이 된다 — 첫 값만 쓴다
   const edit = Array.isArray(rawEdit) ? rawEdit[0] : rawEdit;
 
@@ -43,7 +43,9 @@ export default async function PartyCreatePage({
           </div>
         ) : null}
 
-        <PartyCreateForm editId={edit} />
+        {/* edit/contestId가 바뀌는 소프트 내비게이션에서도 완전히 새로 마운트되도록 키를 준다 -
+            안 그러면 이전 폼의 입력값(title·description·positions 등)이 안 지워진 채로 남는다 */}
+        <PartyCreateForm key={`${edit ?? ''}-${contestId ?? ''}`} editId={edit} contestId={contestId} />
       </div>
     </main>
   );
