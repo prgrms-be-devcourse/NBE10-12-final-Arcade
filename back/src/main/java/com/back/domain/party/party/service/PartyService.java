@@ -374,7 +374,13 @@ public class PartyService {
             partyRepository.increaseViewCount(partyId);
             party = findByIdOrThrow(partyId);
         }
-        PartyDto partyDto = new PartyDto(party, partyMemberRepository.countApplicantsByPartyId(partyId));
+        var myApplication = partyMemberRepository.findApplicationSummaryByPartyAndMember(party, actor);
+        PartyDto partyDto = new PartyDto(
+                party,
+                partyMemberRepository.countApplicantsByPartyId(partyId),
+                myApplication.map(PartyMemberRepository.ApplicationSummary::getStatus).orElse(null),
+                myApplication.map(PartyMemberRepository.ApplicationSummary::getPositionType).orElse(null)
+        );
 
         boolean bookmarkedByMe = !bookmarkInteractionPort
                 .findBookmarkedTargetIds(actor, TargetType.PARTY, List.of(partyId)).isEmpty();
