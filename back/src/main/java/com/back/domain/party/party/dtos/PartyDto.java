@@ -7,6 +7,7 @@ import com.back.domain.party.party.entity.PartyTag;
 import com.back.domain.party.party.entity.TopicType;
 import com.back.domain.party.position.dtos.PositionDto;
 import com.back.domain.party.position.entity.PartyStatus;
+import com.back.domain.party.application.entity.PartyMemberStatus;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -37,6 +38,9 @@ public record PartyDto(
      * 지원자 수를 세지 않는 응답(생성·수정·마감·완료)에서는 null - 0(지원자 없음)과 구분된다.
      */
     Long applicantCount,
+    /** 로그인한 사용자의 이 파티 지원 상태. 미지원이면 null */
+    PartyMemberStatus myApplicationStatus,
+    com.back.domain.member.member.entity.PositionType myApplicationPosition,
     List<PositionDto> positions,
     boolean bookmarkedByMe,
     boolean likedByMe
@@ -47,6 +51,11 @@ public record PartyDto(
     }
 
     public PartyDto(Party party, Long applicantCount) {
+        this(party, applicantCount, null, null);
+    }
+
+    public PartyDto(Party party, Long applicantCount, PartyMemberStatus myApplicationStatus,
+                    com.back.domain.member.member.entity.PositionType myApplicationPosition) {
         this(
             party.getId(),
             party.getOwner().getId(),
@@ -67,6 +76,8 @@ public record PartyDto(
             party.getLikeCount(),
             party.getViewCount(),
             applicantCount,
+            myApplicationStatus,
+            myApplicationPosition,
             party.getPositions().stream().map(PositionDto::new).toList(),
             false,
             false
@@ -78,7 +89,7 @@ public record PartyDto(
             id, ownerId, ownerName, partyName, title, description,
             targetContest, contestTitle, contestFormat, contestLinkUrl,
             topicType, status, partyTag, githubRepoUrl, deadline, dDay,
-            likeCount, viewCount, applicantCount, positions,
+            likeCount, viewCount, applicantCount, myApplicationStatus, myApplicationPosition, positions,
             bookmarkedByMe, likedByMe
         );
     }

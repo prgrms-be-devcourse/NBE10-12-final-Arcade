@@ -65,6 +65,8 @@ export interface PartyListItemResponse {
    * 세지 않는 응답(홈 TOP3·검색·생성·수정·마감·완료)에서는 null 로 온다.
    */
   applicantCount: number | null;
+  myApplicationStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+  myApplicationPosition: PositionType | null;
   positions: PositionResponse[];
 }
 
@@ -195,6 +197,8 @@ export function toParty(dto: PartyListItemResponse): Party {
       filledCount: position.filledCount,
     })),
     applicants: dto.applicantCount ?? 0,
+    myApplicationStatus: dto.myApplicationStatus,
+    myApplicationPosition: dto.myApplicationPosition,
     dday: dto.dDay >= 0 ? `D-${dto.dDay}` : '마감',
     deadline: dto.deadline,
     createdAt: '',

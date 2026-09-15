@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { Icon } from '@/components/icons/Icon';
-import { PositionApplyButton } from '@/components/party/PositionApplyButton';
-import { PositionScroller } from '@/components/party/PositionScroller';
+import { PartyPositions } from '@/components/party/PartyPositions';
 import { DetailActions } from '@/components/ui/DetailActions';
 import { LeaderTools } from '@/components/party/LeaderTools';
 import { SendMessageButton } from '@/components/message/SendMessageButton';
@@ -14,7 +13,6 @@ import { MOCK_CURRENT_USER_ID } from '@/lib/mock';
 import {
   CONTEST_FORMAT_LABELS,
   PARTY_STATUS_LABELS,
-  POSITION_LABELS,
   TOPIC_TYPE_LABELS,
 } from '@/lib/constants';
 
@@ -62,41 +60,7 @@ export default async function PartyDetailPage({ params }: { params: Promise<{ id
               </Block>
 
               <Block title="모집 포지션">
-                <PositionScroller className={party.status !== 'RECRUITING' ? 'is-closed' : undefined}>
-                  {party.positions
-                    .map((position, index) => ({ position, index }))
-                    .sort(({ position: a }, { position: b }) => {
-                      const complete = (position: typeof a) =>
-                        position.capacity === 0 || position.filledCount >= position.capacity;
-                      return Number(complete(a)) - Number(complete(b));
-                    })
-                    .map(({ position, index }) => {
-                    const isAvailable = party.status === 'RECRUITING' && position.capacity > 0 && position.filledCount < position.capacity;
-                    const state =
-                      position.capacity === 0
-                        ? 'none'
-                        : position.filledCount >= position.capacity
-                          ? 'full'
-                          : '';
-                    return (
-                      <div
-                        key={`${position.type}-${index}`}
-                        className={['position-row', state, isAvailable ? 'is-available' : null].filter(Boolean).join(' ')}
-                      >
-                        <div className="position-summary">
-                          <p className="name">{POSITION_LABELS[position.type]}</p>
-                          <span className="frac">{position.filledCount}/{position.capacity}</span>
-                        </div>
-                        <PositionApplyButton
-                          partyId={party.id}
-                          position={position.type}
-                          leaderId={party.leader.id}
-                          disabled={party.status !== 'RECRUITING' || position.capacity === 0 || position.filledCount >= position.capacity}
-                        />
-                      </div>
-                    );
-                    })}
-                </PositionScroller>
+                <PartyPositions party={party} />
               </Block>
 
               <Block title="현재 팀원">
