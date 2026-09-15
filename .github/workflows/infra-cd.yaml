@@ -1,16 +1,25 @@
-# 수동 실행 또는 develop CI 성공 후 EICE 위 SSH로 배포한다.
+# 수동 실행 또는 develop/main CI 성공 후 EICE 위 SSH로 배포한다.
 name: CD
 
 on:
   workflow_dispatch:
+    inputs:
+      target:
+        description: 배포할 GitHub Environment
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - prod
   workflow_run:
     workflows: [CI]
     types: [completed]
-    branches: [develop]
+    branches: [develop, main]
 
-# 무중단 교체 중인 배포는 취소하거나 겹치지 않는다.
+# 같은 환경의 배포는 취소하거나 겹치지 않고, dev와 prod는 서로 막지 않는다.
 concurrency:
-  group: cd-dev
+  group: cd-${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || inputs.target }}
   cancel-in-progress: false
 
 permissions:
@@ -24,15 +33,33 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_branch == 'develop')
+      (github.event.workflow_run.head_branch == 'develop' ||
+      github.event.workflow_run.head_branch == 'main'))
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    environment: prod
+    environment: ${{ github.event_name == 'workflow_run' && (github.event.workflow_run.head_branch == 'main' && 'prod' || 'dev') || inputs.target }}
+    env:
+      DEPLOY_ENV: ${{ github.event_name == 'workflow_run' && (github.event.workflow_run.head_branch == 'main' && 'prod' || 'dev') || inputs.target }}
     steps:
       - uses: actions/checkout@v5
         with:
           # 자동 배포는 성공한 CI가 검사·빌드한 커밋의 배포 파일을 사용한다.
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
+      - name: 수동 배포 대상 확인
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TARGET: ${{ inputs.target }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          case "$TARGET" in
+            dev) expected_ref=develop ;;
+            prod) expected_ref=main ;;
+          esac
+          [ "$REF_NAME" = "$expected_ref" ] || {
+            echo "::error::$TARGET 배포는 $expected_ref 브랜치에서만 실행할 수 있다. 현재 브랜치: $REF_NAME"
+            exit 1
+          }
 
       - uses: docker/login-action@v4.6.0
         with:
@@ -47,13 +74,15 @@ jobs:
           FRONTEND_TAG: ${{ vars.FRONTEND_TAG }}
         run: |
           repo="ghcr.io/$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
+          default_tag=latest
+          [ "$DEPLOY_ENV" = prod ] && default_tag=prod
           {
             echo "repo=$repo"
-            echo "backend=$repo/backend:${BACKEND_TAG:-latest}"
-            echo "frontend=$repo/frontend:${FRONTEND_TAG:-latest}"
+            echo "backend=$repo/backend:${BACKEND_TAG:-$default_tag}"
+            echo "frontend=$repo/frontend:${FRONTEND_TAG:-$default_tag}"
           } >> "$GITHUB_OUTPUT"
           if [ -z "$BACKEND_TAG" ] && [ -z "$FRONTEND_TAG" ]; then
-            echo "::notice::태그 변수를 설정하지 않았다. backend:latest와 frontend:latest를 배포한다."
+            echo "::notice::$DEPLOY_ENV 기본 태그($default_tag)를 배포한다."
           fi
 
       # private GHCR에 인증한 뒤 실제로 존재하는 태그만 배포한다.
@@ -104,6 +133,7 @@ jobs:
       - name: 배포
         env:
           AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-2' }}
+          ENV_DEV: ${{ secrets.ENV_DEV }}
           ENV_PROD: ${{ secrets.ENV_PROD }}
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -114,12 +144,29 @@ jobs:
           K6_POST_DEPLOY_SECONDS: ${{ vars.K6_POST_DEPLOY_SECONDS || '10' }}
           K6_RATE: ${{ vars.K6_RATE || '5' }}
         run: |
-          [ -n "$ENV_PROD" ] || { echo "::error::prod Environment에 ENV_PROD Secret을 등록한다."; exit 1; }
+          case "$DEPLOY_ENV" in
+            dev)
+              env_content="$ENV_DEV"
+              env_secret=ENV_DEV
+              ;;
+            prod)
+              env_content="$ENV_PROD"
+              env_secret=ENV_PROD
+              ;;
+            *)
+              echo "::error::지원하지 않는 배포 환경이다: $DEPLOY_ENV"
+              exit 1
+              ;;
+          esac
+          [ -n "$env_content" ] \
+            || { echo "::error::$DEPLOY_ENV Environment에 $env_secret Secret을 등록한다."; exit 1; }
           umask 077
-          printf '%s' "$ENV_PROD" > runner.env
+          printf '%s' "$env_content" > runner.env
+          unset env_content ENV_DEV ENV_PROD
           trap 'shred -u runner.env 2>/dev/null || rm -f runner.env' EXIT
           size=$(wc -c < runner.env)
-          [ "$size" -le 49152 ] || { echo "::error::ENV_PROD가 GitHub Secret의 48KB 제한을 넘는다."; exit 1; }
+          [ "$size" -le 49152 ] \
+            || { echo "::error::$env_secret이 GitHub Secret의 48KB 제한을 넘는다."; exit 1; }
 
           args=(--env-file runner.env)
           [ -n "$BACKEND" ] && args+=(--backend-image "$BACKEND")
@@ -130,25 +177,30 @@ jobs:
           [[ "$origin" == https://* ]] \
             || { echo "::error::PUBLIC_ORIGIN이 HTTPS 주소가 아니다."; exit 1; }
 
-          previous_headers=$(mktemp)
-          curl --fail --silent --show-error \
-            --connect-timeout 5 --max-time 20 \
-            --dump-header "$previous_headers" --output /dev/null \
-            "$origin/api/v1/parties?size=1"
-          old_version=$(sed -n 's/^[Xx]-[Aa]pp-[Vv]ersion:[[:space:]]*//p' "$previous_headers" \
-            | tr -d '\r' | head -n1)
-          old_version="${old_version:-missing}"
-          echo "배포 전 백엔드 응답 버전: $old_version"
+          if [ "$DEPLOY_ENV" = dev ]; then
+            previous_headers=$(mktemp)
+            curl --fail --silent --show-error \
+              --connect-timeout 5 --max-time 20 \
+              --dump-header "$previous_headers" --output /dev/null \
+              "$origin/api/v1/parties?size=1"
+            old_version=$(sed -n 's/^[Xx]-[Aa]pp-[Vv]ersion:[[:space:]]*//p' "$previous_headers" \
+              | tr -d '\r' | head -n1)
+            old_version="${old_version:-missing}"
+            echo "배포 전 백엔드 응답 버전: $old_version"
 
-          ./.github/scripts/run-deploy-continuity.sh \
-            --origin "$origin" \
-            --expected-version "$BACKEND_VERSION" \
-            --old-version "$old_version" \
-            --max-duration "$K6_MAX_DURATION" \
-            --post-deploy-seconds "$K6_POST_DEPLOY_SECONDS" \
-            --rate "$K6_RATE" \
-            --results-dir deploy-continuity-results \
-            -- ./infra/scripts/eice-deploy.sh "${args[@]}"
+            ./.github/scripts/run-deploy-continuity.sh \
+              --origin "$origin" \
+              --expected-version "$BACKEND_VERSION" \
+              --old-version "$old_version" \
+              --max-duration "$K6_MAX_DURATION" \
+              --post-deploy-seconds "$K6_POST_DEPLOY_SECONDS" \
+              --rate "$K6_RATE" \
+              --results-dir deploy-continuity-results \
+              -- ./infra/scripts/eice-deploy.sh "${args[@]}"
+          else
+            echo "== prod 배포: k6 연속성 검사를 생략한다 =="
+            ./infra/scripts/eice-deploy.sh "${args[@]}"
+          fi
 
           echo "== 외부 smoke test =="
           for path in /healthz '/api/v1/parties?size=1'; do
@@ -173,7 +225,7 @@ jobs:
           echo "  프론트와 백엔드 공개 경로 정상"
 
       - name: 무중단 검증 요약
-        if: always()
+        if: ${{ always() && env.DEPLOY_ENV == 'dev' }}
         run: |
           result=deploy-continuity-results
           {
@@ -198,7 +250,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: 무중단 검증 결과 보관
-        if: always()
+        if: ${{ always() && env.DEPLOY_ENV == 'dev' }}
         uses: actions/upload-artifact@v5
         with:
           name: deploy-continuity-${{ github.run_attempt }}
