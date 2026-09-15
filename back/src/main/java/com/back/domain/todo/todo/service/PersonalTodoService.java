@@ -129,13 +129,30 @@ public class PersonalTodoService {
      * 영구히 막아버려(409-1), TODO 쪽의 "자유롭게 되돌릴 수 있다"는 보장이 깨진다.
      *
      * 그래서 연결의 성취 -> TODO FK 방향과 별개로, 상태만큼은 TODO 쪽 변경을 그대로 따라가도록
-     * 양방향으로 동기화한다. TodoStatus 와 GoalStatus 는 상수 구성이 동일하게 설계돼 있다.
+     * 양방향으로 동기화한다.
      * Goal.changeStatus() 의 사용자용 전이 규칙(canTransitionTo)은 여기서는 적용하지 않는다 -
      * 이 값은 사람이 직접 고르는 게 아니라 연결된 TODO 상태를 그대로 반영하는 파생값이기 때문이다.
      */
     private void syncLinkedChecklistStatus(long todoId, TodoStatus next) {
         goalRepository.findChecklistByPersonalTodoId(todoId)
-                .ifPresent(checklist -> checklist.syncStatus(GoalStatus.valueOf(next.name())));
+                .ifPresent(checklist -> checklist.syncStatus(toGoalStatus(next)));
+    }
+
+    /**
+     * TodoStatus -> GoalStatus 명시적 매핑.
+     *
+     * 두 enum은 지금 상수 구성이 같아서 valueOf(name())로도 동작하지만, 그러면 어느 한쪽에만
+     * 값이 추가되거나 이름이 바뀌어도 컴파일은 그대로 통과하고 런타임에야 IllegalArgumentException으로
+     * 터진다. switch 로 명시해두면 TodoStatus 에 새 값이 추가되는 순간(이 switch 가 값을 다 못
+     * 덮어) 컴파일 에러로 바로 드러난다.
+     */
+    private static GoalStatus toGoalStatus(TodoStatus status) {
+        return switch (status) {
+            case WANT -> GoalStatus.WANT;
+            case IN_PROGRESS -> GoalStatus.IN_PROGRESS;
+            case HOLD -> GoalStatus.HOLD;
+            case ACHIEVED -> GoalStatus.ACHIEVED;
+        };
     }
 
     /**
