@@ -564,7 +564,8 @@ button.party-mini:hover{border-color:var(--accent);}
 /* 카드가 1장뿐이면 전체 폭으로 늘리지 않는다 — 늘어난 만큼 속은 그대로라 더 휑해 보인다.
    원래 카드 폭(28rem)만큼만 잡고 가운데로 모은다 */
 .reco-cards:has(.reco-card:only-child){grid-template-columns:minmax(0,34rem);justify-content:center;}
-@media (max-width:40rem){.reco-cards{grid-template-columns:1fr;}}
+/* :has() 쪽이 명시도가 더 높아서, 카드 1개일 때도 여기서 같이 눌러줘야 모바일에서 1fr이 진짜로 이긴다 */
+@media (max-width:40rem){.reco-cards,.reco-cards:has(.reco-card:only-child){grid-template-columns:1fr;justify-content:stretch;}}
 .reco-card{
   display:block;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;
   background:var(--surface);border:0.125rem solid var(--border-strong);padding:1rem;
