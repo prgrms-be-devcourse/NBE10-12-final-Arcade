@@ -8,7 +8,6 @@ data "aws_ssm_parameter" "al2023" {
 }
 
 locals {
-  environment = "dev"
   name_prefix = "arcade"
 
   compose_version = "5.5.1"
