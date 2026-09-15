@@ -122,8 +122,8 @@ export default async function TeamSpacePage({ params, searchParams }: { params: 
                 </div>
               </SideCard> : null}
               <SideCard title="파티장">
-                <LeaderRow user={leader} href={`/profile/${leader.id}`} card />
-                <div className="side-card-action">
+                <div className="member-row">
+                  <LeaderRow user={leader} href={`/profile/${leader.id}`} card />
                   <SendMessageButton recipient={leader} variant="icon" />
                 </div>
               </SideCard>
