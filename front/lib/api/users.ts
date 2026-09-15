@@ -136,10 +136,24 @@ export function toUserProfile(
   };
 }
 
-/** GET /api/v1/members/me */
+/**
+ * GET /api/v1/members/me
+ *
+ * 한 페이지 안에서 헤더·푸터·게이트가 동시에 부르면 같은 요청이 3~4번 날아간다.
+ * 진행 중인 요청이 있으면 그 프라미스를 공유해 네트워크는 한 번만 나간다.
+ */
+let inflightMyProfile: Promise<UserProfile> | null = null;
+
 export async function fetchMyProfile(): Promise<UserProfile> {
   if (USE_MOCK) return mockResponse(MOCK_PROFILES[MOCK_CURRENT_USER_ID]);
-  return toUserProfile(await http.get<MemberProfileResponse>('/members/me'));
+  if (inflightMyProfile) return inflightMyProfile;
+  inflightMyProfile = http
+    .get<MemberProfileResponse>('/members/me')
+    .then(toUserProfile)
+    .finally(() => {
+      inflightMyProfile = null;
+    });
+  return inflightMyProfile;
 }
 
 /**

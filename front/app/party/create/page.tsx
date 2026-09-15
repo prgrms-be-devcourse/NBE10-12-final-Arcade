@@ -13,6 +13,13 @@ export default async function PartyCreatePage({
   // ?edit=1&edit=2 처럼 중복 쿼리로 들어오면 배열이 된다 — 첫 값만 쓴다
   const edit = Array.isArray(rawEdit) ? rawEdit[0] : rawEdit;
 
+  // 파티 모집 작성은 로그인한 회원만 가능하다. 비로그인 상태에서 폼을 먼저
+  // 렌더링하면 작성 API 호출 시점까지 오류가 미뤄져 페이지 이동이 깨진다.
+  if (!edit) {
+    const me = await fetchMyProfileOrNull();
+    if (!me) redirect('/login');
+  }
+
   /**
    * 수정 진입은 "파티장 본인 + 모집 중" 일 때만 허용한다.
    * 사이드바의 수정 버튼은 이 조건일 때만 보이지만(LeaderTools), 그건 버튼을 숨길 뿐이라
