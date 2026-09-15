@@ -189,6 +189,7 @@ export function toParty(dto: PartyListItemResponse): Party {
     contestFormat: dto.contestFormat ? FORMAT_TO_CLIENT[dto.contestFormat] : undefined,
     subCategory: TAG_TO_LABEL[dto.partyTag],
     positions: dto.positions.map((position) => ({
+      id: position.id,
       type: toPositionType(position.type),
       capacity: position.capacity,
       filledCount: position.filledCount,
@@ -451,7 +452,7 @@ export interface PartyFormPayload {
   description: string;
   /** 대표 사진 1장 — 목록 카드·상세 상단에 쓰인다 */
   coverFileName?: string;
-  positions: { type: PositionType; capacity: number }[];
+  positions: { positionId?: number; type: PositionType; capacity: number }[];
   repositoryUrl?: string;
 
   /** 분야 — 화면 라벨('웹 개발' 등) 그대로 넘기면 서버 enum 으로 변환한다 */
@@ -495,12 +496,17 @@ export async function createParty(payload: PartyFormPayload): Promise<{ id: stri
  * PATCH /api/v1/parties/{partyId} (PUT 아님)
  *
  * 서버 수정 API 는 포지션을 positionId 기준으로 정원만 바꾼다.
- * 폼은 포지션 종류로만 들고 있어 정원 수정은 보내지 않는다 — 정원 변경 UI 가 붙으면 함께 채워야 한다.
  */
 export async function updateParty(id: string, payload: PartyFormPayload): Promise<{ id: string }> {
   if (USE_MOCK) return mockResponse({ id });
 
-  const { positions: _positions, ...body } = toPartyRequestBody(payload);
+  const body = {
+    ...toPartyRequestBody(payload),
+    positions: payload.positions.map(({ positionId, capacity }) => ({
+      positionId,
+      capacity,
+    })),
+  };
   const updated = await http.patch<PartyResponse>(`/parties/${id}`, body);
   return { id: String(updated.id) };
 }
