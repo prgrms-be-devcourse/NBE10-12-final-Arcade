@@ -3,19 +3,32 @@ apiVersion: 1
 deleteDatasources:
   - name: Prometheus
     orgId: 1
+  - name: Prometheus Dev
+    orgId: 1
+  - name: Prometheus Prod
+    orgId: 1
 
 datasources:
-  - name: Prometheus
+  - name: Prometheus Dev
     type: prometheus
-    uid: prometheus
+    uid: prometheus-dev
     access: proxy
-    # 스택마다 다르다. compose 가 PROMETHEUS_URL 로 넘긴다.
-    #   앱과 함께  http://prometheus:9090/prometheus   (route-prefix 적용)
-    #   단독 실행  http://prometheus:9090
-    url: $PROMETHEUS_URL
-    basicAuth: $PROMETHEUS_BASIC_AUTH_ENABLED
-    basicAuthUser: $PROMETHEUS_BASIC_AUTH_USER
+    url: $PROMETHEUS_DEV_URL
+    basicAuth: true
+    basicAuthUser: $PROMETHEUS_DEV_BASIC_AUTH_USER
     secureJsonData:
-      basicAuthPassword: $PROMETHEUS_BASIC_AUTH_PASSWORD
+      basicAuthPassword: $PROMETHEUS_DEV_BASIC_AUTH_PASSWORD
     isDefault: true
+    editable: false
+
+  - name: Prometheus Prod
+    type: prometheus
+    uid: prometheus-prod
+    access: proxy
+    url: $PROMETHEUS_PROD_URL
+    basicAuth: true
+    basicAuthUser: $PROMETHEUS_PROD_BASIC_AUTH_USER
+    secureJsonData:
+      basicAuthPassword: $PROMETHEUS_PROD_BASIC_AUTH_PASSWORD
+    isDefault: false
     editable: false

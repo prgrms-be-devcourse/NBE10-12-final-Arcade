@@ -3,7 +3,7 @@
   "editable": false,
   "panels": [
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "$datasource" },
       "fieldConfig": { "defaults": { "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] } }, "overrides": [] },
       "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
       "id": 1,
@@ -13,7 +13,7 @@
       "type": "stat"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "$datasource" },
       "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
       "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
       "id": 2,
@@ -23,7 +23,7 @@
       "type": "stat"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "$datasource" },
       "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
       "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
       "id": 3,
@@ -40,7 +40,7 @@
       "type": "text"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "$datasource" },
       "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
       "id": 5,
@@ -54,7 +54,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "$datasource" },
       "fieldConfig": { "defaults": { "unit": "cps" }, "overrides": [] },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
       "id": 6,
@@ -71,11 +71,14 @@
   "schemaVersion": 39,
   "tags": ["arcade", "nginx", "load-test"],
   "templating": {
-    "list": [{ "current": {}, "datasource": { "type": "prometheus", "uid": "prometheus" }, "definition": "label_values(nginx_up,instance)", "hide": 0, "includeAll": false, "label": "Nginx target", "multi": false, "name": "instance", "options": [], "query": { "query": "label_values(nginx_up,instance)", "refId": "PrometheusVariableQueryEditor-VariableQuery" }, "refresh": 1, "regex": "", "skipUrlSync": false, "sort": 1, "type": "query" }]
+    "list": [
+      { "current": {}, "hide": 0, "includeAll": false, "label": "Prometheus", "multi": false, "name": "datasource", "options": [], "query": "prometheus", "refresh": 1, "regex": "/^Prometheus (Dev|Prod)$/", "skipUrlSync": false, "type": "datasource" },
+      { "current": {}, "datasource": { "type": "prometheus", "uid": "$datasource" }, "definition": "label_values(nginx_up,instance)", "hide": 0, "includeAll": false, "label": "Nginx target", "multi": false, "name": "instance", "options": [], "query": { "query": "label_values(nginx_up,instance)", "refId": "PrometheusVariableQueryEditor-VariableQuery" }, "refresh": 1, "regex": "", "skipUrlSync": false, "sort": 1, "type": "query" }
+    ]
   },
   "time": { "from": "now-1h", "to": "now" },
   "timezone": "browser",
-  "title": "Nginx — Arcade Dev",
+  "title": "Nginx — Arcade",
   "uid": "arcade-nginx",
   "version": 1
 }

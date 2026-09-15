@@ -48,7 +48,7 @@
             "group": "prometheus",
             "version": "v0",
             "datasource": {
-              "name": "prometheus"
+              "name": "$datasource"
             },
             "spec": {}
           },
@@ -90,7 +90,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "rate(jvm_gc_pause_seconds_sum{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"}[1m])/rate(jvm_gc_pause_seconds_count{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"}[1m])",
@@ -112,7 +112,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "jvm_gc_pause_seconds_max{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"}",
@@ -229,7 +229,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "system_cpu_usage{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"}",
@@ -252,7 +252,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "process_cpu_usage{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"}",
@@ -273,7 +273,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "avg_over_time(process_cpu_usage{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"}[15m])",
@@ -394,7 +394,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "sum(rate(http_server_requests_seconds_count{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"}[1m]))",
@@ -512,7 +512,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "sum(rate(http_server_requests_seconds_count{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\", status=~\"5..\"}[1m]))",
@@ -691,7 +691,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "sum(rate(http_server_requests_seconds_sum{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\", status!~\"5..\"}[1m]))/sum(rate(http_server_requests_seconds_count{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\", status!~\"5..\"}[1m]))",
@@ -712,7 +712,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "max(http_server_requests_seconds_max{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\", status!~\"5..\"})",
@@ -830,7 +830,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "jvm_threads_states_threads{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"}",
@@ -1129,7 +1129,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "jvm_buffer_memory_used_bytes{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\", id=~\"$jvm_buffer_pool\"}",
@@ -1150,7 +1150,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "jvm_buffer_total_capacity_bytes{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\", id=~\"$jvm_buffer_pool\"}",
@@ -1171,7 +1171,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "jvm_buffer_count_buffers{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\", id=~\"$jvm_buffer_pool\"}",
@@ -1368,7 +1368,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "sum(rate(jvm_gc_pause_seconds_sum{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"}[1m])) by (application, instance) / on(application, instance) system_cpu_count",
@@ -1489,7 +1489,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "sum(jvm_memory_used_bytes{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\", area=\"heap\"})",
@@ -1512,7 +1512,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "sum(jvm_memory_committed_bytes{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\", area=\"heap\"})",
@@ -1534,7 +1534,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "sum(jvm_memory_max_bytes{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\", area=\"heap\"})",
@@ -1654,7 +1654,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "sum(jvm_memory_used_bytes{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\", area=\"nonheap\"})",
@@ -1678,7 +1678,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "sum(jvm_memory_committed_bytes{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\", area=\"nonheap\"})",
@@ -1700,7 +1700,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "sum(jvm_memory_max_bytes{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\", area=\"nonheap\"})",
@@ -1820,7 +1820,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "sum(jvm_memory_used_bytes{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"})",
@@ -1843,7 +1843,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "sum(jvm_memory_committed_bytes{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"})",
@@ -1865,7 +1865,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "sum(jvm_memory_max_bytes{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"})",
@@ -1985,7 +1985,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "jvm_memory_used_bytes{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\", id=~\"$jvm_memory_pool_heap\"}",
@@ -2009,7 +2009,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "jvm_memory_committed_bytes{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\", id=~\"$jvm_memory_pool_heap\"}",
@@ -2033,7 +2033,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "jvm_memory_max_bytes{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\", id=~\"$jvm_memory_pool_heap\"}",
@@ -2155,7 +2155,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "jvm_threads_live_threads{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"}",
@@ -2178,7 +2178,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "jvm_threads_daemon_threads{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"}",
@@ -2201,7 +2201,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "jvm_threads_peak_threads{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"}",
@@ -2322,7 +2322,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "jvm_classes_loaded_classes{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"}",
@@ -2440,7 +2440,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "delta(jvm_classes_loaded_classes{environment=~\"$environment\", server=~\"$server\", application=\"$application\",instance=\"$instance\"}[1m])",
@@ -2558,7 +2558,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "process_files_open_files{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"}",
@@ -2581,7 +2581,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "process_files_max_files{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"}",
@@ -2704,7 +2704,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "process_uptime_seconds{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"}",
@@ -2802,7 +2802,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "sum(jvm_memory_used_bytes{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\", area=\"heap\"})*100/sum(jvm_memory_max_bytes{environment=~\"$environment\", server=~\"$server\", application=\"$application\",instance=\"$instance\", area=\"heap\"})",
@@ -2903,7 +2903,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "sum(jvm_memory_used_bytes{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\", area=\"nonheap\"})*100/sum(jvm_memory_max_bytes{environment=~\"$environment\", server=~\"$server\", application=\"$application\",instance=\"$instance\", area=\"nonheap\"})",
@@ -3014,7 +3014,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "jvm_memory_used_bytes{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\", id=~\"$jvm_memory_pool_nonheap\"}",
@@ -3038,7 +3038,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "jvm_memory_committed_bytes{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\", id=~\"$jvm_memory_pool_nonheap\"}",
@@ -3062,7 +3062,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "jvm_memory_max_bytes{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\", id=~\"$jvm_memory_pool_nonheap\"}",
@@ -3184,7 +3184,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "increase(logback_events_total{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"}[1m])",
@@ -3458,7 +3458,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "process_start_time_seconds{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"}*1000",
@@ -3555,7 +3555,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "system_load_average_1m{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"}",
@@ -3578,7 +3578,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "system_cpu_count{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"}",
@@ -3698,7 +3698,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "rate(jvm_gc_pause_seconds_count{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"}[1m])",
@@ -3814,7 +3814,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "rate(jvm_gc_memory_allocated_bytes_total{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"}[1m])",
@@ -3836,7 +3836,7 @@
                       "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "prometheus"
+                        "name": "$datasource"
                       },
                       "spec": {
                         "expr": "rate(jvm_gc_memory_promoted_bytes_total{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"}[1m])",
@@ -4439,6 +4439,24 @@
     "title": "JVM (Micrometer) — Arcade",
     "variables": [
       {
+        "kind": "DatasourceVariable",
+        "spec": {
+          "name": "datasource",
+          "pluginId": "prometheus",
+          "refresh": "onDashboardLoad",
+          "regex": "/^Prometheus (Dev|Prod)$/",
+          "current": { "text": "", "value": "" },
+          "options": [],
+          "multi": false,
+          "includeAll": false,
+          "label": "Prometheus",
+          "hide": "dontHide",
+          "skipUrlSync": false,
+          "description": "조회할 dev 또는 prod Prometheus",
+          "allowCustomValue": false
+        }
+      },
+      {
         "kind": "QueryVariable",
         "spec": {
           "name": "environment",
@@ -4455,7 +4473,7 @@
             "group": "prometheus",
             "version": "v0",
             "datasource": {
-              "name": "prometheus"
+              "name": "$datasource"
             },
             "spec": {
               "__legacyStringValue": "label_values(jvm_info, environment)"
@@ -4488,7 +4506,7 @@
             "group": "prometheus",
             "version": "v0",
             "datasource": {
-              "name": "prometheus"
+              "name": "$datasource"
             },
             "spec": {
               "__legacyStringValue": "label_values(jvm_info{environment=~\"$environment\"}, server)"
@@ -4521,7 +4539,7 @@
             "group": "prometheus",
             "version": "v0",
             "datasource": {
-              "name": "prometheus"
+              "name": "$datasource"
             },
             "spec": {
               "__legacyStringValue": "label_values(jvm_info{environment=~\"$environment\", server=~\"$server\"}, application)"
@@ -4553,7 +4571,7 @@
             "group": "prometheus",
             "version": "v0",
             "datasource": {
-              "name": "prometheus"
+              "name": "$datasource"
             },
             "spec": {
               "__legacyStringValue": "label_values(jvm_memory_used_bytes{environment=~\"$environment\", server=~\"$server\", application=\"$application\"}, instance)"
@@ -4585,7 +4603,7 @@
             "group": "prometheus",
             "version": "v0",
             "datasource": {
-              "name": "prometheus"
+              "name": "$datasource"
             },
             "spec": {
               "__legacyStringValue": "label_values(jvm_memory_used_bytes{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\", area=\"heap\"},id)"
@@ -4617,7 +4635,7 @@
             "group": "prometheus",
             "version": "v0",
             "datasource": {
-              "name": "prometheus"
+              "name": "$datasource"
             },
             "spec": {
               "__legacyStringValue": "label_values(jvm_memory_used_bytes{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\", area=\"nonheap\"},id)"
@@ -4649,7 +4667,7 @@
             "group": "prometheus",
             "version": "v0",
             "datasource": {
-              "name": "prometheus"
+              "name": "$datasource"
             },
             "spec": {
               "__legacyStringValue": "label_values(jvm_buffer_memory_used_bytes{environment=~\"$environment\", server=~\"$server\", application=\"$application\", instance=\"$instance\"},id)"
