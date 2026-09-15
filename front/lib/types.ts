@@ -139,6 +139,11 @@ export interface UserProfile extends UserSummary {
    * 수정 폼의 초기값으로 쓰면 그 문구가 진짜 닉네임으로 저장된다.
    */
   nickname?: string;
+  /**
+   * 실제로 저장된 실명. 소셜 로그인 신규 회원은 아직 없을 수 있다.
+   * UserSummary.name(표시명)과 달리 대체 문구가 없어 수정 폼 초기값으로 안전하게 쓸 수 있다.
+   */
+  realName?: string;
   /** GitHub OAuth 계정 연동 여부. 연동 버튼 노출 여부에만 사용한다. */
   githubLinked?: boolean;
   /**
