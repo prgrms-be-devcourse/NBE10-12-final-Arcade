@@ -1,16 +1,15 @@
 # 모니터링 스택
 
-Prometheus 와 Grafana. 실행 방법이 **둘**이고, 목적이 다르다.
+Prometheus 와 Grafana. 실행 방법이 **셋**이고, 목적이 다르다.
 
 | 방법 | 파일 | 언제 |
 | --- | --- | --- |
 | **앱과 함께** | 루트의 `docker-compose.monitoring.yml` | 서버 배포. 앱 컨테이너를 실제로 관측할 때 |
 | **단독** | `local/docker-compose.yml` | 로컬에서 모니터링 스택만 확인할 때 |
-| **운영 조회** | `remote/docker-compose.yml` | 각 팀원의 로컬 Grafana에서 서버 Prometheus를 함께 볼 때 |
+| **dev·prod 조회** | `remote/docker-compose.yml` | 로컬 Grafana에서 두 서버 Prometheus를 전환해 볼 때 |
 
-`prometheus/`와 `grafana/`는 로컬·서버 모니터링용 원본이다. 운영 Prometheus를 조회하는
-팀원용 Grafana는 `remote/grafana/`에 대시보드와 provisioning을 따로 둔다. 운영 조회에
-필요한 필터 변경이 기존 로컬 대시보드에 섞이지 않게 하기 위해서다.
+`prometheus/`와 `grafana/`는 앱과 함께 실행하는 모니터링 원본이다. 두 원격 환경을 조회하는
+Grafana는 `remote/` 아래에 Compose·환경 파일·대시보드·provisioning을 별도로 둔다.
 
 ## 앱과 함께 (기본)
 
@@ -54,22 +53,25 @@ docker compose -f infra/monitoring/local/docker-compose.yml up -d
 
 Caddy 포트는 `MONITORING_HTTP_PORT` 로 바꾼다. TLS 는 쓰지 않는다.
 
-## 팀원과 운영 대시보드 공유
+## 로컬에서 dev·prod 전환
 
-Grafana 자체를 작은 운영 서버에 추가하지 않고, 각 팀원이 같은 프로비저닝 설정으로 로컬
-Grafana를 띄워 `metrics.crewon.cloud`의 Prometheus를 조회한다. 대시보드 JSON은 저장소로
-공유되고 조회 계정만 별도로 전달한다.
+운영 애플리케이션의 `.env.dev`나 `.env.prod`를 복사하지 않는다. 로컬 전용 환경 파일을
+만들고 각 서버의 기존 `METRICS_BASIC_AUTH_USER/PASSWORD` 값을 해당 환경 항목에 옮긴다.
 
 ```bash
 cp infra/monitoring/remote/.env.example infra/monitoring/remote/.env
-# .env에서 Grafana 비밀번호와 Prometheus Basic Auth 계정만 채운다.
+chmod 600 infra/monitoring/remote/.env
+```
+
+```bash
 docker compose -p arcade-monitoring \
   -f infra/monitoring/remote/docker-compose.yml \
   --env-file infra/monitoring/remote/.env up -d --force-recreate grafana
 ```
 
-브라우저에서 `http://localhost:3001`로 접속한다. 운영 애플리케이션의 `.env.prod` 전체를
-팀원에게 복사하지 않는다. `remote/.env`에는 모니터링 조회에 필요한 값만 둔다.
+브라우저에서 `http://localhost:3001`로 접속한 뒤 대시보드 상단 `Prometheus`에서
+`Prometheus Dev` 또는 `Prometheus Prod`를 선택한다. 대상 DNS와 HTTPS가 아직 준비되지
+않은 환경은 선택해도 조회되지 않는다.
 
 Prometheus 설정을 재시작 없이 반영하려면 lifecycle API 를 호출한다.
 
@@ -81,8 +83,8 @@ curl -X POST http://localhost:9090/-/reload
 
 - [JVM (Micrometer)](grafana/dashboards/jvm-micrometer.md) — JVM·프로세스·HTTP 지표 심층 분석
 - [Spring Boot Statistics](grafana/dashboards/spring-boot-statistics.md) — JVM·HikariCP·HTTP·Logback 운영 관점
-- 운영 조회 전용 `Nginx — Arcade Dev` — 처리량과 연결 상태
-- 운영 조회 전용 `PostgreSQL — Arcade Dev` — 연결·트랜잭션·캐시·deadlock
+- 원격 조회 전용 `Nginx — Arcade` — 처리량과 연결 상태
+- 원격 조회 전용 `PostgreSQL — Arcade` — 연결·트랜잭션·캐시·deadlock
 
 ## Prometheus 수집
 
@@ -104,9 +106,10 @@ exporter 또는 Loki를 별도로 도입해야 한다.
 
 ## Grafana provisioning
 
-- Prometheus 데이터소스는 기동 시 `http://prometheus:9090` 으로 자동 등록된다
-- 대시보드 JSON 이 참조하는 `prometheus` UID 를 고정한다. UID 없이 만들어진 기존
-  데이터소스가 남아 있을 수 있으므로 같은 이름을 지운 뒤 재생성한다
+- 서버에서는 Prometheus 데이터소스가 기동 시 `http://prometheus:9090`으로 자동 등록된다
+- 원격 조회용 로컬 Grafana에서는 dev·prod 데이터소스를 함께 등록하고 대시보드의 `Prometheus` 변수가
+  선택한 Prometheus UID를 사용한다
+- 설정 전환 시 이전 데이터소스가 남지 않도록 관리 대상 이름을 지운 뒤 재생성한다
 - Provisioning 대시보드는 UI 에서 수정해도 저장되지 않는다. `grafana/dashboards` 아래
   JSON 을 고치면 30초 주기로 재로드된다
 - UI 에서 지워도 다음 스캔에 복구된다. 영구히 없애려면 JSON 파일을 지운다
