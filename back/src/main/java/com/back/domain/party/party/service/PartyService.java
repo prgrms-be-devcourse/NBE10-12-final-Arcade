@@ -35,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.back.domain.party.party.entity.PartySortOption.DEADLINE;
@@ -374,7 +375,9 @@ public class PartyService {
             partyRepository.increaseViewCount(partyId);
             party = findByIdOrThrow(partyId);
         }
-        var myApplication = partyMemberRepository.findApplicationSummaryByPartyAndMember(party, actor);
+        var myApplication = actor == null
+                ? Optional.<PartyMemberRepository.ApplicationSummary>empty()
+                : partyMemberRepository.findApplicationSummaryByPartyAndMember(party, actor);
         PartyDto partyDto = new PartyDto(
                 party,
                 partyMemberRepository.countApplicantsByPartyId(partyId),
