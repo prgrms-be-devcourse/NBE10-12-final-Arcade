@@ -49,7 +49,7 @@ public class ApiV1PartyController {
 
     public record PartyCreateReqBody(
             @NotBlank @Size(max = 10) String partyName,
-            @NotBlank @Size(max = 20) String title,
+            @NotBlank @Size(max = 50) String title,
             @Size(max = 20000) String description,
             Long targetContestId,
             String contestTitle,
@@ -104,7 +104,7 @@ public class ApiV1PartyController {
 
     public record PartyUpdateReqBody(
             @NotBlank @Size(max = 10) String partyName,
-            @NotBlank @Size(max = 20) String title,
+            @NotBlank @Size(max = 50) String title,
             @Size(max = 20000) String description,
             Long targetContestId,
             String contestTitle,
