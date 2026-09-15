@@ -63,6 +63,9 @@ build/
 # 앞의 / 는 저장소 루트에만 적용하겠다는 뜻이다. front/data 같은 것은 막지 않는다.
 /data/
 
+# 배포 시 환경별 도메인과 활성 컨테이너를 채워 생성한다.
+/infra/nginx/nginx.prod.conf
+
 # Node / Next.js
 node_modules/
 .pnp
