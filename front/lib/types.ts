@@ -231,6 +231,9 @@ export interface Party {
   subCategory: string;
   positions: PartyPosition[];
   applicants: number;
+  /** 현재 사용자의 이 파티 지원 상태 */
+  myApplicationStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+  myApplicationPosition?: PositionType | null;
   dday: string;
   deadline: string;
   createdAt: string;
