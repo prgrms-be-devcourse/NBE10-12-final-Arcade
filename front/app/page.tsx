@@ -38,7 +38,7 @@ export default async function HomePage() {
           ))}
         </div>
         <div style={{ marginTop: '1.625rem', textAlign: 'center' }}>
-          <Link className="btn btn-ghost" href="/party">
+          <Link className="btn btn-ghost btn-sm" href="/party">
             파티 전체 보기
           </Link>
         </div>
@@ -55,7 +55,7 @@ export default async function HomePage() {
           ))}
         </div>
         <div style={{ marginTop: '1.625rem', textAlign: 'center' }}>
-          <Link className="btn btn-ghost" href="/contests">
+          <Link className="btn btn-ghost btn-sm" href="/contests">
             공모전·대회 전체 보기
           </Link>
         </div>
@@ -72,7 +72,7 @@ export default async function HomePage() {
           ))}
         </div>
         <div style={{ marginTop: '1.625rem', textAlign: 'center' }}>
-          <Link className="btn btn-ghost" href="/exhibition">
+          <Link className="btn btn-ghost btn-sm" href="/exhibition">
             전시관 전체 보기
           </Link>
         </div>
