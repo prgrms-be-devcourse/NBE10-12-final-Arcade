@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 @ConditionalOnProperty(name = "custom.curation.enabled", havingValue = "true")
 public class GeminiCurationAdapter implements PartyCurationPort {
 
-    private static final int REASON_MAX_LENGTH = 120;
+    private static final int REASON_MAX_LENGTH = 50;
 
     private final RestClient client;
     private final ObjectMapper objectMapper;
@@ -106,7 +106,10 @@ public class GeminiCurationAdapter implements PartyCurationPort {
         }
 
         sb.append("\n반드시 위 후보 목록에 있는 id만 사용하고, 최대 ").append(candidates.size()).append("개까지 순위를 매겨줘. ")
-                .append("reason은 한국어로 ").append(REASON_MAX_LENGTH).append("자 이내로 짧게 써줘.");
+                .append("reason은 한국어로 ").append(REASON_MAX_LENGTH).append("자 이내로 짧게 써줘. ")
+                .append("말투는 딱딱한 설명체 말고, 친구한테 소개해주듯 통통 튀게 '해요체'로 써줘. ")
+                .append("예시: \"프론트엔드 스터디예요! 리액트 경험 살려서 바로 합류할 수 있어요 🙌\" ")
+                .append("이런 식으로 해요체 + 이모지 1개 정도 섞어서. 반말(~야, ~해)은 쓰지 마.");
 
         return sb.toString();
     }
