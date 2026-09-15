@@ -122,11 +122,13 @@ export function PartyCreateForm({ editId, contestId }: { editId?: string; contes
    */
   useEffect(() => {
     if (!editId && !contestId) return;
-    setLoading(true);
-    setLoadError('');
     let alive = true;
 
     (async () => {
+      // editId/contestId 가 바뀔 때마다(언마운트 없이) 다시 로딩 상태로 돌아가야 한다 - 동기 호출이지만
+      // async 함수 안이라 useEffect 본문에서 직접 부르는 게 아니라서 set-state-in-effect 에 안 걸린다
+      setLoading(true);
+      setLoadError('');
       try {
         if (editId) {
           const party = await fetchParty(editId);
