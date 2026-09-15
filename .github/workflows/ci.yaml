@@ -6,13 +6,21 @@ on:
     paths:
       - "back/**"
       - "front/**"
+      - "infra/**"
+      - "docker-compose*.yml"
+      - ".github/scripts/**"
       - ".github/workflows/ci.yaml"
+      - ".github/workflows/infra-cd.yaml"
   push:
     branches: [main, develop]
     paths:
       - "back/**"
       - "front/**"
+      - "infra/**"
+      - "docker-compose*.yml"
+      - ".github/scripts/**"
       - ".github/workflows/ci.yaml"
+      - ".github/workflows/infra-cd.yaml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -196,6 +204,7 @@ jobs:
             echo "tags<<EOF"
             echo "$repo/backend:$sha"
             [ "$GITHUB_REF_NAME" = "develop" ] && echo "$repo/backend:latest"
+            [ "$GITHUB_REF_NAME" = "main" ] && echo "$repo/backend:prod"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -252,6 +261,7 @@ jobs:
             echo "tags<<EOF"
             echo "$repo/frontend:$sha"
             [ "$GITHUB_REF_NAME" = "develop" ] && echo "$repo/frontend:latest"
+            [ "$GITHUB_REF_NAME" = "main" ] && echo "$repo/frontend:prod"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
