@@ -13,8 +13,9 @@
  */
 
 /**
- * 브라우저가 부르는 주소. NEXT_PUBLIC_ 이라 빌드 시점에 번들로 인라인된다.
- * WebSocket 주소와 OAuth 오리진 계산도 이 값을 쓴다(둘 다 브라우저 전용).
+ * 브라우저가 부르는 주소. 컨테이너 이미지는 `/api/v1`을 사용해 현재 접속한
+ * 도메인의 Nginx/Caddy로 요청하고, 로컬 직접 실행만 .env.local에서 절대 주소를 받는다.
+ * NEXT_PUBLIC_ 값이므로 어느 경우든 빌드 시점에 번들로 인라인된다.
  */
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
@@ -48,9 +49,9 @@ function apiBase(): string {
 
 /**
  * 서버가 내려주는 업로드 파일 URL(`/uploads/...`)은 서버 자신을 기준으로 한 상대 경로다.
- * 프론트와 백엔드가 다른 오리진(로컬은 :3000/:8080, 배포는 서로 다른 도메인)이라
- * 그대로 <img>·background-image 에 쓰면 프론트 자신의 오리진에서 찾아 404가 난다 —
- * API_BASE_URL 에서 "/api/v1" 을 떼어낸 서버 오리진을 붙여 절대 주소로 만들어야 한다.
+ * 프론트 개발 서버를 백엔드와 다른 오리진(:3000/:8080)으로 직접 실행할 때는
+ * API_BASE_URL에서 "/api/v1"을 떼어낸 서버 오리진을 붙인다. 배포·Compose에서는
+ * 동일 출처 프록시가 `/uploads`도 백엔드로 전달하므로 상대 경로를 유지한다.
  * 이미 스킴이 있는 주소(https://..., blob:..., data:... 등)면 그대로 둔다.
  *
  * mock 모드에서는 적용하지 않는다 — 목 데이터의 상대경로(예: /samples/cover.svg)는
