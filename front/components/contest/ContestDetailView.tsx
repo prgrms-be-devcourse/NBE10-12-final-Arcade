@@ -9,6 +9,7 @@ import { PartyCard } from '@/components/party/PartyCard';
 import { Block, DetailGrid, DetailLayout, SideCard } from '@/components/ui/Block';
 import { DDay, Tag, TagRow } from '@/components/ui/Tag';
 import { fetchContest } from '@/lib/api';
+import { resolveMediaUrl } from '@/lib/api/client';
 import { CONTEST_FORMAT_LABELS } from '@/lib/constants';
 import { httpUrlOrNull } from '@/lib/externalUrl';
 import type { ContestDetail } from '@/lib/types';
@@ -42,6 +43,7 @@ export function ContestDetailView({ id }: { id: string }) {
   }
 
   const externalLinkUrl = httpUrlOrNull(contest.linkUrl);
+  const coverImageUrl = resolveMediaUrl(contest.coverImageUrl);
 
   return (
     <DetailLayout backHref="/contests">
@@ -69,14 +71,8 @@ export function ContestDetailView({ id }: { id: string }) {
               </div>
 
               <div
-                className={
-                  contest.coverImageUrl ? 'contest-hero-poster has-cover' : 'contest-hero-poster'
-                }
-                style={
-                  contest.coverImageUrl
-                    ? { backgroundImage: `url(${contest.coverImageUrl})` }
-                    : undefined
-                }
+                className={coverImageUrl ? 'contest-hero-poster has-cover' : 'contest-hero-poster'}
+                style={coverImageUrl ? { backgroundImage: `url(${coverImageUrl})` } : undefined}
               >
                 <Tag accent>{contest.tag}</Tag>
               </div>

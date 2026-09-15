@@ -121,6 +121,9 @@ export function toContest(dto: ContestResponse): Contest {
     applicationPeriodEnd: dto.applicationPeriodEnd,
     linkUrl: dto.linkUrl ?? '#',
     archived: dto.archived,
+    // 서버가 내려주는 상대 경로(/uploads/...) 그대로 둔다 - 수정 폼이 이 값을 그대로 다시
+    // PATCH 로 돌려보내 기존 이미지를 보존하므로, 여기서 절대 주소로 바꾸면 그 값이 그대로
+    // 저장돼 서버 오리진이 바뀔 때 깨진다. 절대 주소 변환은 화면에 그릴 때(resolveMediaUrl)만 한다.
     coverImageUrl: dto.imageUrl ?? undefined,
     viewCount: dto.viewCount ?? 0,
     likeCount: dto.likeCount ?? 0,
@@ -272,22 +275,45 @@ export interface ContestFormPayload {
   /** 접수 기간 — 상세의 '접수 2026.08.01 ~ 09.10' 과 D-day 계산에 쓰인다 */
   startDate: string;
   endDate: string;
-  coverFileName?: string;
   /**
-   * 지금 등록돼 있는 대표 사진 URL(있다면). 실제 업로드가 아직 안 붙어 있어 coverFileName 은
-   * 서버로 못 보내지만, 수정 화면은 이 값을 그대로 되돌려 보내 기존 이미지를 보존해야 한다 —
-   * 안 그러면(예: null) PATCH 가 imageUrl 을 통째로 덮어써서 제목만 고쳐도 이미지가 지워진다.
+   * 저장할 대표 사진 URL. 새 파일을 골랐다면 uploadContestImage() 로 먼저 올려서 받은 값,
+   * 수정 화면에서 이미지를 안 건드렸다면 기존 값을 그대로 담아 보낸다 — 비우면(undefined)
+   * PATCH 가 imageUrl 을 통째로 지워버리므로, 유지하려는 값은 항상 채워서 보내야 한다.
    */
   coverImageUrl?: string;
   /** 상세의 '공모전 소개' — 상금·시상 내역·참가 대상도 여기에 함께 적는다. 서버 검증상 10자 이상 */
   description: string;
 }
 
+/** mock 모드에서 직전에 만든 blob URL. 같은 세션에서 다시 올릴 때 revoke 해서 안 쌓이게 한다 */
+let lastMockCoverBlobUrl: string | undefined;
+
+/**
+ * POST /api/v1/contests/image — 대회 대표 이미지 업로드.
+ *
+ * 저장된 이미지의 URL 을 돌려준다. 등록/수정 요청의 imageUrl 로 실어야 실제로 대회 글에 붙는다 —
+ * 업로드만 하면 파일만 올라가고 대회 글은 그대로다.
+ *
+ * jpg·png 만 받는다. 초과하거나 형식이 다르면 서버가 400-1 과 함께 사유를 msg 로 준다.
+ */
+export async function uploadContestImage(file: File): Promise<string> {
+  if (USE_MOCK) {
+    if (lastMockCoverBlobUrl) URL.revokeObjectURL(lastMockCoverBlobUrl);
+    lastMockCoverBlobUrl = URL.createObjectURL(file);
+    return mockResponse(lastMockCoverBlobUrl);
+  }
+
+  const form = new FormData();
+  form.append('file', file);
+
+  const { imageUrl } = await http.post<{ imageUrl: string }>('/contests/image', form);
+  return imageUrl;
+}
+
 /**
  * POST /api/v1/contests — 관리자만 등록할 수 있다(기획서 3.4).
  *
  * 서버 검증: title 5~25자, description 10~20000자, linkUrl 필수.
- * coverFileName 은 서버에 대응 필드가 없어 전송하지 않는다.
  */
 export async function createContest(payload: ContestFormPayload): Promise<{ id: string }> {
   if (USE_MOCK) {
@@ -306,7 +332,7 @@ export async function createContest(payload: ContestFormPayload): Promise<{ id: 
     applicationPeriodStart: payload.startDate,
     applicationPeriodEnd: payload.endDate,
     description: payload.description,
-    imageUrl: null,
+    imageUrl: payload.coverImageUrl ?? null,
     linkUrl: payload.linkUrl,
   });
   return { id: String(created.id) };
@@ -338,8 +364,8 @@ export async function updateContest(
     applicationPeriodStart: payload.startDate,
     applicationPeriodEnd: payload.endDate,
     linkUrl: payload.linkUrl,
-    // coverFileName 은 아직 실제 업로드가 없어 서버로 못 보낸다. 그렇다고 null 을 보내면
-    // PATCH 가 전체 교체라서 기존 이미지가 지워지므로, 읽어온 값을 그대로 돌려보내 보존한다.
+    // PATCH 는 imageUrl 을 통째로 교체하므로, 이미지를 안 건드렸으면 읽어온 기존 값을
+    // 그대로 돌려보내야 지워지지 않는다 — coverImageUrl 은 폼이 그 보존/교체 판단까지 끝낸 값이다.
     imageUrl: payload.coverImageUrl ?? null,
   });
   return { id: String(updated.id) };
