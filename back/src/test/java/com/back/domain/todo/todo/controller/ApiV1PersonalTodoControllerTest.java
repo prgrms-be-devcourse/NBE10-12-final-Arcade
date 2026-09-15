@@ -306,6 +306,73 @@ public class ApiV1PersonalTodoControllerTest {
                 .andExpect(jsonPath("$.data.status").value("IN_PROGRESS"));
     }
 
+    @Test
+    @DisplayName("수정: TODO를 ACHIEVED로 바꾸면 연결된 성취도 함께 ACHIEVED가 된다")
+    @WithUserDetails("user1@test.com")
+    void updateStatusToAchievedCascadesToLinkedGoal() throws Exception {
+        PersonalTodo todo = saveTodo("user1@test.com");
+        PersonalChecklist goal = new PersonalChecklist(
+                member("user1@test.com"), GoalStatus.IN_PROGRESS, "정보처리기사 취득", null, null
+        );
+        goal.linkTodo(todo);
+        goalRepository.save(goal);
+
+        mvc.perform(patch("/api/v1/todos/" + todo.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "status": "ACHIEVED" }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("ACHIEVED"));
+
+        PersonalChecklist reloaded = (PersonalChecklist) goalRepository.findById(goal.getId()).orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(reloaded.getStatus()).isEqualTo(GoalStatus.ACHIEVED);
+    }
+
+    @Test
+    @DisplayName("수정: 이미 ACHIEVED인 성취는 TODO를 다시 ACHIEVED로 바꿔도 그대로다")
+    @WithUserDetails("user1@test.com")
+    void updateStatusToAchievedIsNoopForAlreadyAchievedGoal() throws Exception {
+        PersonalTodo todo = saveTodo("user1@test.com");
+        PersonalChecklist goal = new PersonalChecklist(
+                member("user1@test.com"), GoalStatus.ACHIEVED, "정보처리기사 취득", null, null
+        );
+        goal.linkTodo(todo);
+        goalRepository.save(goal);
+
+        mvc.perform(patch("/api/v1/todos/" + todo.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "status": "ACHIEVED" }
+                                """))
+                .andExpect(status().isOk());
+
+        PersonalChecklist reloaded = (PersonalChecklist) goalRepository.findById(goal.getId()).orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(reloaded.getStatus()).isEqualTo(GoalStatus.ACHIEVED);
+    }
+
+    @Test
+    @DisplayName("수정: TODO를 IN_PROGRESS로 바꿔도 연결된 성취는 그대로다 (ACHIEVED 전이만 전파)")
+    @WithUserDetails("user1@test.com")
+    void updateStatusToInProgressDoesNotTouchLinkedGoal() throws Exception {
+        PersonalTodo todo = saveTodo("user1@test.com");
+        PersonalChecklist goal = new PersonalChecklist(
+                member("user1@test.com"), GoalStatus.WANT, "정보처리기사 취득", null, null
+        );
+        goal.linkTodo(todo);
+        goalRepository.save(goal);
+
+        mvc.perform(patch("/api/v1/todos/" + todo.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                { "status": "IN_PROGRESS" }
+                                """))
+                .andExpect(status().isOk());
+
+        PersonalChecklist reloaded = (PersonalChecklist) goalRepository.findById(goal.getId()).orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(reloaded.getStatus()).isEqualTo(GoalStatus.WANT);
+    }
+
     /* ---------- 삭제 ---------- */
 
     @Test

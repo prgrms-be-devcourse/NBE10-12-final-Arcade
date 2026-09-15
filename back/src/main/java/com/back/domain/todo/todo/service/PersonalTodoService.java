@@ -1,5 +1,7 @@
 package com.back.domain.todo.todo.service;
 
+import com.back.domain.goal.goal.entity.GoalStatus;
+import com.back.domain.goal.goal.entity.PersonalChecklist;
 import com.back.domain.goal.goal.repository.GoalRepository;
 import com.back.domain.member.member.entity.Member;
 import com.back.domain.todo.todo.dtos.PersonalTodoDetailDto;
@@ -107,13 +109,33 @@ public class PersonalTodoService {
     public PersonalTodoDto update(Member actor, long todoId, TodoUpdateReqBody request) {
         PersonalTodo todo = findOwnedTodo(actor, todoId);
 
-        if (request.status() != null) todo.changeStatus(request.status());
+        if (request.status() != null) {
+            todo.changeStatus(request.status());
+            if (request.status() == TodoStatus.ACHIEVED) {
+                achieveLinkedChecklist(todoId);
+            }
+        }
         todo.update(request.title(), request.category(), request.memo());
 
         // 먼저 내보내야 응답의 modifyDate 가 수정 후 값으로 나간다
         personalTodoRepository.flush();
 
         return toDto(todo);
+    }
+
+    /**
+     * TODO가 ACHIEVED로 바뀔 때, 연결된 성취(CHECKLIST)도 함께 완료 처리한다.
+     *
+     * 성취 쪽 changeStatus()는 사용자가 직접 일으키는 전이만 검증하므로(Goal.changeStatus),
+     * TODO 완료라는 시스템 이벤트로 넘어올 때는 Project.complete()와 같은 자리인
+     * Goal.markAchieved()로 전이 규칙을 거치지 않고 바로 완료시킨다.
+     * 이미 ACHIEVED인 성취는 건드리지 않는다 - Goal.changeStatus()와 달리 markAchieved()는
+     * 재호출을 막지 않아, 걸러주지 않으면 이미 완료된 성취의 @LastModifiedDate만 불필요하게 갱신된다.
+     */
+    private void achieveLinkedChecklist(long todoId) {
+        goalRepository.findChecklistByPersonalTodoId(todoId)
+                .filter(checklist -> checklist.getStatus() != GoalStatus.ACHIEVED)
+                .ifPresent(PersonalChecklist::markAchieved);
     }
 
     /**
