@@ -40,7 +40,6 @@ export function ProfileCard({
       <div className="profile-info">
         <div className="profile-name-row">
           <h2>{profile.name}</h2>
-          <span className="badge lv">LV.14</span>
           <span className="badge verified">
             <Icon name="i-check" />
             자동기록 {profile.stats.exhibitions}건

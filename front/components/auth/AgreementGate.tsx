@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { OnboardingModal, type OnboardingResult } from './OnboardingModal';
 import { completeOnboarding, fetchMyProfileOrNull } from '@/lib/api';
 import { onAgreementRequired } from '@/lib/api/client';
+import { CURRENT_USER_EVENT } from '@/lib/hooks/useCurrentUser';
 import type { UserProfile } from '@/lib/types';
 
 /** 온보딩을 띄우면 안 되는 화면. 로그인·가입은 아직 계정이 없거나 폼에서 동의를 받는다 */
@@ -61,6 +62,9 @@ export function AgreementGate() {
 
   const submit = async (result: OnboardingResult) => {
     await completeOnboarding(result);
+    // 헤더 아바타 등 client hook (useCurrentUser) 이 최신 프로필을 다시 읽도록 알린다.
+    // router.refresh 는 RSC 만 갱신해서 이걸로는 client hook 이 다시 돌지 않는다.
+    window.dispatchEvent(new Event(CURRENT_USER_EVENT));
     setOpen(false);
     // 막혀서 비어 있던 화면을 다시 그린다
     router.refresh();

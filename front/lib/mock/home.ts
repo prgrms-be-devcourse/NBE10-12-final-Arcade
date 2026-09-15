@@ -10,7 +10,7 @@ export const MOCK_HERO_SLIDES: HeroSlide[] = [
       { label: '파티 둘러보기', href: '/party', variant: 'primary' },
       { label: '성취 프로필 만들기', href: '/mypage', variant: 'ghost' },
     ],
-    art: { mark: 'CREW ON', sub: 'INSERT SKILL TO CONTINUE', chips: ['TOP 3', 'LV.14', '1,284 MATCHED'] },
+    art: { mark: 'CREW ON', sub: 'INSERT SKILL TO CONTINUE', chips: ['TOP 3', '1,284 MATCHED'] },
   },
   {
     id: 'slide-2',

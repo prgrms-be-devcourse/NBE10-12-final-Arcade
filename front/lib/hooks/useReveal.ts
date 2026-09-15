@@ -3,8 +3,9 @@
 import { useEffect } from 'react';
 
 /**
- * `[data-reveal]` 요소가 뷰포트에 들어오면 `.in-view` 를 붙여 등장 애니메이션을 실행한다.
- * (목업의 IntersectionObserver 로직을 훅으로 옮긴 것)
+ * `[data-reveal]` 요소가 뷰포트에 들어오면 `data-in-view` 를 붙여 등장 애니메이션을 실행한다.
+ * className 이 아닌 data 속성을 쓰는 이유: React 가 JSX 에서 선언하지 않은 속성이라 hydration
+ * 비교 대상에서 빠져, 스크롤 후 재수화(뒤로가기·streaming)에도 mismatch 경고가 나지 않는다.
  *
  * 라우트 이동뿐 아니라 탭 전환·조건부 렌더로도 새 `[data-reveal]` 이 생기므로,
  * MutationObserver 로 DOM 변화를 감지해 새로 나타난 요소까지 계속 관찰한다.
@@ -25,8 +26,8 @@ export function useReveal() {
       if (!('IntersectionObserver' in window)) {
         const showAll = () =>
           document
-            .querySelectorAll('[data-reveal]:not(.in-view)')
-            .forEach((el) => el.classList.add('in-view'));
+            .querySelectorAll('[data-reveal]:not([data-in-view])')
+            .forEach((el) => el.setAttribute('data-in-view', ''));
         showAll();
         mutations = new MutationObserver(showAll);
         mutations.observe(document.body, { childList: true, subtree: true });
@@ -37,7 +38,7 @@ export function useReveal() {
         (entries) => {
           entries.forEach((entry) => {
             if (entry.isIntersecting) {
-              entry.target.classList.add('in-view');
+              (entry.target as HTMLElement).setAttribute('data-in-view', '');
               intersections?.unobserve(entry.target);
             }
           });
@@ -47,7 +48,7 @@ export function useReveal() {
 
       const observeNew = () =>
         document
-          .querySelectorAll('[data-reveal]:not(.in-view)')
+          .querySelectorAll('[data-reveal]:not([data-in-view])')
           .forEach((el) => intersections?.observe(el));
 
       observeNew();

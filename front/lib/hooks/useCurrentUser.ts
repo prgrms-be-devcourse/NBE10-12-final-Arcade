@@ -11,6 +11,12 @@ export interface CurrentUser {
 }
 
 /**
+ * 프로필이 갱신되었을 때 헤더 아바타 등 다른 인스턴스가 다시 읽도록 알리는 신호.
+ * ProfileEditPanel 저장 성공 시 발사한다.
+ */
+export const CURRENT_USER_EVENT = 'crewon:current-user-updated';
+
+/**
  * 로그인한 사용자.
  *
  * 화면은 이 값으로 '보여줄지'만 정하고, 실제 권한 판단은 서버가 한다.
@@ -25,6 +31,13 @@ export interface CurrentUser {
  */
 export function useCurrentUser(): CurrentUser | null | undefined {
   const [user, setUser] = useState<CurrentUser | null | undefined>(undefined);
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    const onUpdated = () => setTick((n) => n + 1);
+    window.addEventListener(CURRENT_USER_EVENT, onUpdated);
+    return () => window.removeEventListener(CURRENT_USER_EVENT, onUpdated);
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -47,7 +60,7 @@ export function useCurrentUser(): CurrentUser | null | undefined {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [tick]);
 
   return user;
 }
