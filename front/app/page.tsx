@@ -37,6 +37,11 @@ export default async function HomePage() {
             <RankCard key={party.id} party={party} rank={(index + 1) as 1 | 2 | 3} />
           ))}
         </div>
+        <div style={{ marginTop: '1.625rem', textAlign: 'center' }}>
+          <Link className="btn btn-ghost" href="/party">
+            파티 전체 보기
+          </Link>
+        </div>
       </section>
 
       <section className="section contests container" data-reveal suppressHydrationWarning>
@@ -48,6 +53,11 @@ export default async function HomePage() {
           {contests.map((contest) => (
             <ContestCard key={contest.id} contest={contest} />
           ))}
+        </div>
+        <div style={{ marginTop: '1.625rem', textAlign: 'center' }}>
+          <Link className="btn btn-ghost" href="/contests">
+            공모전·대회 전체 보기
+          </Link>
         </div>
       </section>
 
