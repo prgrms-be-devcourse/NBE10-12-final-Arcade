@@ -82,4 +82,10 @@ public class PersonalChecklist extends Goal {
 
         this.personalTodo = null;
     }
+
+    // Goal.syncStatus()는 Project/PersonalContest에는 의미가 없어 protected로 막아뒀다.
+    // TODO와 연결되는 건 CHECKLIST뿐이라 여기서만 public으로 다시 연다(PersonalTodoService 전용).
+    public void syncStatus(GoalStatus next) {
+        super.syncStatus(next);
+    }
 }
