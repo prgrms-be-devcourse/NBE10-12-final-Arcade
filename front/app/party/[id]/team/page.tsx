@@ -49,7 +49,7 @@ export default async function TeamSpacePage({ params, searchParams }: { params: 
         <DetailGrid
           main={
             <>
-              <h1 className="detail-title">{party.title}</h1>
+              <h1 className="detail-title">{party.partyName ?? party.title}</h1>
               <div className="detail-summary-row">
                 <div className="pboard-meta">
                   <Icon name="i-users" />
