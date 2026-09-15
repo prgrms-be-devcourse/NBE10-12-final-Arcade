@@ -38,7 +38,7 @@ import type { Contest, ContestFormat, PositionType, TopicType } from '@/lib/type
 
 /** 서버 PartyCreateReqBody 의 @Size 와 같은 값 */
 const PARTY_NAME_MAX = 10;
-const TITLE_MAX = 20;
+const TITLE_MAX = 50;
 /** 파티 총원 상한 — 서버는 아직 이 값을 강제하지 않아 프론트에서만 막는다 */
 const TOTAL_CAPACITY_MAX = 10;
 
