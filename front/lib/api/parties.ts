@@ -369,12 +369,28 @@ const ddayValue = (dday: string) => {
   return Number.isNaN(parsed) ? Number.MAX_SAFE_INTEGER : parsed;
 };
 
-/**
- * 성취 키워드 기반 추천.
- * 백엔드 추천 API(기획서 9.6)가 아직 없어 데모 데이터를 그대로 쓴다.
- */
+/** GET /api/v1/parties/recommendations — 성취 키워드 기반 추천 */
 export async function fetchRecommendedParties(): Promise<(Party & { why: string })[]> {
-  return mockResponse(MOCK_RECOMMENDED_PARTIES);
+  if (USE_MOCK) {
+    return mockResponse(MOCK_RECOMMENDED_PARTIES);
+  }
+
+  try {
+    const result = await http.get<{
+      profileRequired: boolean;
+      items: { party: PartyListItemResponse; reason: string }[];
+    }>('/parties/recommendations');
+
+    if (result.profileRequired) return [];
+
+    return result.items.map((item) => ({
+      ...toParty(item.party),
+      why: item.reason,
+    }));
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) return [];
+    throw error;
+  }
 }
 
 /** /parties/search 의 카테고리 필터 — 서버가 분야·유형·포지션으로 걸러 준다 */
