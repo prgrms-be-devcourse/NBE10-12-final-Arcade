@@ -22,15 +22,13 @@ FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# 브라우저용 주소. 번들에 박히므로 주소가 바뀌면 이미지를 다시 만들어야 한다.
-#   docker build --build-arg PUBLIC_ORIGIN=https://app.example.com ...
-ARG PUBLIC_ORIGIN
+# 브라우저 요청은 현재 접속한 도메인의 Nginx/Caddy를 사용한다.
+# 환경별 외부 주소를 번들에 넣지 않아 같은 이미지를 dev·prod에서 재사용한다.
 ARG NEXT_PUBLIC_USE_MOCK=""
-ENV NEXT_PUBLIC_API_BASE_URL=${PUBLIC_ORIGIN}/api/v1 \
+ENV NEXT_PUBLIC_API_BASE_URL=/api/v1 \
     NEXT_PUBLIC_USE_MOCK=${NEXT_PUBLIC_USE_MOCK}
 
-RUN test -n "$PUBLIC_ORIGIN" \
- && pnpm exec next typegen \
+RUN pnpm exec next typegen \
  && pnpm build
 
 # ---------- 3. 런타임 ----------
