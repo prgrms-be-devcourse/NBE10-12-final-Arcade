@@ -95,8 +95,21 @@ jacoco {
     toolVersion = "0.8.15"
 }
 
+val jacocoExcludedClasses = listOf(
+    "**/Q*.class", // Querydsl annotation processor가 생성한 클래스
+    "**/BackApplication.class", // Spring Boot 진입점
+)
+
 tasks.jacocoTestReport {
     dependsOn(tasks.test)
+
+    classDirectories.setFrom(
+        classDirectories.files.map { directory ->
+            fileTree(directory) {
+                exclude(jacocoExcludedClasses)
+            }
+        },
+    )
 
     reports {
         xml.required = true

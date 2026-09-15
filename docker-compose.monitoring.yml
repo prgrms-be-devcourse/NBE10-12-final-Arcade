@@ -82,6 +82,8 @@ services:
       PROMETHEUS_URL: ${PROMETHEUS_URL:-http://prometheus:9090/prometheus}
     # GOMEMLIMIT보다 여유 있는 컨테이너 상한이다.
     mem_limit: ${GRAFANA_MEM_LIMIT:-384m}
+    ports:
+      - "${PUBLISH_HOST:-127.0.0.1}:${GRAFANA_HOST_PORT:-3001}:3000"
     volumes:
       - ./infra/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./infra/monitoring/grafana/dashboards:/etc/grafana/dashboards:ro

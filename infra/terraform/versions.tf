@@ -12,9 +12,11 @@ terraform {
   cloud {
     organization = "arcade-team05"
 
-    # 데브코스 계정의 상태만 관리한다.
+    # 같은 프로젝트의 환경별 workspace를 선택할 수 있게 한다.
     workspaces {
-      name = "devcos"
+      tags = {
+        project = "arcade"
+      }
     }
   }
 }
@@ -29,7 +31,7 @@ provider "aws" {
     tags = {
       Team        = var.team_tag
       Project     = "arcade"
-      Environment = local.environment
+      Environment = var.environment
       ManagedBy   = "terraform"
     }
   }

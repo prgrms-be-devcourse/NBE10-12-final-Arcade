@@ -26,15 +26,9 @@ resource "aws_instance" "app" {
     http_put_response_hop_limit = 2 # 컨테이너 안에서도 메타데이터를 읽어야 한다
   }
 
-  # 계정별 워크스페이스를 선택해야 생성한다.
   lifecycle {
     # 최신 AMI 조회값이 바뀌어도 일반 apply에서 운영 EC2를 자동 교체하지 않는다.
     ignore_changes = [ami]
-
-    precondition {
-      condition     = terraform.workspace == "devcos"
-      error_message = "데브코스 전용 구성은 HCP Terraform devcos workspace에서만 실행한다."
-    }
   }
 
   user_data_replace_on_change = true
