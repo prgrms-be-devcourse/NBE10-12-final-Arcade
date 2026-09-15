@@ -15,6 +15,7 @@ import { RadioChipGroup } from '@/components/ui/RadioChipGroup';
 import { useConfirm } from '@/components/ui/ConfirmDialog';
 import { CoverUpload } from '@/components/ui/CoverUpload';
 import {
+  ApiError,
   createParty,
   fetchContest,
   fetchContests,
@@ -80,6 +81,8 @@ export function PartyCreateForm({ editId, contestId }: { editId?: string; contes
   const [todayStr, setTodayStr] = useState('');
   /** 수정 진입 시 기존 값을 읽어오는 동안. 다 읽기 전에 저장하면 빈 값으로 덮인다 */
   const [loading, setLoading] = useState(Boolean(editId) || Boolean(contestId));
+  /** 기존 값을 못 읽어왔을 때. 빈 폼으로 덮어쓰지 못하게 저장 버튼을 계속 막아 둔다 */
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     /* eslint-disable react-hooks/set-state-in-effect -- new Date() 를 렌더 중에 쓰면 서버·클라이언트
@@ -103,80 +106,74 @@ export function PartyCreateForm({ editId, contestId }: { editId?: string; contes
   });
 
   const trimmedKeyword = contestKeyword.trim();
-  const pickerOpen = topicType === 'CONTEST' && !pickedContest;
+  // 로딩 중(특히 contestId 로 대회를 불러오는 동안)엔 검색 결과를 숨겨서, 그 사이 사용자가
+  // 다른 대회를 골라도 뒤늦게 도착한 fetchContest 응답이 그 선택을 조용히 덮어쓰지 않게 한다
+  const pickerOpen = topicType === 'CONTEST' && !pickedContest && !loading;
   const contestResults = pickerOpen && search.keyword === trimmedKeyword ? search.results : [];
 
   /**
-   * 수정 진입이면 기존 파티를 읽어 폼을 채운다.
+   * 수정(editId) 또는 대회 연동 생성(contestId) 진입이면 초기값을 읽어 폼을 채운다.
+   * 두 경로가 각자 effect 를 따로 두면 로딩/에러 처리 뼈대가 그대로 복붙돼 한쪽만 고치고
+   * 다른 쪽을 놓치기 쉬워서, 하나의 effect 로 합쳐 그 위험을 없앤다.
    *
    * 서버 PartyDto 에는 대회 형식(contestFormat)이 없어 공모전으로 두고 시작한다 -
    * 목록 DTO 에만 있는 값이라 상세에서는 알 수 없다.
    */
   useEffect(() => {
-    if (!editId) return;
+    if (!editId && !contestId) return;
+    setLoading(true);
+    setLoadError('');
     let alive = true;
 
     (async () => {
       try {
-        const party = await fetchParty(editId);
-        // 연결된 대회 카드 조회가 실패해도 파티 수정은 계속할 수 있어야 한다.
-        const contest = party.contestId
-          ? await fetchContest(party.contestId).catch(() => null)
-          : null;
-        if (!alive) return;
+        if (editId) {
+          const party = await fetchParty(editId);
+          // 연결된 대회 카드 조회가 실패해도 파티 수정은 계속할 수 있어야 한다.
+          const contest = party.contestId
+            ? await fetchContest(party.contestId).catch(() => null)
+            : null;
+          if (!alive) return;
 
-        setTopicType(party.topicType);
-        setPartyName(party.partyName ?? '');
-        setTitle(party.title);
-        if (party.title.length > TITLE_MAX) {
-          setErrors((prev) => ({
-            ...prev,
-            title: `모집글 제목은 ${TITLE_MAX}자까지 입력할 수 있어요. (현재 ${party.title.length}자)`,
-          }));
+          setTopicType(party.topicType);
+          setPartyName(party.partyName ?? '');
+          setTitle(party.title);
+          if (party.title.length > TITLE_MAX) {
+            setErrors((prev) => ({
+              ...prev,
+              title: `모집글 제목은 ${TITLE_MAX}자까지 입력할 수 있어요. (현재 ${party.title.length}자)`,
+            }));
+          }
+          setDescription(party.description);
+          setRepositoryUrl(party.githubRepoUrl ?? '');
+          setContestLinkUrl(party.contestLinkUrl ?? '');
+          setPickedContest(contest);
+          setContestKeyword(contest ? '' : (party.contestName ?? ''));
+          setPositions(
+            party.positions.map((position, index) => ({
+              key: `p${index}`,
+              positionId: position.id,
+              type: position.type,
+              capacity: String(position.capacity),
+              filledCount: position.filledCount,
+            })),
+          );
+          setSubCategory(party.subCategory ?? '기타');
+          setDeadline(party.deadline ? party.deadline.slice(0, 10) : '');
+        } else if (contestId) {
+          const contest = await fetchContest(contestId);
+          if (!alive) return;
+          setTopicType('CONTEST');
+          setContestFormat(contest.format);
+          setPickedContest(contest);
         }
-        setDescription(party.description);
-        setRepositoryUrl(party.githubRepoUrl ?? '');
-        setContestLinkUrl(party.contestLinkUrl ?? '');
-        setPickedContest(contest);
-        setContestKeyword(contest ? '' : (party.contestName ?? ''));
-        setPositions(
-          party.positions.map((position, index) => ({
-            key: `p${index}`,
-            positionId: position.id,
-            type: position.type,
-            capacity: String(position.capacity),
-            filledCount: position.filledCount,
-          })),
-        );
-        setSubCategory(party.subCategory ?? '기타');
-        setDeadline(party.deadline ? party.deadline.slice(0, 10) : '');
-      } finally {
-        if (alive) setLoading(false);
-      }
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, [editId]);
-
-  /**
-   * 공모전 상세의 "이 대회로 파티 만들기"로 들어온 경우, 그 대회를 미리 연결해 둔다.
-   * 수정(editId) 진입이면 그쪽 effect 가 이미 pickedContest 를 채우므로 건너뛴다.
-   */
-  useEffect(() => {
-    if (!contestId || editId) return;
-    let alive = true;
-
-    (async () => {
-      try {
-        const contest = await fetchContest(contestId);
+      } catch (cause) {
         if (!alive) return;
-        setTopicType('CONTEST');
-        setContestFormat(contest.format);
-        setPickedContest(contest);
-      } catch {
-        // 대회를 못 불러와도 파티 작성 자체는 계속할 수 있어야 한다 - 그냥 빈 폼으로 둔다
+        setLoadError(
+          cause instanceof ApiError
+            ? cause.message
+            : '정보를 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.',
+        );
       } finally {
         if (alive) setLoading(false);
       }
@@ -185,7 +182,7 @@ export function PartyCreateForm({ editId, contestId }: { editId?: string; contes
     return () => {
       alive = false;
     };
-  }, [contestId, editId]);
+  }, [editId, contestId]);
 
   /**
    * 대회 목록을 API 에서 불러온다.
@@ -331,6 +328,7 @@ export function PartyCreateForm({ editId, contestId }: { editId?: string; contes
   return (
     <form style={{ marginTop: '2rem' }} onSubmit={(event) => event.preventDefault()}>
       {dialog}
+      {loadError ? <p className="form-error" role="alert">{loadError}</p> : null}
       <FormGroup
         label="주제 유형"
         hint="'대회'를 선택하면 등록된 대회를 검색해 연결할 수 있어요. 나머지 유형은 제목을 자유롭게 입력합니다."
@@ -338,6 +336,7 @@ export function PartyCreateForm({ editId, contestId }: { editId?: string; contes
         <RadioChipGroup
           options={TOPIC_TYPES.map((type) => TOPIC_TYPE_LABELS[type])}
           value={TOPIC_TYPE_LABELS[topicType]}
+          disabled={loading}
           onChange={(label) =>
             setTopicType(TOPIC_TYPES.find((type) => TOPIC_TYPE_LABELS[type] === label) ?? 'ETC')
           }
@@ -350,6 +349,7 @@ export function PartyCreateForm({ editId, contestId }: { editId?: string; contes
             <RadioChipGroup
               options={CONTEST_FORMATS.map((format) => CONTEST_FORMAT_LABELS[format])}
               value={CONTEST_FORMAT_LABELS[contestFormat]}
+              disabled={loading}
               onChange={(label) =>
                 setContestFormat(
                   CONTEST_FORMATS.find((format) => CONTEST_FORMAT_LABELS[format] === label) ??
@@ -388,8 +388,9 @@ export function PartyCreateForm({ editId, contestId }: { editId?: string; contes
             <div className="picker">
               <div className="contest-link-field">
                 <TextField
-                  placeholder="대회명으로 검색 (예: 프로그래머스 오락실)"
+                  placeholder={loading ? '대회 정보를 불러오는 중…' : '대회명으로 검색 (예: 프로그래머스 오락실)'}
                   autoComplete="off"
+                  disabled={loading}
                   value={contestKeyword}
                   onChange={(event) => {
                     setContestKeyword(event.target.value);
@@ -609,7 +610,7 @@ export function PartyCreateForm({ editId, contestId }: { editId?: string; contes
           type="button"
           className="btn btn-primary"
           onClick={submit}
-          disabled={submitting || loading}
+          disabled={submitting || loading || Boolean(loadError)}
         >
           {loading ? '불러오는 중…' : submitting ? '등록 중…' : editId ? '수정 저장' : '모집글 등록'}
         </button>
