@@ -65,6 +65,8 @@ export interface PartyListItemResponse {
    * 세지 않는 응답(홈 TOP3·검색·생성·수정·마감·완료)에서는 null 로 온다.
    */
   applicantCount: number | null;
+  myApplicationStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
+  myApplicationPosition: PositionType | null;
   positions: PositionResponse[];
 }
 
@@ -195,6 +197,8 @@ export function toParty(dto: PartyListItemResponse): Party {
       filledCount: position.filledCount,
     })),
     applicants: dto.applicantCount ?? 0,
+    myApplicationStatus: dto.myApplicationStatus,
+    myApplicationPosition: dto.myApplicationPosition,
     dday: dto.dDay >= 0 ? `D-${dto.dDay}` : '마감',
     deadline: dto.deadline,
     createdAt: '',
@@ -365,12 +369,28 @@ const ddayValue = (dday: string) => {
   return Number.isNaN(parsed) ? Number.MAX_SAFE_INTEGER : parsed;
 };
 
-/**
- * 성취 키워드 기반 추천.
- * 백엔드 추천 API(기획서 9.6)가 아직 없어 데모 데이터를 그대로 쓴다.
- */
+/** GET /api/v1/parties/recommendations — 성취 키워드 기반 추천 */
 export async function fetchRecommendedParties(): Promise<(Party & { why: string })[]> {
-  return mockResponse(MOCK_RECOMMENDED_PARTIES);
+  if (USE_MOCK) {
+    return mockResponse(MOCK_RECOMMENDED_PARTIES);
+  }
+
+  try {
+    const result = await http.get<{
+      profileRequired: boolean;
+      items: { party: PartyListItemResponse; reason: string }[];
+    }>('/parties/recommendations');
+
+    if (result.profileRequired) return [];
+
+    return result.items.map((item) => ({
+      ...toParty(item.party),
+      why: item.reason,
+    }));
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) return [];
+    throw error;
+  }
 }
 
 /** /parties/search 의 카테고리 필터 — 서버가 분야·유형·포지션으로 걸러 준다 */

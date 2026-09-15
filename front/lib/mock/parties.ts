@@ -267,9 +267,6 @@ export const MOCK_PARTY_DETAILS: Record<string, PartyDetail> = Object.fromEntrie
   ]),
 ) as Record<string, PartyDetail>;
 
-/** 추천 파티(FOR YOU) 섹션 문구 */
-export const MOCK_RECOMMEND_KEYWORDS = '백엔드 · Spring Boot · PostgreSQL';
-
 export const MOCK_RECOMMENDED_PARTIES: (Party & { why: string })[] = [
   { ...MOCK_PARTIES[0], why: '"백엔드 · 랭킹 API" 키워드가 일치해요' },
   { ...MOCK_PARTIES[1], why: '"백엔드 · 결제 시스템" 키워드가 일치해요' },

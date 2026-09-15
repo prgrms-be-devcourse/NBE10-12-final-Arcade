@@ -20,9 +20,26 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 public interface PartyMemberRepository extends JpaRepository<PartyMember, Long> {
+    interface ApplicationSummary {
+        PartyMemberStatus getStatus();
+        PositionType getPositionType();
+    }
+
     boolean existsByPartyAndMember(Party party, Member member);
 
     boolean existsByPartyAndMemberAndStatus(Party party, Member member, PartyMemberStatus status);
+
+    /** 파티 상세에서 현재 회원의 지원 상태와 포지션만 조회한다. */
+    @Query("""
+            select pm.status as status, pm.position.type as positionType
+            from PartyMember pm
+            where pm.party = :party and pm.member = :member
+            order by pm.createDate desc
+            """)
+    List<ApplicationSummary> findApplicationSummaryByPartyAndMember(
+            @Param("party") Party party,
+            @Param("member") Member member
+    );
 
     // 파티 삭제 전 "파티장을 제외한 승인된 파티원이 하나도 없어야 하는지" 확인할 때 쓴다.
     // 파티 생성 시 파티장도 PartyMember 로 들어가고, 파티장을 APPROVED 로 넣던 시절(ARC-97)에

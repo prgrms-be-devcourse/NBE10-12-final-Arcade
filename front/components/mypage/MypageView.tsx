@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AchievementTimeline } from './AchievementTimeline';
 import { BookmarkList } from './BookmarkList';
 import { ApplicantManager } from './ApplicantManager';
@@ -17,7 +17,7 @@ import { Block, DetailGrid, SideCard } from '@/components/ui/Block';
 import { LinkButton } from '@/components/ui/Button';
 import { StatusPill, Tag } from '@/components/ui/Tag';
 import { socialLogin } from '@/lib/api';
-import type { MypageTabKey } from '@/lib/mypageTabs';
+import { isMypageTabKey, type MypageTabKey } from '@/lib/mypageTabs';
 import { PARTY_STATUS_LABELS, POSITION_LABELS, TOPIC_TYPE_LABELS } from '@/lib/constants';
 import type {
   Applicant,
@@ -29,8 +29,6 @@ import type {
 } from '@/lib/types';
 
 interface MypageViewProps {
-  /** 알림·쪽지에서 ?tab= 으로 진입했을 때의 초기 탭 */
-  initialTab: MypageTabKey;
   profile: UserProfile;
   todos: TodoItem[];
   /** 개인 TODO 전체 페이지 수 (서버 페이지네이션) */
@@ -47,7 +45,6 @@ interface MypageViewProps {
 }
 
 export function MypageView({
-  initialTab,
   profile: initialProfile,
   todos,
   todoTotalPages,
@@ -60,14 +57,15 @@ export function MypageView({
   partyHistory,
 }: MypageViewProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [profile, setProfile] = useState(initialProfile);
   const [editing, setEditing] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<MypageTabKey>(initialTab);
+  // URL 이 단일 진실원. 알림 클릭 · 새로고침 · 공유 링크 모두 같은 경로로 활성 탭이 정해진다.
+  const rawTab = searchParams.get('tab') ?? undefined;
+  const activeTab: MypageTabKey = isMypageTabKey(rawTab) ? rawTab : 'identity';
 
-  /** 탭 전환은 즉시 반영하고, 공유·새로고침을 위해 URL 만 뒤따라 갱신한다 */
   const changeTab = (key: MypageTabKey) => {
-    setActiveTab(key);
     router.replace(`/mypage?tab=${key}`, { scroll: false });
   };
 

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Icon } from '@/components/icons/Icon';
 import { PartyCard } from '@/components/party/PartyCard';
 import { SelectField } from '@/components/ui/Field';
-import { DDay, Tag } from '@/components/ui/Tag';
+import { DDay } from '@/components/ui/Tag';
 import { comparePartiesBy, fetchPartySearch, type PartySearchFilters } from '@/lib/api';
 import {
   PARTY_FIELDS,
@@ -25,13 +25,12 @@ const SORT_LABELS = {
 interface PartyBoardProps {
   parties: Party[];
   recommended: (Party & { why: string })[];
-  keywords: string;
 }
 
 type BoardFilters = Required<PartySearchFilters>;
 
 /** 파티 게시판 (검색 · 유형 · 분야 · 정렬). */
-export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) {
+export function PartyBoard({ parties, recommended }: PartyBoardProps) {
   const [draft, setDraft] = useState('');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Party[] | null>(null);
@@ -124,12 +123,22 @@ export function PartyBoard({ parties, recommended, keywords }: PartyBoardProps) 
                   <span key={`${slot.type}-${index}`} className="slot-chip">
                     {POSITION_LABELS[slot.type]} {slot.filledCount}/{slot.capacity}
                   </span>
-                ))}
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
+                  <DDay>{party.dday}</DDay>
+                </div>
+                <h4>{party.title}</h4>
+                <p className="reco-why">{party.why}</p>
+                <div className="position-slots">
+                  {party.positions.slice(0, 1).map((slot, index) => (
+                    <span key={`${slot.type}-${index}`} className="slot-chip">
+                      {POSITION_LABELS[slot.type]} {slot.filledCount}/{slot.capacity}
+                    </span>
+                  ))}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="party-toolbar">
         <form className="search-field" role="search" onSubmit={handleSearch}>
