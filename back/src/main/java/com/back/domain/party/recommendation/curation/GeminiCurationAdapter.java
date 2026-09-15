@@ -25,16 +25,21 @@ public class GeminiCurationAdapter implements PartyCurationPort {
 
     private static final int REASON_MAX_LENGTH = 120;
 
-    private final RestClient client = RestClient.builder()
-            .baseUrl("https://generativelanguage.googleapis.com")
-            .build();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final RestClient client;
+    private final ObjectMapper objectMapper;
 
     @Value("${custom.curation.model:gemini-2.0-flash}")
     private String model;
 
     @Value("${custom.curation.gemini.api-key:}")
     private String apiKey;
+
+    public GeminiCurationAdapter(RestClient.Builder restClientBuilder, ObjectMapper objectMapper) {
+        this.client = restClientBuilder
+                .baseUrl("https://generativelanguage.googleapis.com")
+                .build();
+        this.objectMapper = objectMapper;
+    }
 
     @Override
     public List<CurationResult> curate(MemberCurationContext memberContext, List<PartyCandidate> candidates) {
