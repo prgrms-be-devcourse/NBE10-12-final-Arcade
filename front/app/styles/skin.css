@@ -188,10 +188,6 @@ body{
   box-shadow:0 0 1rem rgba(255,79,163,.28), inset 0 0 1rem rgba(255,79,163,.12);
 }
 .profile-card > *,.host-card > *{position:relative;z-index:1;}
-[data-theme="dark"] .profile-card .badge.lv{
-  border-color:rgba(255,79,163,.55) !important;color:var(--neon-pink) !important;
-  box-shadow:0 0 0.625rem rgba(255,79,163,.4);
-}
 /* 마이페이지 · 주최측 마이페이지 소제목 마커만 핑크(마젠타)로 */
 [data-theme="dark"] #view-mypage .block-title::before,
 [data-theme="dark"] #view-host-mypage .block-title::before{
