@@ -39,6 +39,12 @@ DOMAIN="${DOMAIN%%:*}"
   echo "PUBLIC_ORIGIN에서 유효한 도메인을 찾지 못했다: $PUBLIC_ORIGIN" >&2
   exit 1
 }
+METRICS_DOMAIN="$(env_value METRICS_DOMAIN)"
+[ -n "$METRICS_DOMAIN" ] || METRICS_DOMAIN="metrics.$DOMAIN"
+[[ "$METRICS_DOMAIN" =~ ^[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]$ ]] || {
+  echo "유효하지 않은 METRICS_DOMAIN: $METRICS_DOMAIN" >&2
+  exit 1
+}
 
 CERTBOT_CONF="$(resolve_path "$(env_value CERTBOT_CONF || true)")"
 CERTBOT_WEBROOT="$(resolve_path "$(env_value CERTBOT_WEBROOT || true)")"
@@ -47,19 +53,19 @@ CERTBOT_WEBROOT="$(resolve_path "$(env_value CERTBOT_WEBROOT || true)")"
 
 sudo install -d -m 0755 "$CERTBOT_CONF" "$CERTBOT_WEBROOT"
 
-if sudo test -s "$CERTBOT_CONF/live/$DOMAIN/fullchain.pem" &&
-   sudo test -s "$CERTBOT_CONF/live/$DOMAIN/privkey.pem"; then
-  echo "== Certbot 인증서가 이미 있다: $DOMAIN =="
+CERTIFICATE="$CERTBOT_CONF/live/$DOMAIN/fullchain.pem"
+PRIVATE_KEY="$CERTBOT_CONF/live/$DOMAIN/privkey.pem"
+if sudo test -s "$CERTIFICATE" &&
+   sudo test -s "$PRIVATE_KEY" &&
+   sudo openssl x509 -checkhost "$DOMAIN" -noout -in "$CERTIFICATE" >/dev/null &&
+   sudo openssl x509 -checkhost "$METRICS_DOMAIN" -noout -in "$CERTIFICATE" >/dev/null; then
+  echo "== Certbot 인증서가 이미 있다: $DOMAIN, $METRICS_DOMAIN =="
 else
   compose_files=(-f docker-compose.yml)
   [[ -f docker-compose.monitoring.yml ]] && compose_files+=(-f docker-compose.monitoring.yml)
   docker compose "${compose_files[@]}" --env-file .env stop nginx >/dev/null 2>&1 || true
 
-  domains=(-d "$DOMAIN")
-  METRICS_DOMAIN="metrics.$DOMAIN"
-  if getent ahostsv4 "$METRICS_DOMAIN" >/dev/null 2>&1; then
-    domains+=(-d "$METRICS_DOMAIN")
-  fi
+  domains=(-d "$DOMAIN" -d "$METRICS_DOMAIN")
 
   echo "== Certbot 최초 발급: ${domains[*]} =="
   docker run --rm --name arcade-certbot-init \
@@ -69,12 +75,14 @@ else
     --standalone \
     --non-interactive \
     --agree-tos \
+    --cert-name "$DOMAIN" \
+    --expand \
     --email "$CERTBOT_EMAIL" \
     "${domains[@]}"
 
-  sudo test -s "$CERTBOT_CONF/live/$DOMAIN/fullchain.pem"
-  sudo test -s "$CERTBOT_CONF/live/$DOMAIN/privkey.pem"
-  echo "== Certbot 최초 발급 완료: $DOMAIN =="
+  sudo test -s "$CERTIFICATE"
+  sudo test -s "$PRIVATE_KEY"
+  echo "== Certbot 최초 발급 완료: $DOMAIN, $METRICS_DOMAIN =="
 fi
 
 echo "== Certbot 자동 갱신 타이머 등록 =="
