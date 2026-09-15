@@ -208,6 +208,7 @@ a.commit-author-name:hover{color:var(--accent);}
 .side-card-action .btn{width:100%;justify-content:center;}
 /* 팀원 행 : 이름 · 배지 · 쪽지 버튼 */
 .member-row .msg-send-icon{margin-left:0.5rem;}
+.team-party-leader-row{padding:0;background:none;border:none;}
 
 /* 팀 채팅 패널 : 좌측 방 목록 + 우측 대화 */
 .chat-layout{display:grid;grid-template-columns:15rem 1fr;gap:0.875rem;align-items:start;}

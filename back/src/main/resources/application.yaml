@@ -103,6 +103,8 @@ custom:
     candidate-limit: ${CUSTOM__CURATION__CANDIDATE_LIMIT:15}
     gemini:
       api-key: ${CUSTOM__CURATION__GEMINI__API_KEY:}
+  dev-tools:
+    enabled: ${CUSTOM__DEV_TOOLS__ENABLED:false}
   storage:
     # local = 서버 디스크. MinIO 없이 개발할 때 쓴다. s3 = S3/MinIO.
     type: ${CUSTOM__STORAGE__TYPE:local}

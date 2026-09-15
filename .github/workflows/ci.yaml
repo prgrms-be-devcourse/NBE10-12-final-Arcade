@@ -43,11 +43,16 @@ jobs:
       - uses: dorny/paths-filter@v3
         id: filter
         with:
+          # main·develop push는 각 브랜치의 직전 상태와 비교한다.
+          # 기본값을 쓰면 기본 브랜치(develop)와 main을 비교해 릴리스 병합을 0건으로 오판한다.
+          base: ${{ github.ref }}
           filters: |
             backend:
               - 'back/**'
+              - '.github/workflows/ci.yaml'
             frontend:
               - 'front/**'
+              - '.github/workflows/ci.yaml'
 
   backend:
     needs: changes

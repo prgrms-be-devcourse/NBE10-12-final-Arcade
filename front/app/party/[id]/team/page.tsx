@@ -49,7 +49,7 @@ export default async function TeamSpacePage({ params, searchParams }: { params: 
         <DetailGrid
           main={
             <>
-              <h1 className="detail-title">{party.title}</h1>
+              <h1 className="detail-title">{party.partyName ?? party.title}</h1>
               <div className="detail-summary-row">
                 <div className="pboard-meta">
                   <Icon name="i-users" />
@@ -122,9 +122,9 @@ export default async function TeamSpacePage({ params, searchParams }: { params: 
                 </div>
               </SideCard> : null}
               <SideCard title="파티장">
-                <LeaderRow user={leader} href={`/profile/${leader.id}`} card />
-                <div className="side-card-action">
-                  <SendMessageButton recipient={leader} />
+                <div className="member-row team-party-leader-row">
+                  <LeaderRow user={leader} href={`/profile/${leader.id}`} card />
+                  <SendMessageButton recipient={leader} variant="icon" />
                 </div>
               </SideCard>
 

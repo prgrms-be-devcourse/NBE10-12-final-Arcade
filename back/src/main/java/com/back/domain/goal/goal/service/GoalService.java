@@ -277,6 +277,11 @@ public class GoalService {
         goal.checkOwnedBy(actor);
         goal.checkModifiable();
 
+        // 알려진 잠재 리스크(PR #183 리뷰, 미해결로 남기기로 결정): CHECKLIST가 TODO에 연결돼 있으면
+        // PersonalTodoService 쪽에서 TODO 상태가 바뀔 때마다 이 status를 TODO 값으로 조용히 덮어쓴다.
+        // 지금은 프론트가 TODO 쪽 상태 변경 호출을 finishTodo()(항상 ACHIEVED) 하나로만 열어둬서
+        // 실제로 충돌하지 않지만, TODO 쪽에 다른 상태 전이 UI가 생기면 여기서 사람이 직접 바꾼 값이
+        // 다음 TODO 업데이트에 밀려날 수 있다.
         if (request.status() != null) {
             goal.changeStatus(request.status());
         }
