@@ -697,12 +697,23 @@ export async function togglePartyLike(id: string, liked: boolean): Promise<{ lik
   }
 
   if (liked) {
-    const result = await http.post<LikeResponse>(`/parties/${id}/likes`);
-    return { likeCount: result.likeCount };
+    try {
+      const result = await http.post<LikeResponse>(`/parties/${id}/likes`);
+      return { likeCount: result.likeCount };
+    } catch (error) {
+      // 409-1 — 이미 좋아요한 파티. 북마크와 같은 유니크 제약 패턴이라 성공으로 보고 최신 수만 다시 읽는다
+      if (!(error instanceof ApiError && error.status === 409)) throw error;
+    }
+  } else {
+    try {
+      await http.delete<void>(`/parties/${id}/likes`);
+    } catch (error) {
+      // 409-1 — 좋아요한 적 없는 파티의 취소 요청. 화면이 바라는 상태와 결과가 같으니 성공으로 본다
+      if (!(error instanceof ApiError && error.status === 409)) throw error;
+    }
   }
 
-  // 취소 응답에는 본문이 없어 최신 수를 상세에서 다시 읽는다
-  await http.delete<void>(`/parties/${id}/likes`);
+  // 취소 응답엔 본문이 없고, 409 로 잡은 두 경우도 최신 수를 알 수 없어 상세에서 다시 읽는다
   const party = await http.get<PartyResponse>(`/parties/${id}`);
   return { likeCount: party.likeCount };
 }

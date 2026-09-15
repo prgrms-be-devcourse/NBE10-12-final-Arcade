@@ -11,8 +11,9 @@ import { POSITION_LABELS, POSITION_TYPES } from '@/lib/constants';
 import type { Applicant, ApplicantStatus, PositionType } from '@/lib/types';
 
 /** 서버는 상태로 거르지 않고 다 내려준다 — 대기 · 승인 · 거절을 화면에서 나눠 본다 */
-const STATUS_FILTERS = ['pending', 'accepted', 'rejected'] as const;
+const STATUS_FILTERS = ['전체', 'pending', 'accepted', 'rejected'] as const;
 const STATUS_LABELS: Record<(typeof STATUS_FILTERS)[number], string> = {
+  전체: '전체',
   pending: '승인 대기',
   accepted: '승인됨',
   rejected: '거절됨',
@@ -28,13 +29,13 @@ export function ApplicantManager({ applicants: initial, parties }: ApplicantMana
   const [applicants, setApplicants] = useState(initial);
   const [partyId, setPartyId] = useState('전체');
   const [position, setPosition] = useState<PositionType | '전체'>('전체');
-  const [status, setStatus] = useState<ApplicantStatus>('pending');
+  const [status, setStatus] = useState<ApplicantStatus | '전체'>('pending');
 
   const visible = useMemo(
     () =>
       applicants.filter(
         (applicant) =>
-          applicant.status === status &&
+          (status === '전체' || applicant.status === status) &&
           (partyId === '전체' || applicant.partyId === partyId) &&
           (position === '전체' || applicant.position === position),
       ),
@@ -108,7 +109,7 @@ export function ApplicantManager({ applicants: initial, parties }: ApplicantMana
           <SelectField
             id="mgmtStatusSelect"
             value={status}
-            onChange={(event) => setStatus(event.target.value as ApplicantStatus)}
+            onChange={(event) => setStatus(event.target.value as ApplicantStatus | '전체')}
           >
             {STATUS_FILTERS.map((value) => (
               <option key={value} value={value}>
